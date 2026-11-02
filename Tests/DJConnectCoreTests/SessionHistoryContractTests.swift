@@ -8197,7 +8197,13 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     let firstSearch = try historyData(["success": true, "schema_version": 1, "session_id": id, "query": query,
         "revision": revision, "matches": [], "returned_count": 0, "complete": false, "next_cursor": "content-page-two",
         "normalization": "NFKC-casefold", "highlight_units": "utf16"])
-    let entries = try #require(timeline["entries"] as? [[String: Any]])
+    var entries = try #require(timeline["entries"] as? [[String: Any]])
+    let retainedDeadline = Date().addingTimeInterval(10)
+    entries = entries.map { entry in
+        var entry = entry
+        entry["retained_until"] = ISO8601DateFormatter().string(from: retainedDeadline)
+        return entry
+    }
     let lastSearch = try historyData(["success": true, "schema_version": 1, "session_id": id, "query": query,
         "revision": revision, "matches": entries, "returned_count": entries.count, "complete": true,
         "normalization": "NFKC-casefold", "highlight_units": "utf16"])
@@ -8228,6 +8234,30 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
         #expect(model.sessionHistory.archiveSearchComplete)
         #expect(model.sessionHistory.archiveSearchSessions.map(\.id) == [id])
         #expect(model.sessionHistory.archiveSearchErrorKey == nil)
+        let completedRequests = fixture.requests.count
+        #expect(model.sessionHistory.canReuseArchiveSearch(query: query))
+        #expect(!model.sessionHistory.canReuseArchiveSearch(query: "Different"))
+        #expect(!model.sessionHistory.canReuseArchiveSearch(query: query, at: retainedDeadline.addingTimeInterval(1)))
+        #expect(!model.sessionHistory.canReuseArchiveSearch(query: query, at: Date().addingTimeInterval(16)))
+        #expect(!model.sessionHistory.canReuseArchiveSearch(query: query, at: Date().addingTimeInterval(-60)))
+        await model.sessionHistory.searchArchivedSessions(query: "  " + query + "  ")
+        #expect(fixture.requests.count == completedRequests)
+        #expect(model.sessionHistory.archiveSearchSessions.map(\.id) == [id])
+        await model.sessionHistory.searchArchivedSessions(query: query, reuseCompletedResults: false)
+        #expect(fixture.requests.count > completedRequests)
+
+        // Opening an inherited search must not hydrate the unused tail timeline.
+        let navigationStart = fixture.requests.count
+        await model.sessionHistory.restoreVisibleTimeline(id, active: false, anchor: nil, searchQuery: query)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while model.sessionHistory.searchLoading && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(!model.sessionHistory.searchLoading)
+        #expect(model.sessionHistory.acceptedSearchQuery == query)
+        #expect(model.sessionHistory.acceptedSearchSessionID == id)
+        #expect(fixture.requests.dropFirst(navigationStart).contains { $0.url!.path.hasSuffix("/search") })
+        #expect(!fixture.requests.dropFirst(navigationStart).contains { $0.url!.path.hasSuffix("/" + id) })
     } else {
         #expect(!model.sessionHistory.archiveSearchComplete)
         #expect(model.sessionHistory.archiveSearchSessions.isEmpty)
@@ -8238,6 +8268,7 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     #expect(fixture.requests.allSatisfy { !$0.url!.path.contains("/playback") && !$0.url!.path.hasSuffix("/start") })
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/" + id) })
     model.sessionHistory.clearArchiveSearch()
+    #expect(!model.sessionHistory.canReuseArchiveSearch(query: query))
     #expect(model.sessionHistory.archiveSearchSessions.isEmpty && model.sessionHistory.archiveSearchQuery.isEmpty)
 }
 

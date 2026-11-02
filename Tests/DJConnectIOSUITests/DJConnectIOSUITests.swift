@@ -95,7 +95,7 @@ final class DJConnectIOSUITests: XCTestCase {
         search.tap()
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         search.tap()
-        XCTAssertEqual(field.value as? String, "Zoek in geladen sessies")
+        XCTAssertEqual(field.value as? String, "Zoek in alle sessies en bijdragen")
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "saved-sessions-search"; screenshot.lifetime = .keepAlways; add(screenshot)
         field.tap()
@@ -108,6 +108,18 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Electric Feel")).firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["session-entry-demo-evening-entry-1"].firstMatch.exists)
         XCTAssertFalse(app.descendants(matching: .any)["session-entry-demo-evening-entry-2"].firstMatch.exists)
+        // Repeat push/pop with search expanded: keep the query and overview rows.
+        for _ in 0..<2 {
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(field.waitForExistence(timeout: 5))
+            XCTAssertEqual(field.value as? String, "Electric")
+            XCTAssertTrue(row.waitForExistence(timeout: 5))
+            row.tap()
+            XCTAssertTrue(sessionSearch.waitForExistence(timeout: 5))
+            XCTAssertEqual(sessionSearch.value as? String, "Electric")
+            XCTAssertTrue(app.descendants(matching: .any)["session-entry-demo-evening-entry-1"].firstMatch.waitForExistence(timeout: 5))
+            XCTAssertFalse(app.descendants(matching: .any)["session-entry-demo-evening-entry-2"].firstMatch.exists)
+        }
     }
 
     private struct ScreenshotScreen {

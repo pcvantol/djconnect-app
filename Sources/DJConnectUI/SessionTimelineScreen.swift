@@ -313,7 +313,11 @@ struct SavedSessionsView: View {
             }
             .djStatusToastOverlay(manualRefresh.notice, screenImage: "clock.arrow.circlepath")
             .task(id: model.isDemoMode || model.canRefreshSessionHistory) {
-                initialLoadFinished = false
+                if initialLoadFinished {
+                    if history.canReuseArchiveSearch(query: searchQuery) { return }
+                    // Let the pop animation finish before publishing loading/list changes.
+                    do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+                }
                 await history.restoreVisibleSessions()
                 guard !Task.isCancelled else { return }
                 initialLoadFinished = true
@@ -328,8 +332,16 @@ struct SavedSessionsView: View {
                     Task { await history.restoreVisibleSessions() }
                 }
             }
-            .task(id: searchQuery) { await history.searchArchivedSessions(query: searchQuery) }
-            .onDisappear { history.clearArchiveSearch() }
+            .task(id: searchQuery) {
+                if history.canReuseArchiveSearch(query: searchQuery) { return }
+                if initialLoadFinished && history.archiveSearchQuery == searchQuery {
+                    do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+                }
+                await history.searchArchivedSessions(query: searchQuery)
+            }
+            .onDisappear {
+                if openedSession.wrappedValue == nil { history.clearArchiveSearch() }
+            }
             .onChange(of: searchText) { _, _ in
                 selectedSearchIndex = 0
                 if let first = filteredSessions.first { proxy.scrollTo(first.id, anchor: .top) }
@@ -376,7 +388,7 @@ struct SavedSessionsView: View {
             guard !model.isDemoMode, model.pairingStatus == .paired else { return text("ui.session.history.unavailable") }
             await history.prepare()
             let succeeded = await history.loadSessions()
-            if succeeded, !searchQuery.isEmpty { await history.searchArchivedSessions(query: searchQuery) }
+            if succeeded, !searchQuery.isEmpty { await history.searchArchivedSessions(query: searchQuery, reuseCompletedResults: false) }
             return text(succeeded ? "ui.session.history.updated" : "ui.session.history.unavailable")
         }
     }
@@ -611,6 +623,7 @@ struct SessionTimelineScreen: View {
                                 }
                                 if activeSession == nil {
                                     let archivedSession = timeline.session ?? history.sessions.first(where: { $0.id == sessionID })
+                                        ?? history.archiveSearchSessions.first(where: { $0.id == sessionID })
                                     HStack(alignment: .top, spacing: 16) {
                                         if let archivedSession {
                                             SavedSessionMoodAvatar(summary: history.summaryAvailable ? archivedSession.summary : nil,
@@ -943,12 +956,14 @@ struct SessionTimelineScreen: View {
             .task(id: sessionID) {
                 if activeSession != nil, initialAnchor == nil { positionSessionTopWithoutAnimation() }
                 let restoreGeneration = anchorGeneration
-                await history.prepare(); await history.loadTimeline(sessionID, window: .tail)
-                guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
-                if filtersTimeline {
-                    history.search(sessionID: sessionID, query: query)
-                    return
+                if activeSession == nil {
+                    // Keep preparation and row publication out of the push animation.
+                    do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
                 }
+                await history.restoreVisibleTimeline(sessionID, active: activeSession != nil, anchor: nil,
+                    searchQuery: filtersTimeline ? query : nil)
+                guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
+                if filtersTimeline { return }
                 if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
                 else if activeSession != nil { return } // Content refresh never repositions the active screen.
                 else if let anchor = history.readingAnchor(sessionID: sessionID) {
@@ -1016,8 +1031,9 @@ struct SessionTimelineScreen: View {
                     if active { positionSessionTopWithoutAnimation() }
                     let restoreGeneration = anchorGeneration
                     sceneRestoreTask = Task {
-                        await history.restoreVisibleTimeline(sessionID, active: active, anchor: active ? nil : resumePosition)
-                        guard !Task.isCancelled, restoreGeneration == anchorGeneration, !active else { return }
+                        await history.restoreVisibleTimeline(sessionID, active: active, anchor: active ? nil : resumePosition,
+                            searchQuery: filtersTimeline ? query : nil)
+                        guard !Task.isCancelled, restoreGeneration == anchorGeneration, !active, !filtersTimeline else { return }
                         guard let resumePosition else {
                             if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
                             return
