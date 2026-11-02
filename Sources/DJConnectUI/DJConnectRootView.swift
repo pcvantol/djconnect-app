@@ -15194,6 +15194,33 @@ enum MazeChaseBoard {
     }
 }
 
+enum MeteorRunStarfield {
+    struct Star: Equatable {
+        let center: CGPoint
+        let radius: CGFloat
+        let opacity: Double
+        let trail: CGFloat
+    }
+
+    static func stars(time: TimeInterval, height: CGFloat, reducedMotion: Bool) -> [Star] {
+        let time = reducedMotion ? 0 : max(0, time)
+        return (0..<36).map { index in
+            let layer = index % 3
+            let speed = CGFloat([5.0, 11.0, 20.0][layer])
+            let initialY = CGFloat((index * 97 + 31) % 349) / 349 * (height + 24)
+            let y = (initialY + CGFloat(time) * speed).truncatingRemainder(dividingBy: height + 24) - 12
+            let phase = Double(index) * 1.71
+            let drift = reducedMotion ? 0 : sin(time * 0.35 + phase) * Double(layer + 1) * 0.7
+            let fade = max(0, min(1, min((y + 12) / 12, (height + 12 - y) / 12)))
+            let twinkle = reducedMotion ? 0.85 : 0.85 + 0.15 * sin(time * (0.6 + Double(layer) * 0.2) + phase)
+            return Star(center: CGPoint(x: CGFloat(10 + (index * 73) % 300) + drift, y: y),
+                        radius: CGFloat([0.5, 0.8, 1.15][layer]),
+                        opacity: [0.32, 0.50, 0.76][layer] * twinkle * Double(fade),
+                        trail: reducedMotion ? 0 : CGFloat([0.0, 2.0, 5.5][layer]))
+        }
+    }
+}
+
 enum DJConnectGameViewport {
     static func scale(in size: CGSize, board: CGSize = CGSize(width: 320, height: 170)) -> CGFloat {
         max(0.001, min(size.width / board.width, size.height / board.height))
@@ -15342,6 +15369,9 @@ private struct LocalGameSurface: View {
     let game: LocalGameMode
     let language: String
     var maxCanvasHeight: CGFloat? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isSurfaceVisible = false
     @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
     @Environment(\.djConnectContentSizeClass) private var contentSizeClass
     private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
@@ -15365,7 +15395,7 @@ private struct LocalGameSurface: View {
     @State private var asteroidSpeed: CGFloat = 1.35
     @State private var asteroidSize: CGFloat = 14
     @State private var asteroidKind = 0
-    @State private var meteorStarPhase: CGFloat = 0
+    @State private var meteorStarTime: TimeInterval = 0
     @State private var asteroidBulletY: CGFloat = 120
     @State private var asteroidBulletActive = false
     @State private var asteroidExplosionX: CGFloat = 80
@@ -15488,6 +15518,8 @@ private struct LocalGameSurface: View {
                     }
             )
             .onReceive(tick) { _ in
+                guard isSurfaceVisible, scenePhase == .active else { return }
+                if game == .asteroids && !reduceMotion { meteorStarTime += 1.0 / 30.0 }
                 guard isPlaying else {
                     return
                 }
@@ -15534,11 +15566,13 @@ private struct LocalGameSurface: View {
             return .handled
         }
         .onAppear {
+            isSurfaceVisible = true
             DJConnectGameHaptics.prepare()
             DJConnectGameSounds.prepare()
             reset()
         }
         .onDisappear {
+            isSurfaceVisible = false
             DJConnectGameHaptics.cancel(); DJConnectGameSounds.cancel()
             isPlaying = false
             isGameFocused = false
@@ -15675,7 +15709,7 @@ private struct LocalGameSurface: View {
                 context.fill(Path(ellipseIn: rect(ballX - 4, ballY - 4, 8, 8)), with: .color(game.secondaryTint))
             }
         case .asteroids:
-            drawMeteorRunBackground(in: &context, scaleX: scaleX, scaleY: scaleY)
+            drawMeteorRunBackground(in: context, scaleX: scaleX, scaleY: scaleY)
             var ship = Path()
             ship.move(to: point(shipX, logicalCanvasSize.height - 42))
             ship.addLine(to: point(shipX - 9, logicalCanvasSize.height - 24))
@@ -15737,21 +15771,22 @@ private struct LocalGameSurface: View {
         )
     }
 
-    private func drawMeteorRunBackground(in context: inout GraphicsContext, scaleX: CGFloat, scaleY: CGFloat) {
-        let stars: [(x: CGFloat, y: CGFloat, size: CGFloat, phase: CGFloat)] = [
-            (46, 44, 1.8, 0.0),
-            (86, 92, 1.3, 1.2),
-            (128, 58, 1.6, 2.4),
-            (176, 126, 1.2, 0.8),
-            (218, 74, 1.9, 1.8),
-            (264, 112, 1.4, 2.8),
-            (292, 48, 1.1, 0.4)
-        ]
-        for star in stars {
-            let twinkle = 0.35 + 0.45 * (sin(Double(meteorStarPhase + star.phase)) + 1) / 2
+    private func drawMeteorRunBackground(in parentContext: GraphicsContext, scaleX: CGFloat, scaleY: CGFloat) {
+        var context = parentContext
+        context.clip(to: Path(CGRect(x: 0, y: 0, width: 320 * scaleX, height: logicalCanvasSize.height * scaleY)))
+        for star in MeteorRunStarfield.stars(time: meteorStarTime, height: logicalCanvasSize.height, reducedMotion: reduceMotion) {
+            let center = CGPoint(x: star.center.x * scaleX, y: star.center.y * scaleY)
+            if star.trail > 0 {
+                var trail = Path()
+                trail.move(to: center)
+                trail.addLine(to: CGPoint(x: center.x, y: center.y - star.trail * scaleY))
+                context.stroke(trail, with: .color(game.highlightTint.opacity(star.opacity * 0.30)),
+                               style: StrokeStyle(lineWidth: max(0.5, star.radius * scaleX), lineCap: .round))
+            }
             context.fill(
-                Path(ellipseIn: CGRect(x: (star.x - star.size / 2) * scaleX, y: (star.y * logicalCanvasSize.height / 170 - star.size / 2) * scaleY, width: star.size * scaleX, height: star.size * scaleY)),
-                with: .color(.white.opacity(twinkle))
+                Path(ellipseIn: CGRect(x: center.x - star.radius * scaleX, y: center.y - star.radius * scaleY,
+                                      width: star.radius * 2 * scaleX, height: star.radius * 2 * scaleY)),
+                with: .color(.white.opacity(star.opacity))
             )
         }
     }
@@ -16286,7 +16321,6 @@ private struct LocalGameSurface: View {
 
     private func updateAsteroids() {
         if asteroidExplosionTicks > 0 { asteroidExplosionTicks -= 1 }
-        meteorStarPhase = (meteorStarPhase + 0.08).truncatingRemainder(dividingBy: CGFloat.pi * 2)
         asteroidY += asteroidSpeed + CGFloat(min(score / 8, 3)) * 0.18
         updateAsteroidBullet()
         if asteroidY > logicalCanvasSize.height - 20 { finishAsteroidRun() }
@@ -16443,7 +16477,7 @@ private struct LocalGameSurface: View {
         shipX = 160
         asteroidBulletActive = false
         asteroidExplosionTicks = 0
-        meteorStarPhase = 0
+        meteorStarTime = 0
         planeY = 86
         spaceScroll = 0
         skyCrashTicks = 0

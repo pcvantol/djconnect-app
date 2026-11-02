@@ -13255,6 +13255,37 @@ func gamesKeepRoundSpritesAndMapTouchesIntoCenteredBoard(_ size: CGSize) {
     #expect(reversed.position == MazeChaseBoard.center(10))
 }
 
+@Test func meteorStarsMoveInDepthLayersAndRespectReducedMotion() {
+    let initial = MeteorRunStarfield.stars(time: 0, height: 340, reducedMotion: false)
+    let next = MeteorRunStarfield.stars(time: 0.5, height: 340, reducedMotion: false)
+    #expect(initial.count == 36 && next.count == 36)
+    let shifts = (0..<3).map { next[$0].center.y - initial[$0].center.y }
+    #expect(shifts == [2.5, 5.5, 10])
+    #expect(Set(initial.map(\.radius)).count == 3)
+    #expect(next.contains { $0.trail > 0 })
+    let still = MeteorRunStarfield.stars(time: 0, height: 340, reducedMotion: true)
+    #expect(still == MeteorRunStarfield.stars(time: 500, height: 340, reducedMotion: true))
+    #expect(still.allSatisfy { $0.trail == 0 })
+}
+
+@Test func meteorStarWrapFadesAtTheEdgesWithoutAClockResetJump() {
+    // Star zero begins at -12 + 31/349 * 364 and moves at five units/sec.
+    let wrap = (364 - CGFloat(31) / 349 * 364) / 5
+    let before = MeteorRunStarfield.stars(time: Double(wrap - 0.001), height: 340, reducedMotion: false)[0]
+    let after = MeteorRunStarfield.stars(time: Double(wrap + 0.001), height: 340, reducedMotion: false)[0]
+    #expect(before.opacity < 0.001 && after.opacity < 0.001)
+    // The old implementation reset its phase at 2pi, producing discontinuities.
+    let a = MeteorRunStarfield.stars(time: 2 * .pi - 0.001, height: 340, reducedMotion: false)
+    let b = MeteorRunStarfield.stars(time: 2 * .pi + 0.001, height: 340, reducedMotion: false)
+    #expect(zip(a, b).allSatisfy { abs($0.center.y - $1.center.y) < 0.05 })
+    for time in [0.0, 10, 100, 10000] {
+        #expect(MeteorRunStarfield.stars(time: time, height: 340, reducedMotion: false).allSatisfy {
+            $0.center.x >= 0 && $0.center.x <= 320 && $0.center.y >= -12 && $0.center.y <= 352 &&
+                (0...0.76).contains($0.opacity)
+        })
+    }
+}
+
 @Test(.isolatedClientResources) func publicReleaseWorkflowPublishesFiveLocalizedReleaseNoteJSONFiles() throws {
     let workflow = try loadRepositoryText(".github/workflows/public-unsigned-release.yml")
     let readme = try loadRepositoryText("README.md")
