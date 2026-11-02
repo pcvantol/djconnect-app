@@ -1233,7 +1233,7 @@
 "ui.session.voice.female" = "Féminine";
 
 "ui.trackInsight.analysis.title" = "Analyse musicale";
-"ui.trackInsight.analysis.unavailable" = "L’analyse musicale de ce titre n’est pas encore disponible.";
+"ui.trackInsight.analysis.unavailable" = "Aucune mesure audio n’est disponible pour ce morceau. Le contexte et l’interprétation sont distincts des mesures audio.";
 
 /* First DJ session navigation introduction */
 "ui.session.intro.skip" = "Ignorer";
@@ -1629,3 +1629,5 @@
 "ui.vibescape.scope.hint" = "Choisissez la durée de votre prochain ajustement vocal. Vous pouvez aussi préciser la durée dans votre commande.";
 "ui.vibescape.scope.track" = "Prend fin au début du morceau suivant.";
 "ui.vibescape.scope.visit" = "Reste actif jusqu’à ce que vous quittiez VibeScape.";
+
+"ui.trackInsight.visual.decorative" = "Animation visuelle · pas une mesure audio";

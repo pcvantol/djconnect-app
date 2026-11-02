@@ -1233,7 +1233,7 @@
 "ui.session.voice.female" = "Weiblich";
 
 "ui.trackInsight.analysis.title" = "Musikanalyse";
-"ui.trackInsight.analysis.unavailable" = "Für diesen Titel ist noch keine Musikanalyse verfügbar.";
+"ui.trackInsight.analysis.unavailable" = "Für diesen Titel sind keine Audiomessungen verfügbar. Hintergrundinformationen und Einordnung sind von Audiomessungen getrennt.";
 
 /* First DJ session navigation introduction */
 "ui.session.intro.skip" = "Überspringen";
@@ -1629,3 +1629,5 @@
 "ui.vibescape.scope.hint" = "Wähle, wie lange deine nächste Sprachanpassung gilt. Du kannst die Dauer auch im Befehl nennen.";
 "ui.vibescape.scope.track" = "Endet, sobald der nächste Titel beginnt.";
 "ui.vibescape.scope.visit" = "Gilt, bis du VibeScape verlässt.";
+
+"ui.trackInsight.visual.decorative" = "Visuelle Animation · keine Audiomessung";

@@ -1233,7 +1233,7 @@
 "ui.session.voice.female" = "Vrouw";
 
 "ui.trackInsight.analysis.title" = "Muziekanalyse";
-"ui.trackInsight.analysis.unavailable" = "Voor dit nummer is nog geen muziekanalyse beschikbaar.";
+"ui.trackInsight.analysis.unavailable" = "Voor dit nummer zijn geen audiometingen beschikbaar. Achtergrondinformatie en duiding staan los van audiometingen.";
 
 /* First DJ session navigation introduction */
 "ui.session.intro.skip" = "Overslaan";
@@ -1629,3 +1629,5 @@
 "ui.vibescape.scope.hint" = "Kies hoelang je volgende spraakaanpassing geldt. Je kunt de duur ook in je opdracht noemen.";
 "ui.vibescape.scope.track" = "Vervalt zodra het volgende nummer begint.";
 "ui.vibescape.scope.visit" = "Blijft gelden totdat je VibeScape verlaat.";
+
+"ui.trackInsight.visual.decorative" = "Visuele animatie · geen audiometing";

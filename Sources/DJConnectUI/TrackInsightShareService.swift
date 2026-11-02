@@ -54,7 +54,7 @@ public struct TrackInsightSharePayload: Identifiable, Equatable, Sendable {
 @MainActor
 public enum TrackInsightShareService {
     public static func shareText(for insight: TrackInsight, language: String? = nil) -> String {
-        let descriptors = [insight.mood, insight.vibe, insight.genre]
+        let descriptors = [insight.displayMetrics.mood, insight.displayMetrics.vibe, insight.displayMetrics.genre]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .prefix(3)

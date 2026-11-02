@@ -12766,8 +12766,8 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 
     #expect(snapshot.title == "Innerbloom")
     #expect(snapshot.artist == "RUFUS DU SOL")
-    #expect(snapshot.energy == 1)
-    #expect(snapshot.danceability == 0)
+    #expect(snapshot.energy == nil) // Invalid values are absent, not invented measurements.
+    #expect(snapshot.danceability == nil)
     #expect(snapshot.intensity == 0.58)
     #expect(snapshot.musicDNAMatchPercent == nil)
     #expect(snapshot.progress == 138)

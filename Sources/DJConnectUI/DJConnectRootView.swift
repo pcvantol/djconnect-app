@@ -4222,9 +4222,11 @@ struct TrackInsightView: View {
                                     TrackInsightAnalysisCard(insight: insight, language: model.language)
                                         .equatable()
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
-                                    TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: moodStepIndex)
-                                        .equatable()
-                                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                                    if !insight.displayMetrics.isEmpty {
+                                        TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: moodStepIndex)
+                                            .equatable()
+                                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                                    }
                                 } else if explicitMoment {
                                     VStack(alignment: .leading, spacing: 16) {
                                         if model.isLoadingMomentTrackInsight {
@@ -7508,7 +7510,9 @@ private struct TrackInsightHero: View {
             )
             .frame(minHeight: 430)
             .frame(maxWidth: .infinity)
-
+            Text(localizedKey(model.language, "ui.trackInsight.visual.decorative"))
+                .font(.caption).foregroundStyle(.secondary)
+                .accessibilityIdentifier("track-insight-decorative-caption")
         }
         .padding(14)
         .frame(maxWidth: .infinity)
@@ -8615,7 +8619,7 @@ private extension Array {
     }
 }
 
-private struct TrackInsightMetricsGrid: View, Equatable {
+struct TrackInsightMetricsGrid: View, Equatable {
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.insight == rhs.insight && lhs.language == rhs.language && lhs.moodStepIndex == rhs.moodStepIndex
     }
@@ -8627,47 +8631,49 @@ private struct TrackInsightMetricsGrid: View, Equatable {
     @Environment(\.djConnectContentSizeClass) private var contentSizeClass
     private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
 
+    private var metrics: TrackInsightDisplayMetrics { insight.displayMetrics }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if usesHorizontalRows {
-                horizontalMetricRow {
-                    TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy, icon: "bolt.fill", moodStepIndex: moodStepIndex)
-                        .frame(width: 148)
-                    TrackInsightMetricRing(title: localizedKey(language, "trackInsight.share.danceability"), value: insight.danceability, icon: "figure.dance", moodStepIndex: moodStepIndex)
-                        .frame(width: 148)
-                    TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity, icon: "flame.fill", moodStepIndex: moodStepIndex)
-                        .frame(width: 148)
-                }
-
-                horizontalMetricRow {
-                    metricPills
-                }
-            } else {
-                LazyVGrid(columns: metricColumns, spacing: 10) {
-                    TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy, icon: "bolt.fill", moodStepIndex: moodStepIndex)
-                    TrackInsightMetricRing(title: localizedKey(language, "trackInsight.share.danceability"), value: insight.danceability, icon: "figure.dance", moodStepIndex: moodStepIndex)
-                    TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity, icon: "flame.fill", moodStepIndex: moodStepIndex)
-                }
-
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) {
-                    metricPills
+        if !metrics.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                if usesHorizontalRows {
+                    if metrics.numericCount > 0 { horizontalMetricRow { numericMetrics } }
+                    if metrics.hasLabels { horizontalMetricRow { metricPills } }
+                } else {
+                    if metrics.numericCount > 0 {
+                        LazyVGrid(columns: metricColumns, spacing: 10) { numericMetrics }
+                    }
+                    if metrics.hasLabels {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) { metricPills }
+                    }
                 }
             }
+            .accessibilityIdentifier("track-insight-metrics")
         }
     }
 
-    @ViewBuilder
-    private var metricPills: some View {
-        if let genre = insight.genre?.trimmingCharacters(in: .whitespacesAndNewlines), !genre.isEmpty {
-            TrackInsightMetricPill(title: localizedKey(language, "ui.genre"), value: genre, icon: "music.quarternote.3")
-                .frame(width: usesHorizontalRows ? 204 : nil, alignment: .top)
-        }
-        TrackInsightMetricPill(title: localizedKey(language, "ui.mood"), value: insight.mood, icon: musicDNAMoodIcon(insight.mood))
+    @ViewBuilder private var numericMetrics: some View {
+        if let value = metrics.energy { metricRing(title: "ui.energy", value: value, icon: "bolt.fill", id: "energy") }
+        if let value = metrics.danceability { metricRing(title: "trackInsight.share.danceability", value: value, icon: "figure.dance", id: "danceability") }
+        if let value = metrics.intensity { metricRing(title: "ui.intensity", value: value, icon: "flame.fill", id: "intensity") }
+    }
+    private func metricRing(title: String, value: Double, icon: String, id: String) -> some View {
+        TrackInsightMetricRing(title: localizedKey(language, title), value: value, icon: icon, moodStepIndex: moodStepIndex)
+            .frame(width: usesHorizontalRows ? 148 : nil)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("track-insight-metric-" + id)
+    }
+    @ViewBuilder private var metricPills: some View {
+        if let value = metrics.genre { metricPill(title: "ui.genre", value: value, icon: "music.quarternote.3", id: "genre") }
+        if let value = metrics.mood { metricPill(title: "ui.mood", value: value, icon: musicDNAMoodIcon(value), id: "mood") }
+        if let value = metrics.vibe { metricPill(title: "ui.vibe", value: value, icon: "waveform.path", id: "vibe") }
+        if let value = metrics.texture { metricPill(title: "ui.texture", value: value, icon: "square.stack.3d.up.fill", id: "texture") }
+    }
+    private func metricPill(title: String, value: String, icon: String, id: String) -> some View {
+        TrackInsightMetricPill(title: localizedKey(language, title), value: value, icon: icon)
             .frame(width: usesHorizontalRows ? 204 : nil, alignment: .top)
-        TrackInsightMetricPill(title: localizedKey(language, "ui.vibe"), value: insight.vibe, icon: "waveform.path")
-            .frame(width: usesHorizontalRows ? 204 : nil, alignment: .top)
-        TrackInsightMetricPill(title: localizedKey(language, "ui.texture"), value: insight.texture, icon: "square.stack.3d.up.fill")
-            .frame(width: usesHorizontalRows ? 204 : nil, alignment: .top)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("track-insight-metric-" + id)
     }
 
     private var usesHorizontalRows: Bool {
@@ -8689,7 +8695,7 @@ private struct TrackInsightMetricsGrid: View, Equatable {
     }
 
     private var metricColumns: [GridItem] {
-        Array(repeating: GridItem(.flexible(minimum: 132), spacing: 10, alignment: .top), count: 3)
+        Array(repeating: GridItem(.flexible(minimum: 132), spacing: 10, alignment: .top), count: min(3, metrics.numericCount))
     }
 }
 
@@ -8804,14 +8810,14 @@ private struct TrackInsightMetricPill: View {
     }
 }
 
-private struct TrackInsightAnalysisCard: View, Equatable {
+struct TrackInsightAnalysisCard: View, Equatable {
     let insight: TrackInsight
     let language: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             MusicDNACompactPanelHeader(
-                title: localizedKey(language, insight.verifiedCredit == nil ? (insight.hasUnavailableAnalysis ? "ui.trackInsight.analysis.title" : "watch.track.energy") : "ui.trackInsight.verified_credits"),
+                title: localizedKey(language, insight.verifiedCredit == nil ? (insight.hasUnavailableAnalysis ? "ui.trackInsight.analysis.title" : "ui.trackInsight.interpretation") : "ui.trackInsight.verified_credits"),
                 icon: insight.verifiedCredit == nil ? "bolt.fill" : "checkmark.seal")
             Text(insight.verifiedCredit?.context ?? insight.displaySummary(language: language))
                 .font(.headline.weight(.semibold))
@@ -8827,6 +8833,12 @@ private struct TrackInsightAnalysisCard: View, Equatable {
                     MusicDNACompactPanelHeader(title: localizedKey(language, "ui.trackInsight.interpretation"), icon: "text.bubble")
                     Text(insight.displaySummary(language: language)).fixedSize(horizontal: false, vertical: true)
                 }
+            }
+
+            if insight.hasUnmeasuredAudio && !insight.hasUnavailableAnalysis {
+                Text(localizedKey(language, "ui.trackInsight.analysis.unavailable"))
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("track-insight-unmeasured-audio")
             }
 
             let groups = insight.hasUnavailableAnalysis ? [] : insight.structuredAnalysisGroups(language: language)

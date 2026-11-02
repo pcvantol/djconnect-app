@@ -1471,6 +1471,12 @@ public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
     public var sections: [TrackInsightSection]
     public var verifiedCredit: TrackInsightVerifiedCredit?
     public var analysisBasis: String?
+    public var measuredAudio: Bool?
+    public var displayMetrics: TrackInsightDisplayMetrics { .init(insight: self) }
+    public var hasUnmeasuredAudio: Bool {
+        measuredAudio == false || hasUnavailableAnalysis || verifiedCredit != nil
+            || analysisBasis == "qualified_credit_and_interpretation_v1"
+    }
 
     public var hasUnavailableAnalysis: Bool {
         analysisBasis == "unmeasured_metadata_only_v1" ||
@@ -1478,7 +1484,11 @@ public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
     }
 
     public func displaySummary(language: String? = nil) -> String {
-        hasUnavailableAnalysis ? TrackInsightSummaryPresentation.unavailable(language: language) : summary
+        guard hasUnavailableAnalysis else { return summary }
+        // Keep a real producer explanation; only translate the known legacy fallback.
+        if let text = TrackInsightVerifiedCredit.displayText(summary),
+           !TrackInsightSummaryPresentation.isLegacyUnavailable(text) { return text }
+        return TrackInsightSummaryPresentation.unavailable(language: language)
     }
 
     public init(
@@ -1519,7 +1529,8 @@ public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
         visualProfile: TrackInsightVisualProfile? = nil,
         sections: [TrackInsightSection] = [],
         verifiedCredit: TrackInsightVerifiedCredit? = nil,
-        analysisBasis: String? = nil
+        analysisBasis: String? = nil,
+        measuredAudio: Bool? = nil
     ) {
         self.id = id ?? Self.makeStableID(title: title, artist: artist, album: album)
         self.timestamp = timestamp
@@ -1559,6 +1570,7 @@ public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
         self.sections = sections
         self.verifiedCredit = verifiedCredit
         self.analysisBasis = analysisBasis
+        self.measuredAudio = measuredAudio
     }
 
     private static func makeStableID(title: String, artist: String, album: String?) -> String {
@@ -1570,6 +1582,36 @@ public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
                 value = ((value &* 31) &+ Int(scalar.value)) & 0x7fffffff
             }
             .description
+    }
+}
+
+/// Present only fields supplied by the existing analysis contract. Metadata-only
+/// and credit-only bases never grant audio fields, even if a stale payload has them.
+/// Unknown new bases need explicit qualification; legacy basis-less values keep
+/// their existing contract without being promoted to measured-audio evidence.
+public struct TrackInsightDisplayMetrics: Equatable, Sendable {
+    public let genre: String?
+    public let energy: Double?, danceability: Double?, intensity: Double?
+    public let mood: String?, vibe: String?, texture: String?
+    public var numericCount: Int { [energy, danceability, intensity].compactMap { $0 }.count }
+    public var hasLabels: Bool { [genre, mood, vibe, texture].contains { $0 != nil } }
+    public var isEmpty: Bool { numericCount == 0 && !hasLabels }
+    init(insight: TrackInsight) {
+        genre = Self.text(insight.genre)
+        let allowsAudioFields = !insight.hasUnmeasuredAudio && Self.text(insight.analysisBasis) == nil
+        energy = allowsAudioFields ? Self.number(insight.energy) : nil
+        danceability = allowsAudioFields ? Self.number(insight.danceability) : nil
+        intensity = allowsAudioFields ? Self.number(insight.intensity) : nil
+        mood = allowsAudioFields ? Self.text(insight.mood) : nil
+        vibe = allowsAudioFields ? Self.text(insight.vibe) : nil
+        texture = allowsAudioFields ? Self.text(insight.texture) : nil
+    }
+    private static func number(_ value: Double?) -> Double? {
+        guard let value, value.isFinite, (0...1).contains(value) else { return nil }
+        return value
+    }
+    private static func text(_ value: String?) -> String? {
+        TrackInsightVerifiedCredit.displayText(value)
     }
 }
 
@@ -1633,12 +1675,12 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
             updatedAt: updatedAt,
             title: insight.title,
             artist: insight.artist,
-            genre: insight.genre,
-            mood: insight.mood,
-            vibe: insight.vibe,
-            energy: insight.energy,
-            danceability: insight.danceability,
-            intensity: insight.intensity,
+            genre: insight.displayMetrics.genre,
+            mood: insight.displayMetrics.mood,
+            vibe: insight.displayMetrics.vibe,
+            energy: insight.displayMetrics.energy,
+            danceability: insight.displayMetrics.danceability,
+            intensity: insight.displayMetrics.intensity,
             musicDNAMatchPercent: nil,
             progress: insight.progress,
             duration: insight.duration,
@@ -1662,11 +1704,15 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
         }
         guard var snapshot = try? JSONDecoder().decode(DJConnectTrackInsightWidgetSnapshot.self, from: data) else { return nil }
         snapshot.summary = TrackInsightSummaryPresentation.legacyDisplaySummary(snapshot.summary)
+        snapshot.energy = normalizedMetric(snapshot.energy)
+        snapshot.danceability = normalizedMetric(snapshot.danceability)
+        snapshot.intensity = normalizedMetric(snapshot.intensity)
         return snapshot
     }
 
     private static func normalizedMetric(_ value: Double?) -> Double? {
-        value.map { max(0, min(1, $0)) }
+        guard let value, value.isFinite, (0...1).contains(value) else { return nil }
+        return value
     }
 
     private static func normalizedTime(_ value: TimeInterval?) -> TimeInterval? {
@@ -2218,7 +2264,8 @@ public enum TrackInsightParser {
             visualProfile: payload.visualProfile,
             sections: sections,
             verifiedCredit: credit,
-            analysisBasis: analysis?.basis
+            analysisBasis: analysis?.basis,
+            measuredAudio: analysis?.measuredAudio
         )
     }
 
@@ -2227,13 +2274,10 @@ public enum TrackInsightParser {
     }
 
     private static func normalizedMetric(_ value: Double?) -> Double? {
-        guard let value else {
-            return nil
-        }
-        if value > 1 {
-            return max(0, min(1, value / 100))
-        }
-        return max(0, min(1, value))
+        // The legacy contract also accepts percentages. Reject invalid input;
+        // clamping a missing/invalid measurement would manufacture a real zero/one.
+        guard let value, value.isFinite, (0...100).contains(value) else { return nil }
+        return value > 1 ? value / 100 : value
     }
 
     private static func firstNonBlank(_ values: String?...) -> String? {

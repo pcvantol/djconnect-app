@@ -497,7 +497,9 @@ struct TrackInsightShareCardView: View {
                         .minimumScaleFactor(0.72)
                         .multilineTextAlignment(.center)
                 }
-                TrackInsightShareMeters(insight: insight, profile: profile, format: format, language: language)
+                if insight.displayMetrics.numericCount > 0 {
+                    TrackInsightShareMeters(insight: insight, profile: profile, format: format, language: language)
+                }
                 Text(insight.displaySummary(language: language))
                     .font(summaryFont)
                     .foregroundStyle(.white.opacity(0.78))
@@ -635,7 +637,7 @@ struct TrackInsightShareCardView: View {
     }
 
     private var vibeLine: String? {
-        let parts = [insight.mood, insight.vibe, insight.texture]
+        let parts = [insight.displayMetrics.mood, insight.displayMetrics.vibe, insight.displayMetrics.texture]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .prefix(3)
@@ -760,9 +762,9 @@ private struct TrackInsightShareMeters: View {
 
     var body: some View {
         HStack(spacing: meterSpacing) {
-            meter(localizedKey("trackInsight.share.energy"), insight.energy)
-            meter(localizedKey("trackInsight.share.danceability"), insight.danceability)
-            meter(localizedKey("trackInsight.share.intensity"), insight.intensity)
+            if let value = insight.displayMetrics.energy { meter(localizedKey("trackInsight.share.energy"), value) }
+            if let value = insight.displayMetrics.danceability { meter(localizedKey("trackInsight.share.danceability"), value) }
+            if let value = insight.displayMetrics.intensity { meter(localizedKey("trackInsight.share.intensity"), value) }
         }
         .onAppear {
             guard !reduceMotion else { return }

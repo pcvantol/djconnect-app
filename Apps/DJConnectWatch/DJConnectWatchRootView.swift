@@ -750,7 +750,9 @@ struct DJConnectWatchRootView: View {
                         }
 
                         DJConnectWatchTrackInsightAnalysisCard(insight: insight, language: model.language)
-                        DJConnectWatchTrackInsightMetricsGrid(insight: insight, language: model.language)
+                        if !insight.displayMetrics.isEmpty {
+                            DJConnectWatchTrackInsightMetricsGrid(insight: insight, language: model.language)
+                        }
 
                         Label(
                             watchLocalizedKey(model.language, "watch.rendered.privately.on.your.device"),
@@ -808,15 +810,25 @@ struct DJConnectWatchRootView: View {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 9) {
-                Text(watchLocalizedKey(language, "watch.track.energy"))
+                Text(watchLocalizedKey(language, insight.verifiedCredit == nil ? "ui.trackInsight.analysis.title" : "ui.trackInsight.verified_credits"))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
+                if let credit = insight.verifiedCredit {
+                    Text(credit.context).font(.caption2).fixedSize(horizontal: false, vertical: true)
+                    Link(credit.source.provider + " · " + credit.source.license, destination: credit.source.url)
+                        .font(.caption2)
+                    Text(watchLocalizedKey(language, "ui.trackInsight.interpretation")).font(.caption.weight(.bold))
+                }
                 Text(watchNonEmpty(insight.displaySummary(language: language), fallback: watchLocalizedKey(language, "watch.not.enough.signals")))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.72))
                     .fixedSize(horizontal: false, vertical: true)
 
-                let groups = DJConnectWatchTrackInsightGroups.make(for: insight, language: language)
+                if insight.hasUnmeasuredAudio && !insight.hasUnavailableAnalysis {
+                    Text(watchLocalizedKey(language, "ui.trackInsight.analysis.unavailable")).font(.caption2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                let groups = insight.hasUnavailableAnalysis ? [] : DJConnectWatchTrackInsightGroups.make(for: insight, language: language)
                 if !groups.isEmpty {
                     Divider().overlay(.white.opacity(0.14))
                     ForEach(groups) { group in
@@ -852,17 +864,35 @@ struct DJConnectWatchRootView: View {
 
         var body: some View {
             VStack(spacing: 7) {
-                HStack(spacing: 7) {
-                    DJConnectWatchTrackInsightMetricRing(title: watchLocalizedKey(language, "watch.energy"), value: insight.energy)
-                    DJConnectWatchTrackInsightMetricRing(title: watchLocalizedKey(language, "watch.dance"), value: insight.danceability)
-                    DJConnectWatchTrackInsightMetricRing(title: watchLocalizedKey(language, "watch.intensity"), value: insight.intensity)
+                if insight.displayMetrics.numericCount > 0 {
+                    HStack(spacing: 7) {
+                        if let value = insight.displayMetrics.energy {
+                            DJConnectWatchTrackInsightMetricRing(title: watchLocalizedKey(language, "watch.energy"), value: value)
+                        }
+                        if let value = insight.displayMetrics.danceability {
+                            DJConnectWatchTrackInsightMetricRing(title: watchLocalizedKey(language, "watch.dance"), value: value)
+                        }
+                        if let value = insight.displayMetrics.intensity {
+                            DJConnectWatchTrackInsightMetricRing(title: watchLocalizedKey(language, "watch.intensity"), value: value)
+                        }
+                    }
                 }
 
-                LazyVGrid(columns: columns, spacing: 7) {
-                    DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.genre"), value: insight.genre)
-                    DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.mood"), value: insight.mood)
-                    DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.vibe"), value: insight.vibe)
-                    DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.texture"), value: insight.texture)
+                if insight.displayMetrics.hasLabels {
+                    LazyVGrid(columns: columns, spacing: 7) {
+                        if let value = insight.displayMetrics.genre {
+                            DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.genre"), value: value)
+                        }
+                        if let value = insight.displayMetrics.mood {
+                            DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.mood"), value: value)
+                        }
+                        if let value = insight.displayMetrics.vibe {
+                            DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.vibe"), value: value)
+                        }
+                        if let value = insight.displayMetrics.texture {
+                            DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.texture"), value: value)
+                        }
+                    }
                 }
             }
         }
