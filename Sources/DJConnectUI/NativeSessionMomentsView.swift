@@ -823,7 +823,7 @@ struct NativeSessionMomentsView: View {
                     }
                 }
                 if let playbackOutputName {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    HStack(alignment: .center, spacing: 8) {
                         if let model = playbackModel {
                             SessionPlaybackOutputButton(model: model, name: playbackOutputName)
                                 .id(session.id)
