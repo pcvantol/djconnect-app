@@ -269,15 +269,26 @@ public struct DJConnectSessionResponse: Codable, Equatable, Sendable {
     public var success: Bool
     public var session: DJConnectSessionRuntime?
     public var activeSession: DJConnectSessionRuntime?
+    public var startupActions: DJConnectSessionStartupActions? = nil
     public var error: String?
     public var message: String?
 
     enum CodingKeys: String, CodingKey {
         case success, session
         case activeSession = "active_session"
+        case startupActions = "session_start_actions"
         case error, message
     }
 
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        success = try c.decode(Bool.self, forKey: .success)
+        session = try c.decodeIfPresent(DJConnectSessionRuntime.self, forKey: .session)
+        activeSession = try c.decodeIfPresent(DJConnectSessionRuntime.self, forKey: .activeSession)
+        error = try c.decodeIfPresent(String.self, forKey: .error)
+        message = try c.decodeIfPresent(String.self, forKey: .message)
+        startupActions = try? c.decodeIfPresent(DJConnectSessionStartupActions.self, forKey: .startupActions)
+    }
     public var resolvedSession: DJConnectSessionRuntime? { session ?? activeSession }
 }
 
@@ -469,6 +480,10 @@ public struct DJConnectActiveMoodCapabilities: Decodable, Sendable {
     }
     let capabilities: [String: Bool]?
     let contractVersions: [String: Int]?
+    public var sessionStartupAvailable: Bool {
+        capabilities?["session_start_actions"] == true && contractVersions?["session_start_actions"] == 1 &&
+        capabilities?["session_first_play_surprise_mix"] == true && contractVersions?["session_first_play_surprise_mix"] == 2
+    }
     public var settingsConfirmationAvailable: Bool { capabilities?["settings_confirmation_moment"] == true && contractVersions?["settings_confirmation_moment"] == 1 }
     public var sharedSettingsAvailable: Bool { capabilities?["profile_session_settings"] == true && contractVersions?["profile_session_settings"] == 3 }
     let contract: Contract?
@@ -541,5 +556,72 @@ public struct DJConnectBroadcastRecovery: Decodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case success, recovery, snapshot, events
         case sessionID = "session_id", recoveryCursor = "recovery_cursor"
+    }
+}
+
+/// Server-owned startup intents, separate from the Ask DJ examples catalogue.
+public struct DJConnectSessionStartupActions: Codable, Equatable, Sendable {
+    public struct Copy: Codable, Equatable, Sendable {
+        public let label: String
+        public let prompt: String?
+    }
+    public struct Item: Codable, Equatable, Sendable {
+        public let schema_version: Int
+        public let id: String
+        public let kind: String
+        public let available: Bool
+        public let automatic_playback: Bool
+        public let destination: String?
+        public let genre_basis: String?
+        public let mix_availability: String?
+        public let transport: String?
+        public let selection_effect: String?
+        public let localizations: [String: Copy]
+        public func copy(language: String) -> Copy? {
+            guard ["en", "nl", "de", "fr", "es"].contains(language), let copy = localizations[language],
+                  !copy.label.isEmpty, copy.label.utf8.count <= 320 else { return nil }
+            return copy
+        }
+    }
+    public let schema_version: Int
+    public let available: Bool
+    public let automatic_playback: Bool
+    public let items: [Item]
+    public var isSupported: Bool {
+        guard schema_version == 1, !automatic_playback, items.count == 2 else { return false }
+        let surprise = items[0], playlists = items[1]
+        return surprise.id == "session_first_play_surprise_mix" && surprise.schema_version == 2 &&
+            surprise.kind == "conversation_request" && !surprise.automatic_playback &&
+            surprise.genre_basis == "music_dna" && surprise.mix_availability == "not_queried" &&
+            surprise.transport == "existing_session_conversation" && surprise.selection_effect == "genre_starts_exact_mix" &&
+            playlists.id == "session_start_playlists" && playlists.schema_version == 1 &&
+            playlists.kind == "navigation" && playlists.destination == "playlists" && !playlists.automatic_playback &&
+            ["en", "nl", "de", "fr", "es"].allSatisfy { language in
+                guard let copy = surprise.copy(language: language), let prompt = copy.prompt else { return false }
+                return !prompt.isEmpty && prompt.utf8.count <= 720 && playlists.copy(language: language) != nil
+            }
+    }
+}
+
+public struct DJConnectFirstPlayState: Codable, Equatable, Sendable {
+    public let schema_version: Int
+    public let genre_basis: String
+    public let state: String
+    public let selection_effect: String
+    public let expires_in: Double
+    public var isSupported: Bool {
+        schema_version == 2 && genre_basis == "music_dna" && selection_effect == "genre_starts_exact_mix" &&
+        ["output", "genres", "unavailable", "requested", "uncertain"].contains(state) &&
+        expires_in.isFinite && (0...60).contains(expires_in)
+    }
+}
+
+/// Only opaque original result/action identities cross the existing message route.
+public struct DJConnectConversationChoice: Codable, Equatable, Sendable {
+    public let result_set_id: String
+    public let action_id: String
+    public let operation: String
+    public init(resultSetID: String, actionID: String) {
+        result_set_id = resultSetID; action_id = actionID; operation = "select"
     }
 }

@@ -1418,6 +1418,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var userNotice: DJConnectUserNotice?
     @Published public var playback: DJConnectPlayback? {
         didSet {
+            sessionStartup.reconcile()
             if currentInsightObservation.observe(playback), currentInsightProof != nil {
                 clearCurrentInsightProof(); currentTrackInsight = nil
             }
@@ -1442,8 +1443,10 @@ public final class DJConnectAppModel: ObservableObject {
         currentInsightExpiryTask?.cancel(); currentInsightExpiryTask = nil; currentInsightProof = nil
     }
 
+    lazy var sessionStartup = SessionStartupModel(host: self)
     @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
         didSet {
+            sessionStartup.reconcile()
             reconcileDirectSessionRuntimes()
             let helpNow = Date()
             if AskDJHelpPlaybackProjection(oldValue?.broadcast.playback, at: helpNow) != AskDJHelpPlaybackProjection(activeDJSession?.broadcast.playback, at: helpNow) ||
@@ -3225,6 +3228,7 @@ public final class DJConnectAppModel: ObservableObject {
         cancelRendezvous()
         personaReactions.cancel(.background)
         isAppInForeground = false
+        sessionStartup.reconcile()
         directSessionAttemptEpoch = UUID()
         for runtime in directSessionRuntimes.values { runtime.suspend() }
         sessionSurfaceNativeCustody.suspend() // Fence already queued foreground starts immediately.

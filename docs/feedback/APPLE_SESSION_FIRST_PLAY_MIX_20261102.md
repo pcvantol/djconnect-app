@@ -1,130 +1,68 @@
-# Apple lane — Session first-play “Verras me” mix
+# Apple Session startup: Verras me / Selecteer playlist
 
-Current user instruction on 2026-11-02 selects integral Apple-lane delivery.
-Continue in the existing Apple writer and draft PR295. This selection does not
-create a second Core writer or authorize installation/merge of the open batch.
+The owner-selected scope is the separate first-play flow after ordinary Session
+start. This stays in the existing Apple batch PR295. The welcome screen and the
+three contextual Ask DJ suggestions do not start this flow.
 
-## Product scope
+## Producer and presentation
 
-The authoritative placement correction is
-[Apple #128, dedicated first-play CTA](https://github.com/pcvantol/djconnect-app/issues/128#issuecomment-6366101740).
-The detailed producer requirements are
-[Core #1210, first-play mix](https://github.com/pcvantol/djconnect/issues/1210#issuecomment-6365235562).
-Earlier wording placing this action among the three chat suggestions is superseded.
+Core PR1423 (`b33ea880`, included in main `e91690a2`) supplies
+`docs/product/SESSION_START_ACTIONS_DNA_V2.md`. Its v2 Music DNA contract supersedes
+the earlier v1 producer dependency notes. Apple requires both capability flags
+and exact versions: session_start_actions=1 / session_first_play_surprise_mix=2.
+The active Session response supplies the two localized startup items.
 
-The specified action belongs to an already active Session with no prior music.
-It is separate from the three contextual Ask DJ questions and their dismissal.
-It must not create a Session, start on screen entry/Mood changes, or replace a
-paused queue. The owner explicitly confirmed this placement after reviewing the welcome/start
-screen on 2026-11-02: show the choices only after Start DJ Session, when no music
-has started. The earlier tentative answer about creating a Session was withdrawn.
-The first-play action itself must not create another Session.
+- Verras me sends the exact supplied localized prompt through the existing
+  authenticated Session conversation. It never creates another Session.
+- Core can first supply output choices. Choosing the original opaque output
+  action continues the same flow; Apple does not issue a separate play command.
+- Core supplies exactly three Music DNA genre actions. A deliberate genre tap
+  sends its original result_set_id/action_id with operation=select through the
+  same conversation. There is no additional Play Now step.
+- Selecteer playlist opens the existing playlist screen, without conversation,
+  Session start or playback commands.
 
-One explicit CTA request goes through the authenticated Session conversation.
-Core offers a speaker first when necessary, without playback. It then supplies
-exactly three supported genre actions based on the Profile's Music DNA, with the
-selected Mood carried as existing Session context. One explicit genre tap starts
-the exact bound ordered mix, without another Play Now tap. No local genre,
-track, Music DNA, provider-access or mix-availability inference is permitted.
+Genres, ordered Spotify catalogue tracks, availability and provider decisions
+remain Core-owned. Apple does not generate genres or seed from personal
+playlists. Missing DNA disables the surprise item while retaining the separate
+playlist route when Core advertises it.
 
-### Owner-confirmed two-route presentation
+## Client safeguards
 
-- **Verras me** opens the server's three Music DNA genre proposals. Selecting one
-  starts a genre mix from music Spotify offers. Do not derive this mix from the
-  user's existing playlists or silently substitute a personal playlist.
-- **Selecteer playlist** opens the existing Playlists screen. This is a separate
-  choice alongside Verras me, not a fourth genre in the server's three proposals.
+The retained coordinator binds Profile/epoch, active Session, language, configured
+origins, material Mood/persona/presence revisions and observed output. The exact
+selected output is the only permitted output transition during continuation.
+Scope changes retire old choices. Actual playing withdraws the startup card.
+The composer draft survives these sends.
 
-The owner described the first route as a daily mix. That describes the requested
-listening experience; it is not evidence that a named Spotify Daily Mix product
-or endpoint is available. Core must supply the actual qualified playable Spotify
-catalogue result. Missing Music DNA, genres or provider support requires an
-honest producer response, not hardcoded genres or playlist seeds from Apple.
-This clarification replaces the earlier assumption that first-play had no
-Music DNA dependency; Music DNA selection remains entirely server-owned.
+A synchronous latch admits one send per explicit tap. Output/genre choices retain
+the original bounded 60-second wall and monotonic deadline, shortened by the
+accepted response/result lease. Continuations never renew it. Unknown effects
+finish locally without automatic retry or fresh UUID replay. Opaque identities
+are sent directly; Apple never rebuilds URI lists or mix actions.
 
-## Fresh source readback
+Malformed additive startup metadata cannot break decoding an otherwise ordinary
+Session response. The two-item menu and first-play envelope have strict version,
+no-autoplay, localization, source and selection-effect checks.
 
-- Apple batch before this intake: `719771bdc072cd7c206220be6b60adc691d8c920`.
-- Core remote main, verified through GitHub on 2026-11-02:
-  `6959d1ab61ed5a3c2ec9386900ff5e8a42eda202`.
-- Core `custom_components/djconnect/ask_dj/examples_v1.json` is `qualified_v1`,
-  but contains no `session_first_play_surprise_mix` route/entry.
-- Core `custom_components/djconnect/mood_music_steering.py` still prepares a
-  mix action whose label uses `COPY[locale]['now']`: genre interpretation offers
-  a later Play Now action. This does not establish genre-tap playback.
-- The existing Core worktree belongs to its current Track Insight writer.
-  No changes to that worktree, Core main, provider state or credentials were made.
+## Evidence boundary
 
-The existing generic mix/recommendation route is therefore not evidence that
-this first-play contract is delivered. A successful client build or catalogue
-compatibility check cannot qualify the missing first-play action.
+`Tests/Fixtures/session-startup-v2.json` contains reduced original Core wire fields,
+with source pin and SHA256 provenance. Contract and authenticated conversation
+regressions cover rendering reads, original prompt/context, speaker then genres,
+exact opaque select packets, duplicate taps, draft retention, unavailable DNA,
+expiry before and after output continuation, context withdrawal and unknown
+outcomes. These are synthetic producer fixtures, not live Spotify acceptance.
 
-### Current dependency recheck after owner clarification
-
-GitHub main file reads on 2026-11-02 still show no qualified first-play entry in
-`ask_dj/examples_v1.json` (blob `897e60020cf336a317872ed23ecf258434ae3073`).
-`mood_music_steering.py` (blob `315e911dbdb4a5877dab1bd0b9f8307f0edbb9ac`)
-still prepares a `COPY[locale]['now']` mix action after genre interpretation.
-These source reads do not establish the required genre-tap playback route.
-The existing Playlists screen is available; neither a new first-play CTA nor its
-navigation has been implemented in this intake checkpoint.
-
-## Existing Apple integration seams
-
-| Concern | Existing implementation | Required adoption |
-| --- | --- | --- |
-| Active, never-played Session | `SessionTimelineScreen.showsFirstPlayHelper`, `DJConnectSessionHistoryModel.hasPlaybackForFirstPlayHelper` | Preserve pause/history/recovery exclusion and owner-scoped observed-playback latch. The current predicate has no rendered CTA. |
-| Executable example qualification | `DJConnectAskDJCatalogue.compatible`, eligibility and pinned catalogue; `DJConnectAppModel.askDJExampleContext` | Adopt the actual Core-qualified first-play publication and exact prompt. Do not turn a draft or hardcoded translation into an executable action. |
-| Text submission | Existing Session composer / `DJConnectSessionHistoryModel` conversation path | Preserve original operation identity, Profile/Session context and duplicate-send suppression. Do not overwrite a draft or submit a second surprise request after output choice. |
-| Output presentation | Session output popover; `needsSessionPlaybackOutputSelection` | Render Core's authorized request-bound choice. A cached name or local output selection is not a producer decision. No autoplay on speaker selection. |
-| Genre actions | Existing `DJConnectAskDJPlaybackAction.resultSetID` / `actionID` and ordinary action renderer/dispatcher | Render precisely the original three offered actions; preserve opaque identities and execute the chosen action once. No client-generated URIs or automatic secondary Play Now press. |
-| Lifecycle | Existing Profile response epochs, Session identity, foreground and retention fences | Withdraw pending choices on owner/Session/Mood/output revision, TTL, permissions, new playback, navigation cancellation or end. |
-
-## Concrete Core handoff required before executable Swift adoption
-
-1. Protected source pin and qualified first-play catalogue entry/prompt, with
-   exact existing capability/version negotiation and supported locale evidence.
-2. Original no-output → output choice → three genre actions fixtures/traces;
-   choosing the output resumes the original request and has zero playback effect.
-3. Original valid-output → three genres trace, bound to actual owner, Session,
-   confirmed Mood revision, output, result-set/action identities and validity.
-4. A genre action that itself authorizes the exact frozen playable mix and
-   produces the normal receipt/readback. It must not merely return another Play
-   Now action. Include double-tap, lost acknowledgement and replay behavior.
-5. Truthful unavailable/limited results for fewer than three supported choices,
-   provider/recommendations unavailability, no speaker, paused playback and
-   expired/replaced owner/Session/Mood/output. No fabricated Spotify mix claim.
-
-This is a consumer dependency request, not an invented wire schema. Required
-producer contract changes belong in Core's canonical docs and SYNC_PROMPTS first.
-This document has not been sent as a message or posted to another lane.
-
-## Apple completion and acceptance after that handoff
-
-Implement one independent CTA and its pending/choice/error presentation in the
-existing Session surface, using the existing authenticated message/action paths.
-Do not change the ordinary Start Session action or the three-question panel.
-
-Qualify all four Moods, five locales, music_only, draft/keyboard/VoiceOver/Dynamic
-Type, speaker known/missing/cached/expired/zero, no music versus paused/history,
-exactly-three/fewer-than-three Music DNA choices, separate Selecteer playlist
-navigation, Spotify catalogue sourcing without personal-playlist substitution, action expiry, output/owner/Mood/Session
-changes, double taps, background/reconnect and uncertain delivery. Confirm that
-CTA and speaker taps cause no play, and one genre tap causes exactly one original
-mix play. Native iPhone/iPad/Mac and installed HA/provider playback remain
-separate from source fixtures and CI.
-
-## Delivery boundary
-
-`APPLE_INTAKE_AND_INTEGRATION_AUDIT = COMPLETE`
-
-`CORE_FIRST_PLAY_PRODUCER = NOT_DELIVERED_ON_VERIFIED_MAIN`
-
-`APPLE_FIRST_PLAY_IMPLEMENTATION = NOT_IMPLEMENTED_PENDING_PRODUCER_HANDOFF`
-
-`NATIVE_INSTALLED_FIRST_PLAY_ACCEPTANCE = NOT_RUN`
-
-No first-play implementation or operational mix start is claimed by this
-checkpoint. The existing Apple batch remains open; no fake executable CTA,
-backend contract, capability flag, genre selection or provider result was added.
+Final validation on unchanged source: 1,662 Swift tests in 60 suites pass
+(`startup-full-r2`), all nine repository check groups pass
+(`startup-validation-r1`), and unsigned Mac (`startup-mac-build-r1`) and
+iOS/iPadOS plus embedded Watch (`startup-ios-build-r3`) builds pass.
+The targeted producer/conversation run (`startup-tests-r11`) passes both test
+declarations, including seven integrated scenarios. Source hashes are retained
+in `startup-final-source-hashes.json` in the external batch evidence directory.
+Earlier failing test runs are retained: the initial synthetic timeline lacked
+the required tail-window bounds; correcting that fixture leaves the production
+owner/transport checks intact. No installed Home Assistant/Spotify playback or audible mix
+acceptance is claimed here; that requires the matching Core producer installed
+and a deliberate owner device test.

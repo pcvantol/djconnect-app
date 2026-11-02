@@ -1238,6 +1238,7 @@ struct SessionTimelineScreen: View {
 
     private func currentHeader(_ session: DJConnectSessionRuntime) -> some View {
         VStack(alignment: .leading, spacing: 12) {
+            SessionStartupCard(model: model)
             NativeSessionMomentsView(session: session, language: model.language,
             isRecovering: model.djSessionIsRecovering,
             isLiveUnavailable: model.djSessionLiveUnavailable,

@@ -1111,6 +1111,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable, DJConnectProf
     public var requestSource: DJConnectProfileRequestSource?
     public var conversationContext: DJConnectConversationContext? = nil
     public var speechContractVersion: Int? = nil
+    public var choiceAction: DJConnectConversationChoice? = nil
 
     public init(
         identity: DJConnectIdentity,
@@ -1167,6 +1168,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable, DJConnectProf
         case requestSource = "request_source"
         case conversationContext = "conversation_context"
         case speechContractVersion = "speech_contract_version"
+        case choiceAction = "choice_action"
     }
 }
 
@@ -6263,6 +6265,7 @@ public struct DJConnectResultSet: Codable, Equatable, Sendable {
 }
 
 public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
+    public var firstPlay: DJConnectFirstPlayState? = nil
     public var resultSet: DJConnectResultSet? = nil
     public var userMessage: DJConnectAskDJHistoryMessage?
     public var assistantMessage: DJConnectAskDJHistoryMessage?
@@ -6311,6 +6314,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     public private(set) var sessionSpeech: DJConnectSessionSpeech? = nil
 
     enum CodingKeys: String, CodingKey {
+        case firstPlay = "first_play"
         case resultSet = "result_set"
         case userMessage = "user_message"
         case assistantMessage = "assistant_message"
@@ -6422,6 +6426,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
             && presentation.decodeIfPresent(Bool.self, forKey: .historyPersisted) != true
             && confirmation?.schemaVersion == 1 && confirmation?.historyScope == "private_ephemeral"
             && !container.contains(.historyRevision) && !container.contains(.clearRevision)
+        firstPlay = try? container.decodeIfPresent(DJConnectFirstPlayState.self, forKey: .firstPlay)
         resultSet = try container.decodeIfPresent(DJConnectResultSet.self, forKey: .resultSet)
         userMessage = try container.decodeIfPresent(DJConnectAskDJHistoryMessage.self, forKey: .userMessage)
         assistantMessage = try container.decodeIfPresent(DJConnectAskDJHistoryMessage.self, forKey: .assistantMessage)
@@ -6597,6 +6602,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(firstPlay, forKey: .firstPlay)
         try container.encodeIfPresent(resultSet, forKey: .resultSet)
         try container.encodeIfPresent(userMessage, forKey: .userMessage)
         try container.encodeIfPresent(assistantMessage, forKey: .assistantMessage)

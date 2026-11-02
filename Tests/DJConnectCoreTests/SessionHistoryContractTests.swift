@@ -9584,3 +9584,158 @@ func visualConfirmedSettingsRejectConflictsAndFencePersonaAndMoodABA() throws {
     #expect(!fence.complete(moodTurn) { applied = true; return true })
     #expect(!applied)
 }
+
+private func startupFixtureObject() throws -> [String: Any] {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    return try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-startup-v2.json"))) as? [String: Any])
+}
+
+@Test func sessionStartupV2RequiresExactCapabilitiesAndSafeAdditiveContract() throws {
+    let source = try startupFixtureObject()
+    let menu = try JSONDecoder().decode(DJConnectSessionStartupActions.self, from: historyData(source["menu"]!))
+    #expect(menu.isSupported)
+    for language in ["en", "nl", "de", "fr", "es"] {
+        #expect(menu.items[0].copy(language: language)?.prompt?.isEmpty == false)
+        #expect(menu.items[1].copy(language: language)?.label.isEmpty == false)
+    }
+    for version in [0, 1, 2, 3] {
+        let caps: [String: Any] = ["capabilities": ["session_start_actions": true, "session_first_play_surprise_mix": true],
+            "contract_versions": ["session_start_actions": 1, "session_first_play_surprise_mix": version]]
+        #expect(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self, from: historyData(caps)).sessionStartupAvailable == (version == 2))
+    }
+    var wire = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+    wire["session_start_actions"] = ["schema_version": 99]
+    let response = try JSONDecoder().decode(DJConnectSessionResponse.self, from: historyData(wire))
+    #expect(response.resolvedSession != nil && response.startupActions == nil)
+    for field in ["automatic_playback", "schema_version"] {
+        var broken = try #require(source["menu"] as? [String: Any])
+        broken[field] = field == "automatic_playback" ? true : 99
+        #expect(try !JSONDecoder().decode(DJConnectSessionStartupActions.self, from: historyData(broken)).isSupported)
+    }
+}
+
+@Test(.isolatedClientResources, arguments: ["play", "playlist", "noDNA", "expired", "continued_expired", "scope", "unknown"])
+@MainActor func sessionStartupOriginalChoicesUseConversationExactlyOnce(_ scenario: String) async throws {
+    let source = try startupFixtureObject(), receipt = try historyObject()
+    let sessionID = try #require(receipt["session_id"] as? String)
+    var timelineObject = try #require(receipt["archived_timeline"] as? [String: Any])
+    timelineObject["window"] = "tail"; timelineObject["window_limit"] = 20
+    timelineObject["scan_complete"] = true
+    let orders = (timelineObject["entries"] as? [[String: Any]] ?? []).compactMap { $0["order"] as? Int }
+    timelineObject["scanned_order_min"] = orders.min(); timelineObject["scanned_order_max"] = orders.max()
+    let timeline = try historyData(timelineObject)
+    let profile = try historyData(receipt["later_historical_answer"]!)
+    var runtime = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+    var session = try #require(runtime["session"] as? [String: Any]); session["session_id"] = sessionID
+    var broadcast = try #require(session["broadcast"] as? [String: Any])
+    var fields = try #require(broadcast["session"] as? [String: Any]); fields["session_id"] = sessionID
+    broadcast["session"] = fields; session["broadcast"] = broadcast
+    runtime["session"] = session
+    var menu = try #require(source["menu"] as? [String: Any])
+    if scenario == "noDNA" {
+        var items = try #require(menu["items"] as? [[String: Any]])
+        items[0]["available"] = false; menu["items"] = items
+    }
+    runtime["session_start_actions"] = menu
+    let runtimeData = try historyData(runtime)
+    func answer(_ key: String, revision: Int) throws -> Data {
+        var body = try #require(receipt["text_turn"] as? [String: Any])
+        let overlay = try #require(source[key] as? [String: Any])
+        for (key, value) in overlay { body[key] = value }
+        body["history_revision"] = revision
+        body["server_time"] = ISO8601DateFormatter().string(from: Date())
+        var context = try #require(body["conversation"] as? [String: Any])
+        context["context"] = ["session_id": sessionID]; context["entry_ids"] = []
+        body["conversation"] = context
+        // The original producer first_play/result identities remain unmodified.
+        return try historyData(body)
+    }
+    let output = try answer("output", revision: 100), genres = try answer("genres", revision: 101), played = try answer("played", revision: 102)
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_start_actions": true, "session_first_play_surprise_mix": true],
+        "contract_versions": ["session_conversation_history": 1, "session_start_actions": 1, "session_first_play_surprise_mix": 2]])
+    let genreResultID = try #require(((source["genres"] as? [String: Any])?["result_set"] as? [String: Any])?["result_set_id"] as? String)
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/session/active") { return (200, runtimeData, 0) }
+        if path.hasSuffix("/ask_dj/message") {
+            if scenario == "unknown" { return (503, Data(), 0) }
+            let data = try presenceRequestBody(request)
+            let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let choice = body["choice_action"] as? [String: Any]
+            if choice == nil { return (200, output, 0) }
+            return (200, choice?["result_set_id"] as? String == genreResultID ? played : genres, 0)
+        }
+        if path.contains("/session/history") { return (200, timeline, 0) }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare(); await model.refreshActiveDJSession(); model.isConnected = true
+    model.language = "nl"; model.askDJDraft = "Niet verzenden"
+    let startup = model.sessionStartup
+    await startup.refresh()
+    #expect(startup.phase == .ready)
+    #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+    if scenario == "playlist" || scenario == "noDNA" {
+        if scenario == "noDNA" { startup.surprise(); #expect(startup.phase == .ready) }
+        startup.selectPlaylist()
+        #expect(model.homeScreenActionRequest?.action == .playlists)
+        #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+        return
+    }
+    startup.surprise(); startup.surprise()
+    for _ in 0..<150 where startup.phase == .loading { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(model.askDJDraft == "Niet verzenden")
+    if scenario == "unknown" {
+        #expect(startup.phase == .finished)
+        await startup.refresh(); startup.surprise()
+    } else {
+        #expect(startup.phase == .choices && startup.actions.count > 0)
+        let speaker = try #require(startup.actions.first)
+        if scenario == "expired" { startup.now = { Date().addingTimeInterval(61) } }
+        if scenario == "scope" { model.language = "en"; startup.reconcile() }
+        if scenario == "continued_expired" { startup.now = { Date().addingTimeInterval(50) } }
+        startup.choose(speaker); startup.choose(speaker)
+        for _ in 0..<150 where startup.phase == .loading { try await Task.sleep(for: .milliseconds(10)) }
+        if scenario == "continued_expired" {
+            #expect(startup.phase == .choices && startup.actions.count == 3)
+            let genre = try #require(startup.actions.first)
+            startup.now = { Date().addingTimeInterval(61) }
+            startup.choose(genre)
+        }
+        if scenario == "play" {
+            #expect(startup.phase == .choices && startup.actions.count == 3)
+            let genre = try #require(startup.actions.first)
+            startup.choose(genre); startup.choose(genre)
+            for _ in 0..<150 where startup.phase == .loading { try await Task.sleep(for: .milliseconds(10)) }
+            #expect(startup.phase == .finished)
+        }
+    }
+    let posts = fixture.requests.filter { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }
+    #expect(posts.count == (scenario == "play" ? 3 : scenario == "continued_expired" ? 2 : 1))
+    let bodies = try posts.map { request in
+        let data = try presenceRequestBody(request)
+        return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+    for body in bodies {
+        let context = try #require(body["conversation_context"] as? [String: Any])
+        #expect(context["session_id"] as? String == sessionID)
+        #expect(context["selected_entry"] == nil)
+        #expect(body["uris"] == nil && body["uri"] == nil)
+    }
+    #expect(bodies.first?["text"] as? String == "Verras me met een mix voor deze sessie")
+    #expect(Set(bodies.compactMap { $0["client_message_id"] as? String }).count == posts.count)
+    if bodies.count > 1 {
+        let outputResult = try #require((source["output"] as? [String: Any])?["result_set"] as? [String: Any])
+        let outputAction = try #require((outputResult["items"] as? [[String: Any]])?.first)
+        let choice = try #require(bodies[1]["choice_action"] as? [String: Any])
+        #expect(choice["result_set_id"] as? String == outputResult["result_set_id"] as? String)
+        #expect(choice["action_id"] as? String == outputAction["action_id"] as? String)
+    }
+    for body in bodies.dropFirst() {
+        #expect((body["choice_action"] as? [String: Any])?["operation"] as? String == "select")
+    }
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/command") })
+}

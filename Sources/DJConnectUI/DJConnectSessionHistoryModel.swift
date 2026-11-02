@@ -1516,6 +1516,38 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                            context: .init(sessionID: sessionID, selectedEntry: nil), preservingComposer: true)
     }
 
+    /// Dedicated startup presentation, using the same authenticated conversation,
+    /// exact owner/context, accepted-response reducer and original message IDs.
+    func sendStartupChoice(text: String, choice: DJConnectConversationChoice?, sessionID: String,
+                           isCurrent: @escaping @MainActor () -> Bool) async throws -> DJConnectAskDJMessageResponse {
+        guard profileScopeActive, let host, host.canUseProfileConversation, !host.isSendingAskDJText,
+              let owner = ownerScope, host.activeDJSession?.id == sessionID, isCurrent() else { throw CancellationError() }
+        let captured = epoch, archives = archiveGeneration
+        let context = DJConnectConversationContext(sessionID: sessionID)
+        let draft = host.askDJDraft
+        let id = UUID().uuidString
+        var payload = host.profileConversationPayload(text: text, clientMessageID: id, context: context)
+        payload.choiceAction = choice
+        let localID = host.beginProfileConversationText(text: text, clientMessageID: id)
+        host.askDJDraft = draft
+        defer { if captured == epoch, ownerScope == owner { host.setProfileConversationSending(false) } }
+        do {
+            let response = try await host.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                guard isCurrent(), captured == self.epoch, self.ownerScope == owner else { throw CancellationError() }
+                return try await $0.sendSessionConversation(payload)
+            }
+            guard isCurrent(), captured == epoch, ownerScope == owner else { throw CancellationError() }
+            try await accept(response, fallback: localID, requestContext: context, historicalGeneration: archives)
+            return response.base
+        } catch {
+            if captured == epoch, ownerScope == owner {
+                _ = withdrawAuthority(for: error)
+                host.failProfileConversationText(id: localID, errorKey: "ui.ask_dj.answer.unavailable")
+            }
+            throw error // Never automatically resend an unknown startup/play action.
+        }
+    }
+
     private func enqueueText(_ original: String, context: DJConnectConversationContext, preservingComposer: Bool,
                              preservingSelection: Bool = false) -> Bool {
         guard profileScopeActive, let host, host.canUseProfileConversation, !host.isSendingAskDJText else { return false }
