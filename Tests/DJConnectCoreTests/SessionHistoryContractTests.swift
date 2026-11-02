@@ -3645,30 +3645,47 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     let first = try presenceRuntimeWire(), next = try presenceRuntimeWire(suffix: "-next")
     let sessionID = try #require(try JSONDecoder().decode(DJConnectSessionResponse.self, from: first).resolvedSession?.id)
     let phase = PresenceReadPhase()
+    let activeReads = HTTPRecoveryActiveReadCounter()
+    let originalRecovery = HistoryWireResponseGate(), approvalReply = HistoryWireResponseGate()
     let remote = HistoryWireFixture { _ in
         (200, try historyData(["success":true,"handoff":"approved","session_id":sessionID]), 0)
     }
     defer { remote.close() }
     let local = HistoryWireFixture { request in
-        if request.url!.path.hasSuffix("/session/active") { return (200, phase.value == 0 ? first : next, 0) }
+        if request.url!.path.hasSuffix("/session/active") {
+            // Retain A's background recovery; it must not observe B before the
+            // explicit successor read and terminate A during that read.
+            if scenario == "successor", activeReads.next() == 2 {
+                throw HistoryWireHeldResponse(data: first, gate: originalRecovery)
+            }
+            return (200, phase.value == 0 ? first : next, 0)
+        }
         if request.url!.path.hasSuffix("/handoff/approve") {
             if scenario == "lost-reply" { throw URLError(.cannotConnectToHost) }
-            return (200, try historyData(["success":true,"handoff":"approved","session_id":scenario == "wrong-session" ? "other" : sessionID]), scenario == "successor" ? 0.3 : 0)
+            let reply = try historyData(["success":true,"handoff":"approved","session_id":scenario == "wrong-session" ? "other" : sessionID])
+            if scenario == "successor" { throw HistoryWireHeldResponse(data: reply, gate: approvalReply) }
+            return (200, reply, 0)
         }
         return (404, Data(), 0)
     }
-    defer { local.close() }
+    defer { originalRecovery.release(); approvalReply.release(); local.close() }
     let (model, defaults, name) = local.model(remoteURL: remote.baseURL)
     defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
     #expect(await model.refreshActiveDJSession())
+    if scenario == "successor" {
+        for _ in 0..<300 where !originalRecovery.hasHeldResponse { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(originalRecovery.hasHeldResponse)
+    }
     let approval = Task { await model.approveVibeCastHandoff(code: "123456") }
     if scenario == "successor" {
-        for _ in 0..<100 where !local.requests.contains(where: { $0.url!.path.hasSuffix("/handoff/approve") }) {
-            try await Task.sleep(for: .milliseconds(5))
-        }
+        for _ in 0..<300 where !approvalReply.hasHeldResponse { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(approvalReply.hasHeldResponse)
         phase.value = 1
         #expect(await model.refreshActiveDJSession())
         #expect(model.activeDJSession?.id == sessionID + "-next")
+        // Deliver the real held old replies only after B is installed. Their
+        // original generations must not approve or overwrite that successor.
+        originalRecovery.release(); approvalReply.release()
     }
     await approval.value
     #expect(!model.vibeCastHandoffApproved)
@@ -3676,7 +3693,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(local.requests.filter { $0.url!.path.hasSuffix("/handoff/approve") }.count == 1)
     #expect(remote.requests.filter { $0.url!.path.hasSuffix("/handoff/approve") }.isEmpty)
     if scenario != "successor" { #expect(model.vibeCastHandoffFailed && model.vibeCastHandoffErrorKey == "ui.vibecast.handoff.unconfirmed") }
-    else { #expect(!model.vibeCastHandoffFailed) }
+    else { #expect(!model.vibeCastHandoffFailed && model.activeDJSession?.id == sessionID + "-next") }
 }
 
 @Test(.isolatedClientResources, arguments: [false, true]) @MainActor func musicDNAContextChangeWithdrawsOldProjectionAndRecoversWithinBound(permanent: Bool) async throws {
