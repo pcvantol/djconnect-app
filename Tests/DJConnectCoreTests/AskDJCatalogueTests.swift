@@ -120,6 +120,25 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(sections?.flatMap(\.items).contains(where: { $0.id == "listen.current" && !$0.isAvailable }) == true)
 }
 
+@Test(.isolatedClientResources) @MainActor func expiredHelpKeepsOnlyDisabledGenericReferenceWithoutRenewingAuthority() async throws {
+    let (catalogue, initial, ids) = try fullHelpFixture()
+    var context = initial
+    var instant = ContinuousClock.now
+    var reads = 0
+    let model = AskDJHelpCatalogueModel(now: { instant })
+    _ = await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context },
+        reader: { _, _, _, _ in reads += 1; return .init(ids: ids, trackID: context.trackID) })
+    #expect(model.sections.flatMap(\.items).contains { $0.isAvailable })
+    instant = instant.advanced(by: .seconds(15))
+    model.retireExpiredObservation()
+    #expect(!model.isCurrent && model.admittedContext == nil && reads == 1)
+    #expect(!model.sections.isEmpty && model.sections.flatMap(\.items).allSatisfy { !$0.isAvailable })
+    context.ownerEpoch = "replacement-owner"
+    model.contextChanged(to: context)
+    #expect(model.sections.isEmpty)
+    model.close()
+}
+
 @MainActor private final class HelpPendingReadGate {
     var continuation: CheckedContinuation<AskDJHelpCatalogueModel.Observation, Never>?
     func wait() async -> AskDJHelpCatalogueModel.Observation {

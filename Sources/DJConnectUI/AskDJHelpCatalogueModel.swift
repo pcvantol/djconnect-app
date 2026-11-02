@@ -18,6 +18,7 @@ import DJConnectCore
     private var readTask: Task<Observation, Error>?
     private var deadline: ContinuousClock.Instant?
     private var expiry: Task<Void, Never>?
+    private var unavailableReference: [DJConnectAskDJCatalogue.CatalogueSection] = []
     private let now: () -> ContinuousClock.Instant
     init(now: @escaping () -> ContinuousClock.Instant = { ContinuousClock.now }) { self.now = now }
 
@@ -26,7 +27,17 @@ import DJConnectCore
         originalContext = nil
         readTask?.cancel(); readTask = nil
         expiry?.cancel(); expiry = nil
-        sections = []; admittedContext = nil; busy = false
+        sections = []; unavailableReference = []; admittedContext = nil; busy = false
+    }
+
+    /// Retain only generic published reference text; availability never outlives
+    /// the original observation. Owner/context changes still clear everything.
+    func retireExpiredObservation() {
+        guard deadline != nil, !isCurrent else { return }
+        generation = UUID(); deadline = nil
+        readTask?.cancel(); readTask = nil
+        expiry?.cancel(); expiry = nil
+        sections = unavailableReference; admittedContext = nil; busy = false
     }
 
     /// Compare the original BASE projection, never our published admitted mask.
@@ -72,11 +83,13 @@ import DJConnectCore
             let result = catalogue.catalogueSections(admitted, surface: surface, language: language, eligibleIDs: ids, includeUnavailable: true)
             admittedContext = admitted
             sections = result
+            unavailableReference = catalogue.catalogueSections(original, surface: surface, language: language,
+                eligibleIDs: [], includeUnavailable: true)
             let remaining = now().duration(to: limit)
             expiry = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: remaining)
                 guard !Task.isCancelled, let self, captured == self.generation else { return }
-                self.close()
+                self.retireExpiredObservation()
             }
             return result
         } catch {

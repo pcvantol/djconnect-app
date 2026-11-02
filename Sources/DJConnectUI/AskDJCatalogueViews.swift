@@ -146,13 +146,25 @@ private struct AskDJHelpContent: View {
         } else { if let send { send() } else { model.sendAskDJText() } }
     }
     var body: some View {
-        AskDJFullCatalogueReference(sections: catalogueModel.sections, busy: catalogueModel.busy,
-            enabled: catalogueModel.isCurrent && model.askDJDraft.isEmpty && model.canUseAskDJFeatures && !model.isSendingAskDJText && !model.isRecordingVoice,
-            language: model.language, showsTitle: false) { item in Task { await choose(item) } }
+        VStack(alignment: .leading, spacing: 12) {
+            AskDJFullCatalogueReference(sections: catalogueModel.sections, busy: catalogueModel.busy,
+                enabled: catalogueModel.isCurrent && model.askDJDraft.isEmpty && model.canUseAskDJFeatures && !model.isSendingAskDJText && !model.isRecordingVoice,
+                language: model.language, showsTitle: false) { item in Task { await choose(item) } }
+            if !catalogueModel.isCurrent && !catalogueModel.busy {
+                Button(DJConnectLocalization.localized(key: "ui.retry", language: model.language)) {
+                    Task {
+                        await model.refreshAskDJExampleCapabilities()
+                        _ = await refresh()
+                    }
+                }
+                .djConnectPlainButtonStyle()
+                .accessibilityIdentifier("ask-dj-help-retry")
+            }
+        }
         .task {
             await model.refreshAskDJExampleCapabilities()
-            _ = await refresh()
         }
+        .task(id: context) { _ = await refresh() }
         .onChange(of: context) { _, next in catalogueModel.contextChanged(to: next) }
         .onChange(of: model.language) { _, _ in catalogueModel.contextChanged(to: context) }
         .onDisappear { catalogueModel.close() }
@@ -279,9 +291,11 @@ struct AskDJSuggestionStrip: View {
             context: { model.askDJExampleContext() }, reader: model.askDJHelpCatalogueReader)
         return observation.admittedContext
     }
-    private func open() async {
+    private func open(refreshCapabilities: Bool = true) async {
         suggestions = []
-        await model.refreshAskDJExampleCapabilities()
+        guard !frozen else { return }
+        if refreshCapabilities { await model.refreshAskDJExampleCapabilities() }
+        guard DJConnectAskDJCatalogue.bundled?.compatible(context) == true else { return }
         guard let admitted = await read(), !frozen else { return }
         suggestions = DJConnectAskDJCatalogue.bundled?.select(admitted, surface: surface, language: model.language, epoch: visit) ?? []
     }
@@ -302,12 +316,25 @@ struct AskDJSuggestionStrip: View {
         VStack(alignment: .leading, spacing: 12) {
             AskDJSuggestionRows(suggestions: observation.isCurrent ? suggestions : [], surface: surface,
                 disabled: selecting || frozen || !model.canUseAskDJFeatures) { item in Task { await choose(item) } }
+            if observation.busy {
+                ProgressView()
+            } else if suggestions.isEmpty || !observation.isCurrent {
+                Text(DJConnectLocalization.localized(key: "ui.askdj.help.unavailable", language: model.language))
+                    .font(.callout).foregroundStyle(.secondary)
+                Button(DJConnectLocalization.localized(key: "ui.retry", language: model.language)) {
+                    Task { await open() }
+                }
+                .djConnectPlainButtonStyle()
+                .disabled(selecting || frozen)
+                .accessibilityIdentifier("ask-dj-suggestions-retry")
+            }
             Button(action: more) {
                 Label(DJConnectLocalization.localized(key: "ui.more", language: model.language), systemImage: "ellipsis.circle")
             }
             .accessibilityIdentifier("ask-dj-more-" + surface.rawValue)
         }
-        .task { await open() }
+        .task { await model.refreshAskDJExampleCapabilities() }
+        .task(id: context) { await open(refreshCapabilities: false) }
         .onChange(of: context) { _, next in observation.contextChanged(to: next); if !observation.isCurrent { suggestions = [] } }
         .onChange(of: model.language) { _, _ in observation.contextChanged(to: context); if !observation.isCurrent { suggestions = [] } }
         .onChange(of: observation.admittedContext) { _, value in if value == nil { suggestions = [] } }
