@@ -806,6 +806,7 @@ struct DJConnectLocalAudioRoute: Equatable, Sendable {
     var localDeviceName = ""
     var bluetoothPortNames: [String] = []
     var hasOtherOutputs = false
+    var localDeviceTypes: Set<String> = ["phone", "smartphone", "tablet"]
 
     var bluetoothName: String? {
         let names = bluetoothPortNames.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -1144,6 +1145,9 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
     private var profileDJSettingsObservation: AnyCancellable?
     private var localAudioRouteObservation: AnyCancellable?
+    #if os(macOS)
+    private var macAudioRouteMonitor: DJConnectMacAudioRouteMonitor?
+    #endif
     private var personaReactionInterruption: AnyCancellable?
     @Published var localAudioRoute = DJConnectLocalAudioRoute()
     private var profileDJSettingsReadID: UUID?
@@ -2296,13 +2300,13 @@ public final class DJConnectAppModel: ObservableObject {
               let id = device.id, let name = device.name else { return false }
         let type = device.type ?? availableOutputs.first { $0.id == id }?.type
         let candidates = Set(availableOutputs.filter {
-            $0.cached != true && ["phone", "smartphone", "tablet"].contains($0.type?.lowercased() ?? "") &&
+            $0.cached != true && localAudioRoute.localDeviceTypes.contains($0.type?.lowercased() ?? "") &&
             $0.name.localizedCaseInsensitiveCompare(localAudioRoute.localDeviceName) == .orderedSame
         }.map(\.id))
         guard candidates.isEmpty || candidates == [id] else { return false }
         let localOutput = DJConnectOutputDevice(id: id, name: name, type: type, active: true)
         return localOutput.usesLocalBluetoothRoute(localDeviceName: localAudioRoute.localDeviceName,
-            playbackDeviceID: id, hasBluetoothRoute: true)
+            playbackDeviceID: id, hasBluetoothRoute: true, localDeviceTypes: localAudioRoute.localDeviceTypes)
     }
 
     var currentPlaybackBluetoothDeviceName: String? {
@@ -2312,7 +2316,7 @@ public final class DJConnectAppModel: ObservableObject {
     func outputUsesLocalBluetooth(_ output: DJConnectOutputDevice) -> Bool {
         currentPlaybackUsesLocalBluetooth && output.cached != true &&
         output.usesLocalBluetoothRoute(localDeviceName: localAudioRoute.localDeviceName,
-            playbackDeviceID: playback?.device?.id, hasBluetoothRoute: true)
+            playbackDeviceID: playback?.device?.id, hasBluetoothRoute: true, localDeviceTypes: localAudioRoute.localDeviceTypes)
     }
 
     func outputDisplayName(_ output: DJConnectOutputDevice) -> String {
@@ -2326,6 +2330,10 @@ public final class DJConnectAppModel: ObservableObject {
         let bluetooth = outputs.filter { [.bluetoothA2DP, .bluetoothHFP, .bluetoothLE].contains($0.portType) }
         let next = DJConnectLocalAudioRoute(localDeviceName: UIDevice.current.name,
             bluetoothPortNames: bluetooth.map(\.portName), hasOtherOutputs: outputs.count != bluetooth.count)
+        if localAudioRoute != next { localAudioRoute = next }
+        #elseif os(macOS)
+        guard macAudioRouteMonitor != nil else { return } // Hardware disabled for isolated/model-only clients.
+        let next = DJConnectMacAudioRouteMonitor.snapshot()
         if localAudioRoute != next { localAudioRoute = next }
         #endif
     }
@@ -2712,6 +2720,17 @@ public final class DJConnectAppModel: ObservableObject {
         personaReactionObservation = personaReactions.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         profileDJChoiceScheduler.pendingChanged = { [weak self] in self?.isSchedulingProfileDJChoice = $0 }
         refreshLocalAudioRoute()
+        #if os(macOS)
+        if startBackgroundTasks {
+            let monitor = DJConnectMacAudioRouteMonitor()
+            macAudioRouteMonitor = monitor
+            monitor.start { [weak self] route in
+                guard let self, self.localAudioRoute != route else { return }
+                self.personaReactions.cancel(.speechConflict)
+                self.localAudioRoute = route
+            }
+        }
+        #endif
         #if os(iOS)
         localAudioRouteObservation = NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
             .sink { [weak self] note in

@@ -14815,3 +14815,69 @@ func queuePresentationCompactsAdjacentCopiesAndRetainsOriginalOffsets(_ copies: 
     #expect(rows[0].item == original)
     #expect(items.count == 8)
 }
+
+
+@MainActor
+@Test(.isolatedClientResources) func macBluetoothSpeakerFollowsHardwareWithoutChangingSpotifyTarget() async throws {
+    let fixtureURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/moment-contract-receipt.json")
+    let fixture = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [String: Any])
+    let response = try JSONSerialization.data(withJSONObject: ["success": true, "session": #require(fixture["runtime"])])
+    let host = "bluetooth-\(UUID().uuidString.lowercased()).local"
+    let session = mockSession(host: host) { request in
+        (try httpResponse(for: request, statusCode: 200), response)
+    }
+    defer { session.invalidateAndCancel() }
+    let model = makePairedMusicDNAModel(defaults: try testDefaults(), host: host, session: session)
+    defer { model.markInactiveSession() }
+    #expect(await model.refreshActiveDJSession())
+    model.isConnected = true; model.backendAvailable = true
+    let mac = DJConnectOutputDevice(id: "spotify-macbook", name: "MacBook Pro van Peter", type: "Computer", active: true, supportsVolume: true, volumePercent: 62)
+    let remote = DJConnectOutputDevice(id: "spotify-mini", name: "Mac mini", type: "Computer", active: false)
+    model.availableOutputs = [mac, remote]
+    model.playback = DJConnectPlayback(volumePercent: 62, device: DJConnectPlaybackDevice(id: mac.id, name: mac.name, type: mac.type, active: true, supportsVolume: true))
+    model.localAudioRoute = .init(localDeviceName: mac.name, bluetoothPortNames: ["JBL Charge 5 Wi-Fi"], localDeviceTypes: ["computer"])
+    #expect(model.currentPlaybackOutputDisplayName == "JBL Charge 5 Wi-Fi")
+    #expect(model.sessionPlaybackOutputName == "JBL Charge 5 Wi-Fi")
+    #expect(model.outputDisplayName(mac) == "JBL Charge 5 Wi-Fi" && model.outputUsesLocalBluetooth(mac))
+    #expect(model.outputDisplayName(remote) == "Mac mini" && !model.outputUsesLocalBluetooth(remote))
+    #expect(model.playback?.device?.id == mac.id && model.playback?.device?.name == mac.name)
+    #expect(model.availableOutputs == [mac, remote] && model.playback?.volumePercent == 62)
+    #expect(model.currentPlaybackVolumePercent == nil) // The provider's 62% is not the hardware speaker volume.
+    model.localAudioRoute = .init(localDeviceName: mac.name, bluetoothPortNames: [], hasOtherOutputs: true, localDeviceTypes: ["computer"])
+    #expect(model.currentPlaybackOutputDisplayName == mac.name && !model.outputUsesLocalBluetooth(mac))
+    model.localAudioRoute = .init(localDeviceName: mac.name, bluetoothPortNames: ["Other Bluetooth headset"], localDeviceTypes: ["computer"])
+    #expect(model.outputDisplayName(mac) == "Other Bluetooth headset")
+}
+
+@MainActor
+@Test(.isolatedClientResources, arguments: ["remote", "duplicate-name", "cached", "offline", "inactive", "wrong-type", "demo"])
+func macBluetoothDoesNotRelabelUnprovenSpotifyHosts(_ reason: String) throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.isConnected = true; model.backendAvailable = true
+    var mac = DJConnectOutputDevice(id: "macbook", name: "MacBook Pro van Peter", type: "Computer", active: true)
+    model.localAudioRoute = .init(localDeviceName: mac.name, bluetoothPortNames: ["Private JBL"], localDeviceTypes: ["computer"])
+    if reason == "remote" { mac.name = "Mac mini" }
+    if reason == "cached" { mac.cached = true }
+    if reason == "wrong-type" { mac.type = "speaker" }
+    if reason == "inactive" { mac.active = false }
+    model.availableOutputs = [mac]
+    if reason == "duplicate-name" { model.availableOutputs.append(.init(id: "another-mac", name: mac.name, type: "Computer", active: false)) }
+    model.playback = DJConnectPlayback(device: DJConnectPlaybackDevice(id: mac.id, name: mac.name, type: mac.type, active: mac.active, cached: mac.cached))
+    if reason == "offline" { model.isConnected = false }
+    if reason == "demo" { model.isDemoMode = true }
+    #expect(model.currentPlaybackBluetoothDeviceName == nil && !model.outputUsesLocalBluetooth(mac))
+    #expect(model.outputDisplayName(mac) == mac.name)
+}
+
+#if os(macOS)
+import CoreAudio
+@Test(arguments: [kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE,
+                  kAudioDeviceTransportTypeBuiltIn, kAudioDeviceTransportTypeAirPlay, kAudioDeviceTransportTypeAggregate])
+@MainActor func macAudioHardwareTransportIsExplicit(_ transport: UInt32) {
+    let route = DJConnectMacAudioRouteMonitor.route(computer: "MacBook", output: "JBL", transport: transport)
+    let expectedBluetooth = transport == kAudioDeviceTransportTypeBluetooth || transport == kAudioDeviceTransportTypeBluetoothLE
+    #expect(route.bluetoothName == (expectedBluetooth ? "JBL" : nil))
+    #expect(route.localDeviceTypes == ["computer"])
+    #expect(DJConnectMacAudioRouteMonitor.route(computer: "MacBook", output: nil, transport: transport).bluetoothName == nil)
+}
+#endif

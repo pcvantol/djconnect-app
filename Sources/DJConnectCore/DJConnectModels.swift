@@ -8284,9 +8284,10 @@ public struct DJConnectOutputDevice: Codable, Equatable, Identifiable, Sendable 
         hasDisplayName ? name : DJConnectLocalization.localized(key: "ui.output.name.unavailable", language: language)
     }
 
-    public func usesLocalBluetoothRoute(localDeviceName: String, playbackDeviceID: String?, hasBluetoothRoute: Bool) -> Bool {
+    public func usesLocalBluetoothRoute(localDeviceName: String, playbackDeviceID: String?, hasBluetoothRoute: Bool,
+                                        localDeviceTypes: Set<String> = ["phone", "smartphone", "tablet"]) -> Bool {
         guard hasBluetoothRoute, active == true, id == playbackDeviceID,
-              ["phone", "smartphone", "tablet"].contains(type?.lowercased() ?? "") else { return false }
+              localDeviceTypes.contains(type?.lowercased() ?? "") else { return false }
         return name.localizedCaseInsensitiveCompare(localDeviceName) == .orderedSame
     }
 
