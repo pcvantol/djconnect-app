@@ -101,13 +101,17 @@ final class DJConnectIOSUITests: XCTestCase {
         field.tap()
         field.typeText("Electric")
         XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
         row.tap()
         let sessionSearch = app.textFields["session-search-field"]
         XCTAssertTrue(sessionSearch.waitForExistence(timeout: 5))
         XCTAssertEqual(sessionSearch.value as? String, "Electric")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "Inherited search must show results without opening the keyboard")
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Electric Feel")).firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["session-entry-demo-evening-entry-1"].firstMatch.exists)
         XCTAssertFalse(app.descendants(matching: .any)["session-entry-demo-evening-entry-2"].firstMatch.exists)
+        sessionSearch.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "Search remains editable on an explicit tap")
         // Repeat push/pop with search expanded: keep the query and overview rows.
         for _ in 0..<2 {
             app.navigationBars.buttons.element(boundBy: 0).tap()
@@ -117,6 +121,7 @@ final class DJConnectIOSUITests: XCTestCase {
             row.tap()
             XCTAssertTrue(sessionSearch.waitForExistence(timeout: 5))
             XCTAssertEqual(sessionSearch.value as? String, "Electric")
+            XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3))
             XCTAssertTrue(app.descendants(matching: .any)["session-entry-demo-evening-entry-1"].firstMatch.waitForExistence(timeout: 5))
             XCTAssertFalse(app.descendants(matching: .any)["session-entry-demo-evening-entry-2"].firstMatch.exists)
         }

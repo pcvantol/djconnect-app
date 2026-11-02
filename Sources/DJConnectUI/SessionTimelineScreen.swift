@@ -448,7 +448,7 @@ struct SessionTimelineScreen: View {
     @State private var sceneRestoreTask: Task<Void, Never>?
     @FocusState private var inputFocused: Bool
     @FocusState private var searchFocused: Bool
-    @State private var searchFocusRequest = UUID()
+    @State private var searchFocusRequest: UUID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -1481,7 +1481,8 @@ struct SessionTimelineScreen: View {
             AskDJSearchBar(language: model.language, promptKey: "ui.session.history.search",
                            fieldIdentifier: "session-search-field", countIdentifier: "session-search-count",
                            closeLabelKey: "ui.close.search",
-                           isLoading: history.searchLoading, focusRequest: searchFocusRequest, text: $query, isFocused: $searchFocused,
+                           isLoading: history.searchLoading, focusRequest: searchFocusRequest, automaticallyFocus: false,
+                           text: $query, isFocused: $searchFocused,
                            resultCount: history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? matches.count : 0,
                            selectedIndex: selectedIndex,
                            previousAction: { moveMatch(-1, proxy: proxy) },

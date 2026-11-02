@@ -11632,6 +11632,7 @@ struct AskDJSearchBar: View {
     var closeLabelKey = "ui.close.search"
     var isLoading = false
     var focusRequest: UUID? = nil
+    var automaticallyFocus = true
     @Binding var text: String
     var isFocused: FocusState<Bool>.Binding
     let resultCount: Int
@@ -11655,6 +11656,7 @@ struct AskDJSearchBar: View {
                 .submitLabel(.search)
                 .focused(isFocused)
                 .task(id: focusRequest) {
+                    guard automaticallyFocus || focusRequest != nil else { return }
                     // The lazy search row and native field must be mounted before
                     // transferring focus away from the composer. Repeat Find can
                     // request focus again without rebuilding or clearing the field.
