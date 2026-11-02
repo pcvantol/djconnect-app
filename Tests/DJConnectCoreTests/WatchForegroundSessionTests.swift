@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Testing
 @testable import DJConnectCore
 
@@ -156,42 +157,42 @@ private extension String {
 }
 
 @Test(.isolatedClientResources) @MainActor func watchSessionLostWriteOnlyReadsAndCannotReplayAcrossForegroundChanges() async throws {
-    let idle = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
+    let active = try nativeWatchSpeechFixture().2
     let state = DJConnectWatchForegroundSession()
     state.bind(owner: "watch-a", active: true)
-    await state.refresh { idle }
+    await state.refresh { active }
     var writes = 0
     var reads = 0
     await state.change(language: "nl", write: { intent in
         writes += 1
-        #expect(intent.sessionID == nil && intent.matches(idle))
+        #expect(intent.sessionID == active.session?.id && intent.matches(active))
         throw DJConnectError.network(message: "reply lost")
-    }, read: { reads += 1; return idle })
+    }, read: { reads += 1; return active })
     #expect(writes == 1 && reads == 1 && state.outcomeUnknown && !state.isChanging)
-    await state.change(language: "nl", write: { _ in writes += 1 }, read: { idle })
+    await state.change(language: "nl", write: { _ in writes += 1 }, read: { active })
     state.bind(owner: "watch-a", active: false)
     state.bind(owner: "watch-a", active: true)
-    await state.refresh { idle }
-    await state.change(language: "nl", write: { _ in writes += 1 }, read: { idle })
+    await state.refresh { active }
+    await state.change(language: "nl", write: { _ in writes += 1 }, read: { active })
     #expect(writes == 1 && state.outcomeUnknown)
     state.bind(owner: "watch-b", active: true)
     #expect(!state.outcomeUnknown && state.current() == nil)
 }
 
 @Test(.isolatedClientResources) @MainActor func watchSessionDoesNotAdmitConcurrentWritesOrPublishAnOldOwnerCompletion() async throws {
-    let idle = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
+    let active = try nativeWatchSpeechFixture().2
     let state = DJConnectWatchForegroundSession()
     state.bind(owner: "watch-a", active: true)
-    await state.refresh { idle }
+    await state.refresh { active }
     var finish: CheckedContinuation<Void, Never>?
     var writes = 0
     let action = Task { await state.change(language: "nl", write: { _ in
         writes += 1
         await withCheckedContinuation { finish = $0 }
-    }, read: { idle }) }
+    }, read: { active }) }
     while finish == nil { await Task.yield() }
-    await state.refresh(force: true) { Issue.record("A refresh must not race a write"); return idle }
-    await state.change(language: "nl", write: { _ in writes += 1 }, read: { idle })
+    await state.refresh(force: true) { Issue.record("A refresh must not race a write"); return active }
+    await state.change(language: "nl", write: { _ in writes += 1 }, read: { active })
     #expect(writes == 1 && state.isChanging)
     state.bind(owner: "watch-a", active: false)
     state.bind(owner: "watch-a", active: true)
@@ -213,15 +214,15 @@ private extension String {
 }
 
 @Test(.isolatedClientResources) @MainActor func watchSessionExplicitRecoveryOnlyAcceptsAValidatedCurrentRead() async throws {
-    let idle = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
+    let active = try nativeWatchSpeechFixture().2
     let state = DJConnectWatchForegroundSession()
     state.bind(owner: "watch", active: true)
-    await state.refresh { idle }
+    await state.refresh { active }
     var writes = 0
-    await state.change(language: "nl", write: { _ in writes += 1; throw DJConnectError.invalidResponse }, read: { idle })
+    await state.change(language: "nl", write: { _ in writes += 1; throw DJConnectError.invalidResponse }, read: { active })
     await state.useCurrent { throw DJConnectError.missingToken }
     #expect(state.outcomeUnknown)
-    await state.useCurrent { idle }
+    await state.useCurrent { active }
     #expect(!state.outcomeUnknown && state.current() != nil && writes == 1)
 }
 
@@ -272,9 +273,12 @@ private extension String {
 }
 
 @Test(.isolatedClientResources) @MainActor func watchSessionWriteUsesOneCoherentReadAndNeverRetriesAnUncertainWrite() async throws {
-    let original = try watchSettings()
-    let idle = try JSONDecoder().decode(DJConnectSessionResponse.self, from: Data("{\"success\":true,\"session\":null}".utf8))
-    let intent = DJConnectWatchSessionAction(snapshot: .init(settings: original, session: nil), language: "nl")
+    let active = try nativeWatchSpeechFixture().2
+    let original = active.settings
+    let runtime = try #require(active.session)
+    let data = try JSONSerialization.data(withJSONObject: ["success": true, "session": JSONSerialization.jsonObject(with: JSONEncoder().encode(runtime))])
+    let idle = try JSONDecoder().decode(DJConnectSessionResponse.self, from: data)
+    let intent = DJConnectWatchSessionAction(snapshot: active, language: "nl")
     var reads = 0, writes = 0
     try await intent.perform(settings: { reads += 1; return original }, session: { idle }, write: { submitted in
         writes += 1; #expect(submitted.binding == original.binding); return true
@@ -302,4 +306,129 @@ private extension String {
     #expect(pending.count == 1 && sends == 1)
     pending.receive(id: original!, data: try JSONEncoder().encode(DJConnectWatchProxyResponse(success: true, payload: Data())))
     #expect(await task.value.success && pending.count == 0 && sends == 1)
+}
+
+
+@Test(.isolatedClientResources) @MainActor func watchNeverStartsSessionFromIdleOrLegacyIntent() async throws {
+    let idle = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
+    let state = DJConnectWatchForegroundSession(); state.bind(owner: "watch", active: true)
+    await state.refresh { idle }
+    var writes = 0, reads = 0
+    await state.change(language: "nl", write: { _ in writes += 1 }, read: { reads += 1; return idle })
+    #expect(writes == 0 && reads == 0 && !state.outcomeUnknown)
+    do {
+        try await DJConnectWatchSessionAction(snapshot: idle, language: "nl").perform(
+            settings: { reads += 1; return idle.settings }, session: { reads += 1; throw DJConnectError.invalidResponse },
+            write: { _ in writes += 1; return true })
+        Issue.record("Legacy no-Session action must be rejected")
+    } catch { }
+    #expect(writes == 0 && reads == 0)
+}
+
+@Test func watchMomentAlertLocatorRejectsOtherFamiliesAndNeverCarriesAuthority() throws {
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    let payload: [AnyHashable: Any] = ["version": "djc-watch-moment/1", "event_type": "dj_moment_published",
+        "event_id": "publication-original", "open_target": "dj_moment", "session_id": "session-original",
+        "moment_id": "moment-original", "transport_expires_at_ms": 1_700_000_060_000 as Int64,
+        "aps": ["category": "DJCONNECT_MOMENT_V1"]]
+    let original = try DJConnectWatchMomentOpenIntent(notification: payload, at: now)
+    #expect(original.sessionID == "session-original" && original.momentID == "moment-original")
+    #expect(original.isPending(at: now) && !original.isPending(at: now.addingTimeInterval(61)))
+    for (key, value) in [("version", "activity/1"), ("open_target", "https://example.com"),
+                          ("event_type", "ask_dj_response"), ("moment_id", ""), ("session_id", "bad\nidentifier")] {
+        var invalid = payload; invalid[key] = value
+        #expect(throws: (any Error).self) { try DJConnectWatchMomentOpenIntent(notification: invalid, at: now) }
+    }
+    for deadline: Any in [true, 1_700_000_360_000 as Int64, 1_699_999_999_000 as Int64, 1_700_000_060_000.5] {
+        var invalid = payload; invalid["transport_expires_at_ms"] = deadline
+        #expect(throws: (any Error).self) { try DJConnectWatchMomentOpenIntent(notification: invalid, at: now) }
+    }
+    let stored = try JSONEncoder().encode(original)
+    #expect(try JSONDecoder().decode(DJConnectWatchMomentOpenIntent.self, from: stored) == original)
+    let keys = try #require(JSONSerialization.jsonObject(with: stored) as? [String: Any])
+    #expect(Set(keys.keys) == ["eventID", "sessionID", "momentID", "transportExpiresAtMS"])
+}
+
+@Test func watchVoiceCompanionFreezesExplicitOriginalContextAndOperationID() throws {
+    let original = DJConnectConversationContext(sessionID: "original-session")
+    let request = DJConnectWatchProxyVoicePayload(wavData: Data([1, 2]), language: "nl-NL",
+        conversationContext: original, clientMessageID: "one-explicit-gesture")
+    let decoded = try JSONDecoder().decode(DJConnectWatchProxyVoicePayload.self, from: JSONEncoder().encode(request))
+    #expect(decoded.conversationContext == original && decoded.clientMessageID == "one-explicit-gesture")
+    let legacy = try JSONDecoder().decode(DJConnectWatchProxyVoicePayload.self, from: Data(#"{"wavData":"AQI="}"#.utf8))
+    #expect(legacy.conversationContext == nil && legacy.clientMessageID == nil)
+}
+
+/// Optional native qualification input only. These modeled clocks are not an
+/// installation receipt, passive surface grant or evidence of provider delivery.
+@Test(.isolatedClientResources) func watchV2ExportsModeledNativeFixtureOnlyWhenRequested() throws {
+    let snapshot = try nativeWatchSpeechFixture(expiresIn: 600).2
+    #expect(snapshot.isValid)
+    let roundTrip = try JSONDecoder().decode(DJConnectWatchSessionSnapshot.self, from: JSONEncoder().encode(snapshot))
+    #expect(roundTrip.isValid)
+    guard let path = ProcessInfo.processInfo.environment["DJCONNECT_WATCH_V2_RENDER_FIXTURE"] else { return }
+    try JSONEncoder().encode(snapshot).write(to: URL(fileURLWithPath: path), options: .atomic)
+}
+
+private func watchVoiceWAV(samples: Int = 96_000) -> Data {
+    var data = Data("RIFF".utf8)
+    func little(_ value: Int, _ count: Int) { for i in 0..<count { data.append(UInt8(truncatingIfNeeded: value >> (8 * i))) } }
+    little(36 + samples * 2, 4); data.append(Data("WAVEfmt ".utf8)); little(16, 4)
+    little(1, 2); little(1, 2); little(16_000, 4); little(32_000, 4); little(2, 2); little(16, 2)
+    data.append(Data("data".utf8)); little(samples * 2, 4); data.append(Data(repeating: 0, count: samples * 2))
+    return data
+}
+@Test @MainActor func watchVoiceChunksProduceOneOriginalRequestWithoutNestedBase64Limit() throws {
+    let source = watchVoiceWAV()
+    let context = DJConnectConversationContext(sessionID: "original-session")
+    let metadata = DJConnectWatchProxyVoicePayload(wavData: Data(), language: "nl-NL", conversationContext: context, clientMessageID: "original-turn")
+    let header = try JSONEncoder().encode(metadata)
+    let assembly = DJConnectWatchVoiceAssembly(); assembly.bind(owner: "original-watch-owner")
+    let size = DJConnectWatchVoiceAssembly.chunkBytes, total = (source.count + size - 1) / size
+    var completions = 0
+    for index in 0..<total {
+        let bytes = source.subdata(in: (index * size)..<min((index + 1) * size, source.count))
+        let message: [String: Any] = ["header": header, "bytes": bytes, "index": index, "total": total, "operation_id": "original-turn"]
+        #expect(try PropertyListSerialization.data(fromPropertyList: message, format: .binary, options: 0).count < 42_000)
+        let result = try assembly.receive(id: "original-turn", header: header, index: index, total: total, bytes: bytes, uptime: 10 + Double(index) / 10)
+        if let result {
+            completions += 1
+            #expect(index == total - 1 && result.wavData == source)
+            #expect(result.conversationContext == context && result.clientMessageID == "original-turn")
+        }
+    }
+    #expect(completions == 1)
+    #expect(throws: (any Error).self) { try assembly.receive(id: "original-turn", header: header, index: 0, total: total, bytes: source.prefix(size), uptime: 12) }
+}
+@Test @MainActor func watchVoicePartialReorderedExpiredOwnerAndMalformedAudioNeverDispatch() throws {
+    let metadata = DJConnectWatchProxyVoicePayload(wavData: Data(), conversationContext: .init(sessionID: nil), clientMessageID: "original")
+    let header = try JSONEncoder().encode(metadata), bytes = Data(repeating: 0, count: 100)
+    let assembly = DJConnectWatchVoiceAssembly(); assembly.bind(owner: "A")
+    #expect(try assembly.receive(id: "original", header: header, index: 0, total: 3, bytes: bytes, uptime: 10) == nil)
+    #expect(throws: (any Error).self) { try assembly.receive(id: "original", header: header, index: 2, total: 3, bytes: bytes, uptime: 11) }
+    #expect(throws: (any Error).self) { try assembly.receive(id: "original", header: header, index: 1, total: 3, bytes: bytes, uptime: 31) }
+    assembly.bind(owner: "B")
+    #expect(throws: (any Error).self) { try assembly.receive(id: "original", header: header, index: 1, total: 3, bytes: bytes, uptime: 12) }
+    #expect(throws: (any Error).self) { try assembly.receive(id: "original", header: header, index: 0, total: 1, bytes: bytes, uptime: 12) }
+    // Failed final validation spent this original stream before any await.
+    #expect(throws: (any Error).self) { try assembly.receive(id: "original", header: header, index: 0, total: 1, bytes: watchVoiceWAV(samples: 1), uptime: 13) }
+    assembly.bind(owner: nil)
+    #expect(throws: (any Error).self) { try assembly.receive(id: "original", header: header, index: 0, total: 1, bytes: bytes, uptime: 14) }
+}
+
+@Test func watchMomentOpenConsumesExactPinnedAPIProposalWithoutClaimingLiveAuthority() throws {
+    let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/watch-moment-alert-proposal-api-e245258.json")
+    let bytes = try Data(contentsOf: path)
+    #expect(SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() == "236f9a840015463e8d2f6962c7f759bb6bc24999c373ec697a076b9632da982c")
+    let proposal = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+    #expect(proposal["status"] as? String == "PROPOSED_NOT_ADOPTED_BY_CORE_OR_APPLE")
+    let fixture = try #require(proposal["shared_synthetic_fixture"] as? [String: Any])
+    let apns = try #require(fixture["expected_apns"] as? [String: Any])
+    let body = try #require(apns["body"] as? [String: Any])
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    let locator = try DJConnectWatchMomentOpenIntent(notification: body, at: now)
+    #expect(locator.sessionID == "example-session" && locator.momentID == "example-moment")
+    #expect(!locator.isPending(at: now.addingTimeInterval(61)))
+    #expect(throws: (any Error).self) { try DJConnectWatchMomentOpenIntent(notification: body, at: now.addingTimeInterval(61)) }
 }

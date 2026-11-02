@@ -1635,3 +1635,33 @@
 "ui.vibescape.world.radio" = "Kinetisch atelier";
 "ui.vibescape.world.club" = "Lichtarchitectuur";
 "ui.vibescape.world.festival" = "Kosmische bloei";
+
+// Watch companion V2
+"watch.v2.moments" = "Moments";
+"watch.v2.more" = "Meer";
+"watch.v2.ask.prompt" = "Vraag je DJ over muziek, artiesten en meer.";
+"watch.v2.text" = "Typ een vraag";
+"watch.v2.sound" = "Geluid";
+"watch.v2.music" = "Muziek";
+"watch.v2.voice" = "Stem en antwoorden";
+"watch.v2.notifications" = "Meldingen";
+"watch.v2.ask_about" = "Vraag hierover";
+"watch.v2.listen" = "Luister";
+"watch.v2.no_moments" = "Geen recente bijdragen.";
+"watch.v2.speak" = "Spreek je DJ aan";
+"watch.v2.send" = "Verstuur";
+"watch.v2.stop_send" = "Stop en verstuur";
+
+"watch.v2.transfer.confirm" = "Muziek verplaatsen naar deze speaker?";
+
+"watch.v2.notification.confirmed" = "Voorkeur bevestigd door de server";
+"watch.v2.notification.pending" = "Voorkeur nog niet bevestigd door de server";
+"watch.v2.notification.permission" = "Sta meldingen toe";
+
+"watch.v2.widget.ask_dj" = "Ask DJ";
+
+"watch.v2.moments.new" = "Nieuwste bijdragen";
+
+"watch.v2.question.new" = "Nieuwe vraag";
+
+"watch.v2.track.question" = "Vertel me over %@ van %@.";

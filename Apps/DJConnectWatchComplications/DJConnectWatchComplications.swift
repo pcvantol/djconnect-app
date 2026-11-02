@@ -29,7 +29,7 @@ private struct SessionComplicationView: View {
     @Environment(\.widgetFamily) private var family
     private var title: String {
         DJConnectLocalization.localized(key: entry.snapshot?.isCurrent(at: entry.date) == true
-                                        ? "surface.session.active" : "widget.open.djconnect")
+                                        ? "surface.session.active" : "watch.v2.widget.ask_dj")
     }
     private var accent: Color {
         let theme = entry.snapshot?.renderingTheme(at: entry.date) ?? .brand
@@ -40,17 +40,17 @@ private struct SessionComplicationView: View {
     var body: some View {
         Group {
             if family == .accessoryRectangular {
-                Label(title, systemImage: "opticaldisc").font(.headline).lineLimit(2)
+                Label(title, systemImage: entry.snapshot == nil ? "bubble.left" : "opticaldisc").font(.headline).lineLimit(2)
             } else if family == .accessoryInline {
-                Label(title, systemImage: "opticaldisc")
+                Label(title, systemImage: entry.snapshot == nil ? "bubble.left" : "opticaldisc")
             } else {
-                Image(systemName: "opticaldisc").accessibilityLabel(title)
+                Image(systemName: entry.snapshot == nil ? "bubble.left" : "opticaldisc").accessibilityLabel(title)
             }
         }
         .tint(accent)
         .containerBackground(.fill.tertiary, for: .widget)
         // Neutral launch, no fabricated native Watch Session route or mutation.
-        .widgetURL(URL(string: "djconnect://"))
+        .widgetURL(URL(string: "djconnect://watch/ask-dj"))
     }
 }
 @MainActor

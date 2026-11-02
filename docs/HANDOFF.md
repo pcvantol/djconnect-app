@@ -1,3 +1,11 @@
+## 2026-11-03 — Watch companion V2 / Apple297
+
+Active source candidate on `codex/watch-companion-v2-20261102`, base a57e016.
+Existing Watch identity/companion project preserved. Source implementation and
+native layout evidence are in progress; Core/API producer, speech/detail/Mood
+scope and physical acceptance remain open. Do not close297 or install as a
+completed V2 release. See [current Watch handoff](feedback/APPLE_WATCH_V2_20261103.md).
+
 ## 2026-10-21 — Native display-consent qualification / PR167
 
 ## 2026-10-21 — Apple client consolidation / PR169

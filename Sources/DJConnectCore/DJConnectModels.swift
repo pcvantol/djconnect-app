@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 public enum DJConnectApplicationVersion {
     /// Public cross-platform identity for the native numeric 4.0.0 / 40001 package.
@@ -106,13 +107,17 @@ public struct DJConnectWatchProxyVoicePayload: Codable, Sendable {
     public var djStyle: String?
     public var musicDNAKey: String?
     public var language: String?
+    public var conversationContext: DJConnectConversationContext?
+    public var clientMessageID: String?
 
-    public init(wavData: Data, mood: Int? = nil, djStyle: String? = nil, musicDNAKey: String? = nil, language: String? = nil) {
+    public init(wavData: Data, mood: Int? = nil, djStyle: String? = nil, musicDNAKey: String? = nil, language: String? = nil, conversationContext: DJConnectConversationContext? = nil, clientMessageID: String? = nil) {
         self.wavData = wavData
         self.mood = mood
         self.djStyle = djStyle
         self.musicDNAKey = musicDNAKey
         self.language = language
+        self.conversationContext = conversationContext
+        self.clientMessageID = clientMessageID
     }
 }
 
@@ -9343,3 +9348,35 @@ private extension KeyedDecodingContainer {
 }
 
 private struct DiscardedDecodable: Decodable {}
+
+/// A notification tap locator, never a grant, executable action or Moment body.
+/// Decoder matches API PR194's djc-watch-moment/1 proposal. Its adoption does not
+/// imply a deployed producer or authorize a generic detail endpoint.
+public struct DJConnectWatchMomentOpenIntent: Codable, Equatable, Sendable {
+    public let eventID: String
+    public let sessionID: String
+    public let momentID: String
+    public let transportExpiresAtMS: Int64
+    public init(notification: [AnyHashable: Any], at now: Date = Date()) throws {
+        guard notification["version"] as? String == "djc-watch-moment/1",
+              notification["event_type"] as? String == "dj_moment_published",
+              notification["open_target"] as? String == "dj_moment",
+              let aps = notification["aps"] as? [String: Any],
+              aps["category"] as? String == "DJCONNECT_MOMENT_V1",
+              let event = notification["event_id"] as? String,
+              let session = notification["session_id"] as? String,
+              let moment = notification["moment_id"] as? String,
+              let deadline = notification["transport_expires_at_ms"] as? NSNumber,
+              CFGetTypeID(deadline) != CFBooleanGetTypeID() else { throw DJConnectError.invalidResponse }
+        let raw = deadline.doubleValue
+        guard raw.isFinite, raw.rounded() == raw, raw > now.timeIntervalSince1970 * 1000,
+              raw <= now.timeIntervalSince1970 * 1000 + 300_000,
+              [event, session, moment].allSatisfy({ !$0.isEmpty && $0.utf8.count <= 256 && !$0.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) })
+        else { throw DJConnectError.invalidResponse }
+        eventID = event; sessionID = session; momentID = moment; transportExpiresAtMS = deadline.int64Value
+    }
+    public func isPending(at date: Date = Date()) -> Bool {
+        let remaining = Double(transportExpiresAtMS) - date.timeIntervalSince1970 * 1000
+        return remaining > 0 && remaining <= 300_000
+    }
+}
