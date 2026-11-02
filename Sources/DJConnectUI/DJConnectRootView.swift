@@ -6712,7 +6712,6 @@ private struct MusicDiscoveryCardDetails: View, Equatable {
                     .foregroundStyle(.white.opacity(0.58))
                     .lineLimit(2)
             }
-            MusicDiscoveryFitLabel(item: item)
             Text(item.kind.rawValue.capitalized)
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white)
@@ -6889,30 +6888,6 @@ enum MusicDiscoveryQualityPresentation {
     }
 }
 
-private struct MusicDiscoveryFitLabel: View {
-    let item: DJConnectMusicDiscoveryItem
-
-    var body: some View {
-        if let text = fitText {
-            Text(text)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.54))
-                .lineLimit(1)
-        }
-    }
-
-    private var fitText: String? {
-        if let band = item.qualityBand?.trimmingCharacters(in: .whitespacesAndNewlines), !band.isEmpty {
-            return band.replacingOccurrences(of: "_", with: " ")
-        }
-        if let confidence = item.confidence {
-            return confidence.rawValue
-        }
-        if let score = MusicDiscoveryQualityPresentation.scoreLabel(item.qualityScore) { return score }
-        return nil
-    }
-}
-
 private struct MusicDiscoveryQualityView: View {
     let item: DJConnectMusicDiscoveryItem
 
@@ -6937,13 +6912,7 @@ private struct MusicDiscoveryQualityView: View {
 
     private var qualityChips: [String] {
         var chips: [String] = []
-        if let confidence = item.confidence {
-            chips.append(confidence.rawValue.replacingOccurrences(of: "_", with: " "))
-        }
         if let score = MusicDiscoveryQualityPresentation.scoreLabel(item.qualityScore) { chips.append(score) }
-        if let band = item.qualityBand?.trimmingCharacters(in: .whitespacesAndNewlines), !band.isEmpty {
-            chips.append(band.replacingOccurrences(of: "_", with: " "))
-        }
         chips.append(contentsOf: item.qualityFactors.map { $0.replacingOccurrences(of: "_", with: " ") })
         return chips
     }
