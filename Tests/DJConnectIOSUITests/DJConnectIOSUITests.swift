@@ -633,6 +633,11 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed)
         let last = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         last.name = "game-selector-last-rounded-inset"; last.lifetime = .keepAlways; add(last)
+        for title in ["Meteor Run", "Sky Dash"] {
+            app.buttons[title].firstMatch.tap()
+            let image = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            image.name = "game-mood-" + title; image.lifetime = .keepAlways; add(image)
+        }
     }
 
     func testGamesSurfaceRespondsToHardwareKeyboardArrowKeys() {

@@ -15007,6 +15007,8 @@ struct DJConnectRetroDPad: View {
     let language: String
     var enabledDirections = Set(Direction.allCases)
     var fire: (() -> Void)? = nil
+    var accentColor: Color = djConnectAccent
+    var accentForeground: Color = .white
     let select: (Direction) -> Void
 
     var body: some View {
@@ -15043,9 +15045,9 @@ struct DJConnectRetroDPad: View {
             Button { fire?() } label: {
                 Image(systemName: "sparkle")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white.opacity(fire == nil ? 0.22 : 0.95))
+                    .foregroundStyle(fire == nil ? .white.opacity(0.22) : accentForeground.opacity(0.95))
                     .frame(width: 36, height: 36)
-                    .background(fire == nil ? Color(white: 0.24) : djConnectAccent.opacity(0.85), in: Circle())
+                    .background(fire == nil ? Color(white: 0.24) : accentColor.opacity(0.85), in: Circle())
                     .overlay(Circle().stroke(.white.opacity(0.14), lineWidth: 1))
                     .frame(width: 48, height: 48)
             }
@@ -15128,18 +15130,18 @@ enum LocalGameMode: String, CaseIterable, Identifiable {
         }
     }
 
-    var tint: Color {
+    var mood: DJConnectSessionMoodTheme {
         switch self {
-        case .pong:
-            .orange
-        case .asteroids:
-            djConnectAccent.opacity(0.92)
-        case .fly:
-            .cyan
-        case .pacman:
-            .yellow
+        case .pong: .chill
+        case .asteroids: .groove
+        case .fly: .energy
+        case .pacman: .party
         }
     }
+    var palette: [Color] { DJConnectSessionMoodPalette(mood: mood.rawValue).colors }
+    var tint: Color { palette[0] }
+    var secondaryTint: Color { palette[1] }
+    var highlightTint: Color { palette[2] }
 
     var highScoreKey: String {
         "djconnect.app.game.\(rawValue).high"
@@ -15285,6 +15287,7 @@ private struct GamesView: View {
                     .frame(maxWidth: contentMaxWidth)
                     .frame(maxWidth: .infinity)
                 }
+                .background(DJSessionPinnedMoodBackground(mood: selectedGame.mood.rawValue))
                 .background(DJConnectCanvasBackground())
             }
             .navigationTitle(localizedKey(language, "ui.games"))
@@ -15324,14 +15327,14 @@ private struct GameModePicker: View {
                         .frame(height: 44)
 
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: selection == game ? .selected : .tertiary, shape: .segmented, expands: true, usesLiveGlass: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: selection == game ? .selected : .tertiary, shape: .segmented, expands: true, usesLiveGlass: true, selectionTint: game.tint))
                 .contentShape(DJConnectCardAppearance.segmentedItemShape)
                 .accessibilityAddTraits(selection == game ? [.isSelected] : [])
             }
         }
         .padding(DJConnectCardAppearance.segmentedContentInset)
         .frame(minHeight: 60)
-        .djSessionFrostedSurface()
+        .djSessionFrostedSurface(mood: selection.mood.rawValue)
     }
 }
 
@@ -15510,7 +15513,7 @@ private struct LocalGameSurface: View {
                 .accessibilityValue(gameAccessibilityValue)
         }
         .padding(18)
-        .djSessionFrostedSurface()
+        .djSessionFrostedSurface(mood: game.mood.rawValue)
         .focusable(true)
         .focusEffectDisabled()
         .focused($isGameFocused)
@@ -15565,10 +15568,10 @@ private struct LocalGameSurface: View {
                 } label: {
                     Label(localizedKey(language, "ui.tap.to.play"), systemImage: "play.fill")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(game.mood == .energy ? .black : .white)
                         .frame(minWidth: 180)
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, foregroundColor: game.mood == .energy ? .black : .white, primaryFill: game.tint))
                 .controlSize(.large)
             }
         }
@@ -15605,7 +15608,7 @@ private struct LocalGameSurface: View {
                           fire: game.supportsFire ? {
             DJConnectGameHaptics.impact()
             fire()
-        } : nil) { direction in
+        } : nil, accentColor: game.tint, accentForeground: game.mood == .energy ? .black : .white) { direction in
             guard game.enabledDirections.contains(direction) else { return }
             DJConnectGameHaptics.impact()
             _ = handleArrowKey(direction)
@@ -15665,11 +15668,11 @@ private struct LocalGameSurface: View {
             centerLine.move(to: point(160, 22))
             centerLine.addLine(to: point(160, 148))
             context.stroke(centerLine, with: .color(.white.opacity(0.22)), style: StrokeStyle(lineWidth: 1.5, dash: [5, 7]))
-            context.fill(Path(roundedRect: rect(18, paddleY - 17, 8, 34), cornerRadius: 3), with: .color(.orange))
+            context.fill(Path(roundedRect: rect(18, paddleY - 17, 8, 34), cornerRadius: 3), with: .color(game.highlightTint))
             drawPaddleHit(in: &context, rect: rect)
             if isPlaying {
                 drawBallWallBounce(in: &context, rect: rect)
-                context.fill(Path(ellipseIn: rect(ballX - 4, ballY - 4, 8, 8)), with: .color(.green))
+                context.fill(Path(ellipseIn: rect(ballX - 4, ballY - 4, 8, 8)), with: .color(game.secondaryTint))
             }
         case .asteroids:
             drawMeteorRunBackground(in: &context, scaleX: scaleX, scaleY: scaleY)
@@ -15678,11 +15681,11 @@ private struct LocalGameSurface: View {
             ship.addLine(to: point(shipX - 9, logicalCanvasSize.height - 24))
             ship.addLine(to: point(shipX + 9, logicalCanvasSize.height - 24))
             ship.closeSubpath()
-            context.fill(ship, with: .color(djConnectAccent))
+            context.fill(ship, with: .color(game.secondaryTint))
             drawMeteor(in: &context, rect: rect, point: point)
             drawMeteorExplosion(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
             if asteroidBulletActive {
-                context.fill(Path(roundedRect: rect(shipX - 2, asteroidBulletY, 4, 10), cornerRadius: 2), with: .color(.cyan))
+                context.fill(Path(roundedRect: rect(shipX - 2, asteroidBulletY, 4, 10), cornerRadius: 2), with: .color(game.tint))
             }
         case .fly:
             drawSpaceFlightBackground(in: &context, scaleX: scaleX, scaleY: scaleY)
@@ -15691,12 +15694,12 @@ private struct LocalGameSurface: View {
             plane.addLine(to: point(30, planeY - 12))
             plane.addLine(to: point(30, planeY + 12))
             plane.closeSubpath()
-            context.fill(plane, with: .color(.cyan))
+            context.fill(plane, with: .color(game.tint))
             drawSkyDashObstacle(in: &context, rect: rect, point: point)
             drawSkyDashCrash(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
             drawSkyDashObstacleExplosion(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
             if flyShotActive {
-                context.fill(Path(roundedRect: rect(flyShotX, planeY - 2, 14, 4), cornerRadius: 2), with: .color(.cyan))
+                context.fill(Path(roundedRect: rect(flyShotX, planeY - 2, 14, 4), cornerRadius: 2), with: .color(game.tint))
             }
         case .pacman:
             for pellet in pellets {
@@ -15721,8 +15724,8 @@ private struct LocalGameSurface: View {
         }
         let progress = CGFloat(10 - paddleHitTicks) / 10
         let opacity = Double(max(0, 1 - progress))
-        context.fill(Path(roundedRect: rect(28, paddleY - 22, 4 + progress * 22, 44), cornerRadius: 4), with: .color(.yellow.opacity(opacity * 0.55)))
-        context.stroke(Path(ellipseIn: rect(22, paddleY - 17 - progress * 8, 20 + progress * 22, 34 + progress * 16)), with: .color(.green.opacity(opacity)), lineWidth: 2)
+        context.fill(Path(roundedRect: rect(28, paddleY - 22, 4 + progress * 22, 44), cornerRadius: 4), with: .color(game.tint.opacity(opacity * 0.55)))
+        context.stroke(Path(ellipseIn: rect(22, paddleY - 17 - progress * 8, 20 + progress * 22, 34 + progress * 16)), with: .color(game.secondaryTint.opacity(opacity)), lineWidth: 2)
     }
 
     private func drawBallWallBounce(in context: inout GraphicsContext, rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect) {
@@ -15734,7 +15737,7 @@ private struct LocalGameSurface: View {
         let size = 10 + progress * 12
         context.stroke(
             Path(ellipseIn: rect(ballX - size / 2, ballY - size / 2, size, size)),
-            with: .color(.green.opacity(opacity * 0.55)),
+            with: .color(game.secondaryTint.opacity(opacity * 0.55)),
             lineWidth: 1.5
         )
     }
@@ -15766,7 +15769,7 @@ private struct LocalGameSurface: View {
         let half = asteroidSize / 2
         switch asteroidKind {
         case 0:
-            context.stroke(Path(ellipseIn: rect(asteroidX - half, asteroidY - half, asteroidSize, asteroidSize)), with: .color(.pink), lineWidth: 2)
+            context.stroke(Path(ellipseIn: rect(asteroidX - half, asteroidY - half, asteroidSize, asteroidSize)), with: .color(game.highlightTint), lineWidth: 2)
         case 1:
             var rock = Path()
             rock.move(to: point(asteroidX - half * 0.7, asteroidY - half))
@@ -15775,7 +15778,7 @@ private struct LocalGameSurface: View {
             rock.addLine(to: point(asteroidX + half * 0.2, asteroidY + half))
             rock.addLine(to: point(asteroidX - half, asteroidY + half * 0.45))
             rock.closeSubpath()
-            context.stroke(rock, with: .color(.orange), lineWidth: 2)
+            context.stroke(rock, with: .color(game.highlightTint), lineWidth: 2)
         case 2:
             var diamond = Path()
             diamond.move(to: point(asteroidX, asteroidY - half))
@@ -15783,9 +15786,9 @@ private struct LocalGameSurface: View {
             diamond.addLine(to: point(asteroidX, asteroidY + half))
             diamond.addLine(to: point(asteroidX - half, asteroidY))
             diamond.closeSubpath()
-            context.stroke(diamond, with: .color(.purple), lineWidth: 2)
+            context.stroke(diamond, with: .color(game.secondaryTint), lineWidth: 2)
         default:
-            context.stroke(Path(roundedRect: rect(asteroidX - half, asteroidY - half * 0.75, asteroidSize, asteroidSize * 1.5), cornerRadius: 4), with: .color(.mint), lineWidth: 2)
+            context.stroke(Path(roundedRect: rect(asteroidX - half, asteroidY - half * 0.75, asteroidSize, asteroidSize * 1.5), cornerRadius: 4), with: .color(game.highlightTint), lineWidth: 2)
         }
     }
 
@@ -15804,7 +15807,7 @@ private struct LocalGameSurface: View {
         let radius = 8 + progress * 18
         context.stroke(
             Path(ellipseIn: rect(asteroidExplosionX - radius / 2, asteroidExplosionY - radius / 2, radius, radius)),
-            with: .color(.orange.opacity(opacity)),
+            with: .color(game.highlightTint.opacity(opacity)),
             lineWidth: 2
         )
 
@@ -15814,7 +15817,7 @@ private struct LocalGameSurface: View {
             let sparkCenter = point(asteroidExplosionX + spark.0 * distance, asteroidExplosionY + spark.1 * distance)
             context.fill(
                 Path(ellipseIn: CGRect(x: sparkCenter.x - 2 * scaleX, y: sparkCenter.y - 2 * scaleY, width: 4 * scaleX, height: 4 * scaleY)),
-                with: .color(.yellow.opacity(opacity))
+                with: .color(game.tint.opacity(opacity))
             )
         }
     }
@@ -15875,15 +15878,15 @@ private struct LocalGameSurface: View {
     private var skyDashObstacleColor: Color {
         switch obstacleKind {
         case 0:
-            .orange
+            game.highlightTint
         case 1:
-            .pink
+            game.highlightTint
         case 2:
-            .mint
+            game.highlightTint
         case 3:
-            .purple
+            game.secondaryTint
         default:
-            .yellow
+            game.tint
         }
     }
 
@@ -15906,7 +15909,7 @@ private struct LocalGameSurface: View {
             remainingTicks: skyCrashTicks,
             totalTicks: 26,
             primaryColor: .red,
-            secondaryColor: .orange,
+            secondaryColor: game.highlightTint,
             scaleX: scaleX,
             scaleY: scaleY
         )
@@ -15956,8 +15959,8 @@ private struct LocalGameSurface: View {
             centerY: pacmanDeathY,
             remainingTicks: pacmanDeathTicks,
             totalTicks: 34,
-            primaryColor: .yellow,
-            secondaryColor: .pink,
+            primaryColor: game.tint,
+            secondaryColor: game.highlightTint,
             scaleX: scaleX,
             scaleY: scaleY
         )
@@ -15999,15 +16002,15 @@ private struct LocalGameSurface: View {
     private func skyDashColor(for kind: Int) -> Color {
         switch kind {
         case 0:
-            .orange
+            game.highlightTint
         case 1:
-            .pink
+            game.highlightTint
         case 2:
-            .mint
+            game.highlightTint
         case 3:
-            .purple
+            game.secondaryTint
         default:
-            .yellow
+            game.tint
         }
     }
 
@@ -16032,7 +16035,7 @@ private struct LocalGameSurface: View {
         )
         body.closeSubpath()
         let transform = CGAffineTransform(a: scaleX, b: 0, c: 0, d: scaleY, tx: center.x, ty: center.y)
-        context.fill(body.applying(transform), with: .color(.yellow))
+        context.fill(body.applying(transform), with: .color(game.tint))
     }
 
     private func drawPacmanEye(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) {
@@ -16075,7 +16078,7 @@ private struct LocalGameSurface: View {
         let bodyColor: Color = if isVulnerable {
             isBlinking ? .white.opacity(0.94) : .blue.opacity(0.95)
         } else {
-            .pink
+            game.highlightTint
         }
         context.fill(ghost, with: .color(bodyColor))
 
@@ -16089,7 +16092,7 @@ private struct LocalGameSurface: View {
             )
             context.fill(
                 Path(ellipseIn: CGRect(x: eyeCenter.x - pupilSize / 2, y: eyeCenter.y - pupilSize / 2, width: pupilSize, height: pupilSize)),
-                with: .color(djConnectAccent)
+                with: .color(game.secondaryTint)
             )
         }
     }
