@@ -15645,7 +15645,7 @@ private struct LocalGameSurface: View {
             ship.addLine(to: point(shipX - 9, 146))
             ship.addLine(to: point(shipX + 9, 146))
             ship.closeSubpath()
-            context.stroke(ship, with: .color(djConnectAccent), lineWidth: 2)
+            context.fill(ship, with: .color(djConnectAccent))
             drawMeteor(in: &context, rect: rect, point: point)
             drawMeteorExplosion(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
             if asteroidBulletActive {
