@@ -139,7 +139,7 @@ struct SavedSessionsView: View {
         else { content }
     }
     private var showsListHeader: Bool {
-        if history.hasUnconfirmedDeletion { return true }
+        if history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback { return true }
         #if os(macOS)
         return !initialLoadFinished || history.listLoading || history.preparing
         #else
@@ -152,7 +152,7 @@ struct SavedSessionsView: View {
             savedSessionsContainer {
                 if showsListHeader {
                 VStack(alignment: .leading, spacing: 16) {
-                    if history.showsUnconfirmedDeletionNotice {
+                    if history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback {
                         ContentDeletionPendingNotice(model: model)
                     }
                     #if !os(iOS)
@@ -609,7 +609,7 @@ struct SessionTimelineScreen: View {
                                 // The mode picker is the initial top target;
                                 // artwork follows with ordinary content spacing.
                                 if !filtersTimeline { scrollingCurrent(activeSession).id("current") }
-                                if history.showsUnconfirmedDeletionNotice {
+                                if history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback {
                                     ContentDeletionPendingNotice(model: model)
                                         .padding(.horizontal, 20).padding(.vertical, 10)
                                 }
@@ -708,7 +708,7 @@ struct SessionTimelineScreen: View {
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
-                            if activeSession == nil && history.showsUnconfirmedDeletionNotice {
+                            if activeSession == nil && history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback {
                                 ContentDeletionPendingNotice(model: model)
                                     .padding(.horizontal, 20).padding(.vertical, 10)
                             }
@@ -3052,12 +3052,12 @@ private struct SessionArchiveDeletionConfirmation: ViewModifier {
                                                                   expectedEpoch: request.epoch)
                         guard generation == presentationGeneration else { return }
                         if deleted { if dismissOnSuccess { dismiss() } }
-                        else if request.epoch == history.responseEpoch { failed = true }
+                        else if request.epoch == history.responseEpoch && !history.hasUnconfirmedDeletion { failed = true }
                     }
                 }
                 .accessibilityIdentifier("session-delete-confirm")
             } message: { _ in Text(text("ui.session.history.delete.message")) }
-            .alert(text(history.hasUnconfirmedDeletion ? "ui.session.history.delete.unconfirmed" : "ui.session.history.delete.failed"), isPresented: $failed) {
+            .alert(text("ui.session.history.delete.failed"), isPresented: $failed) {
                 Button(text("ui.close"), role: .cancel) {}
             }
             .tint(.white)
@@ -3128,7 +3128,8 @@ private struct SavedSessionsDeleteAllButton: View {
             }
             .accessibilityIdentifier("saved-sessions-delete-all-confirm")
         } message: { Text(String(format: text("message"), Int64(targetCount))) }
-        .alert(hasUnconfirmedDeletion ? DJConnectLocalization.localized(key: "ui.session.history.delete.unconfirmed", language: language) : text("failed"), isPresented: $failed) {
+        .alert(text("failed"), isPresented: Binding(
+            get: { failed && !hasUnconfirmedDeletion }, set: { failed = $0 })) {
             Button(DJConnectLocalization.localized(key: "ui.close", language: language), role: .cancel) {}
         }
         .tint(.white)

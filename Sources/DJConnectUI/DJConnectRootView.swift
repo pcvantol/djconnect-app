@@ -11114,7 +11114,7 @@ private struct AskDJView: View {
 
     private var content: some View {
             VStack(spacing: 0) {
-                if history.showsUnconfirmedDeletionNotice {
+                if history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback {
                     ContentDeletionPendingNotice(model: model).padding(.horizontal, 20).padding(.vertical, 10)
                 }
                 GeometryReader { geometry in
