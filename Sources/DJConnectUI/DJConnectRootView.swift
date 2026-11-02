@@ -15397,6 +15397,7 @@ private struct LocalGameSurface: View {
     @State private var meteorStarTime: TimeInterval = 0
     @State private var asteroidBulletY: CGFloat = 120
     @State private var asteroidBulletActive = false
+    @State private var cannonRecoilTicks = 0
     @State private var asteroidExplosionX: CGFloat = 80
     @State private var asteroidExplosionY: CGFloat = 48
     @State private var asteroidExplosionTicks = 0
@@ -15709,12 +15710,7 @@ private struct LocalGameSurface: View {
             }
         case .asteroids:
             drawMeteorRunBackground(in: context, scaleX: scaleX, scaleY: scaleY)
-            var ship = Path()
-            ship.move(to: point(shipX, logicalCanvasSize.height - 42))
-            ship.addLine(to: point(shipX - 9, logicalCanvasSize.height - 24))
-            ship.addLine(to: point(shipX + 9, logicalCanvasSize.height - 24))
-            ship.closeSubpath()
-            context.fill(ship, with: .color(game.secondaryTint))
+            drawMeteorWarship(in: &context, rect: rect, point: point, scale: scaleX)
             drawMeteor(in: &context, rect: rect, point: point)
             drawMeteorExplosion(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
             if asteroidBulletActive {
@@ -15743,6 +15739,55 @@ private struct LocalGameSurface: View {
             drawPacmanEye(in: &context, at: point(pacmanX, pacmanY), scaleX: scaleX, scaleY: scaleY)
             drawGhost(in: &context, at: point(ghostX, ghostY), scaleX: scaleX, scaleY: scaleY, isVulnerable: isGhostVulnerable, isBlinking: isGhostBlinking)
             drawPacmanDeath(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
+        }
+    }
+
+    private func drawMeteorWarship(
+        in context: inout GraphicsContext,
+        rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect,
+        point: (CGFloat, CGFloat) -> CGPoint,
+        scale: CGFloat
+    ) {
+        let deckY = logicalCanvasSize.height - 26
+        func polygon(_ vertices: [(CGFloat, CGFloat)]) -> Path {
+            var path = Path()
+            for (index, vertex) in vertices.enumerated() {
+                let position = point(shipX + vertex.0, deckY + vertex.1)
+                if index == 0 { path.move(to: position) } else { path.addLine(to: position) }
+            }
+            path.closeSubpath()
+            return path
+        }
+        // A pointed bow, broad armoured deck and squared stern, viewed from above.
+        let hull = polygon([(0, -20), (7, -12), (11, 2), (9, 21), (-9, 21), (-11, 2), (-7, -12)])
+        context.fill(hull, with: .color(game.secondaryTint.opacity(0.8)))
+        context.stroke(hull, with: .color(game.highlightTint), lineWidth: max(1, scale * 0.7))
+        let deck = polygon([(0, -15), (5, -9), (7, 3), (6, 17), (-6, 17), (-7, 3), (-5, -9)])
+        context.fill(deck, with: .color(game.tint.opacity(0.65)))
+
+        // Bridge, windows, radar mast and stern machinery distinguish the vessel.
+        context.fill(Path(roundedRect: rect(shipX - 5, deckY + 4, 10, 8), cornerRadius: scale),
+                     with: .color(game.secondaryTint))
+        context.fill(Path(rect(shipX - 3.5, deckY + 5, 7, 2)), with: .color(.black.opacity(0.65)))
+        context.fill(Path(rect(shipX - 1, deckY + 10, 2, 7)), with: .color(game.highlightTint))
+        context.fill(Path(rect(shipX - 4, deckY + 13, 8, 1)), with: .color(game.highlightTint))
+        for side: CGFloat in [-1, 1] {
+            context.fill(Path(rect(shipX + side * 4 - 1, deckY + 17, 2, 3)),
+                         with: .color(.black.opacity(0.4)))
+        }
+
+        let recoil = reduceMotion ? 0 : CGFloat(cannonRecoilTicks) / 6 * 3
+        context.fill(Path(ellipseIn: rect(shipX - 5, deckY - 8, 10, 10)),
+                     with: .color(game.highlightTint.opacity(0.65)))
+        context.fill(Path(roundedRect: rect(shipX - 3.5, deckY - 8, 7, 9), cornerRadius: 2 * scale),
+                     with: .color(game.secondaryTint))
+        context.fill(Path(roundedRect: rect(shipX - 1.5, deckY - 24 + recoil, 3, 18), cornerRadius: scale * 0.5),
+                     with: .color(game.highlightTint))
+        context.fill(Path(rect(shipX - 2.5, deckY - 24 + recoil, 5, 3)),
+                     with: .color(game.secondaryTint))
+        if cannonRecoilTicks >= 5 && !reduceMotion {
+            let flash = polygon([(0, -31), (2, -27), (5, -26), (2, -24), (0, -22), (-2, -24), (-5, -26), (-2, -27)])
+            context.fill(flash, with: .color(.white.opacity(0.9)))
         }
     }
 
@@ -16228,6 +16273,7 @@ private struct LocalGameSurface: View {
             if !asteroidBulletActive {
                 DJConnectGameSounds.play(.fire)
                 asteroidBulletActive = true
+                cannonRecoilTicks = 6
                 asteroidBulletY = logicalCanvasSize.height - 50
             }
         case .fly:
@@ -16307,6 +16353,7 @@ private struct LocalGameSurface: View {
     }
 
     private func updateAsteroids() {
+        if cannonRecoilTicks > 0 { cannonRecoilTicks -= 1 }
         if asteroidExplosionTicks > 0 { asteroidExplosionTicks -= 1 }
         asteroidY += asteroidSpeed + CGFloat(min(score / 8, 3)) * 0.18
         updateAsteroidBullet()
@@ -16462,6 +16509,7 @@ private struct LocalGameSurface: View {
         paddleMissTicks = 0
         shipX = 160
         asteroidBulletActive = false
+        cannonRecoilTicks = 0
         asteroidExplosionTicks = 0
         meteorStarTime = 0
         planeY = 86
