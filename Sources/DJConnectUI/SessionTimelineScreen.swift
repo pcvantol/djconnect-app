@@ -173,7 +173,7 @@ struct SavedSessionsView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 }
-                    if let error = (searchQuery.isEmpty ? nil : history.archiveSearchErrorKey) ?? history.listErrorKey, !history.sessions.isEmpty {
+                    if let error = (searchQuery.isEmpty ? nil : history.archiveSearchErrorKey) ?? history.listErrorKey {
                         HStack(spacing: 12) {
                             Text(text(error)).font(.callout).foregroundStyle(.secondary)
                             Spacer()
@@ -248,19 +248,10 @@ struct SavedSessionsView: View {
             }
             .overlay {
                 if let emptyTitle {
-                    VStack(spacing: 18) {
-                        DJConnectEmptyState(title: emptyTitle, systemImage: "clock.arrow.circlepath")
-                            .allowsHitTesting(false)
-                        if (history.listErrorKey != nil || history.archiveSearchErrorKey != nil) && model.pairingStatus == .paired && !model.isDemoMode {
-                            Button(text("ui.retry")) { Task { await refresh() } }
-                                .djConnectButtonStyle(DJConnectButtonStyle())
-                                .disabled(refreshing)
-                        }
-                    }
-                    .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("saved-sessions-empty-state")
-                    .allowsHitTesting(history.listErrorKey != nil || history.archiveSearchErrorKey != nil)
+                    DJConnectEmptyState(title: emptyTitle, systemImage: "clock.arrow.circlepath")
+                        .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .accessibilityIdentifier("saved-sessions-empty-state")
+                        .allowsHitTesting(false)
                 }
             }
             .navigationDestination(item: openedSession) { destination in
@@ -370,15 +361,15 @@ struct SavedSessionsView: View {
 
     private var emptyTitle: String? {
         if initialLoadFinished, !searchQuery.isEmpty, filteredSessions.isEmpty {
-            if let error = history.archiveSearchErrorKey { return text(error) }
+            guard history.archiveSearchErrorKey == nil, history.listErrorKey == nil else { return nil }
             guard history.archiveSearchQuery == searchQuery, history.archiveSearchComplete,
                   !history.archiveSearchLoading else { return nil }
             return text("ui.no.search.results")
         }
         guard initialLoadFinished, history.sessions.isEmpty, !history.listLoading, !history.preparing else { return nil }
-        if let error = history.listErrorKey { return text(error) }
-        return text(history.available && (model.isDemoMode || history.hasAuthorizedOwner)
-            ? "ui.session.history.empty" : "ui.session.history.unavailable")
+        guard history.listErrorKey == nil, history.available,
+              model.isDemoMode || history.hasAuthorizedOwner else { return nil }
+        return text("ui.session.history.empty")
     }
     private func refresh() async {
         await manualRefresh.run(model: model, systemImage: "clock.arrow.circlepath") {
