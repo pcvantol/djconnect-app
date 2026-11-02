@@ -76,6 +76,7 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
         public let prompt: String
         /// UTF-16 range of the first localized input placeholder, for native editors.
         public let inputRange: NSRange?
+        public let isAvailable: Bool
         public var requiresInput: Bool { inputRange != nil }
     }
     public struct CatalogueSection: Equatable, Sendable, Identifiable {
@@ -203,11 +204,21 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
     /// Full reference, without the compact Help's two-example limit. The caller
     /// must supply a fresh, independently admitted producer eligibility set.
     /// Generic Help placeholders do not require already-filled chip slots.
+    /// The expanded reference may retain unavailable published copy as disabled
+    /// items; this never widens the independently admitted executable set.
     public func catalogueSections(_ context: Context, surface: Surface, language: String,
-                                  eligibleIDs: Set<String>) -> [CatalogueSection] {
-        guard let language = locale(language) else { return [] }
-        let candidates = eligible(context, surface: surface, language: language, help: true)
+                                  eligibleIDs: Set<String>, includeUnavailable: Bool = false) -> [CatalogueSection] {
+        guard let language = locale(language), compatible(context),
+              surface != .session || context.flags["active_session"] == true else { return [] }
+        let actionable = eligible(context, surface: surface, language: language, help: true)
             .filter { eligibleIDs.contains($0.id) }
+        let available = Set(actionable.map(\.id))
+        // Reference visibility is not execution eligibility. Only published,
+        // locale-qualified generic copy may remain visible without current context.
+        let candidates = includeUnavailable ? entries.filter {
+            $0.publication == "qualified_v1" && $0.qualification[language]?.state == "qualified_owner_route" &&
+                $0.surfaces.contains(surface.rawValue)
+        } : actionable
         return groups.compactMap { group in
             let items = candidates.filter { $0.group == group.id }.sorted {
                 ($0.help_rank, $0.id) < ($1.help_rank, $1.id)
@@ -220,7 +231,8 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
                     guard range.location != NSNotFound else { return nil }
                     ranges.append(range)
                 }
-                return HelpItem(id: entry.id, prompt: value, inputRange: ranges.min { $0.location < $1.location })
+                return HelpItem(id: entry.id, prompt: value, inputRange: ranges.min { $0.location < $1.location },
+                                isAvailable: available.contains(entry.id))
             }
             guard !items.isEmpty, let title = group.labels[language] else { return nil }
             return CatalogueSection(id: group.id, title: title, items: items)

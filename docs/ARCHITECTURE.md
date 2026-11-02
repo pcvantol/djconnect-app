@@ -630,7 +630,12 @@ Source links retain the supplied provider/license visually; VoiceOver also names
 the original story headline. Component UI qualification does not establish
 operative Planner publication or audible acceptance. Contextual Ask DJ
 suggestions and Help use the pinned Core catalogue; unqualified entries do not
-become executable client recommendations.
+become executable client recommendations. The expanded Help reference keeps
+published, locale-qualified examples visible when their current prerequisites
+are missing, marking them unavailable and disabling selection. Its fresh Core
+observation still determines the executable set; expired/withdrawn observations
+clear the entire reference. Compact suggestions remain eligible-only. This
+presentation distinction adds no wire field or capability permission.
 
 VibeCast same-key recovery preserves the original enrollment challenge, key and
 deadline. Replacement/rollover composition is still preparation: the bounded

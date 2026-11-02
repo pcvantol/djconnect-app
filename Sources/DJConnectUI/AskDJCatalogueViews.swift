@@ -130,7 +130,7 @@ private struct AskDJHelpContent: View {
             context: { model.askDJExampleContext() }, reader: model.askDJHelpCatalogueReader)
     }
     private func choose(_ item: DJConnectAskDJCatalogue.HelpItem) async {
-        guard !catalogueModel.busy, catalogueModel.isCurrent,
+        guard item.isAvailable, !catalogueModel.busy, catalogueModel.isCurrent,
               model.canUseAskDJFeatures, !model.isSendingAskDJText, !model.isRecordingVoice,
               model.askDJDraft.isEmpty else { return }
         let edit = model.askDJDraftEditRevision, owner = context, language = model.language
@@ -182,12 +182,19 @@ struct AskDJFullCatalogueReference: View {
                     Text(section.title).font(.headline).accessibilityAddTraits(.isHeader)
                     ForEach(section.items) { item in
                         Button { select(item) } label: {
-                            AskDJHelpExampleLabel(prompt: item.prompt,
-                                actionSymbol: item.requiresInput ? "pencil" : "arrow.up.circle",
-                                maximumWidth: .infinity)
+                            VStack(alignment: .leading, spacing: 4) {
+                                AskDJHelpExampleLabel(prompt: item.prompt,
+                                    actionSymbol: item.requiresInput ? "pencil" : "arrow.up.circle",
+                                    maximumWidth: .infinity)
+                                if !item.isAvailable {
+                                    Text(DJConnectLocalization.localized(key: "ui.askdj.help.item.unavailable", language: language))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            .opacity(item.isAvailable ? 1 : 0.55)
                         }
                         .djConnectPlainButtonStyle()
-                        .disabled(busy || !enabled)
+                        .disabled(busy || !enabled || !item.isAvailable)
                         .accessibilityIdentifier("ask-dj-catalogue-" + item.id)
                     }
                 }

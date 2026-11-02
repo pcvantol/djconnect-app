@@ -1622,3 +1622,5 @@
 "ui.vibescape.voice.start_failed" = "Recording could not start. Try again.";
 
 "ui.welcome.queue.description" = "See which tracks are coming up next and choose what to play.";
+
+"ui.askdj.help.item.unavailable" = "Currently unavailable";

@@ -69,7 +69,7 @@ import DJConnectCore
                 admitted.slots = [:]
                 for key in ["current_track", "current_album", "forecast_ready"] { admitted.flags[key] = false }
             }
-            let result = catalogue.catalogueSections(admitted, surface: surface, language: language, eligibleIDs: ids)
+            let result = catalogue.catalogueSections(admitted, surface: surface, language: language, eligibleIDs: ids, includeUnavailable: true)
             admittedContext = admitted
             sections = result
             let remaining = now().duration(to: limit)

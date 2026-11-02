@@ -1622,3 +1622,5 @@
 "ui.vibescape.voice.start_failed" = "Die Aufnahme konnte nicht starten. Versuche es erneut.";
 
 "ui.welcome.queue.description" = "Sieh dir die nächsten Titel an und wähle aus, was du abspielen möchtest.";
+
+"ui.askdj.help.item.unavailable" = "Derzeit nicht verfügbar";

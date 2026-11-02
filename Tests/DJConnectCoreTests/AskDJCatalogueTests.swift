@@ -117,7 +117,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(admitted.trackID == nil && admitted.slots.isEmpty)
     #expect(sections?.flatMap(\.items).contains(where: { $0.id == "play.artist" && $0.requiresInput }) == true)
     #expect(!catalogue.select(admitted, surface: .askDJ, language: "en", epoch: "null-track").contains(where: { $0.id == "play.artist" }))
-    #expect(sections?.flatMap(\.items).contains(where: { $0.id == "listen.current" }) == false)
+    #expect(sections?.flatMap(\.items).contains(where: { $0.id == "listen.current" && !$0.isAvailable }) == true)
 }
 
 @MainActor private final class HelpPendingReadGate {
@@ -429,5 +429,43 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
         for key in ["ui.askdj.suggestions.title", "ui.ask_dj.answer.retained_unavailable"] {
             #expect(DJConnectLocalization.localized(key: key, language: language) != key)
         }
+    }
+}
+
+@Test(.isolatedClientResources, arguments: ["nl", "en"]) @MainActor
+func fullHelpRetainsFourteenPublishedItemsWhenOnlyNineAreCurrentlyAvailable(_ language: String) async throws {
+    let catalogue = try #require(DJConnectAskDJCatalogue.bundled)
+    var context = DJConnectAskDJCatalogue.Context()
+    context.descriptor = .init(schema_version: 1, qualified: true, catalogue_id: "ask_dj_examples_v1", revision: 2, sha256: DJConnectAskDJCatalogue.pinnedSHA256)
+    context.contracts["ask_dj_examples"] = 1
+    context.ownerEpoch = "test-owner"; context.sessionID = "test-session"
+    for entry in catalogue.entries {
+        for flag in entry.requires { context.flags[flag] = true }
+        for (contract, version) in entry.contracts { context.contracts[contract] = version }
+    }
+    let missing: Set<String> = ["current_track", "current_album", "forecast_ready"]
+    for flag in missing { context.flags[flag] = false }
+    let available = Set(catalogue.entries.filter { missing.isDisjoint(with: $0.requires) }.map(\.id))
+    try #require(available.count == 9 && catalogue.entries.count == 14)
+    let model = AskDJHelpCatalogueModel()
+    defer { model.close() }
+    let sections = await model.read(catalogue: catalogue, surface: .session, language: language,
+        context: { context }, reader: { _, _, _, _ in .init(ids: available, trackID: nil) })
+    let loaded = try #require(sections)
+    let items = loaded.flatMap(\.items)
+    #expect(items.count == 14)
+    #expect(Set(items.filter(\.isAvailable).map(\.id)) == available)
+    #expect(Set(items.filter { !$0.isAvailable }.map(\.id)) == Set(catalogue.entries.map(\.id)).subtracting(available))
+    let admitted = try #require(model.admittedContext)
+    #expect(admitted.serverEligibleIDs == available && admitted.trackID == nil && admitted.slots.isEmpty)
+    let suggestions = catalogue.select(admitted, surface: .session, language: language, epoch: "no-current-track")
+    #expect(suggestions.count == 3 && suggestions.allSatisfy { available.contains($0.id) })
+    #expect(catalogue.catalogueSections(admitted, surface: .session, language: language, eligibleIDs: available).flatMap(\.items).count == 9)
+    var mismatched = admitted; mismatched.contracts["ask_dj_examples"] = 0
+    #expect(catalogue.catalogueSections(mismatched, surface: .session, language: language,
+        eligibleIDs: available, includeUnavailable: true).isEmpty)
+    for unqualifiedLocale in ["de", "fr", "es"] {
+        #expect(catalogue.catalogueSections(admitted, surface: .session, language: unqualifiedLocale,
+            eligibleIDs: available, includeUnavailable: true).isEmpty)
     }
 }

@@ -1622,3 +1622,5 @@
 "ui.vibescape.voice.start_failed" = "L’enregistrement n’a pas pu démarrer. Réessayez.";
 
 "ui.welcome.queue.description" = "Consultez les prochains titres et choisissez quoi écouter.";
+
+"ui.askdj.help.item.unavailable" = "Indisponible pour le moment";
