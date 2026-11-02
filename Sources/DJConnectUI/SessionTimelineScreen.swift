@@ -534,6 +534,10 @@ struct SessionTimelineScreen: View {
     private var hasSessionPlayback: Bool {
         activeSession.map { history.hasPlaybackForFirstPlayHelper($0) } ?? false
     }
+    private var showsSearchError: Bool {
+        history.searchErrorKey != nil && (activeSession == nil ? searching : flowSearchExpanded)
+    }
+
     private var showsFirstPlayHelper: Bool {
         activeSession?.runtimeState == "active" && !hasSessionPlayback
             && !history.sessionsWithObservedPlayback.contains(sessionID)
@@ -633,16 +637,13 @@ struct SessionTimelineScreen: View {
                                     .padding(.horizontal, 20)
                                     .id("current")
                                 }
-                                if let key = timeline.errorKey, activeSession == nil || history.available {
-                                    VStack(alignment: .leading, spacing: 16) {
-                                        Text(text(key)).fixedSize(horizontal: false, vertical: true)
-                                            .foregroundStyle(.white.opacity(0.82))
-                                        Button {
-                                            Task { await refreshTimeline() }
-                                        } label: {
-                                            Label(text("ui.refresh.page"), systemImage: "arrow.clockwise")
-                                        }
-                                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
+                                if let key = timeline.errorKey, !showsSearchError, activeSession == nil || history.available {
+                                    HStack(spacing: 12) {
+                                        Text(text(key)).font(.callout).foregroundStyle(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        Spacer()
+                                        Button(text("ui.retry")) { Task { await refreshTimeline() } }
+                                        .djConnectPlainButtonStyle()
                                         .disabled(retryRefreshing || timeline.loading)
                                         .accessibilityIdentifier("session-timeline-retry")
                                     }
