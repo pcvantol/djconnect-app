@@ -15,14 +15,33 @@ Earlier wording placing this action among the three chat suggestions is supersed
 The specified action belongs to an already active Session with no prior music.
 It is separate from the three contextual Ask DJ questions and their dismissal.
 It must not create a Session, start on screen entry/Mood changes, or replace a
-paused queue. The owner's current clarification question about starting the
-Session itself is pending; no additional Session-creation behavior is assumed.
+paused queue. The owner explicitly confirmed this placement after reviewing the welcome/start
+screen on 2026-11-02: show the choices only after Start DJ Session, when no music
+has started. The earlier tentative answer about creating a Session was withdrawn.
+The first-play action itself must not create another Session.
 
 One explicit CTA request goes through the authenticated Session conversation.
 Core offers a speaker first when necessary, without playback. It then supplies
-exactly three supported Mood-fit genre actions. One explicit genre tap starts
+exactly three supported genre actions based on the Profile's Music DNA, with the
+selected Mood carried as existing Session context. One explicit genre tap starts
 the exact bound ordered mix, without another Play Now tap. No local genre,
 track, Music DNA, provider-access or mix-availability inference is permitted.
+
+### Owner-confirmed two-route presentation
+
+- **Verras me** opens the server's three Music DNA genre proposals. Selecting one
+  starts a genre mix from music Spotify offers. Do not derive this mix from the
+  user's existing playlists or silently substitute a personal playlist.
+- **Selecteer playlist** opens the existing Playlists screen. This is a separate
+  choice alongside Verras me, not a fourth genre in the server's three proposals.
+
+The owner described the first route as a daily mix. That describes the requested
+listening experience; it is not evidence that a named Spotify Daily Mix product
+or endpoint is available. Core must supply the actual qualified playable Spotify
+catalogue result. Missing Music DNA, genres or provider support requires an
+honest producer response, not hardcoded genres or playlist seeds from Apple.
+This clarification replaces the earlier assumption that first-play had no
+Music DNA dependency; Music DNA selection remains entirely server-owned.
 
 ## Fresh source readback
 
@@ -40,6 +59,16 @@ track, Music DNA, provider-access or mix-availability inference is permitted.
 The existing generic mix/recommendation route is therefore not evidence that
 this first-play contract is delivered. A successful client build or catalogue
 compatibility check cannot qualify the missing first-play action.
+
+### Current dependency recheck after owner clarification
+
+GitHub main file reads on 2026-11-02 still show no qualified first-play entry in
+`ask_dj/examples_v1.json` (blob `897e60020cf336a317872ed23ecf258434ae3073`).
+`mood_music_steering.py` (blob `315e911dbdb4a5877dab1bd0b9f8307f0edbb9ac`)
+still prepares a `COPY[locale]['now']` mix action after genre interpretation.
+These source reads do not establish the required genre-tap playback route.
+The existing Playlists screen is available; neither a new first-play CTA nor its
+navigation has been implemented in this intake checkpoint.
 
 ## Existing Apple integration seams
 
@@ -79,7 +108,8 @@ Do not change the ordinary Start Session action or the three-question panel.
 
 Qualify all four Moods, five locales, music_only, draft/keyboard/VoiceOver/Dynamic
 Type, speaker known/missing/cached/expired/zero, no music versus paused/history,
-exactly-three/fewer-than-three choices, action expiry, output/owner/Mood/Session
+exactly-three/fewer-than-three Music DNA choices, separate Selecteer playlist
+navigation, Spotify catalogue sourcing without personal-playlist substitution, action expiry, output/owner/Mood/Session
 changes, double taps, background/reconnect and uncertain delivery. Confirm that
 CTA and speaker taps cause no play, and one genre tap causes exactly one original
 mix play. Native iPhone/iPad/Mac and installed HA/provider playback remain
