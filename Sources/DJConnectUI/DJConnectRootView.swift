@@ -13749,6 +13749,13 @@ struct AskDJInputBar: View {
     }
 
     private var usesOpaqueSurface: Bool { reduceTransparency || !glassEnabled }
+    private var usesFloatingCard: Bool {
+        #if os(macOS)
+        floating || isExpanded
+        #else
+        floating
+        #endif
+    }
 
     private var composerSurfaceTint: Color {
         surfaceColors?[safe: 1] ?? surfaceColors?.first ?? DJConnectGlassAppearance.composerTint
@@ -13960,8 +13967,8 @@ struct AskDJInputBar: View {
             }
             #endif
         }
-        .padding(.horizontal, floating ? 12 : djConnectScreenHorizontalPadding)
-        .padding(.top, floating ? 12 : 18)
+        .padding(.horizontal, usesFloatingCard ? 12 : djConnectScreenHorizontalPadding)
+        .padding(.top, usesFloatingCard ? 12 : 18)
         #if os(macOS)
         .padding(.bottom, 12)
         #else
@@ -13971,7 +13978,7 @@ struct AskDJInputBar: View {
         .background(AskDJOutsideTapDismissal(isInputFocused: isInputFocused, allowsDismissal: !suggestionsOpen && !model.askDJHelpIsPresented))
         #endif
         .background {
-            if floating {
+            if usesFloatingCard {
                 // Frost the content without the lens effect that magnifies text underneath.
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(DJConnectMaterial(.regular))
@@ -14024,7 +14031,7 @@ struct AskDJInputBar: View {
             }
         }
         .overlay(alignment: .top) {
-            if !floating && !usesOpaqueSurface {
+            if !usesFloatingCard && !usesOpaqueSurface {
                 LinearGradient(
                     colors: [
                         Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.36),
@@ -14036,6 +14043,12 @@ struct AskDJInputBar: View {
                 .frame(height: 1)
             }
         }
+        #if os(macOS)
+        .frame(maxWidth: isExpanded ? 1000 : .infinity)
+        .shadow(color: .black.opacity(isExpanded ? 0.20 : 0), radius: isExpanded ? 16 : 0, y: 6)
+        .padding(.horizontal, isExpanded ? 16 : 0)
+        .padding(.bottom, isExpanded ? 12 : 0)
+        #endif
         .onGeometryChange(for: AskDJHelpPanelLayout.Placement.self) { geometry in
             .init(availableHeight: min(600, max(0, geometry.frame(in: .named(AskDJHelpPanelLayout.coordinateSpace)).minY - 24)),
                   composerHeight: geometry.size.height)
