@@ -15156,6 +15156,20 @@ private struct DJConnectRedTrashLabelStyle: LabelStyle {
 }
 
 enum DJConnectGameViewport {
+    static func scale(in size: CGSize) -> CGFloat {
+        max(0.001, min(size.width / 320, size.height / 170))
+    }
+
+    static func origin(in size: CGSize) -> CGPoint {
+        let scale = scale(in: size)
+        return CGPoint(x: (size.width - 320 * scale) / 2, y: (size.height - 170 * scale) / 2)
+    }
+
+    static func gamePoint(_ point: CGPoint, in size: CGSize) -> CGPoint {
+        let scale = scale(in: size), origin = origin(in: size)
+        return CGPoint(x: (point.x - origin.x) / scale, y: (point.y - origin.y) / scale)
+    }
+
     static func canvasHeight(viewportHeight: CGFloat, pickerHeight: CGFloat, chromeHeight: CGFloat,
                              verticalPadding: CGFloat) -> CGFloat {
         // Leave room for the picker, measured controls/help and ordinary edge spacing.
@@ -15499,7 +15513,7 @@ private struct LocalGameSurface: View {
             Canvas { context, size in
                 let rect = CGRect(origin: .zero, size: size)
                 context.stroke(Path(roundedRect: rect.insetBy(dx: 1, dy: 1), cornerRadius: 8), with: .color(.white.opacity(0.10)), lineWidth: 1)
-                drawGame(in: &context, size: size, isPlaying: isPlaying)
+                drawGame(in: context, size: size, isPlaying: isPlaying)
                 if Date() < flashUntil {
                     context.stroke(Path(roundedRect: rect.insetBy(dx: 3, dy: 3), cornerRadius: 8), with: .color(.red), lineWidth: 3)
                 }
@@ -15597,9 +15611,12 @@ private struct LocalGameSurface: View {
         isGhostVulnerable && ghostVulnerableTicks < 55 && (ghostVulnerableTicks / 6).isMultiple(of: 2)
     }
 
-    private func drawGame(in context: inout GraphicsContext, size: CGSize, isPlaying: Bool) {
-        let scaleX = size.width / 320
-        let scaleY = size.height / 170
+    private func drawGame(in parentContext: GraphicsContext, size: CGSize, isPlaying: Bool) {
+        var context = parentContext
+        let scaleX = DJConnectGameViewport.scale(in: size)
+        let scaleY = scaleX
+        let origin = DJConnectGameViewport.origin(in: size)
+        context.translateBy(x: origin.x, y: origin.y)
 
         func rect(_ x: CGFloat, _ y: CGFloat, _ width: CGFloat, _ height: CGFloat) -> CGRect {
             CGRect(x: x * scaleX, y: y * scaleY, width: width * scaleX, height: height * scaleY)
@@ -15608,8 +15625,6 @@ private struct LocalGameSurface: View {
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
             CGPoint(x: x * scaleX, y: y * scaleY)
         }
-
-        context.draw(Text(game.title).font(.headline).foregroundColor(game.tint), at: point(12, 18), anchor: .leading)
 
         switch game {
         case .pong:
@@ -16081,10 +16096,7 @@ private struct LocalGameSurface: View {
     }
 
     private func handleDrag(_ location: CGPoint) {
-        let location = CGPoint(
-            x: location.x * 320 / max(1, canvasSize.width),
-            y: location.y * 170 / max(1, canvasSize.height)
-        )
+        let location = DJConnectGameViewport.gamePoint(location, in: canvasSize)
         if !isPlaying {
             startGame()
         }

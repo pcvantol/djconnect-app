@@ -13190,6 +13190,23 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
                                               chromeHeight: controls, verticalPadding: 12) > 560)
 }
 
+@Test(arguments: [CGSize(width: 1300, height: 300), CGSize(width: 600, height: 900), CGSize(width: 320, height: 170)])
+func gamesKeepRoundSpritesAndMapTouchesIntoCenteredBoard(_ size: CGSize) {
+    let scale = DJConnectGameViewport.scale(in: size)
+    let origin = DJConnectGameViewport.origin(in: size)
+    #expect(scale > 0 && origin.x >= 0 && origin.y >= 0)
+    #expect(origin.x + 320 * scale <= size.width + 0.001)
+    #expect(origin.y + 170 * scale <= size.height + 0.001)
+    // A square sprite and the game axes use one scale, irrespective of pane shape.
+    let topLeft = CGPoint(x: origin.x + 40 * scale, y: origin.y + 60 * scale)
+    let bottomRight = CGPoint(x: origin.x + 48 * scale, y: origin.y + 68 * scale)
+    #expect(abs((bottomRight.x - topLeft.x) - (bottomRight.y - topLeft.y)) < 0.001)
+    let logical = DJConnectGameViewport.gamePoint(topLeft, in: size)
+    #expect(abs(logical.x - 40) < 0.001 && abs(logical.y - 60) < 0.001)
+    let center = DJConnectGameViewport.gamePoint(CGPoint(x: size.width / 2, y: size.height / 2), in: size)
+    #expect(abs(center.x - 160) < 0.001 && abs(center.y - 85) < 0.001)
+}
+
 @Test(.isolatedClientResources) func publicReleaseWorkflowPublishesFiveLocalizedReleaseNoteJSONFiles() throws {
     let workflow = try loadRepositoryText(".github/workflows/public-unsigned-release.yml")
     let readme = try loadRepositoryText("README.md")
