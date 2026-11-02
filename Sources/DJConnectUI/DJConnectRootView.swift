@@ -14450,6 +14450,8 @@ struct QueueView: View {
                     }
                 }
             }
+            .frame(maxWidth: 1000, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .top)
             .padding(.horizontal, djConnectScreenHorizontalPadding)
             .padding(.vertical, djConnectScreenVerticalPadding)
         }
@@ -14752,6 +14754,8 @@ struct PlaylistsView: View {
                     }
                 }
             }
+            .frame(maxWidth: 1000, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .top)
             .padding(.horizontal, djConnectScreenHorizontalPadding)
             .padding(.vertical, djConnectScreenVerticalPadding)
         }
