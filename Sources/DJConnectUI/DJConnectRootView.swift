@@ -8830,7 +8830,7 @@ struct TrackInsightAnalysisCard: View, Equatable {
             if let credit = insight.verifiedCredit {
                 Link(credit.source.license == "Spotify metadata display"
                      ? credit.source.provider : "\(credit.source.provider) · \(credit.source.license)", destination: credit.source.url)
-                    .font(.caption).tint(djConnectAccent)
+                    .font(.caption).foregroundStyle(.white).tint(.white)
                 if insight.summary != credit.context {
                     MusicDNACompactPanelHeader(title: localizedKey(language, "ui.trackInsight.interpretation"), icon: "text.bubble")
                     Text(insight.displaySummary(language: language)).fixedSize(horizontal: false, vertical: true)
