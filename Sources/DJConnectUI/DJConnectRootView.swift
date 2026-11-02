@@ -10348,22 +10348,6 @@ struct PlaybackControlsView: View {
                 .disabled(!canUsePlayback)
             }
 
-            if model.canControlPlaybackVolume {
-                HStack {
-                    Image(systemName: "speaker.wave.1")
-                    Slider(value: $model.volume, in: 0...100) { editing in
-                        if !editing {
-                            DJConnectHaptics.selection()
-                            model.commitVolumeChange()
-                        }
-                    }
-                    .tint(djConnectAccent)
-                    .disabled(!canUsePlayback)
-                    Text("\(Int(model.volume))")
-                        .monospacedDigit()
-                        .frame(width: 32, alignment: .trailing)
-                }
-            }
 
             HStack {
                 ShuffleModeButton(model: model)
