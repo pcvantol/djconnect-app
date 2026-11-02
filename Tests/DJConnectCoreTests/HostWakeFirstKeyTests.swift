@@ -221,3 +221,222 @@ import Testing
     }
     func release() { continuation?.resume(); continuation = nil }
 }
+
+/// Synthetic sequencing tests. These cannot mint a shipping ReceivingContext,
+/// select a native effect, or invoke the private system SDK.
+@Suite @MainActor struct HostWakeFirstKeyPairBindingTests {
+    @Test(.isolatedClientResources, arguments: ["missing", "replacement", "aba", "pre-journal-loss", "queue-loss", "callback-loss", "expired-window", "elapsed-window", "two-surfaces", "two-surfaces-success", "post-key-replacement", "authorize-cancel", "callback-cancel", "duplicate", "wrong-order", "mixed-owner", "mixed-generation", "mixed-origin", "mixed-device", "mixed-client", "mixed-session", "nil-selection"])
+    func originalPairPrecedesEveryEffect(vector: String) async throws {
+        if vector == "nil-selection" {
+            let owner = DJConnectHostWakeFirstKeyOwner()
+            owner.operatorRequestsFirstKey()
+            #expect(owner.state == .closed && !owner.showsOperatorAction)
+            return
+        }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("first-key-pair-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let pair = PairOwner()
+        let clock = PairClock(), a = PairSource(.widget, pair: pair), b = PairSource(.liveActivity, pair: vector == "mixed-owner" ? PairOwner() : pair, generation: vector == "mixed-generation" ? PairGeneration() : nil, mismatch: vector), sdk = PairSDK()
+        let window = HostWakeFirstKeyWindow(testStarted: clock.start, testNow: { clock.value })
+        let sources = ["two-surfaces", "two-surfaces-success", "wrong-order", "mixed-owner", "mixed-generation", "mixed-origin", "mixed-device", "mixed-client", "mixed-session"].contains(vector) ? [a, b] : vector == "duplicate" ? [a, a] : [a]
+        let expected = vector == "wrong-order" ? [DJConnectPassiveSurface.liveActivity, .widget] : sources.map(\.surface)
+        let preparation = HostWakeFirstKeyPreparation(sources: sources, expected: expected, window: window)
+        var initializations = 0
+        if vector == "missing" { a.retire() }
+        if vector == "replacement" { a.onAuthorize = { a.parent = PairParent() } }
+        if vector == "aba" { a.onAuthorize = { a.retire(); a.restoreVisibleFields() } }
+        if vector == "pre-journal-loss" { a.onAuthorize = { a.retire() } }
+        if vector == "expired-window" { a.onAuthorize = { clock.value = clock.start.advanced(by: .seconds(121)) } }
+        if vector == "two-surfaces" { b.onAuthorize = { a.retire() } }
+        if vector == "elapsed-window" { a.onAuthorize = { clock.value = clock.start.advanced(by: .seconds(30)) } }
+        if ["callback-loss", "callback-cancel"].contains(vector) { sdk.hold = true }
+        if vector == "authorize-cancel" { a.hold = true }
+        let gate = PairQueueGate()
+        let blocker: Task<Void, any Error>?
+        if vector == "queue-loss" {
+            blocker = Task { try await RendezvousAppKeyOperations.shared.performHostWakeFirstKey { await gate.hold() } }
+            await gate.waitEntered()
+        } else { blocker = nil }
+        let operation = Task {
+            try await preparation.generate(journal: {
+                initializations += 1
+                return try HostWakeFirstKeyJournal(freshInExistingSupport: root, artifact: String(repeating: "b", count: 64))
+            }, sdk: sdk)
+        }
+        if ["callback-loss", "callback-cancel"].contains(vector) {
+            await sdk.waitEntered()
+            if vector == "callback-cancel" { operation.cancel() }
+            else { a.retire(); a.restoreVisibleFields() }
+            sdk.release()
+        }
+        if vector == "authorize-cancel" {
+            await a.gate.waitEntered(); operation.cancel(); await a.gate.release()
+        }
+        if vector == "queue-loss" {
+            // Journal construction occurs before queue acquisition. Wait for its
+            // actual event, then revoke while the original exclusion slot is held.
+            for _ in 0..<1000 where initializations == 0 { await Task.yield() }
+            #expect(initializations == 1)
+            a.retire(); await gate.release(); try await blocker?.value
+        }
+        var result: (String, HostWakeFirstKeyJournal, HostWakeFirstKeyAttempt)?
+        do { result = try await operation.value } catch {}
+        if ["missing", "replacement", "aba", "pre-journal-loss", "expired-window", "two-surfaces", "authorize-cancel", "duplicate", "wrong-order", "mixed-owner", "mixed-generation", "mixed-origin", "mixed-device", "mixed-client", "mixed-session"].contains(vector) {
+            #expect(initializations == 0, "No journal may exist before every original pair is retained: \(vector)")
+            #expect(sdk.calls == 0)
+            #expect(HostWakeFirstKeyJournal.namespaceIsAbsent(inExistingSupport: root))
+        } else if ["elapsed-window", "two-surfaces-success"].contains(vector) {
+            #expect(result != nil && initializations == 1 && sdk.calls == 1)
+            #expect(preparation.parents.count == sources.count)
+            result?.2.close()
+        } else if vector == "post-key-replacement" {
+            #expect(result != nil && initializations == 1 && sdk.calls == 1)
+            let original = a.parent; a.parent = PairParent()
+            #expect(!preparation.isCurrent)
+            a.parent = original
+            #expect(!preparation.isCurrent, "Equal/restored parent cannot revive an observed loss")
+            result?.2.close()
+        } else {
+            #expect(result == nil)
+            #expect(sdk.calls <= 1)
+            if vector == "queue-loss" { #expect(sdk.calls == 0) }
+            #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("DJConnectHostWakeFirstKey-v1/key-reference").path))
+        }
+        #expect(sdk.deadlines.allSatisfy { $0 == window.deadline }, "Authorization/queue time must not restart the original local ceiling")
+    }
+}
+@MainActor private final class PairClock {
+    let start = ContinuousClock.now
+    lazy var value = start
+}
+@MainActor private final class PairGeneration {}
+@MainActor private final class PairOwner { let generation = PairGeneration() }
+@MainActor private final class PairParent {
+    let pair: PairOwner
+    let join: HostWakeFirstKeyOwnerJoin
+    init(pair: PairOwner = .init(), generation: PairGeneration? = nil, mismatch: String = "") {
+        self.pair = pair
+        join = .init(continuity: .init(owner: pair, generation: generation ?? pair.generation),
+            origin: URL(string: mismatch == "mixed-origin" ? "https://other.invalid" : "https://paired.invalid")!,
+            device: mismatch == "mixed-device" ? "other" : "original",
+            client: mismatch == "mixed-client" ? .macos : .ios,
+            session: mismatch == "mixed-session" ? "other" : "original")
+    }
+}
+@MainActor private final class PairSource: HostWakeFirstKeySource {
+    let surface: DJConnectPassiveSurface
+    var parent: PairParent
+    private let originalParent: PairParent
+    private var live = true
+    var onAuthorize: (() -> Void)?
+    var hold = false
+    let gate = PairQueueGate()
+    init(_ surface: DJConnectPassiveSurface, pair: PairOwner = .init(), generation: PairGeneration? = nil, mismatch: String = "") {
+        self.surface = surface; parent = PairParent(pair: pair, generation: generation, mismatch: mismatch); originalParent = parent
+    }
+    var isCurrent: Bool { live }
+    func authorizeOriginal() async throws -> PairParent {
+        let original = originalParent
+        if hold { await gate.hold() }
+        await Task.yield(); onAuthorize?()
+        return original
+    }
+    func retains(_ parent: PairParent) -> Bool { live && self.parent === parent }
+    func sharesPairedOwner(_ first: PairParent, _ other: PairParent) -> Bool {
+        first.join.sharesOriginalOwner(with: other.join)
+    }
+    func retire() { live = false }
+    func restoreVisibleFields() { /* A retired generation cannot be rearmed. */ }
+}
+@MainActor private final class PairSDK: HostWakeFirstKeySDK {
+    let isSupported = true
+    var calls = 0
+    var deadlines: [ContinuousClock.Instant] = []
+    var onEntry: (() -> Void)?
+    var hold = false
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var entryWaiters: [CheckedContinuation<Void, Never>] = []
+    func waitEntered() async {
+        if calls > 0 { return }
+        await withCheckedContinuation { entryWaiters.append($0) }
+    }
+    func generate(deadline: ContinuousClock.Instant, current: @escaping @MainActor @Sendable () -> Bool) async throws -> String {
+        calls += 1; deadlines.append(deadline); onEntry?()
+        for waiter in entryWaiters { waiter.resume() }; entryWaiters.removeAll()
+        if hold { await withCheckedContinuation { continuation = $0 } }
+        guard current() else { throw CancellationError() }
+        return Data(repeating: 9, count: 32).base64EncodedString()
+    }
+    func release() { continuation?.resume(); continuation = nil }
+}
+
+private actor PairQueueGate {
+    private var entered = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var continuation: CheckedContinuation<Void, Never>?
+    func hold() async {
+        entered = true
+        for waiter in waiters { waiter.resume() }; waiters.removeAll()
+        await withCheckedContinuation { continuation = $0 }
+    }
+    func waitEntered() async {
+        if entered { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+    func release() { continuation?.resume(); continuation = nil }
+}
+
+extension HostWakeFirstKeyPairBindingTests {
+    @Test(.isolatedClientResources)
+    func heldFirstRegistrationCannotPreissueSecondSurface() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("first-key-child-order-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let pair = PairOwner()
+        let a = PairSource(.widget, pair: pair), b = PairSource(.liveActivity, pair: pair), sdk = PairSDK()
+        sdk.hold = true
+        let preparation = HostWakeFirstKeyPreparation(sources: [a, b], expected: [.widget, .liveActivity], window: .init())
+        let operation = Task {
+            try await preparation.generate(journal: {
+                try HostWakeFirstKeyJournal(freshInExistingSupport: root, artifact: String(repeating: "c", count: 64))
+            }, sdk: sdk)
+        }
+        await sdk.waitEntered()
+        #expect(preparation.parents.count == 2)
+        do { try preparation.beginEnrollment(preparation.parents[0]); Issue.record("child before original SDK reference") } catch {}
+        sdk.release()
+        let result = try await operation.value
+        defer { result.2.close() }
+        let first = preparation.parents[0], second = preparation.parents[1]
+        var secondIssuerCalls = 0
+        try preparation.beginEnrollment(first)
+        // First registration is genuinely still pending at this sequencing seam.
+        // No second child may be issued merely because a key reference exists.
+        do { try preparation.beginEnrollment(second); secondIssuerCalls += 1 } catch {}
+        #expect(secondIssuerCalls == 0)
+        do { try preparation.beginEnrollment(first); Issue.record("pending child duplicated") } catch {}
+        try preparation.completeEnrollment(first) // Simulated matching ACK, not native/API acceptance.
+        try preparation.beginEnrollment(second); secondIssuerCalls += 1
+        #expect(secondIssuerCalls == 1)
+        try preparation.completeEnrollment(second)
+        do { try preparation.beginEnrollment(second); Issue.record("registered original repeated") } catch {}
+    }
+}
+
+@Suite @MainActor struct DirectSessionOwnerContinuityTests {
+    @Test func onlyOriginalOwnerAndGenerationJoin() {
+        let owner = PairOwner(), generation = PairGeneration()
+        let original = DirectSessionOwnerContinuity(owner: owner, generation: generation)
+        #expect(original.sharesOriginalOwner(with: .init(owner: owner, generation: generation)))
+        let otherOwner = PairOwner(), otherGeneration = PairGeneration()
+        #expect(!original.sharesOriginalOwner(with: .init(owner: otherOwner, generation: generation)))
+        #expect(!original.sharesOriginalOwner(with: .init(owner: owner, generation: otherGeneration)))
+        #expect(!original.sharesOriginalOwner(with: .init(owner: nil, generation: generation)))
+        #expect(!original.sharesOriginalOwner(with: .init(owner: owner, generation: nil)))
+        var released: PairOwner? = PairOwner()
+        let orphan = DirectSessionOwnerContinuity(owner: released, generation: generation)
+        released = nil
+        #expect(!orphan.sharesOriginalOwner(with: orphan))
+    }
+}

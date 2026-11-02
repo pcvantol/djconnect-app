@@ -35,7 +35,7 @@ struct DJConnectIOSApp: App {
                 // in ordinary builds. Focus/URLs/server replies never invoke it.
                 if hostWakeFirstKey.showsOperatorAction {
                     Button(DJConnectLocalization.localized(key: "ui.host.wake.reviewed.device.test")) {
-                        hostWakeFirstKey.operatorRequestsFirstKey()
+                        model.operatorRequestsOriginalHostWake(using: hostWakeFirstKey)
                     }
                     .buttonStyle(.borderedProminent)
                 }
