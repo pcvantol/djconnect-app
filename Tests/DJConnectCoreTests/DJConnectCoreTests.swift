@@ -14766,3 +14766,52 @@ func playbackModesRetainPendingChoiceAndReconcileWithProvider(_ outcome: String,
     #expect(calls.payloads.filter { $0["command"] as? String == "set_repeat" }.count == (outcome == "speaker-change" ? 0 : 1))
     if outcome == "confirmed" || outcome == "stale" { #expect(calls.payloads.contains { $0["command"] as? String == "status" }) }
 }
+
+
+@MainActor @Test(.isolatedClientResources, arguments: [1, 2, 10, 100])
+func queuePresentationCompactsAdjacentCopiesAndRetainsOriginalOffsets(_ copies: Int) async throws {
+    let recorder = RequestJSONRecorder()
+    let host = "queue-presentation-\(copies).local"
+    let session = mockSession(host: host) { request in
+        try recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: try testDefaults(), host: host, session: session)
+    defer { model.markInactiveSession() }
+    let repeated = DJConnectQueueItem(title: "All We Need", artist: "Loner Deer", album: "Wildflowers", uri: "spotify:track:AbC", durationMS: 200_000)
+    let next = DJConnectQueueItem(title: "Next song", artist: "Other artist", uri: "spotify:track:next")
+    let source = Array(repeating: repeated, count: copies) + [next, repeated]
+    model.apply(commandResponse: .init(success: true, queue: source, queueContext: "spotify:playlist:fixture"))
+    let retained = model.queueItems
+    for _ in 0..<3 {
+        let rows = DJConnectQueuePresentation.rows(model.queueItems)
+        #expect(rows.map(\.index) == [0, copies, copies + 1])
+        #expect(rows.map { $0.item.title } == [repeated.title, next.title, repeated.title])
+        #expect(model.queueItems == retained && model.queueItems.count == source.count)
+        #expect(DJConnectQueueWidgetSnapshot(items: model.queueItems).totalCount == source.count)
+    }
+    let nextRow = try #require(DJConnectQueuePresentation.rows(model.queueItems).first { $0.item.uri == next.uri })
+    model.startQueueItem(nextRow.item, at: nextRow.index)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while recorder.payloads.isEmpty, .now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+    let command = try #require(recorder.payloads.first)
+    #expect(command["command"] as? String == "play_context_at")
+    let value = try #require(command["value"] as? [String: Any])
+    #expect(value["index"] as? String == String(copies))
+    #expect(value["uri"] as? String == next.uri)
+}
+
+@Test(.isolatedClientResources) func queuePresentationKeepsDifferentRecordingsAndURIIdentityCase() {
+    let original = DJConnectQueueItem(title: "Song", artist: "Artist", album: "Album", uri: "spotify:track:AbC", durationMS: 200_000)
+    var artworkCopy = original; artworkCopy.id = "other-row-id"; artworkCopy.albumImageURL = URL(string: "https://example.test/refreshed.jpg")
+    var otherVersion = original; otherVersion.album = "Live Album"
+    var otherArtist = original; otherArtist.artist = "Another Artist"
+    var otherDuration = original; otherDuration.durationMS = 210_000
+    var otherURI = original; otherURI.uri = "spotify:track:abc"
+    var unavailable = original; unavailable.uri = nil
+    let items = [original, artworkCopy, otherVersion, otherArtist, otherDuration, otherURI, unavailable, unavailable]
+    let rows = DJConnectQueuePresentation.rows(items)
+    #expect(rows.map(\.index) == [0, 2, 3, 4, 5, 6, 7])
+    #expect(rows[0].item == original)
+    #expect(items.count == 8)
+}
