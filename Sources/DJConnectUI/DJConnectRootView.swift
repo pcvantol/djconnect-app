@@ -10889,37 +10889,8 @@ private extension DJConnectRepeatState {
     }
 }
 
-#if os(iOS)
-/// Read this scene's full window, which keyboard avoidance does not resize.
-private struct AskDJWindowSizeReader: UIViewRepresentable {
-    var changed: (CGSize) -> Void
-    func makeUIView(context: Context) -> Probe {
-        let probe = Probe()
-        probe.isUserInteractionEnabled = false
-        probe.changed = changed
-        return probe
-    }
-    func updateUIView(_ view: Probe, context: Context) {
-        view.changed = changed
-        view.publishWindowSize()
-    }
-    final class Probe: UIView {
-        var changed: ((CGSize) -> Void)?
-        private var lastSize: CGSize = .zero
-        override func didMoveToWindow() { super.didMoveToWindow(); publishWindowSize() }
-        override func layoutSubviews() { super.layoutSubviews(); publishWindowSize() }
-        func publishWindowSize() {
-            guard let size = window?.bounds.size, size != lastSize else { return }
-            lastSize = size
-            DispatchQueue.main.async { [weak self] in self?.changed?(size) }
-        }
-    }
-}
-#endif
-
 private struct AskDJView: View {
     @StateObject private var manualRefresh = DJConnectManualRefreshController()
-    @State private var layoutWindowSize: CGSize = .zero
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     @Environment(\.openURL) private var openURL
@@ -11067,10 +11038,9 @@ private struct AskDJView: View {
     private func maxContentWidth(for size: CGSize) -> CGFloat {
         #if os(iOS)
         if UIDevice.current.userInterfaceIdiom == .pad {
-            guard layoutWindowSize != .zero else { return djConnectContentMaxWidth }
-            let portraitWidth = min(layoutWindowSize.width, layoutWindowSize.height)
-            let sideMargin = max(0, (portraitWidth - djConnectContentMaxWidth) / 2)
-            return max(0, size.width - sideMargin * 2)
+            // Match Queue: use the available pane with the shared 16-point
+            // horizontal content inset, including rotation and Split View.
+            return size.width
         }
         #endif
         return shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
@@ -11394,10 +11364,6 @@ private struct AskDJView: View {
                         }
                     }
                 }
-
-                #if os(iOS)
-                .background(AskDJWindowSizeReader { layoutWindowSize = $0 })
-                #endif
 
                 if isAskDJHistoryStale && !usesFloatingComposer {
                     AskDJOfflineNotice(language: model.language)
