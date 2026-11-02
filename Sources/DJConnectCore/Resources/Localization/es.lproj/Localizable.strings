@@ -1512,9 +1512,9 @@
 
 // VibeScape preview: ephemeral native visuals.
 "ui.vibescape.dynamics" = "Dinámica";
-"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.auto" = "Seguir al DJ";
 "ui.vibescape.dynamics.manual" = "Manual";
-"ui.vibescape.dynamics.follow" = "Seguir la intensidad de la canción";
+"ui.vibescape.dynamics.follow" = "Seguir al DJ";
 "ui.vibescape.calm" = "Tranquila";
 "ui.vibescape.intense" = "Intensa";
 "ui.vibescape.follow" = "Seguir al DJ";
@@ -1531,7 +1531,7 @@
 
 "ui.vibescape.help.title" = "Ayuda de VibeScape";
 "ui.vibescape.help.touch" = "Toca para una reacción intensa. Arrastra el dedo o el ratón por la animación para un efecto fluido.";
-"ui.vibescape.help.intensity" = "El deslizador ajusta la intensidad manualmente. Restablecer reanuda el seguimiento automático; sin una intensidad fiable de la canción, el ajuste permanece neutro.";
+"ui.vibescape.help.intensity" = "El control hace que el mundo actual sea más tranquilo o intenso. El centro es neutro. Tu elección dura esta visita; Seguir al DJ restaura la base automática.";
 "ui.vibescape.help.controls" = "Los controles se ocultan tras unos segundos. Toca su zona o sitúa el ratón encima para mostrarlos.";
 
 "ui.vibescape.help.voice" = "Comandos de voz";
@@ -1631,3 +1631,8 @@
 "ui.vibescape.scope.visit" = "Se mantiene hasta que salgas de VibeScape.";
 
 "ui.trackInsight.visual.decorative" = "Animación visual · no es una medición de audio";
+
+"ui.vibescape.world.home" = "Mundo líquido";
+"ui.vibescape.world.radio" = "Taller cinético";
+"ui.vibescape.world.club" = "Arquitectura de luz";
+"ui.vibescape.world.festival" = "Floración cósmica";

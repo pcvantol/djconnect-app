@@ -1,12 +1,7 @@
 import Foundation
 import Combine
 import simd
-
-/// Relative local bias: midpoint preserves the DJ scene's baseline motion.
-enum VibeScapeDynamics {
-    static func motionRate(_ value: Float) -> Float { 0.04 + 3.84 * value * value }
-    static func deformation(_ value: Float) -> Float { 0.15 + 1.7 * value }
-}
+import DJConnectCore
 
 struct VibeScapeTouch: Equatable, Sendable {
     let position: SIMD2<Float>
@@ -17,6 +12,7 @@ struct VibeScapeTouch: Equatable, Sendable {
 /// Renderer-local values, not a proposed Core wire DTO. No Codable, persistence,
 /// transcript, media action, preference store or general Ask DJ dependency.
 struct VibeScapeScene: Equatable, Sendable {
+    var family: VibeScapeFamily = .home
     var composition: SIMD4<Float>
     var palette: SIMD3<Float>
     var secondaryPalette: SIMD3<Float>
@@ -26,29 +22,49 @@ struct VibeScapeScene: Equatable, Sendable {
     var roughness: Float
     var deformation: Float
 
-    static func autonomous(mood: String?, salt: UInt64) -> Self {
+    var isValid: Bool {
+        for i in 0..<4 where !composition[i].isFinite || !(0...1).contains(composition[i]) { return false }
+        for i in 0..<3 {
+            for color in [palette[i], secondaryPalette[i], accentPalette[i]] where !color.isFinite || !(0...1).contains(color) { return false }
+        }
+        return motion.isFinite && (0...1).contains(motion) && depth.isFinite && (0...1).contains(depth)
+            && roughness.isFinite && (0...1).contains(roughness) && deformation.isFinite && (0...1).contains(deformation)
+    }
+    static func autonomous(mood: String?, salt: UInt64, family: VibeScapeFamily = .home) -> Self {
         var rng = VibeScapeRandom(state: salt)
         let colors = moodColors(mood)
-        return Self(composition: SIMD4(rng.unit(), rng.unit(), rng.unit(), rng.unit()),
+        return Self(family: family, composition: SIMD4(rng.unit(), rng.unit(), rng.unit(), rng.unit()),
                     palette: colors[0], secondaryPalette: colors[1], accentPalette: colors[2],
-                    motion: mood == "chill" ? 0.18 : 0.30, depth: 0.35 + rng.unit() * 0.45,
-                    roughness: 0.035 + rng.unit() * 0.09, deformation: 0.25 + rng.unit() * 0.45)
+                    motion: family.baselineMotion(mood: mood), depth: 0.35 + rng.unit() * 0.45,
+                    roughness: (family == .radio ? 0.20 : family == .club ? 0.13 : 0.035) + rng.unit() * 0.09, deformation: 0.25 + rng.unit() * 0.45)
     }
 
     // Exact Session palette, kept Foundation-only for the native GPU probe.
     static func moodTint(_ mood: String?) -> SIMD3<Float> { moodColors(mood)[0] }
     static func moodColors(_ mood: String?) -> [SIMD3<Float>] {
-        let values: [UInt32]
-        switch mood {
-        case "chill": values = [0x4DA3FF, 0x7B61FF, 0xD184FF]
-        case "groove": values = [0x06C7AD, 0x169BC8, 0x10B981]
-        case "energy": values = [0xDDFF00, 0x00B8FF, 0x39FF78]
-        case "party": values = [0xFF287F, 0xAA38F5, 0xF43DCE]
-        default: values = [0x3285FF, 0x843DF5, 0xCB27F5]
-        }
+        let values = DJConnectSessionMoodTheme(sessionMood: mood).colorValues
         return values.map { rgb in
             SIMD3(Float((rgb >> 16) & 255), Float((rgb >> 8) & 255), Float(rgb & 255)) / 255
         }
+    }
+
+    func interpolated(toward target: Self, fraction: Float) -> Self {
+        var next = self
+        next.family = target.family
+        next.composition = simd_mix(composition, target.composition, SIMD4(repeating: fraction))
+        next.palette = simd_mix(palette, target.palette, SIMD3(repeating: fraction))
+        next.secondaryPalette = simd_mix(secondaryPalette, target.secondaryPalette, SIMD3(repeating: fraction))
+        next.accentPalette = simd_mix(accentPalette, target.accentPalette, SIMD3(repeating: fraction))
+        next.motion += (target.motion - motion) * fraction
+        next.depth += (target.depth - depth) * fraction
+        next.roughness += (target.roughness - roughness) * fraction
+        next.deformation += (target.deformation - deformation) * fraction
+        return next
+    }
+    func distance(to target: Self) -> Float {
+        max(simd_distance(composition, target.composition), simd_distance(palette, target.palette),
+            simd_distance(secondaryPalette, target.secondaryPalette), simd_distance(accentPalette, target.accentPalette),
+            abs(motion - target.motion), abs(depth - target.depth), abs(roughness - target.roughness), abs(deformation - target.deformation))
     }
 
 }
@@ -125,6 +141,14 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     @Published private(set) var dynamics: Float = 0.5
     @Published private(set) var followsTrackIntensity = true
     private var trackIntensity: Float?
+    private var dynamicsScope: VibeScapePatch.Scope?
+    // Restoration value only: a temporary track command replaces the single
+    // effective slider value; it never stacks a second speed multiplier.
+    private var visitDynamics: Float?
+    private(set) var personaRevision: Int?
+    private var personaFloor = -1
+    private var familyAtFloor: VibeScapeFamily?
+    private var personaConflict = false
     @Published private(set) var touches: [VibeScapeTouch] = []
     private var salt: UInt64 = 0
     private var autonomous: VibeScapeScene?
@@ -137,22 +161,30 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         let autonomous: VibeScapeScene?
         let dynamics: Float
         let followsTrackIntensity: Bool
+        let dynamicsScope: VibeScapePatch.Scope?
+        let visitDynamics: Float?
     }
     private var undo: [Checkpoint] = []
+    private(set) var lifetimeID: UUID?
     private var turns = 0
     private var deadline: TimeInterval = 0
     private var lastUptime: TimeInterval = 0
     private var touchExpiryTask: Task<Void, Never>?
     var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
 
-    func enter(mood: String?, occurrence: String?, salt: UInt64 = .random(in: .min ... .max)) {
+    // Default Home is for standalone renderer fixtures. The production Screen
+    // always supplies its confirmed Session family or explicit neutral.
+    func enter(mood: String?, occurrence: String?, salt: UInt64 = .random(in: .min ... .max),
+               family: VibeScapeFamily = .home, personaRevision: Int? = nil) {
         revoke()
         self.salt = salt
         let time = now()
         guard time.isFinite, time >= 0,
               Self.validOccurrence(occurrence) else { revoke(); return }
-        deadline = time + 1800; lastUptime = time
-        let scene = VibeScapeScene.autonomous(mood: mood, salt: salt)
+        deadline = time + 1800; lastUptime = time; lifetimeID = UUID()
+        let scene = VibeScapeScene.autonomous(mood: mood, salt: salt, family: family)
+        self.personaRevision = personaRevision
+        personaFloor = personaRevision ?? -1; familyAtFloor = personaRevision == nil ? nil : family
         autonomous = scene; self.scene = scene
         ticket = VibeScapeRenderTicket(visit: UUID(), occurrence: occurrence, revision: 0)
     }
@@ -167,35 +199,50 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     private func checkpoint() {
         guard let scene else { return }
         undo.append(Checkpoint(scene: scene, patch: persistentPatch, trackPatch: trackPatch,
-                               autonomous: autonomous, dynamics: dynamics, followsTrackIntensity: followsTrackIntensity))
+                               autonomous: autonomous, dynamics: dynamics, followsTrackIntensity: followsTrackIntensity, dynamicsScope: dynamicsScope, visitDynamics: visitDynamics))
         if undo.count > 8 { undo.removeFirst(undo.count - 8) }
     }
-    private func advance(_ scene: VibeScapeScene) {
+    private func advance(_ scene: VibeScapeScene, renewServerVisit: Bool = false) {
         guard let ticket else { return }
         self.scene = scene
-        self.ticket = VibeScapeRenderTicket(visit: ticket.visit, occurrence: ticket.occurrence, revision: ticket.revision + 1)
+        self.ticket = VibeScapeRenderTicket(visit: renewServerVisit ? UUID() : ticket.visit,
+            occurrence: ticket.occurrence, revision: ticket.revision + 1)
         appliedRevision = nil
     }
     @discardableResult func apply(_ patch: VibeScapePatch, expected: VibeScapeRenderTicket) -> Bool {
-        guard admitted(expected), expected.occurrence != nil, patch.isValid, turns < 32, let scene else { return false }
+        guard admitted(expected), expected.occurrence != nil, patch.isValid, turns < 32, let scene, scene.family != .neutral else { return false }
+        // The director's motion field is the SAME relative control as the slider.
+        // It never replaces or stacks another multiplier over autonomous motion.
+        var geometry = patch; geometry.motion = nil
         var nextPersistent = persistentPatch
         var nextTrack = trackPatch
-        if patch.scope == .continuousVisit {
-            nextPersistent = persistentPatch?.merging(patch) ?? patch
-            nextTrack = trackPatch?.removingFields(overriddenBy: patch)
-        } else {
-            nextTrack = trackPatch?.merging(patch, scope: .currentTrack) ?? patch
+        if geometry.isValid {
+            if patch.scope == .continuousVisit {
+                nextPersistent = persistentPatch?.merging(geometry) ?? geometry
+                nextTrack = trackPatch?.removingFields(overriddenBy: geometry)
+            } else { nextTrack = trackPatch?.merging(geometry, scope: .currentTrack) ?? geometry }
         }
-        let nextScene = patch.applied(to: scene)
-        guard nextScene != scene || nextPersistent != persistentPatch || nextTrack != trackPatch else { return false }
+        let nextScene = geometry.applied(to: scene)
+        let changesDynamics = patch.motion.map { $0 != dynamics || followsTrackIntensity || dynamicsScope != patch.scope } ?? false
+        guard nextScene != scene || nextPersistent != persistentPatch || nextTrack != trackPatch || changesDynamics else { return false }
         checkpoint(); turns += 1; persistentPatch = nextPersistent; trackPatch = nextTrack
+        if let motion = patch.motion {
+            dynamics = motion; followsTrackIntensity = false; dynamicsScope = patch.scope
+            if patch.scope == .continuousVisit { visitDynamics = motion }
+        }
         advance(nextScene); return true
     }
     @discardableResult func setDynamics(_ value: Float) -> Bool {
         guard isCurrent, value.isFinite, (0...1).contains(value), let scene else { return false }
-        followsTrackIntensity = false
-        guard value != dynamics else { return false }
+        let changed = value != dynamics || followsTrackIntensity || dynamicsScope != .continuousVisit
+        followsTrackIntensity = false; dynamicsScope = .continuousVisit; visitDynamics = value
+        guard changed else { return false }
         dynamics = value; advance(scene); return true
+    }
+    func beginDynamicsAdjustment() {
+        guard isCurrent, let scene else { return }
+        // A newer direct gesture wins even if its first value equals the thumb.
+        advance(scene)
     }
     func updateTrackIntensity(_ value: Float?) {
         guard isCurrent, let scene else { return }
@@ -206,11 +253,14 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     }
     func followTrackIntensity() {
         guard isCurrent else { return }
-        followsTrackIntensity = true
+        let changed = !followsTrackIntensity
+        followsTrackIntensity = true; dynamicsScope = nil; visitDynamics = nil
+        let prior = ticket
         updateTrackIntensity(trackIntensity)
+        if changed, ticket == prior, let scene { advance(scene) }
     }
     @discardableResult func nudge(at point: SIMD2<Float>, aspect: Float, strength: Float = 1) -> Bool {
-        guard isCurrent, let scene, point.x.isFinite, point.y.isFinite,
+        guard isCurrent, let scene, scene.family != .neutral, point.x.isFinite, point.y.isFinite,
               (0...1).contains(point.x), (0...1).contains(point.y),
               aspect.isFinite, aspect > 0, aspect <= 8,
               strength.isFinite, (0.5...2.5).contains(strength) else { return false }
@@ -234,6 +284,8 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         guard baseline.palette != tint else { return }
         let colors = VibeScapeScene.moodColors(mood)
         baseline.palette = tint; baseline.secondaryPalette = colors[1]; baseline.accentPalette = colors[2]
+        baseline.motion = baseline.family.baselineMotion(mood: mood)
+        scene.motion = baseline.motion
         autonomous = baseline
         // A confirmed mood refresh must not undo an explicit visual palette.
         if trackPatch?.palette == nil && persistentPatch?.palette == nil {
@@ -243,26 +295,30 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         if self.scene != scene { advance(scene) }
     }
     @discardableResult func undoLast(expected: VibeScapeRenderTicket) -> Bool {
-        guard admitted(expected), expected.occurrence != nil, turns < 32, let prior = undo.popLast() else { return false }
+        guard admitted(expected), expected.occurrence != nil, turns < 32, let prior = undo.last,
+              prior.scene.family == scene?.family, prior.scene.family != .neutral else { return false }
+        undo.removeLast()
         turns += 1; persistentPatch = prior.patch; trackPatch = prior.trackPatch
-        autonomous = prior.autonomous; followsTrackIntensity = prior.followsTrackIntensity
+        autonomous = prior.autonomous; followsTrackIntensity = prior.followsTrackIntensity; dynamicsScope = prior.dynamicsScope
+        visitDynamics = prior.visitDynamics
         dynamics = followsTrackIntensity ? (trackIntensity ?? 0.5) : prior.dynamics
         advance(prior.scene); return true
     }
     @discardableResult func resetToDJ(expected: VibeScapeRenderTicket) -> Bool {
-        guard admitted(expected), expected.occurrence != nil, turns < 32, let autonomous,
+        guard admitted(expected), expected.occurrence != nil, turns < 32, let autonomous, autonomous.family != .neutral,
               scene != autonomous || persistentPatch != nil || trackPatch != nil || dynamics != (trackIntensity ?? 0.5) || !followsTrackIntensity else { return false }
         checkpoint(); turns += 1; persistentPatch = nil; trackPatch = nil
-        followsTrackIntensity = true; dynamics = trackIntensity ?? 0.5
+        followsTrackIntensity = true; dynamicsScope = nil; visitDynamics = nil; dynamics = trackIntensity ?? 0.5
         advance(autonomous); return true
     }
     /// Hold promotes only previously explicit current-track fields. Generated
     /// palette/material/motion defaults never become an implicit style mask.
     @discardableResult func holdExplicitStyle(expected: VibeScapeRenderTicket) -> Bool {
         guard admitted(expected), expected.occurrence != nil, turns < 32,
-              let explicit = trackPatch, let scene else { return false }
+              trackPatch != nil || dynamicsScope == .currentTrack, let scene, scene.family != .neutral else { return false }
         checkpoint(); turns += 1
-        persistentPatch = persistentPatch?.merging(explicit) ?? VibeScapePatch().merging(explicit)
+        if let explicit = trackPatch { persistentPatch = persistentPatch?.merging(explicit) ?? VibeScapePatch().merging(explicit) }
+        if dynamicsScope == .currentTrack { dynamicsScope = .continuousVisit; visitDynamics = dynamics }
         trackPatch = nil
         advance(scene); return true
     }
@@ -270,11 +326,25 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     /// Undo restores the previous autonomous baseline as well as user masks.
     @discardableResult func varyComposition(expected: VibeScapeRenderTicket) -> Bool {
         guard admitted(expected), expected.occurrence != nil, turns < 32,
-              var scene, var baseline = autonomous else { return false }
+              var scene, scene.family != .neutral, var baseline = autonomous else { return false }
         checkpoint(); turns += 1; salt &+= 0x9e3779b97f4a7c15
-        baseline.composition = VibeScapeScene.autonomous(mood: nil, salt: salt).composition
+        baseline.composition = VibeScapeScene.autonomous(mood: nil, salt: salt, family: baseline.family).composition
         scene.composition = baseline.composition; autonomous = baseline
         advance(scene); return true
+    }
+    /// Retire source tickets immediately without treating an item ID as a new
+    /// server occurrence or manufacturing a new composition.
+    func invalidateOccurrence() {
+        guard isCurrent, let ticket, let scene else { return }
+        self.ticket = VibeScapeRenderTicket(visit: UUID(), occurrence: nil, revision: ticket.revision + 1)
+        appliedRevision = nil; undo.removeAll(); touches.removeAll()
+        self.scene = scene
+    }
+    /// A revoked server visit cannot be reused. This does not renew the local
+    /// visit deadline, clear user choices, or reset its bounded patch budget.
+    func renewServerContext() {
+        guard isCurrent, let scene else { return }
+        advance(scene, renewServerVisit: true)
     }
     func trackChanged(mood: String?, occurrence: String?, renewServerVisit: Bool = false) {
         guard Self.validOccurrence(occurrence) else { revoke(); return }
@@ -282,16 +352,57 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         // Still refresh the autonomous scene, retaining only visit-wide fields.
         guard isCurrent, let ticket, ticket.occurrence != occurrence || occurrence == nil || renewServerVisit else { return }
         salt &+= 0x9e3779b97f4a7c15
-        let next = VibeScapeScene.autonomous(mood: mood, salt: salt)
+        let next = VibeScapeScene.autonomous(mood: mood, salt: salt, family: scene?.family ?? .neutral)
         autonomous = next; trackPatch = nil; undo.removeAll(); touches.removeAll()
         trackIntensity = nil
-        if followsTrackIntensity { dynamics = 0.5 }
+        if dynamicsScope == .currentTrack, let held = visitDynamics {
+            dynamics = held; followsTrackIntensity = false; dynamicsScope = .continuousVisit
+        } else if followsTrackIntensity || dynamicsScope == .currentTrack {
+            dynamics = 0.5; followsTrackIntensity = true; dynamicsScope = nil
+        }
         touchExpiryTask?.cancel(); touchExpiryTask = nil
         // Voice cancellation revokes the old server visit. Rotate its client
         // identifier without renewing the local lifetime or dropping held fields.
         self.ticket = VibeScapeRenderTicket(visit: renewServerVisit ? UUID() : ticket.visit,
             occurrence: occurrence, revision: ticket.revision + 1)
         scene = persistentPatch?.applied(to: next) ?? next; appliedRevision = nil
+    }
+    /// Consume the already confirmed Session projection, never a pending button.
+    /// Revisions and conflicts cannot roll the visual world back during A→B→A.
+    @discardableResult func personaChanged(family: VibeScapeFamily, revision: Int?, floor: Int?, conflicted: Bool,
+                                         mood: String?) -> Bool {
+        guard isCurrent, let current = scene else { return false }
+        if let floor, floor > personaFloor { personaFloor = floor; familyAtFloor = nil; personaConflict = false }
+        var accepted = family
+        if conflicted { personaConflict = true; accepted = .neutral }
+        if accepted != .neutral {
+            guard let revision, revision >= personaFloor,
+                  !personaConflict || revision > personaFloor else { return false }
+            if revision == personaFloor, let known = familyAtFloor, known != accepted {
+                personaConflict = true; accepted = .neutral
+            } else {
+                if revision > personaFloor { personaConflict = false }
+                personaFloor = revision; familyAtFloor = accepted
+            }
+        }
+        let nextRevision = accepted == .neutral ? nil : revision
+        guard current.family != accepted || personaRevision != nextRevision else { return false }
+        personaRevision = nextRevision
+        salt &+= 0x9e3779b97f4a7c15
+        var next = VibeScapeScene.autonomous(mood: accepted == .neutral ? nil : mood, salt: salt, family: accepted)
+        autonomous = next
+        // A colour preference is portable. Topology/material/depth masks and
+        // undo from a previous character cannot reinstate that old character.
+        if accepted != .neutral {
+            persistentPatch = persistentPatch?.palette.map { VibeScapePatch(palette: $0, scope: .continuousVisit) }
+            trackPatch = trackPatch?.palette.map { VibeScapePatch(palette: $0, scope: .currentTrack) }
+            if let persistentPatch { next = persistentPatch.applied(to: next) }
+            if let trackPatch { next = trackPatch.applied(to: next) }
+        } else { persistentPatch = nil; trackPatch = nil }
+        undo.removeAll(); touches.removeAll()
+        touchExpiryTask?.cancel(); touchExpiryTask = nil
+        advance(next, renewServerVisit: true)
+        return true
     }
     private static func validOccurrence(_ value: String?) -> Bool {
         value.map { !$0.isEmpty && $0.utf8.count <= 256 } ?? true
@@ -301,9 +412,11 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         appliedRevision = expected.revision; return true
     }
     func revoke() {
+        lifetimeID = nil
         scene = nil; ticket = nil; autonomous = nil; persistentPatch = nil; trackPatch = nil
         undo.removeAll(keepingCapacity: false); dynamics = 0.5; appliedRevision = nil
-        followsTrackIntensity = true; trackIntensity = nil
+        followsTrackIntensity = true; trackIntensity = nil; dynamicsScope = nil; visitDynamics = nil
+        personaRevision = nil; personaFloor = -1; familyAtFloor = nil; personaConflict = false
         touches.removeAll(keepingCapacity: false)
         touchExpiryTask?.cancel(); touchExpiryTask = nil
         salt = 0; turns = 0; deadline = 0; lastUptime = 0
@@ -374,8 +487,8 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         self.visit = visit
         subscription = visit.$ticket.sink { [weak self] next in
             guard let self else { return }
-            if self.visitID != next?.visit {
-                self.cancel(); self.visitID = next?.visit; self.attempts = 0
+            if self.visitID != self.visit.lifetimeID {
+                self.cancel(); self.visitID = self.visit.lifetimeID; self.attempts = 0
             } else if let pending = self.pending, pending.turn.scene != next {
                 self.cancel()
             }
@@ -392,7 +505,7 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
               originalSourceDeadline.isFinite, originalSourceDeadline > time else { return nil }
         if let pending, (time < pending.started || time >= pending.turn.deadline) { cancel() }
         guard pending == nil else { return nil }
-        if visitID != scene.visit { visitID = scene.visit; attempts = 0 }
+        if visitID != visit.lifetimeID { visitID = visit.lifetimeID; attempts = 0 }
         guard attempts < 32, isCurrent(), visit.isCurrent, visit.ticket == scene, pending == nil else { return nil }
         // Read time again after owner checks: they cannot renew the old lease.
         let admittedAt = visit.now()

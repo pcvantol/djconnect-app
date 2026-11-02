@@ -4466,9 +4466,23 @@ func activePersonaConfirmedConflictAndAuthorityHandling(_ status:Int, _ backgrou
     let(model,defaults,name)=fixture.model();defer{defaults.removePersistentDomain(forName:name)}
     await model.sessionHistory.prepare();await model.refreshActiveDJSession();await model.refreshActiveMoodCapability()
     #expect(model.activePersonaAvailable && model.sessionHistory.hasAuthorizedOwner)
+    let visual = VisualDirectorVisit()
+    let initialPersona = try #require(model.activeDJSession?.confirmedPersona)
+    visual.enter(mood: model.activeDJSession?.selectedMood, occurrence: "synthetic-persona-occurrence",
+                 family: VibeScapeFamily(persona: initialPersona.selectedPersona), personaRevision: initialPersona.personaRevision)
+    #expect(visual.setDynamics(0.2))
+    func projectConfirmedVisual() {
+        guard let runtime = model.activeDJSession else { visual.revoke(); return }
+        let confirmed = runtime.confirmedPersona
+        _ = visual.personaChanged(family: confirmed.map { VibeScapeFamily(persona: $0.selectedPersona) } ?? .neutral,
+            revision: confirmed?.personaRevision, floor: runtime.personaRevisionFloor,
+            conflicted: runtime.hasUnconfirmedPersonaRevision, mood: runtime.selectedMood)
+    }
     let pending = Task {await model.changeActiveSessionPersona(.radioDJ,expectedSessionID:sessionID,expectedEpoch:model.sessionHistory.responseEpoch)}
     try await Task.sleep(for:.milliseconds(25))
     #expect(model.activePersonaPending && model.activeDJSession?.confirmedPersona?.selectedPersona == .homeDJ)
+    projectConfirmedVisual()
+    #expect(visual.scene?.family == .home && visual.dynamics == 0.2)
     if background {model.markInactiveSession()}
     await pending.value
     #expect(!model.activePersonaPending)
@@ -4478,6 +4492,10 @@ func activePersonaConfirmedConflictAndAuthorityHandling(_ status:Int, _ backgrou
         #expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .homeDJ)
         return
     }
+    projectConfirmedVisual()
+    if status == 200 {#expect(visual.scene?.family == .radio && visual.dynamics == 0.2)}
+    if status == 409 {#expect(visual.scene?.family == .club && visual.dynamics == 0.2)}
+    if status == 403 {#expect(visual.scene == nil)}
     if status == 200 {#expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .radioDJ && model.activePersonaError == nil)}
     if status == 409 {#expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .clubDJ && model.activePersonaError != nil)}
     if status == 403 {#expect(!model.sessionHistory.hasAuthorizedOwner && model.activeDJSession == nil && !model.activePersonaAvailable)}

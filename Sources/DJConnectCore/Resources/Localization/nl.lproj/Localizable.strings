@@ -1512,9 +1512,9 @@
 
 // VibeScape preview: ephemeral native visuals.
 "ui.vibescape.dynamics" = "Dynamiek";
-"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.auto" = "Volg DJ";
 "ui.vibescape.dynamics.manual" = "Handmatig";
-"ui.vibescape.dynamics.follow" = "Volg nummerintensiteit";
+"ui.vibescape.dynamics.follow" = "Volg DJ";
 "ui.vibescape.calm" = "Rustig";
 "ui.vibescape.intense" = "Intens";
 "ui.vibescape.follow" = "Volg DJ";
@@ -1531,7 +1531,7 @@
 
 "ui.vibescape.help.title" = "VibeScape-hulp";
 "ui.vibescape.help.touch" = "Tik voor een felle reactie. Sleep met je vinger of muis door de animatie voor een vloeiend effect.";
-"ui.vibescape.help.intensity" = "Met de slider kies je handmatig de intensiteit. Reset hervat automatisch volgen; zonder betrouwbare nummerintensiteit blijft de stand neutraal.";
+"ui.vibescape.help.intensity" = "De slider maakt de huidige wereld rustiger of intenser. Het midden is neutraal. Je keuze blijft tijdens dit bezoek gelden; Volg DJ herstelt de automatische basis.";
 "ui.vibescape.help.controls" = "De knoppen verdwijnen na enkele seconden. Tik op de plek van de bediening of houd de muis erboven om ze terug te halen.";
 
 "ui.vibescape.help.voice" = "Spraakopdrachten";
@@ -1631,3 +1631,8 @@
 "ui.vibescape.scope.visit" = "Blijft gelden totdat je VibeScape verlaat.";
 
 "ui.trackInsight.visual.decorative" = "Visuele animatie · geen audiometing";
+
+"ui.vibescape.world.home" = "Vloeibare wereld";
+"ui.vibescape.world.radio" = "Kinetisch atelier";
+"ui.vibescape.world.club" = "Lichtarchitectuur";
+"ui.vibescape.world.festival" = "Kosmische bloei";

@@ -201,7 +201,7 @@ import DJConnectCore
         #expect(!visit.rendererCompleted(old))
         let calm = try #require(visit.ticket)
         #expect(visit.apply(VibeScapePatch(palette:SIMD3(0.9,0.7,0.2)),expected:calm))
-        #expect(visit.scene?.motion == 0.1)
+        #expect(visit.dynamics == 0.1)
         #expect(!visit.apply(VibeScapePatch(depth:0.8),expected:calm))
         #expect(visit.rendererCompleted(try #require(visit.ticket)))
         #expect(visit.appliedRevision == visit.ticket?.revision)
@@ -333,7 +333,7 @@ import DJConnectCore
         #expect(visit.holdExplicitStyle(expected:try #require(visit.ticket)))
         visit.trackChanged(mood:"groove",occurrence:"B")
         #expect(visit.ticket?.visit == identity)
-        #expect(visit.scene?.palette == corrected && visit.scene?.motion == 0.1 && visit.scene?.depth == 0.9)
+        #expect(visit.scene?.palette == corrected && visit.dynamics == 0.1 && visit.scene?.depth == 0.9)
         #expect(visit.scene?.roughness != baseline.roughness || visit.scene?.deformation != baseline.deformation)
         #expect(visit.apply(VibeScapePatch(palette:SIMD3(0.1,0.3,0.8)),expected:try #require(visit.ticket)))
         visit.trackChanged(mood:"chill",occurrence:"C")
@@ -348,7 +348,7 @@ import DJConnectCore
         #expect(!visit.holdExplicitStyle(expected:try #require(visit.ticket)))
         visit.trackChanged(mood:"party",occurrence:"B")
         #expect(visit.scene?.palette == gold)
-        #expect(visit.scene?.motion == 0.3)
+        #expect(visit.scene?.motion == VibeScapeFamily.home.baselineMotion(mood: "party"))
         #expect(visit.resetToDJ(expected:try #require(visit.ticket)))
         #expect(visit.scene?.palette != gold)
     }
@@ -357,7 +357,7 @@ import DJConnectCore
         #expect(visit.apply(VibeScapePatch(motion:0.1),expected:try #require(visit.ticket)))
         #expect(visit.holdExplicitStyle(expected:try #require(visit.ticket)))
         #expect(visit.undoLast(expected:try #require(visit.ticket)))
-        #expect(visit.scene?.motion == 0.1)
+        #expect(visit.dynamics == 0.1)
         visit.trackChanged(mood:"groove",occurrence:"B")
         #expect(visit.scene?.motion == 0.3)
     }
@@ -383,11 +383,13 @@ import DJConnectCore
         let initial = try #require(visit.ticket)
         #expect(!visit.holdExplicitStyle(expected:initial))
         #expect(!visit.resetToDJ(expected:initial))
-        #expect(!visit.setDynamics(0.5))
-        #expect(visit.ticket == initial)
-        // An equal value can still establish an explicit scope constraint once.
-        let motion = try #require(visit.scene).motion
-        #expect(visit.apply(VibeScapePatch(motion:motion),expected:initial))
+        #expect(visit.setDynamics(0.5)) // Explicit ownership fences pending voice even at neutral.
+        let manual = try #require(visit.ticket)
+        #expect(manual != initial)
+        #expect(!visit.setDynamics(0.5) && visit.ticket == manual)
+        // An equal value can still establish a different explicit scope once.
+        let motion = visit.dynamics
+        #expect(visit.apply(VibeScapePatch(motion:motion),expected:manual))
         let explicit = try #require(visit.ticket)
         #expect(!visit.apply(VibeScapePatch(motion:motion),expected:explicit))
         #expect(visit.ticket == explicit && visit.appliedRevision == nil)
@@ -456,6 +458,7 @@ import DJConnectCore
         }
         #expect(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}) == nil)
         visit.trackChanged(mood:nil,occurrence:"B")
+        visit.renewServerContext()
         #expect(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}) == nil)
         visit.enter(mood:nil,occurrence:"B",salt:2)
         #expect(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}) != nil)

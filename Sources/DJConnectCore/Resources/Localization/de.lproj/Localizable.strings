@@ -1512,9 +1512,9 @@
 
 // VibeScape preview: ephemeral native visuals.
 "ui.vibescape.dynamics" = "Dynamik";
-"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.auto" = "DJ folgen";
 "ui.vibescape.dynamics.manual" = "Manuell";
-"ui.vibescape.dynamics.follow" = "Titelintensität folgen";
+"ui.vibescape.dynamics.follow" = "DJ folgen";
 "ui.vibescape.calm" = "Ruhig";
 "ui.vibescape.intense" = "Intensiv";
 "ui.vibescape.follow" = "DJ folgen";
@@ -1531,7 +1531,7 @@
 
 "ui.vibescape.help.title" = "VibeScape-Hilfe";
 "ui.vibescape.help.touch" = "Tippe für eine kräftige Reaktion. Ziehe Finger oder Maus über die Animation für einen fließenden Effekt.";
-"ui.vibescape.help.intensity" = "Der Regler stellt die Intensität manuell ein. Zurücksetzen aktiviert die automatische Anpassung; ohne verlässliche Titelintensität bleibt die Einstellung neutral.";
+"ui.vibescape.help.intensity" = "Der Regler macht die aktuelle Welt ruhiger oder intensiver. Die Mitte ist neutral. Deine Wahl gilt für diesen Besuch; DJ folgen stellt die automatische Basis wieder her.";
 "ui.vibescape.help.controls" = "Die Bedienelemente verschwinden nach einigen Sekunden. Tippe auf ihren Bereich oder halte die Maus darüber, um sie wieder anzuzeigen.";
 
 "ui.vibescape.help.voice" = "Sprachbefehle";
@@ -1631,3 +1631,8 @@
 "ui.vibescape.scope.visit" = "Gilt, bis du VibeScape verlässt.";
 
 "ui.trackInsight.visual.decorative" = "Visuelle Animation · keine Audiomessung";
+
+"ui.vibescape.world.home" = "Flüssige Welt";
+"ui.vibescape.world.radio" = "Kinetisches Atelier";
+"ui.vibescape.world.club" = "Lichtarchitektur";
+"ui.vibescape.world.festival" = "Kosmische Blüte";
