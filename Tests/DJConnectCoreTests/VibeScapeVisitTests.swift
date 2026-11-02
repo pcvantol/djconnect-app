@@ -211,6 +211,19 @@ import DJConnectCore
         #expect(visit.apply(VibeScapePatch(depth:0.9,scope:.continuousVisit),expected:try #require(visit.ticket)))
         #expect(visit.apply(VibeScapePatch(motion:0.01),expected:try #require(visit.ticket)))
         let stale = try #require(visit.ticket)
+        // Native playback first clears the old server occurrence, then binds
+        // the new one. The visit-wide adjustment must survive both steps.
+        visit.trackChanged(mood: "groove", occurrence: nil, renewServerVisit: true)
+        #expect(visit.ticket?.visit != stale.visit)
+        let renewedVisit = try #require(visit.ticket?.visit)
+        #expect(visit.scene?.depth == 0.9)
+        #expect(visit.scene?.motion != 0.01)
+        #expect(!visit.apply(VibeScapePatch(depth: 0.1), expected: try #require(visit.ticket)))
+        let unbound = try #require(visit.ticket)
+        visit.trackChanged(mood: "groove", occurrence: nil)
+        #expect(visit.ticket?.visit == renewedVisit)
+        #expect(visit.ticket?.revision != unbound.revision)
+        #expect(visit.scene?.depth == 0.9)
         visit.trackChanged(mood:"groove",occurrence:"B")
         #expect(visit.scene?.depth == 0.9)
         #expect(visit.scene?.motion != 0.01)
@@ -513,3 +526,16 @@ private struct DynamicsPointerProbe: View {
     }
 }
 #endif
+
+@Test(arguments: [DJConnectVisualDirectionScope.currentTrack, .continuousVisit])
+func visualVoiceRequestCarriesSelectedDuration(_ scope: DJConnectVisualDirectionScope) throws {
+    let request = DJConnectVisualInterpretRequest(deviceID: "device", clientType: "macos",
+        sessionID: "session", visitID: UUID(), turnID: UUID(), lease: "lease", occurrence: "occurrence",
+        revision: 7, text: "Meer diepte", scene: .init(palette: [0.1, 0.2, 0.3], motion: 0.4,
+            depth: 0.5, roughness: 0.6, deformation: 0.7), dynamics: 0.5, scope: scope)
+    let wire = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
+    #expect(wire["scope"] as? String == scope.rawValue)
+    #expect(wire["text"] as? String == "Meer diepte")
+    #expect(wire["observed_occurrence_id"] as? String == "occurrence")
+    #expect(wire["base_scene_revision"] as? Int == 7)
+}

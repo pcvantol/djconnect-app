@@ -1624,3 +1624,8 @@
 "ui.welcome.queue.description" = "Consulta las próximas canciones y elige qué reproducir.";
 
 "ui.askdj.help.item.unavailable" = "No disponible en este momento";
+
+"ui.vibescape.scope.title" = "Duración";
+"ui.vibescape.scope.hint" = "Elige cuánto dura tu próximo ajuste de voz. También puedes indicar la duración en la orden.";
+"ui.vibescape.scope.track" = "Termina cuando empieza la siguiente canción.";
+"ui.vibescape.scope.visit" = "Se mantiene hasta que salgas de VibeScape.";

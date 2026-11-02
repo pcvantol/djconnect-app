@@ -1624,3 +1624,8 @@
 "ui.welcome.queue.description" = "Bekijk welke nummers hierna komen en kies wat je wilt afspelen.";
 
 "ui.askdj.help.item.unavailable" = "Nu niet beschikbaar";
+
+"ui.vibescape.scope.title" = "Geldigheidsduur";
+"ui.vibescape.scope.hint" = "Kies hoelang je volgende spraakaanpassing geldt. Je kunt de duur ook in je opdracht noemen.";
+"ui.vibescape.scope.track" = "Vervalt zodra het volgende nummer begint.";
+"ui.vibescape.scope.visit" = "Blijft gelden totdat je VibeScape verlaat.";

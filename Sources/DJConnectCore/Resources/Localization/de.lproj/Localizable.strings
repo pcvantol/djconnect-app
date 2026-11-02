@@ -1624,3 +1624,8 @@
 "ui.welcome.queue.description" = "Sieh dir die nächsten Titel an und wähle aus, was du abspielen möchtest.";
 
 "ui.askdj.help.item.unavailable" = "Derzeit nicht verfügbar";
+
+"ui.vibescape.scope.title" = "Gültigkeitsdauer";
+"ui.vibescape.scope.hint" = "Wähle, wie lange deine nächste Sprachanpassung gilt. Du kannst die Dauer auch im Befehl nennen.";
+"ui.vibescape.scope.track" = "Endet, sobald der nächste Titel beginnt.";
+"ui.vibescape.scope.visit" = "Gilt, bis du VibeScape verlässt.";

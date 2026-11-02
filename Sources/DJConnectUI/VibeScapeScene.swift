@@ -276,16 +276,21 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         scene.composition = baseline.composition; autonomous = baseline
         advance(scene); return true
     }
-    func trackChanged(mood: String?, occurrence: String?) {
+    func trackChanged(mood: String?, occurrence: String?, renewServerVisit: Bool = false) {
         guard Self.validOccurrence(occurrence) else { revoke(); return }
-        guard isCurrent, let ticket, ticket.occurrence != occurrence else { return }
+        // A playback change may arrive before a qualified server occurrence.
+        // Still refresh the autonomous scene, retaining only visit-wide fields.
+        guard isCurrent, let ticket, ticket.occurrence != occurrence || occurrence == nil || renewServerVisit else { return }
         salt &+= 0x9e3779b97f4a7c15
         let next = VibeScapeScene.autonomous(mood: mood, salt: salt)
         autonomous = next; trackPatch = nil; undo.removeAll(); touches.removeAll()
         trackIntensity = nil
         if followsTrackIntensity { dynamics = 0.5 }
         touchExpiryTask?.cancel(); touchExpiryTask = nil
-        self.ticket = VibeScapeRenderTicket(visit: ticket.visit, occurrence: occurrence, revision: ticket.revision + 1)
+        // Voice cancellation revokes the old server visit. Rotate its client
+        // identifier without renewing the local lifetime or dropping held fields.
+        self.ticket = VibeScapeRenderTicket(visit: renewServerVisit ? UUID() : ticket.visit,
+            occurrence: occurrence, revision: ticket.revision + 1)
         scene = persistentPatch?.applied(to: next) ?? next; appliedRevision = nil
     }
     private static func validOccurrence(_ value: String?) -> Bool {

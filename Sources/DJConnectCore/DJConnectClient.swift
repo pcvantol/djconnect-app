@@ -2317,6 +2317,10 @@ public struct DJConnectVisualSceneValues: Codable, Sendable {
         self.palette = palette; self.motion = motion; self.depth = depth; self.roughness = roughness; self.deformation = deformation
     }
 }
+public enum DJConnectVisualDirectionScope: String, Sendable {
+    case currentTrack = "current_track"
+    case continuousVisit = "while_in_vibescape"
+}
 public struct DJConnectVisualInterpretRequest: Encodable, Sendable {
     public let schema_version = 1
     public let device_id: String, client_type: String, session_id: String, visit_id: String
@@ -2327,10 +2331,11 @@ public struct DJConnectVisualInterpretRequest: Encodable, Sendable {
     public let dynamics_bias: Float
     public let scope: String
     public init(deviceID: String, clientType: String, sessionID: String, visitID: UUID, turnID: UUID,
-                lease: String, occurrence: String, revision: UInt64, text: String, scene: DJConnectVisualSceneValues, dynamics: Float) {
+                lease: String, occurrence: String, revision: UInt64, text: String, scene: DJConnectVisualSceneValues, dynamics: Float,
+                scope: DJConnectVisualDirectionScope = .currentTrack) {
         device_id = deviceID; client_type = clientType; session_id = sessionID; visit_id = visitID.uuidString
         client_turn_id = turnID.uuidString; context_lease_id = lease; observed_occurrence_id = occurrence
-        base_scene_revision = revision; self.text = text; active_scene = scene; dynamics_bias = dynamics; scope = "current_track"
+        base_scene_revision = revision; self.text = text; active_scene = scene; dynamics_bias = dynamics; self.scope = scope.rawValue
     }
 }
 public struct DJConnectVisualInterpretResponse: Decodable, Sendable {

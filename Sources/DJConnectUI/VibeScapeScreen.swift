@@ -63,6 +63,7 @@ struct VibeScapeScreen: View {
     @State private var helpFailed = false
     @State private var helpGeneration = UUID()
     @State private var showsHelp = false
+    @State private var directionScope: DJConnectVisualDirectionScope = .currentTrack
     @State private var screenIsActive = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -133,7 +134,7 @@ struct VibeScapeScreen: View {
                             .accessibilityIdentifier("vibescape-help")
                             .popover(isPresented: $showsHelp) {
                                 VibeScapeHelpContent(language: model.language, help: visualHelp,
-                                    loading: helpLoading, failed: helpFailed,
+                                    loading: helpLoading, failed: helpFailed, scope: $directionScope, scopeEnabled: !voice.busy,
                                     retry: { Task { await loadVisualHelp() } }, close: { showsHelp = false })
                                     .task { await loadVisualHelp() }
                                     .presentationCompactAdaptation(.popover)
@@ -195,7 +196,7 @@ struct VibeScapeScreen: View {
             if admitted {
                 voice.cancel()
                 let manual = visit.followsTrackIntensity ? nil : visit.dynamics
-                visit.enter(mood:model.activeDJSession?.selectedMood,occurrence:nil)
+                visit.trackChanged(mood: model.activeDJSession?.selectedMood, occurrence: nil, renewServerVisit: true)
                 updateAutomaticIntensity()
                 if let manual { _ = visit.setDynamics(manual) }
             }
@@ -254,7 +255,7 @@ struct VibeScapeScreen: View {
     private func toggleVisualVoice() {
         guard admitted, !unavailable, !model.isDemoMode else { return }
         showControls(); DJConnectHaptics.selection()
-        voice.toggle(model: model, visit: visit)
+        voice.toggle(model: model, visit: visit, scope: directionScope)
     }
     private func loadVisualHelp() async {
         let generation = UUID(), epoch = model.sessionHistory.responseEpoch
@@ -397,6 +398,8 @@ private struct VibeScapeHelpContent: View {
     let help: DJConnectVisualHelp?
     let loading: Bool
     let failed: Bool
+    @Binding var scope: DJConnectVisualDirectionScope
+    let scopeEnabled: Bool
     let retry: () -> Void
     let close: () -> Void
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
@@ -418,7 +421,33 @@ private struct VibeScapeHelpContent: View {
                 if loading { ProgressView().accessibilityLabel(text("ui.vibescape.help.loading")) }
                 else if let help {
                     ForEach(help.examples) { example in Text("• " + example.text) }
-                    ForEach(help.scopes) { scope in Text(scope.text).font(.callout).foregroundStyle(.secondary) }
+                    if !help.scopes.isEmpty {
+                        Divider()
+                        Text(text("ui.vibescape.scope.title")).font(.headline).accessibilityAddTraits(.isHeader)
+                        Text(text("ui.vibescape.scope.hint")).font(.callout).foregroundStyle(.secondary)
+                        ForEach(help.scopes) { option in
+                            if let choice = DJConnectVisualDirectionScope(rawValue: option.id) {
+                                Button { scope = choice } label: {
+                                    HStack(alignment: .top, spacing: 12) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(option.text).font(.body.weight(.semibold))
+                                            Text(text(choice == .currentTrack
+                                                ? "ui.vibescape.scope.track" : "ui.vibescape.scope.visit"))
+                                                .font(.callout).foregroundStyle(.secondary)
+                                        }
+                                        Spacer(minLength: 0)
+                                        Image(systemName: scope == choice ? "checkmark.circle.fill" : "circle")
+                                    }.frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: scope == choice ? .selected : .secondary))
+                                .disabled(!scopeEnabled)
+                                .accessibilityAddTraits(scope == choice ? .isSelected : [])
+                                .accessibilityIdentifier("vibescape-scope-" + choice.rawValue)
+                            } else {
+                                Text(option.text).font(.callout).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                 } else if failed {
                     Text(text("ui.vibescape.help.unavailable"))
                     Button(text("ui.retry"), action: retry).djConnectButtonStyle(DJConnectButtonStyle())
@@ -574,7 +603,7 @@ import AVFoundation
     private var revoke: (() -> Void)?
     private var audioSessionActive = false
 
-    func toggle(model: DJConnectAppModel, visit: VisualDirectorVisit) {
+    func toggle(model: DJConnectAppModel, visit: VisualDirectorVisit, scope: DJConnectVisualDirectionScope = .currentTrack) {
         if recording { recorder?.stop(); recording = false; return }
         guard !busy, model.voiceEnabled, !model.isRecordingVoice, model.voiceStatus != .processing,
               let owner = model.sessionHistory.authorizedProfileID,
@@ -675,7 +704,7 @@ import AVFoundation
                     return try await client.interpretVisualDirection(.init(deviceID: client.identity.deviceID,
                         clientType: client.identity.clientType.rawValue, sessionID: sessionID, visitID: visitID, turnID: turn.id,
                         lease: context.context_lease_id, occurrence: context.observed_occurrence_id, revision: turn.scene.revision,
-                        text: transcript, scene: values, dynamics: visit.dynamics))
+                        text: transcript, scene: values, dynamics: visit.dynamics, scope: scope))
                 }
                 guard current(), response.success, response.schema_version == 1, response.status == "interpreted",
                       UUID(uuidString: response.visit_id) == visitID, UUID(uuidString: response.client_turn_id) == turn.id,
@@ -737,7 +766,7 @@ import AVFoundation
 @MainActor final class VibeScapeVoiceControl: ObservableObject {
     let busy = false, recording = false, awaitingPermission = false
     let statusKey: String? = "ui.vibescape.voice.unavailable"
-    func toggle(model: DJConnectAppModel, visit: VisualDirectorVisit) {}
+    func toggle(model: DJConnectAppModel, visit: VisualDirectorVisit, scope: DJConnectVisualDirectionScope = .currentTrack) {}
     func cancel() {}
 }
 #endif
