@@ -158,6 +158,7 @@ struct SavedSessionsView: View {
                     #if !os(iOS)
                     if !initialLoadFinished || history.listLoading || history.preparing {
                         ProgressView().controlSize(.large).tint(.white)
+                            .frame(maxWidth: .infinity, alignment: .center)
                             .accessibilityLabel(text("ui.session.history.loading"))
                     }
                     #endif
