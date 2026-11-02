@@ -964,7 +964,6 @@
 "ui.vibecast.handoff.failed" = "The code expired or the handoff could not be completed.";
 
 // Native Moment-first Session
-"ui.session.quiet" = "The DJ is listening with you.";
 "ui.session.back_current" = "Back to current contribution";
 "ui.session.music_progress" = "Music progress";
 "ui.session.moment.generic" = "DJ contribution";
@@ -1233,7 +1232,7 @@
 "ui.session.voice.female" = "Female";
 
 "ui.trackInsight.analysis.title" = "Music analysis";
-"ui.trackInsight.analysis.unavailable" = "Music analysis is not available for this track yet.";
+"ui.trackInsight.analysis.unavailable" = "Audio measurements are not available for this track. Background information and interpretation are separate from audio measurements.";
 
 /* First DJ session navigation introduction */
 "ui.session.intro.skip" = "Skip";
@@ -1512,9 +1511,9 @@
 
 // VibeScape preview: ephemeral native visuals.
 "ui.vibescape.dynamics" = "Dynamics";
-"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.auto" = "Follow DJ";
 "ui.vibescape.dynamics.manual" = "Manual";
-"ui.vibescape.dynamics.follow" = "Follow track intensity";
+"ui.vibescape.dynamics.follow" = "Follow DJ";
 "ui.vibescape.calm" = "Calm";
 "ui.vibescape.intense" = "Intense";
 "ui.vibescape.follow" = "Follow DJ";
@@ -1531,7 +1530,7 @@
 
 "ui.vibescape.help.title" = "VibeScape help";
 "ui.vibescape.help.touch" = "Tap for a bright response. Drag your finger or mouse across the animation for a flowing effect.";
-"ui.vibescape.help.intensity" = "Use the slider to choose intensity manually. Reset resumes automatic following; without reliable track intensity, the setting stays neutral.";
+"ui.vibescape.help.intensity" = "The slider makes the current world calmer or more intense. The centre is neutral. Your choice lasts for this visit; Follow DJ restores the automatic baseline.";
 "ui.vibescape.help.controls" = "Controls hide after a few seconds. Tap their area or hover over it to reveal them.";
 
 "ui.vibescape.help.voice" = "Voice commands";
@@ -1620,3 +1619,19 @@
 "ui.content.delete.recover_previous" = "Check earlier deletion";
 "ui.vibescape.voice.starting" = "Preparing the microphone…";
 "ui.vibescape.voice.start_failed" = "Recording could not start. Try again.";
+
+"ui.welcome.queue.description" = "See which tracks are coming up next and choose what to play.";
+
+"ui.askdj.help.item.unavailable" = "Currently unavailable";
+
+"ui.vibescape.scope.title" = "Duration";
+"ui.vibescape.scope.hint" = "Choose how long your next voice adjustment lasts. You can also include the duration in your command.";
+"ui.vibescape.scope.track" = "Ends when the next track starts.";
+"ui.vibescape.scope.visit" = "Lasts until you leave VibeScape.";
+
+"ui.trackInsight.visual.decorative" = "Visual animation · not an audio measurement";
+
+"ui.vibescape.world.home" = "Liquid world";
+"ui.vibescape.world.radio" = "Kinetic atelier";
+"ui.vibescape.world.club" = "Light architecture";
+"ui.vibescape.world.festival" = "Cosmic bloom";

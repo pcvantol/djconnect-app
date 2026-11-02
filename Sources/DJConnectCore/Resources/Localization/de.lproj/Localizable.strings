@@ -964,7 +964,6 @@
 "ui.vibecast.handoff.failed" = "Der Code ist abgelaufen oder die Übergabe ist fehlgeschlagen.";
 
 // Native Moment-first Session
-"ui.session.quiet" = "Der DJ hört mit dir zu.";
 "ui.session.back_current" = "Zurück zum aktuellen Beitrag";
 "ui.session.music_progress" = "Musikfortschritt";
 "ui.session.moment.generic" = "DJ-Beitrag";
@@ -1233,7 +1232,7 @@
 "ui.session.voice.female" = "Weiblich";
 
 "ui.trackInsight.analysis.title" = "Musikanalyse";
-"ui.trackInsight.analysis.unavailable" = "Für diesen Titel ist noch keine Musikanalyse verfügbar.";
+"ui.trackInsight.analysis.unavailable" = "Für diesen Titel sind keine Audiomessungen verfügbar. Hintergrundinformationen und Einordnung sind von Audiomessungen getrennt.";
 
 /* First DJ session navigation introduction */
 "ui.session.intro.skip" = "Überspringen";
@@ -1512,9 +1511,9 @@
 
 // VibeScape preview: ephemeral native visuals.
 "ui.vibescape.dynamics" = "Dynamik";
-"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.auto" = "DJ folgen";
 "ui.vibescape.dynamics.manual" = "Manuell";
-"ui.vibescape.dynamics.follow" = "Titelintensität folgen";
+"ui.vibescape.dynamics.follow" = "DJ folgen";
 "ui.vibescape.calm" = "Ruhig";
 "ui.vibescape.intense" = "Intensiv";
 "ui.vibescape.follow" = "DJ folgen";
@@ -1531,7 +1530,7 @@
 
 "ui.vibescape.help.title" = "VibeScape-Hilfe";
 "ui.vibescape.help.touch" = "Tippe für eine kräftige Reaktion. Ziehe Finger oder Maus über die Animation für einen fließenden Effekt.";
-"ui.vibescape.help.intensity" = "Der Regler stellt die Intensität manuell ein. Zurücksetzen aktiviert die automatische Anpassung; ohne verlässliche Titelintensität bleibt die Einstellung neutral.";
+"ui.vibescape.help.intensity" = "Der Regler macht die aktuelle Welt ruhiger oder intensiver. Die Mitte ist neutral. Deine Wahl gilt für diesen Besuch; DJ folgen stellt die automatische Basis wieder her.";
 "ui.vibescape.help.controls" = "Die Bedienelemente verschwinden nach einigen Sekunden. Tippe auf ihren Bereich oder halte die Maus darüber, um sie wieder anzuzeigen.";
 
 "ui.vibescape.help.voice" = "Sprachbefehle";
@@ -1620,3 +1619,19 @@
 "ui.content.delete.recover_previous" = "Frühere Löschung prüfen";
 "ui.vibescape.voice.starting" = "Mikrofon wird vorbereitet…";
 "ui.vibescape.voice.start_failed" = "Die Aufnahme konnte nicht starten. Versuche es erneut.";
+
+"ui.welcome.queue.description" = "Sieh dir die nächsten Titel an und wähle aus, was du abspielen möchtest.";
+
+"ui.askdj.help.item.unavailable" = "Derzeit nicht verfügbar";
+
+"ui.vibescape.scope.title" = "Gültigkeitsdauer";
+"ui.vibescape.scope.hint" = "Wähle, wie lange deine nächste Sprachanpassung gilt. Du kannst die Dauer auch im Befehl nennen.";
+"ui.vibescape.scope.track" = "Endet, sobald der nächste Titel beginnt.";
+"ui.vibescape.scope.visit" = "Gilt, bis du VibeScape verlässt.";
+
+"ui.trackInsight.visual.decorative" = "Visuelle Animation · keine Audiomessung";
+
+"ui.vibescape.world.home" = "Flüssige Welt";
+"ui.vibescape.world.radio" = "Kinetisches Atelier";
+"ui.vibescape.world.club" = "Lichtarchitektur";
+"ui.vibescape.world.festival" = "Kosmische Blüte";

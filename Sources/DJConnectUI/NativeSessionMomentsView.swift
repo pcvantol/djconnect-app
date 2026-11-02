@@ -248,18 +248,15 @@ private struct DJSessionGlassSurface: ViewModifier {
         } else if scrollingSurface {
             bordered.background(DJConnectMaterial(.ultraThin), in: shape)
         } else if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *) {
-            if let tint {
-                bordered.glassEffect(.regular.tint(tint.opacity(0.22)), in: shape)
-            } else {
-                #if os(iOS)
-                if currentMomentBorder && UIDevice.current.userInterfaceIdiom == .pad {
-                    // Wide iPad bubbles need a visible frost tint over the page gradient.
-                    bordered.glassEffect(.regular.tint(.white.opacity(0.12)), in: shape)
-                } else { bordered.glassEffect(.regular, in: shape) }
-                #else
-                bordered.glassEffect(.regular, in: shape)
-                #endif
-            }
+            // One native glass node keeps its content (especially the avatar's
+            // interaction/focus state) mounted when the card changes emphasis.
+            #if os(iOS)
+            let glassTint = tint?.opacity(0.22) ??
+                (currentMomentBorder && UIDevice.current.userInterfaceIdiom == .pad ? Color.white.opacity(0.12) : nil)
+            #else
+            let glassTint = tint?.opacity(0.22)
+            #endif
+            bordered.glassEffect(.regular.tint(glassTint), in: shape)
         } else { bordered.background(DJConnectMaterial(.ultraThin), in: shape) }
     }
 }
@@ -277,6 +274,136 @@ struct DJSessionGlassGroup<Content: View>: View {
         } else {
             content
         }
+    }
+}
+
+/// Only geometry is retained across incomplete delivery. Content admission stays
+/// exclusively in nativeCurrentMoment and the existing local withdrawal guard.
+enum SessionCurrentDJCardState: Equatable {
+    case compact, expanded, unresolved
+
+    static func resolve(session: DJConnectSessionRuntime, moment: DJConnectMoment?,
+                        recovering: Bool, unavailable: Bool, withdrawn: Bool = false, at now: Date) -> Self {
+        guard !recovering, !unavailable, session.runtimeState == "active",
+              session.broadcast.playback?.state == "playing", moment == nil else { return .expanded }
+        let broadcast = session.broadcast
+        guard broadcast.session.runtimeState == "active",
+              let authority = broadcast.nativeDelivery, authority.schemaVersion == 1,
+              authority.sessionID == session.id, broadcast.session.sessionID == session.id,
+              authority.revocationScope == "session", !authority.revision.isEmpty else { return .unresolved }
+        if let id = authority.currentMomentID {
+            guard authority.currentSilenceMomentID == nil else { return .unresolved }
+            if withdrawn { return .compact }
+            // A known existing presentation deadline may end the display before
+            // the next snapshot clears currentMomentID. Never invent a timer.
+            let admissions = authority.admissions.filter { $0.momentID == id }
+            guard broadcast.djMoments.contains(where: { $0.id == id && $0.sessionID == session.id }),
+                  admissions.count == 1, let admission = admissions.first,
+                  admission.qualification == "qualified",
+                  let displayDeadline = admission.displayExpiresAt.flatMap(DJConnectHistoryEntry.date) else { return .unresolved }
+            let sourceDeadline = admission.sourceExpiresAt.flatMap(DJConnectHistoryEntry.date)
+            guard admission.sourceExpiresAt == nil || sourceDeadline != nil else { return .unresolved }
+            return !admission.currentDisplayAllowed || displayDeadline <= now || sourceDeadline.map({ $0 <= now }) == true ? .compact : .unresolved
+        }
+        guard authority.currentSilenceMomentID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != true else { return .unresolved }
+        return .compact
+    }
+}
+
+/// Finite numeric geometry avoids animating a nil/infinite frame, which can
+/// briefly clip the avatar to zero and expose detail outside the glass. Detail
+/// is measured at its final width throughout the transition, never reflowed.
+struct SessionCurrentDJCardLayout: Layout {
+    let sessionID: String
+    var expansion: CGFloat
+    let hasDetail: Bool
+    let heldSize: CGSize?
+    var animatableData: CGFloat { get { expansion } set { expansion = newValue } }
+    struct Cache {
+        var sessionID: String
+        var fullWidth: CGFloat = 640
+        var expandedHeight: CGFloat = DJConnectCardAppearance.currentDJAvatarSize + 2 * DJConnectCardAppearance.currentDJInset
+    }
+    func makeCache(subviews: Subviews) -> Cache { Cache(sessionID: sessionID) }
+    func updateCache(_ cache: inout Cache, subviews: Subviews) {
+        // Default cache rebuilding on 2→1 children would lose the measured
+        // expanded height during collapse. Keep only sizes, never a detail view.
+        if cache.sessionID != sessionID { cache = Cache(sessionID: sessionID) }
+    }
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
+        if cache.sessionID != sessionID { cache = Cache(sessionID: sessionID) }
+        let avatar = DJConnectCardAppearance.currentDJAvatarSize
+        let inset = DJConnectCardAppearance.currentDJInset
+        let side = avatar + 2 * inset
+        if let width = proposal.width, width.isFinite { cache.fullWidth = max(side, width) }
+        if hasDetail, subviews.count > 1 {
+            let detail = subviews[1].sizeThatFits(.init(width: max(0, cache.fullWidth - avatar - 16 - 2 * inset), height: nil))
+            if detail.height.isFinite { cache.expandedHeight = max(avatar, detail.height) + 2 * inset }
+        }
+        let fraction = expansion.isFinite ? max(0, min(1, expansion)) : 0
+        return CGSize(width: heldSize.map { min(cache.fullWidth, $0.width) } ?? side + (cache.fullWidth - side) * fraction,
+                      height: heldSize?.height ?? side + (cache.expandedHeight - side) * fraction)
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        guard let avatar = subviews.first else { return }
+        let inset = DJConnectCardAppearance.currentDJInset
+        let side = DJConnectCardAppearance.currentDJAvatarSize
+        avatar.place(at: CGPoint(x: bounds.minX + inset, y: bounds.minY + inset), anchor: .topLeading,
+                     proposal: .init(width: side, height: side))
+        if subviews.count > 1 {
+            subviews[1].place(at: CGPoint(x: bounds.minX + inset + side + 16, y: bounds.minY + inset), anchor: .topLeading,
+                             proposal: .init(width: max(0, cache.fullWidth - side - 16 - 2 * inset), height: nil))
+        }
+    }
+}
+
+/// The same avatar stays at the same structural position in both formats. Only
+/// confirmed geometry (never text, admission or audio state) survives a partial read.
+struct SessionCurrentDJCard<Avatar: View, Detail: View>: View {
+    let sessionID: String
+    let state: SessionCurrentDJCardState
+    let mood: String?
+    @ViewBuilder let avatar: () -> Avatar
+    @ViewBuilder let detail: () -> Detail
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private struct Observation: Equatable { let sessionID: String; let state: SessionCurrentDJCardState; let visible: Bool? }
+    private struct GeometryMemory { var sessionID: String?; var compact = false; var size: CGSize = .zero }
+    @State private var remembered = GeometryMemory()
+    @State private var visible: Bool?
+    private var mayResize: Bool { visible != false || remembered.sessionID != sessionID }
+    private var compact: Bool {
+        if !mayResize { return remembered.compact }
+        return switch state {
+        case .compact: true
+        case .expanded: false
+        case .unresolved: remembered.sessionID == sessionID && remembered.compact
+        }
+    }
+    var body: some View {
+        SessionCurrentDJCardLayout(sessionID: sessionID, expansion: compact ? 0 : 1,
+            hasDetail: state == .expanded && !compact,
+            heldSize: (state == .unresolved || !mayResize) && remembered.sessionID == sessionID && remembered.size.height > 0 ? remembered.size : nil) {
+            avatar()
+            if state == .expanded && !compact { detail().transition(.identity) }
+        }
+        // An offscreen height change makes native lazy scrolling re-estimate
+        // rows above the reader. Freeze only geometry until this card returns;
+        // never cache a moment or issue a scroll request. Clip before the glass
+        // so offscreen replacement text cannot spill into retained Flow rows.
+        .clipShape(DJConnectCardAppearance.shape)
+        .djSessionFrostedSurface(currentMomentBorder: !compact, mood: mood)
+        .accessibilityElement(children: .contain)
+        .onScrollVisibilityChange(threshold: 0.01) { visible = $0 }
+        .onChange(of: Observation(sessionID: sessionID, state: state, visible: visible), initial: true) { _, observation in
+            var next = remembered
+            if next.sessionID != observation.sessionID { next = GeometryMemory(sessionID: observation.sessionID) }
+            if observation.state != .unresolved && observation.visible != false { next.compact = observation.state == .compact }
+            remembered = next
+        }
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
+            if state != .unresolved && mayResize { remembered = GeometryMemory(sessionID: sessionID, compact: state == .compact, size: size) }
+        }
+        .animation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.2), value: compact)
     }
 }
 
@@ -413,18 +540,22 @@ struct NativeSessionMomentsView: View {
     }
 
     func currentCard(_ moment: DJConnectMoment?, at now: Date = Date()) -> some View {
+        let withdrawn = session.broadcast.nativeDelivery?.currentMomentID.map {
+            playbackModel?.sessionHistory.contentMomentWasWithdrawn(sessionID: session.id, momentID: $0) == true
+        } ?? false
+        let state = SessionCurrentDJCardState.resolve(session: session, moment: moment,
+            recovering: isRecovering, unavailable: isLiveUnavailable, withdrawn: withdrawn, at: now)
         let evidence = playbackModel?.personaEvidence(for: session, admittedMoment: moment, at: now) ?? .init()
-        return HStack(alignment: .top, spacing: 16) {
+        return SessionCurrentDJCard(sessionID: session.id, state: state,
+            mood: isLiveUnavailable || isRecovering ? nil : session.selectedMood) {
             let avatar = DJPersonaAvatarView(confirmedMood: isLiveUnavailable || isRecovering ? nil : session.selectedMood, language: language,
                                             activity: DJPersonaActivity.resolve(evidence), speechIsPlaying: evidence.speaking)
-                .frame(width: 80, height: 80).fixedSize()
+                .frame(width: DJConnectCardAppearance.currentDJAvatarSize, height: DJConnectCardAppearance.currentDJAvatarSize).fixedSize()
             if let playbackModel { PersonaReactionAvatar(model: playbackModel, avatar: avatar) }
             else { avatar }
+        } detail: {
             currentCardContent(moment)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-        .djSessionFrostedSurface(currentMomentBorder: true, mood: isLiveUnavailable || isRecovering ? nil : session.selectedMood)
     }
 
     @ViewBuilder private func currentCardContent(_ moment: DJConnectMoment?) -> some View {
@@ -469,11 +600,10 @@ struct NativeSessionMomentsView: View {
                 })
                 .id(moment.id)
                 .djContentDeletion(model: playbackModel, target: .init(kind: "moment", sessionID: session.id, targetID: moment.id))
-                .transition(.opacity)
                 .accessibilityIdentifier("session-current-moment")
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                Text(text(session.broadcast.playback?.state == "playing" ? "ui.session.quiet" : "ui.session.start_here.title"))
+                Text(text("ui.session.start_here.title"))
                     .font(.title2.weight(.semibold))
                     .accessibilityAddTraits(.isHeader)
                     .fixedSize(horizontal: false, vertical: true)
@@ -693,7 +823,7 @@ struct NativeSessionMomentsView: View {
                     }
                 }
                 if let playbackOutputName {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    HStack(alignment: .center, spacing: 8) {
                         if let model = playbackModel {
                             SessionPlaybackOutputButton(model: model, name: playbackOutputName)
                                 .id(session.id)
@@ -1078,7 +1208,10 @@ struct MomentCard: View {
                     .tint(djConnectAccent)
                     .accessibilityIdentifier("moment-open-track-insight")
             }
-            SessionSpotifyAttributionLinks(urls: spotifyURLs)
+            HStack(alignment: .center, spacing: 12) {
+                SessionSpotifyAttributionLinks(urls: spotifyURLs)
+                if let model = artworkModel { SharedDJSpeechActions(model: model, speech: speech, acceptedText: moment.content) }
+            }
             ForEach(moment.nativeSourceURLs.filter { !SessionSourceLinks.isSpotify($0) }, id: \.absoluteString) { url in
                 let source = moment.isBulletinV1 ? moment.sources.first { $0.destination == url } : nil
                 let label = source?.attributionLabel ?? moment.sourceAttribution?["provider"] ?? url.host ?? ""
@@ -1089,7 +1222,6 @@ struct MomentCard: View {
                     .accessibilityValue(url.absoluteString)
                     .accessibilityIdentifier("moment-source-" + url.absoluteString)
             }
-            if let model = artworkModel { SharedDJSpeechActions(model: model, speech: speech, acceptedText: moment.content) }
         }
         .accessibilityElement(children: .contain)
     }

@@ -806,6 +806,7 @@ struct DJConnectLocalAudioRoute: Equatable, Sendable {
     var localDeviceName = ""
     var bluetoothPortNames: [String] = []
     var hasOtherOutputs = false
+    var localDeviceTypes: Set<String> = ["phone", "smartphone", "tablet"]
 
     var bluetoothName: String? {
         let names = bluetoothPortNames.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -1144,6 +1145,9 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
     private var profileDJSettingsObservation: AnyCancellable?
     private var localAudioRouteObservation: AnyCancellable?
+    #if os(macOS)
+    private var macAudioRouteMonitor: DJConnectMacAudioRouteMonitor?
+    #endif
     private var personaReactionInterruption: AnyCancellable?
     @Published var localAudioRoute = DJConnectLocalAudioRoute()
     private var profileDJSettingsReadID: UUID?
@@ -1414,6 +1418,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var userNotice: DJConnectUserNotice?
     @Published public var playback: DJConnectPlayback? {
         didSet {
+            sessionStartup.reconcile()
             if currentInsightObservation.observe(playback), currentInsightProof != nil {
                 clearCurrentInsightProof(); currentTrackInsight = nil
             }
@@ -1438,8 +1443,10 @@ public final class DJConnectAppModel: ObservableObject {
         currentInsightExpiryTask?.cancel(); currentInsightExpiryTask = nil; currentInsightProof = nil
     }
 
+    lazy var sessionStartup = SessionStartupModel(host: self)
     @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
         didSet {
+            sessionStartup.reconcile()
             reconcileDirectSessionRuntimes()
             let helpNow = Date()
             if AskDJHelpPlaybackProjection(oldValue?.broadcast.playback, at: helpNow) != AskDJHelpPlaybackProjection(activeDJSession?.broadcast.playback, at: helpNow) ||
@@ -2030,6 +2037,17 @@ public final class DJConnectAppModel: ObservableObject {
     private var liveConversationExpiryTask: Task<Void, Never>?
     private var pendingSelectedOutput: String?
     private var pendingSelectedOutputIsCachedSpotify = false
+    private struct PlaybackModeSelection<Value: Equatable> {
+        let id = UUID()
+        let value: Value
+        let outputKey: String?
+    }
+    @Published private var shuffleSelection: PlaybackModeSelection<Bool>?
+    @Published private var repeatSelection: PlaybackModeSelection<DJConnectRepeatState>?
+    public var displayedShuffle: Bool { shuffleSelection?.value ?? playback?.shuffle ?? false }
+    public var displayedRepeatState: DJConnectRepeatState { repeatSelection?.value ?? playback?.repeatState ?? .off }
+    public var isChangingShuffle: Bool { shuffleSelection != nil }
+    public var isChangingRepeat: Bool { repeatSelection != nil }
     private var pendingVolumePercent: Int?
     private var pendingSeekTargetMS: Int?
     private var seekCommandTask: Task<Void, Never>?
@@ -2285,13 +2303,13 @@ public final class DJConnectAppModel: ObservableObject {
               let id = device.id, let name = device.name else { return false }
         let type = device.type ?? availableOutputs.first { $0.id == id }?.type
         let candidates = Set(availableOutputs.filter {
-            $0.cached != true && ["phone", "smartphone", "tablet"].contains($0.type?.lowercased() ?? "") &&
+            $0.cached != true && localAudioRoute.localDeviceTypes.contains($0.type?.lowercased() ?? "") &&
             $0.name.localizedCaseInsensitiveCompare(localAudioRoute.localDeviceName) == .orderedSame
         }.map(\.id))
         guard candidates.isEmpty || candidates == [id] else { return false }
         let localOutput = DJConnectOutputDevice(id: id, name: name, type: type, active: true)
         return localOutput.usesLocalBluetoothRoute(localDeviceName: localAudioRoute.localDeviceName,
-            playbackDeviceID: id, hasBluetoothRoute: true)
+            playbackDeviceID: id, hasBluetoothRoute: true, localDeviceTypes: localAudioRoute.localDeviceTypes)
     }
 
     var currentPlaybackBluetoothDeviceName: String? {
@@ -2301,7 +2319,7 @@ public final class DJConnectAppModel: ObservableObject {
     func outputUsesLocalBluetooth(_ output: DJConnectOutputDevice) -> Bool {
         currentPlaybackUsesLocalBluetooth && output.cached != true &&
         output.usesLocalBluetoothRoute(localDeviceName: localAudioRoute.localDeviceName,
-            playbackDeviceID: playback?.device?.id, hasBluetoothRoute: true)
+            playbackDeviceID: playback?.device?.id, hasBluetoothRoute: true, localDeviceTypes: localAudioRoute.localDeviceTypes)
     }
 
     func outputDisplayName(_ output: DJConnectOutputDevice) -> String {
@@ -2315,6 +2333,10 @@ public final class DJConnectAppModel: ObservableObject {
         let bluetooth = outputs.filter { [.bluetoothA2DP, .bluetoothHFP, .bluetoothLE].contains($0.portType) }
         let next = DJConnectLocalAudioRoute(localDeviceName: UIDevice.current.name,
             bluetoothPortNames: bluetooth.map(\.portName), hasOtherOutputs: outputs.count != bluetooth.count)
+        if localAudioRoute != next { localAudioRoute = next }
+        #elseif os(macOS)
+        guard macAudioRouteMonitor != nil else { return } // Hardware disabled for isolated/model-only clients.
+        let next = DJConnectMacAudioRouteMonitor.snapshot()
         if localAudioRoute != next { localAudioRoute = next }
         #endif
     }
@@ -2518,6 +2540,7 @@ public final class DJConnectAppModel: ObservableObject {
                 return !isShowingWelcome
                     && !isShowingCrashReportPrompt
                     && !isShowingTokenStorageError
+                    && (uiTestRuntimeFixtureScenario != "pairing_success" || !isPairingScreenDismissed)
             default:
                 return false
             }
@@ -2700,6 +2723,17 @@ public final class DJConnectAppModel: ObservableObject {
         personaReactionObservation = personaReactions.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         profileDJChoiceScheduler.pendingChanged = { [weak self] in self?.isSchedulingProfileDJChoice = $0 }
         refreshLocalAudioRoute()
+        #if os(macOS)
+        if startBackgroundTasks {
+            let monitor = DJConnectMacAudioRouteMonitor()
+            macAudioRouteMonitor = monitor
+            monitor.start { [weak self] route in
+                guard let self, self.localAudioRoute != route else { return }
+                self.personaReactions.cancel(.speechConflict)
+                self.localAudioRoute = route
+            }
+        }
+        #endif
         #if os(iOS)
         localAudioRouteObservation = NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
             .sink { [weak self] note in
@@ -3194,6 +3228,7 @@ public final class DJConnectAppModel: ObservableObject {
         cancelRendezvous()
         personaReactions.cancel(.background)
         isAppInForeground = false
+        sessionStartup.reconcile()
         directSessionAttemptEpoch = UUID()
         for runtime in directSessionRuntimes.values { runtime.suspend() }
         sessionSurfaceNativeCustody.suspend() // Fence already queued foreground starts immediately.
@@ -3240,6 +3275,7 @@ public final class DJConnectAppModel: ObservableObject {
         seekCommandTask = nil
         pendingVolumePercent = nil
         pendingSeekTargetMS = nil
+        shuffleSelection = nil; repeatSelection = nil
         pausePairingWaitForBackgroundIfNeeded()
         playbackProgressTask?.cancel()
         playbackProgressTask = nil
@@ -4653,13 +4689,39 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func setShuffle(_ value: Bool) {
-        log(.debug, "User action: set shuffle \(value)")
-        sendPlaybackCommand("set_shuffle", value: .bool(value))
+        setPlaybackMode(value, command: "set_shuffle", encoded: .bool(value), selection: \.shuffleSelection)
     }
 
     public func setRepeat(_ value: DJConnectRepeatState) {
-        log(.debug, "User action: set repeat \(value.rawValue)")
-        sendPlaybackCommand("set_repeat", value: .string(value.rawValue))
+        setPlaybackMode(value, command: "set_repeat", encoded: .string(value.rawValue), selection: \.repeatSelection)
+    }
+
+    private func setPlaybackMode<Value: Equatable>(
+        _ value: Value, command: String, encoded: DJConnectCommandValue,
+        selection: ReferenceWritableKeyPath<DJConnectAppModel, PlaybackModeSelection<Value>?>
+    ) {
+        guard self[keyPath: selection] == nil else { return }
+        let pending = PlaybackModeSelection(value: value, outputKey: volumeOutputKey)
+        self[keyPath: selection] = pending
+        Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if self[keyPath: selection]?.id == pending.id { self[keyPath: selection] = nil }
+            }
+            guard self[keyPath: selection]?.id == pending.id, volumeOutputKey == pending.outputKey else { return }
+            var confirmed = false
+            await performCommand(command, value: encoded, onConfirmed: { confirmed = true })
+            guard confirmed, self[keyPath: selection]?.id == pending.id,
+                  volumeOutputKey == pending.outputKey, isAppInForeground else { return }
+            // Providers can return their pre-command playback snapshot. Read again
+            // after propagation; keep only bounded, output-scoped presentation state.
+            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            guard self[keyPath: selection]?.id == pending.id else { return }
+            try? await refreshStatusWithFallback(isStillValid: { [weak self] in
+                self?[keyPath: selection]?.id == pending.id && self?.volumeOutputKey == pending.outputKey
+            })
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+        }
     }
 
     public func seekRelative(milliseconds: Int) {
@@ -6560,6 +6622,14 @@ public final class DJConnectAppModel: ObservableObject {
             passiveSurfaces.invalidatePlaybackForCommand()
         }
         self.playback = normalizedPlayback
+        if let pending = shuffleSelection,
+           pending.outputKey != volumeOutputKey || normalizedPlayback?.shuffle == pending.value {
+            shuffleSelection = nil
+        }
+        if let pending = repeatSelection,
+           pending.outputKey != volumeOutputKey || normalizedPlayback?.repeatState == pending.value {
+            repeatSelection = nil
+        }
         playbackOutputObservation += 1
         if normalizedPlayback?.device != nil {
             availableOutputs = normalizedOutputDevices(outputRowsMatchingCurrentPlayback(availableOutputs))
@@ -13941,6 +14011,9 @@ public final class DJConnectAppModel: ObservableObject {
                 if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration {
                     throw CancellationError()
                 }
+                if (command == "set_shuffle" || command == "set_repeat"), volumeOutputKey != volumeKeyAtStart {
+                    throw CancellationError()
+                }
                 log(.debug, "Posting command \(command) to Home Assistant")
                 let response = try await client.sendCommandResponse(
                     DJConnectCommandPayload(
@@ -13956,6 +14029,9 @@ public final class DJConnectAppModel: ObservableObject {
                 )
                 if command == "devices" || command == "set_output" {
                     guard outputGeneration == outputSelectionGeneration else { throw CancellationError() }
+                }
+                if (command == "set_shuffle" || command == "set_repeat"), volumeOutputKey != volumeKeyAtStart {
+                    throw CancellationError()
                 }
                 if (command == "set_volume" || command == "volume_delta"),
                    response.success == false, Self.isVolumeControlUnavailable(response.message),

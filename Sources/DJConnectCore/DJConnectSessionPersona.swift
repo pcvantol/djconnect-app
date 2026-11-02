@@ -78,6 +78,9 @@ public extension DJConnectSessionRuntime {
         [personaRevision, broadcast.session.sessionID == sessionID ? broadcast.session.personaRevision : nil, broadcast.personaConflictRevision]
             .compactMap { $0 }.filter { $0 >= 0 }.max()
     }
+    /// A revision exists but its fields cannot establish a single value. UI
+    /// consumers must not substitute a default character for this state.
+    var hasUnconfirmedPersonaRevision: Bool { personaRevisionFloor != nil && confirmedPersona == nil }
     var confirmedPersona: DJConnectSessionPersonaSnapshot? {
         var candidates: [DJConnectSessionPersonaSnapshot] = []
         if let value = selectedPersona, let revision = personaRevision, revision >= 0 {

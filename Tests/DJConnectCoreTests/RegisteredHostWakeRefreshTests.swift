@@ -15,26 +15,40 @@ import Testing
     }
     @Test func callbacksCoalesceAndTwoOriginalReadsCanRunInParallel() async throws {
         let worker = RegisteredHostWakeRefreshOwner(budget: .seconds(3)), state = State()
+        let (events, entered) = AsyncStream<Void>.makeStream()
+        let (release, heldReads) = AsyncStream<Void>.makeStream()
+        defer { entered.finish(); heldReads.finish() }
         let read: @MainActor @Sendable () async -> Bool = {
             state.entered += 1
-            do { try await Task.sleep(for: .seconds(2)); return true } catch { return false }
+            entered.yield(())
+            for await _ in release { }
+            return !Task.isCancelled
         }
-        // Wait for both starts to prove this is not serial scheduling. The
-        // bounded wait prevents a scheduling regression from hanging the suite.
-        let first = Task { await worker.run([read, read]) }
-        let deadline = ContinuousClock.now.advanced(by: .seconds(1))
-        while state.entered < 2 && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
+        // Both original reads must enter before either is released. The
+        // worker's unchanged budget cancels a stuck/serial scheduling regression
+        // and finishes the event stream, so missing events cannot hang the test.
+        let first = Task {
+            let count = await worker.run([read, read])
+            entered.finish()
+            return count
+        }
+        var arrivals = events.makeAsyncIterator()
+        #expect(await arrivals.next() != nil)
+        #expect(await arrivals.next() != nil)
         #expect(state.entered == 2)
         let second = Task {
             state.joinEntered = true
+            entered.yield(())
             return await worker.run([{ state.extra += 1; return true }])
         }
-        while !state.joinEntered && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
+        #expect(await arrivals.next() != nil)
         #expect(state.joinEntered)
+        heldReads.finish()
         #expect(await first.value == 2)
         #expect(await second.value == 2)
         #expect(state.entered == 2 && state.extra == 0)
     }
+
     @Test func resourceDeadlineCancelsReadsAndCannotReportLateSuccess() async {
         let worker = RegisteredHostWakeRefreshOwner(budget: .milliseconds(30)), state = State()
         let count = await worker.run([{

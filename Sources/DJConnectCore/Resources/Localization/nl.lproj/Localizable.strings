@@ -964,7 +964,6 @@
 "ui.vibecast.handoff.failed" = "De code is verlopen of de overdracht is mislukt.";
 
 // Native Moment-first Session
-"ui.session.quiet" = "De DJ luistert met je mee.";
 "ui.session.back_current" = "Terug naar de actuele bijdrage";
 "ui.session.music_progress" = "Muziekvoortgang";
 "ui.session.moment.generic" = "DJ-bijdrage";
@@ -1233,7 +1232,7 @@
 "ui.session.voice.female" = "Vrouw";
 
 "ui.trackInsight.analysis.title" = "Muziekanalyse";
-"ui.trackInsight.analysis.unavailable" = "Voor dit nummer is nog geen muziekanalyse beschikbaar.";
+"ui.trackInsight.analysis.unavailable" = "Voor dit nummer zijn geen audiometingen beschikbaar. Achtergrondinformatie en duiding staan los van audiometingen.";
 
 /* First DJ session navigation introduction */
 "ui.session.intro.skip" = "Overslaan";
@@ -1512,9 +1511,9 @@
 
 // VibeScape preview: ephemeral native visuals.
 "ui.vibescape.dynamics" = "Dynamiek";
-"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.auto" = "Volg DJ";
 "ui.vibescape.dynamics.manual" = "Handmatig";
-"ui.vibescape.dynamics.follow" = "Volg nummerintensiteit";
+"ui.vibescape.dynamics.follow" = "Volg DJ";
 "ui.vibescape.calm" = "Rustig";
 "ui.vibescape.intense" = "Intens";
 "ui.vibescape.follow" = "Volg DJ";
@@ -1531,7 +1530,7 @@
 
 "ui.vibescape.help.title" = "VibeScape-hulp";
 "ui.vibescape.help.touch" = "Tik voor een felle reactie. Sleep met je vinger of muis door de animatie voor een vloeiend effect.";
-"ui.vibescape.help.intensity" = "Met de slider kies je handmatig de intensiteit. Reset hervat automatisch volgen; zonder betrouwbare nummerintensiteit blijft de stand neutraal.";
+"ui.vibescape.help.intensity" = "De slider maakt de huidige wereld rustiger of intenser. Het midden is neutraal. Je keuze blijft tijdens dit bezoek gelden; Volg DJ herstelt de automatische basis.";
 "ui.vibescape.help.controls" = "De knoppen verdwijnen na enkele seconden. Tik op de plek van de bediening of houd de muis erboven om ze terug te halen.";
 
 "ui.vibescape.help.voice" = "Spraakopdrachten";
@@ -1620,3 +1619,19 @@
 "ui.content.delete.recover_previous" = "Controleer eerdere verwijdering";
 "ui.vibescape.voice.starting" = "Microfoon wordt klaargemaakt…";
 "ui.vibescape.voice.start_failed" = "De opname kon niet starten. Probeer opnieuw.";
+
+"ui.welcome.queue.description" = "Bekijk welke nummers hierna komen en kies wat je wilt afspelen.";
+
+"ui.askdj.help.item.unavailable" = "Nu niet beschikbaar";
+
+"ui.vibescape.scope.title" = "Geldigheidsduur";
+"ui.vibescape.scope.hint" = "Kies hoelang je volgende spraakaanpassing geldt. Je kunt de duur ook in je opdracht noemen.";
+"ui.vibescape.scope.track" = "Vervalt zodra het volgende nummer begint.";
+"ui.vibescape.scope.visit" = "Blijft gelden totdat je VibeScape verlaat.";
+
+"ui.trackInsight.visual.decorative" = "Visuele animatie · geen audiometing";
+
+"ui.vibescape.world.home" = "Vloeibare wereld";
+"ui.vibescape.world.radio" = "Kinetisch atelier";
+"ui.vibescape.world.club" = "Lichtarchitectuur";
+"ui.vibescape.world.festival" = "Kosmische bloei";

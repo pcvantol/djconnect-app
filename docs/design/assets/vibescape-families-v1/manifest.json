@@ -1,0 +1,48 @@
+{
+  "scope": "Owner-approved design reference bytes, never renderer textures or runtime assets",
+  "authority": "https://github.com/pcvantol/djconnect-app/issues/177#issuecomment-6576772333",
+  "private_drive_access": "metadata and authenticated bytes verified; all four references opened and inspected",
+  "files": [
+    {
+      "file": "home-reference.png",
+      "source_file": "home-huidige-visual.png",
+      "drive_url": "https://drive.google.com/file/d/1mXVl0Y68LbYzO2NlogVtt2Ufe3II6ebU/view",
+      "size": 3100078,
+      "sha256": "ae6ebad8ddaac56bc9b01d367015d80626033f9d5c1fdd92ac093034bc333e97"
+    },
+    {
+      "file": "approved-composite.png",
+      "source_file": "radio-club-festival-ontwerp.png",
+      "drive_url": "https://drive.google.com/file/d/1mXVl0Y68LbYzO2NlogVtt2Ufe3II6ebU/view",
+      "size": 2354204,
+      "sha256": "63a41ddfc5b518876730a2f8c5e93dc6bbf9657eecadfe348b820a93eb1ac6a0"
+    },
+    {
+      "file": "radio-concept.png",
+      "source_file": "VibeScape — Radio-dj — Kinetisch atelier — concept v1.png",
+      "drive_url": "https://drive.google.com/file/d/1MlPOc4P57DqhlcNWW3xNVIrHHd2dRBSc/view",
+      "size": 411106,
+      "sha256": "2c507d1f6c8643e15b5f03694cb0b52c2af355c5260f540197ad72270f09bda6"
+    },
+    {
+      "file": "club-concept.png",
+      "source_file": "VibeScape — Club-dj — Lichtarchitectuur — concept v1.png",
+      "drive_url": "https://drive.google.com/file/d/1E0JLO56byMQ8Nb0ngkXNHayPKclRy1R5/view",
+      "size": 412799,
+      "sha256": "0a4cf2ef1c3d1c2b488f47462d72fbc8f1229cc6469b0b2dee769cb0bcc8c04b"
+    },
+    {
+      "file": "festival-concept.png",
+      "source_file": "VibeScape — Festival-dj — Kosmische bloei — concept v1.png",
+      "drive_url": "https://drive.google.com/file/d/1H0sW6tJAd_YsknOBH95dpI3wPHAJVIRX/view",
+      "size": 1403010,
+      "sha256": "372040ab18080777ec3e39d12a8d8f1454436e01ffc208ee262c197f3c21c87e"
+    }
+  ],
+  "source_package": {
+    "file": "DJConnect_VibeScape_ontwerpreferenties_20261102.zip",
+    "drive_id": "1mXVl0Y68LbYzO2NlogVtt2Ufe3II6ebU",
+    "size": 5369694,
+    "sha256": "5ef749b3d709e4e835ab27b4e9b6878d8deb0c608c74134de259810bad71d030"
+  }
+}

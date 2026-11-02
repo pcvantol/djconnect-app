@@ -139,7 +139,7 @@ struct SavedSessionsView: View {
         else { content }
     }
     private var showsListHeader: Bool {
-        if history.hasUnconfirmedDeletion { return true }
+        if history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback { return true }
         #if os(macOS)
         return !initialLoadFinished || history.listLoading || history.preparing
         #else
@@ -152,12 +152,13 @@ struct SavedSessionsView: View {
             savedSessionsContainer {
                 if showsListHeader {
                 VStack(alignment: .leading, spacing: 16) {
-                    if history.showsUnconfirmedDeletionNotice {
+                    if history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback {
                         ContentDeletionPendingNotice(model: model)
                     }
                     #if !os(iOS)
                     if !initialLoadFinished || history.listLoading || history.preparing {
                         ProgressView().controlSize(.large).tint(.white)
+                            .frame(maxWidth: .infinity, alignment: .center)
                             .accessibilityLabel(text("ui.session.history.loading"))
                     }
                     #endif
@@ -172,7 +173,7 @@ struct SavedSessionsView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 }
-                    if let error = (searchQuery.isEmpty ? nil : history.archiveSearchErrorKey) ?? history.listErrorKey, !history.sessions.isEmpty {
+                    if let error = (searchQuery.isEmpty ? nil : history.archiveSearchErrorKey) ?? history.listErrorKey {
                         HStack(spacing: 12) {
                             Text(text(error)).font(.callout).foregroundStyle(.secondary)
                             Spacer()
@@ -247,19 +248,10 @@ struct SavedSessionsView: View {
             }
             .overlay {
                 if let emptyTitle {
-                    VStack(spacing: 18) {
-                        DJConnectEmptyState(title: emptyTitle, systemImage: "clock.arrow.circlepath")
-                            .allowsHitTesting(false)
-                        if (history.listErrorKey != nil || history.archiveSearchErrorKey != nil) && model.pairingStatus == .paired && !model.isDemoMode {
-                            Button(text("ui.retry")) { Task { await refresh() } }
-                                .djConnectButtonStyle(DJConnectButtonStyle())
-                                .disabled(refreshing)
-                        }
-                    }
-                    .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("saved-sessions-empty-state")
-                    .allowsHitTesting(history.listErrorKey != nil || history.archiveSearchErrorKey != nil)
+                    DJConnectEmptyState(title: emptyTitle, systemImage: "clock.arrow.circlepath")
+                        .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .accessibilityIdentifier("saved-sessions-empty-state")
+                        .allowsHitTesting(false)
                 }
             }
             .navigationDestination(item: openedSession) { destination in
@@ -321,7 +313,11 @@ struct SavedSessionsView: View {
             }
             .djStatusToastOverlay(manualRefresh.notice, screenImage: "clock.arrow.circlepath")
             .task(id: model.isDemoMode || model.canRefreshSessionHistory) {
-                initialLoadFinished = false
+                if initialLoadFinished {
+                    if history.canReuseArchiveSearch(query: searchQuery) { return }
+                    // Let the pop animation finish before publishing loading/list changes.
+                    do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+                }
                 await history.restoreVisibleSessions()
                 guard !Task.isCancelled else { return }
                 initialLoadFinished = true
@@ -336,8 +332,16 @@ struct SavedSessionsView: View {
                     Task { await history.restoreVisibleSessions() }
                 }
             }
-            .task(id: searchQuery) { await history.searchArchivedSessions(query: searchQuery) }
-            .onDisappear { history.clearArchiveSearch() }
+            .task(id: searchQuery) {
+                if history.canReuseArchiveSearch(query: searchQuery) { return }
+                if initialLoadFinished && history.archiveSearchQuery == searchQuery {
+                    do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+                }
+                await history.searchArchivedSessions(query: searchQuery)
+            }
+            .onDisappear {
+                if openedSession.wrappedValue == nil { history.clearArchiveSearch() }
+            }
             .onChange(of: searchText) { _, _ in
                 selectedSearchIndex = 0
                 if let first = filteredSessions.first { proxy.scrollTo(first.id, anchor: .top) }
@@ -369,22 +373,22 @@ struct SavedSessionsView: View {
 
     private var emptyTitle: String? {
         if initialLoadFinished, !searchQuery.isEmpty, filteredSessions.isEmpty {
-            if let error = history.archiveSearchErrorKey { return text(error) }
+            guard history.archiveSearchErrorKey == nil, history.listErrorKey == nil else { return nil }
             guard history.archiveSearchQuery == searchQuery, history.archiveSearchComplete,
                   !history.archiveSearchLoading else { return nil }
             return text("ui.no.search.results")
         }
         guard initialLoadFinished, history.sessions.isEmpty, !history.listLoading, !history.preparing else { return nil }
-        if let error = history.listErrorKey { return text(error) }
-        return text(history.available && (model.isDemoMode || history.hasAuthorizedOwner)
-            ? "ui.session.history.empty" : "ui.session.history.unavailable")
+        guard history.listErrorKey == nil, history.available,
+              model.isDemoMode || history.hasAuthorizedOwner else { return nil }
+        return text("ui.session.history.empty")
     }
     private func refresh() async {
         await manualRefresh.run(model: model, systemImage: "clock.arrow.circlepath") {
             guard !model.isDemoMode, model.pairingStatus == .paired else { return text("ui.session.history.unavailable") }
             await history.prepare()
             let succeeded = await history.loadSessions()
-            if succeeded, !searchQuery.isEmpty { await history.searchArchivedSessions(query: searchQuery) }
+            if succeeded, !searchQuery.isEmpty { await history.searchArchivedSessions(query: searchQuery, reuseCompletedResults: false) }
             return text(succeeded ? "ui.session.history.updated" : "ui.session.history.unavailable")
         }
     }
@@ -444,7 +448,7 @@ struct SessionTimelineScreen: View {
     @State private var sceneRestoreTask: Task<Void, Never>?
     @FocusState private var inputFocused: Bool
     @FocusState private var searchFocused: Bool
-    @State private var searchFocusRequest = UUID()
+    @State private var searchFocusRequest: UUID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -542,6 +546,10 @@ struct SessionTimelineScreen: View {
     private var hasSessionPlayback: Bool {
         activeSession.map { history.hasPlaybackForFirstPlayHelper($0) } ?? false
     }
+    private var showsSearchError: Bool {
+        history.searchErrorKey != nil && (activeSession == nil ? searching : flowSearchExpanded)
+    }
+
     private var showsFirstPlayHelper: Bool {
         activeSession?.runtimeState == "active" && !hasSessionPlayback
             && !history.sessionsWithObservedPlayback.contains(sessionID)
@@ -601,7 +609,7 @@ struct SessionTimelineScreen: View {
                                 // The mode picker is the initial top target;
                                 // artwork follows with ordinary content spacing.
                                 if !filtersTimeline { scrollingCurrent(activeSession).id("current") }
-                                if history.showsUnconfirmedDeletionNotice {
+                                if history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback {
                                     ContentDeletionPendingNotice(model: model)
                                         .padding(.horizontal, 20).padding(.vertical, 10)
                                 }
@@ -615,6 +623,7 @@ struct SessionTimelineScreen: View {
                                 }
                                 if activeSession == nil {
                                     let archivedSession = timeline.session ?? history.sessions.first(where: { $0.id == sessionID })
+                                        ?? history.archiveSearchSessions.first(where: { $0.id == sessionID })
                                     HStack(alignment: .top, spacing: 16) {
                                         if let archivedSession {
                                             SavedSessionMoodAvatar(summary: history.summaryAvailable ? archivedSession.summary : nil,
@@ -641,16 +650,13 @@ struct SessionTimelineScreen: View {
                                     .padding(.horizontal, 20)
                                     .id("current")
                                 }
-                                if let key = timeline.errorKey, activeSession == nil || history.available {
-                                    VStack(alignment: .leading, spacing: 16) {
-                                        Text(text(key)).fixedSize(horizontal: false, vertical: true)
-                                            .foregroundStyle(.white.opacity(0.82))
-                                        Button {
-                                            Task { await refreshTimeline() }
-                                        } label: {
-                                            Label(text("ui.refresh.page"), systemImage: "arrow.clockwise")
-                                        }
-                                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
+                                if let key = timeline.errorKey, !showsSearchError, activeSession == nil || history.available {
+                                    HStack(spacing: 12) {
+                                        Text(text(key)).font(.callout).foregroundStyle(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        Spacer()
+                                        Button(text("ui.retry")) { Task { await refreshTimeline() } }
+                                        .djConnectPlainButtonStyle()
                                         .disabled(retryRefreshing || timeline.loading)
                                         .accessibilityIdentifier("session-timeline-retry")
                                     }
@@ -702,7 +708,7 @@ struct SessionTimelineScreen: View {
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
-                            if activeSession == nil && history.showsUnconfirmedDeletionNotice {
+                            if activeSession == nil && history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback {
                                 ContentDeletionPendingNotice(model: model)
                                     .padding(.horizontal, 20).padding(.vertical, 10)
                             }
@@ -950,12 +956,14 @@ struct SessionTimelineScreen: View {
             .task(id: sessionID) {
                 if activeSession != nil, initialAnchor == nil { positionSessionTopWithoutAnimation() }
                 let restoreGeneration = anchorGeneration
-                await history.prepare(); await history.loadTimeline(sessionID, window: .tail)
-                guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
-                if filtersTimeline {
-                    history.search(sessionID: sessionID, query: query)
-                    return
+                if activeSession == nil {
+                    // Keep preparation and row publication out of the push animation.
+                    do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
                 }
+                await history.restoreVisibleTimeline(sessionID, active: activeSession != nil, anchor: nil,
+                    searchQuery: filtersTimeline ? query : nil)
+                guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
+                if filtersTimeline { return }
                 if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
                 else if activeSession != nil { return } // Content refresh never repositions the active screen.
                 else if let anchor = history.readingAnchor(sessionID: sessionID) {
@@ -1023,8 +1031,9 @@ struct SessionTimelineScreen: View {
                     if active { positionSessionTopWithoutAnimation() }
                     let restoreGeneration = anchorGeneration
                     sceneRestoreTask = Task {
-                        await history.restoreVisibleTimeline(sessionID, active: active, anchor: active ? nil : resumePosition)
-                        guard !Task.isCancelled, restoreGeneration == anchorGeneration, !active else { return }
+                        await history.restoreVisibleTimeline(sessionID, active: active, anchor: active ? nil : resumePosition,
+                            searchQuery: filtersTimeline ? query : nil)
+                        guard !Task.isCancelled, restoreGeneration == anchorGeneration, !active, !filtersTimeline else { return }
                         guard let resumePosition else {
                             if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
                             return
@@ -1180,7 +1189,7 @@ struct SessionTimelineScreen: View {
             else { toggleFlowSearch(proxy: proxy) }
         } label: {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(searching ? djConnectAccent : .primary)
+                .foregroundStyle((activeSession == nil ? searching : flowSearchExpanded) ? djConnectAccent : .primary)
         }
             .disabled(!history.searchAvailable)
             .accessibilityLabel(text("ui.session.history.search"))
@@ -1229,6 +1238,7 @@ struct SessionTimelineScreen: View {
 
     private func currentHeader(_ session: DJConnectSessionRuntime) -> some View {
         VStack(alignment: .leading, spacing: 12) {
+            SessionStartupCard(model: model)
             NativeSessionMomentsView(session: session, language: model.language,
             isRecovering: model.djSessionIsRecovering,
             isLiveUnavailable: model.djSessionLiveUnavailable,
@@ -1472,7 +1482,8 @@ struct SessionTimelineScreen: View {
             AskDJSearchBar(language: model.language, promptKey: "ui.session.history.search",
                            fieldIdentifier: "session-search-field", countIdentifier: "session-search-count",
                            closeLabelKey: "ui.close.search",
-                           isLoading: history.searchLoading, focusRequest: searchFocusRequest, text: $query, isFocused: $searchFocused,
+                           isLoading: history.searchLoading, focusRequest: searchFocusRequest, automaticallyFocus: false,
+                           text: $query, isFocused: $searchFocused,
                            resultCount: history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? matches.count : 0,
                            selectedIndex: selectedIndex,
                            previousAction: { moveMatch(-1, proxy: proxy) },
@@ -1733,9 +1744,11 @@ struct SessionEntryView: View, Equatable {
                                 .foregroundStyle(.white).tint(.white)
                             }
                         }
-                        SessionSpotifyAttributionLinks(urls: spotifyURLs)
-                        if let model = artworkModel {
-                            SharedDJSpeechActions(model: model, speech: entry.sessionSpeech, acceptedText: entry.text ?? "", retainedEntry: entry)
+                        HStack(alignment: .center, spacing: 12) {
+                            SessionSpotifyAttributionLinks(urls: spotifyURLs)
+                            if let model = artworkModel {
+                                SharedDJSpeechActions(model: model, speech: entry.sessionSpeech, acceptedText: entry.text ?? "", retainedEntry: entry)
+                            }
                         }
                     }
                     .padding(20)
@@ -3043,12 +3056,12 @@ private struct SessionArchiveDeletionConfirmation: ViewModifier {
                                                                   expectedEpoch: request.epoch)
                         guard generation == presentationGeneration else { return }
                         if deleted { if dismissOnSuccess { dismiss() } }
-                        else if request.epoch == history.responseEpoch { failed = true }
+                        else if request.epoch == history.responseEpoch && !history.hasUnconfirmedDeletion { failed = true }
                     }
                 }
                 .accessibilityIdentifier("session-delete-confirm")
             } message: { _ in Text(text("ui.session.history.delete.message")) }
-            .alert(text(history.hasUnconfirmedDeletion ? "ui.session.history.delete.unconfirmed" : "ui.session.history.delete.failed"), isPresented: $failed) {
+            .alert(text("ui.session.history.delete.failed"), isPresented: $failed) {
                 Button(text("ui.close"), role: .cancel) {}
             }
             .tint(.white)
@@ -3119,7 +3132,8 @@ private struct SavedSessionsDeleteAllButton: View {
             }
             .accessibilityIdentifier("saved-sessions-delete-all-confirm")
         } message: { Text(String(format: text("message"), Int64(targetCount))) }
-        .alert(hasUnconfirmedDeletion ? DJConnectLocalization.localized(key: "ui.session.history.delete.unconfirmed", language: language) : text("failed"), isPresented: $failed) {
+        .alert(text("failed"), isPresented: Binding(
+            get: { failed && !hasUnconfirmedDeletion }, set: { failed = $0 })) {
             Button(DJConnectLocalization.localized(key: "ui.close", language: language), role: .cancel) {}
         }
         .tint(.white)

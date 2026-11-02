@@ -130,7 +130,7 @@ private struct AskDJHelpContent: View {
             context: { model.askDJExampleContext() }, reader: model.askDJHelpCatalogueReader)
     }
     private func choose(_ item: DJConnectAskDJCatalogue.HelpItem) async {
-        guard !catalogueModel.busy, catalogueModel.isCurrent,
+        guard item.isAvailable, !catalogueModel.busy, catalogueModel.isCurrent,
               model.canUseAskDJFeatures, !model.isSendingAskDJText, !model.isRecordingVoice,
               model.askDJDraft.isEmpty else { return }
         let edit = model.askDJDraftEditRevision, owner = context, language = model.language
@@ -146,13 +146,25 @@ private struct AskDJHelpContent: View {
         } else { if let send { send() } else { model.sendAskDJText() } }
     }
     var body: some View {
-        AskDJFullCatalogueReference(sections: catalogueModel.sections, busy: catalogueModel.busy,
-            enabled: catalogueModel.isCurrent && model.askDJDraft.isEmpty && model.canUseAskDJFeatures && !model.isSendingAskDJText && !model.isRecordingVoice,
-            language: model.language, showsTitle: false) { item in Task { await choose(item) } }
+        VStack(alignment: .leading, spacing: 12) {
+            AskDJFullCatalogueReference(sections: catalogueModel.sections, busy: catalogueModel.busy,
+                enabled: catalogueModel.isCurrent && model.askDJDraft.isEmpty && model.canUseAskDJFeatures && !model.isSendingAskDJText && !model.isRecordingVoice,
+                language: model.language, showsTitle: false) { item in Task { await choose(item) } }
+            if !catalogueModel.isCurrent && !catalogueModel.busy {
+                Button(DJConnectLocalization.localized(key: "ui.retry", language: model.language)) {
+                    Task {
+                        await model.refreshAskDJExampleCapabilities()
+                        _ = await refresh()
+                    }
+                }
+                .djConnectPlainButtonStyle()
+                .accessibilityIdentifier("ask-dj-help-retry")
+            }
+        }
         .task {
             await model.refreshAskDJExampleCapabilities()
-            _ = await refresh()
         }
+        .task(id: context) { _ = await refresh() }
         .onChange(of: context) { _, next in catalogueModel.contextChanged(to: next) }
         .onChange(of: model.language) { _, _ in catalogueModel.contextChanged(to: context) }
         .onDisappear { catalogueModel.close() }
@@ -182,12 +194,19 @@ struct AskDJFullCatalogueReference: View {
                     Text(section.title).font(.headline).accessibilityAddTraits(.isHeader)
                     ForEach(section.items) { item in
                         Button { select(item) } label: {
-                            AskDJHelpExampleLabel(prompt: item.prompt,
-                                actionSymbol: item.requiresInput ? "pencil" : "arrow.up.circle",
-                                maximumWidth: .infinity)
+                            VStack(alignment: .leading, spacing: 4) {
+                                AskDJHelpExampleLabel(prompt: item.prompt,
+                                    actionSymbol: item.requiresInput ? "pencil" : "arrow.up.circle",
+                                    maximumWidth: .infinity)
+                                if !item.isAvailable {
+                                    Text(DJConnectLocalization.localized(key: "ui.askdj.help.item.unavailable", language: language))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            .opacity(item.isAvailable ? 1 : 0.55)
                         }
                         .djConnectPlainButtonStyle()
-                        .disabled(busy || !enabled)
+                        .disabled(busy || !enabled || !item.isAvailable)
                         .accessibilityIdentifier("ask-dj-catalogue-" + item.id)
                     }
                 }
@@ -272,9 +291,11 @@ struct AskDJSuggestionStrip: View {
             context: { model.askDJExampleContext() }, reader: model.askDJHelpCatalogueReader)
         return observation.admittedContext
     }
-    private func open() async {
+    private func open(refreshCapabilities: Bool = true) async {
         suggestions = []
-        await model.refreshAskDJExampleCapabilities()
+        guard !frozen else { return }
+        if refreshCapabilities { await model.refreshAskDJExampleCapabilities() }
+        guard DJConnectAskDJCatalogue.bundled?.compatible(context) == true else { return }
         guard let admitted = await read(), !frozen else { return }
         suggestions = DJConnectAskDJCatalogue.bundled?.select(admitted, surface: surface, language: model.language, epoch: visit) ?? []
     }
@@ -292,13 +313,28 @@ struct AskDJSuggestionStrip: View {
         select(item.prompt) // The composer sends through its existing context-bound route.
     }
     var body: some View {
-        AskDJSuggestionRows(suggestions: observation.isCurrent ? suggestions : [], surface: surface,
-            disabled: selecting || frozen || !model.canUseAskDJFeatures) { item in Task { await choose(item) } }
-        Button(action: more) {
-            Label(DJConnectLocalization.localized(key: "ui.more", language: model.language), systemImage: "ellipsis.circle")
+        VStack(alignment: .leading, spacing: 12) {
+            AskDJSuggestionRows(suggestions: observation.isCurrent ? suggestions : [], surface: surface,
+                disabled: selecting || frozen || !model.canUseAskDJFeatures) { item in Task { await choose(item) } }
+            if observation.busy {
+                ProgressView()
+            } else if suggestions.isEmpty || !observation.isCurrent {
+                Text(DJConnectLocalization.localized(key: "ui.askdj.help.unavailable", language: model.language))
+                    .font(.callout).foregroundStyle(.secondary)
+                Button(DJConnectLocalization.localized(key: "ui.retry", language: model.language)) {
+                    Task { await open() }
+                }
+                .djConnectPlainButtonStyle()
+                .disabled(selecting || frozen)
+                .accessibilityIdentifier("ask-dj-suggestions-retry")
+            }
+            Button(action: more) {
+                Label(DJConnectLocalization.localized(key: "ui.more", language: model.language), systemImage: "ellipsis.circle")
+            }
+            .accessibilityIdentifier("ask-dj-more-" + surface.rawValue)
         }
-        .accessibilityIdentifier("ask-dj-more-" + surface.rawValue)
-        .task { await open() }
+        .task { await model.refreshAskDJExampleCapabilities() }
+        .task(id: context) { await open(refreshCapabilities: false) }
         .onChange(of: context) { _, next in observation.contextChanged(to: next); if !observation.isCurrent { suggestions = [] } }
         .onChange(of: model.language) { _, _ in observation.contextChanged(to: context); if !observation.isCurrent { suggestions = [] } }
         .onChange(of: observation.admittedContext) { _, value in if value == nil { suggestions = [] } }
@@ -466,3 +502,216 @@ struct AskDJHelpTapRegion: NSViewRepresentable {
 }
 #endif
 #endif
+
+
+/// Retained across navigation. Reads never start music; only deliberate original choices do.
+@MainActor final class SessionStartupModel: ObservableObject {
+    struct Scope: Equatable {
+        let session: String
+        let owner: String
+        let epoch: UUID
+        let origin: String
+        let language: String
+        let settings: Data?
+        var output: String?
+    }
+    enum Phase { case hidden, ready, loading, choices, finished }
+    @Published private(set) var phase: Phase = .hidden
+    @Published private(set) var catalogue: DJConnectSessionStartupActions?
+    @Published private(set) var actions: [DJConnectAskDJPlaybackAction] = []
+    @Published private(set) var message: String?
+    private weak var host: DJConnectAppModel?
+    private var captured: Scope?
+    private var allowedOutput: String?
+    private var generation = UUID()
+    private var readCompleted = false
+    private var expiryTask: Task<Void, Never>?
+    var now: () -> Date = { Date() }
+    var instant: () -> ContinuousClock.Instant = { ContinuousClock.now }
+    private var consumedSessions = Set<String>()
+    private var wallDeadline: Date?
+    private var monotonicDeadline: ContinuousClock.Instant?
+    init(host: DJConnectAppModel) { self.host = host }
+    var scope: Scope? {
+        guard let host, host.canRefreshSessionHistory, host.canUseProfileConversation, host.isConnected, host.backendAvailable,
+              let session = host.activeDJSession, session.runtimeState == "active",
+              let owner = host.sessionHistory.authorizedProfileID,
+              host.playback?.isPlaying != true else { return nil }
+        // Bind the original material settings, excluding continuously changing playback/planning.
+        let settings = try? Self.settingsData(session)
+        return Scope(session: session.id, owner: owner, epoch: host.sessionHistory.responseEpoch,
+                     origin: host.homeAssistantURL + "|" + host.haLocalURL + "|" + host.haRemoteURL,
+                     language: host.language, settings: settings, output: host.playback?.device?.id)
+    }
+    private static func settingsData(_ session: DJConnectSessionRuntime) throws -> Data {
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(Settings(session: session))
+    }
+    private struct Settings: Encodable {
+        let backend: String
+        let mood: String
+        let moodRevision: Int?
+        let persona: DJConnectSessionPersonaValue?
+        let personaRevision: Int?
+        let presence: DJConnectSessionPresenceValue?
+        let presenceRevision: Int?
+        init(session: DJConnectSessionRuntime) {
+            backend = session.musicBackend
+            mood = session.selectedMood; moodRevision = session.moodRevision
+            persona = session.selectedPersona; personaRevision = session.personaRevision
+            presence = session.selectedPresence; presenceRevision = session.presenceRevision
+        }
+    }
+    func reconcile() {
+        let next = scope
+        guard next != captured, !matchesOriginal(next) else { return }
+        if let captured, wallDeadline != nil { consumedSessions.insert(captured.owner + ":" + captured.session) }
+        expiryTask?.cancel(); expiryTask = nil
+        captured = next; allowedOutput = nil; generation = UUID(); readCompleted = false
+        catalogue = nil; actions = []; message = nil; phase = .hidden
+        wallDeadline = nil; monotonicDeadline = nil
+    }
+    private func matchesOriginal(_ observed: Scope?) -> Bool {
+        guard var observed, let captured else { return false }
+        if let allowedOutput, observed.output == allowedOutput { observed.output = captured.output }
+        return observed == captured
+    }
+    private func current(_ scope: Scope, _ token: UUID) -> Bool {
+        matchesOriginal(self.scope) && captured == scope && generation == token
+    }
+    private var withinDeadline: Bool {
+        guard let wallDeadline, let monotonicDeadline else { return false }
+        return now() < wallDeadline && instant() < monotonicDeadline
+    }
+    func refresh() async {
+        reconcile()
+        guard !readCompleted, let host, let captured,
+              !consumedSessions.contains(captured.owner + ":" + captured.session) else { return }
+        readCompleted = true
+        let token = generation
+        do {
+            let capabilities = try await host.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                try await $0.activeSessionMoodCapabilities()
+            }
+            guard current(captured, token), capabilities.sessionStartupAvailable else { return }
+            let response = try await host.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                try await $0.activeSession()
+            }
+            guard current(captured, token), response.success,
+                  let session = response.resolvedSession, session.id == captured.session,
+                  (try? Self.settingsData(session)) == captured.settings,
+                  let menu = response.startupActions, menu.isSupported, menu.available else { return }
+            catalogue = menu; phase = .ready
+        } catch { /* A failed capability read creates no speculative startup choices. */ }
+    }
+    func selectPlaylist() {
+        guard phase == .ready, let host, let captured, matchesOriginal(scope),
+              catalogue?.items.last?.available == true else { return }
+        host.performHomeScreenAction(.playlists)
+    }
+    func surprise() {
+        guard phase == .ready, let captured, matchesOriginal(scope), let item = catalogue?.items.first,
+              item.available, let prompt = item.copy(language: captured.language)?.prompt else { return }
+        wallDeadline = now().addingTimeInterval(60)
+        monotonicDeadline = instant().advanced(by: .seconds(60))
+        armExpiry(after: 60)
+        submit(text: prompt, choice: nil)
+    }
+    var canChoose: Bool { phase == .choices && withinDeadline && matchesOriginal(scope) && host?.isSendingAskDJText == false }
+    func choose(_ action: DJConnectAskDJPlaybackAction) {
+        guard canChoose, actions.contains(action),
+              let result = action.resultSetID, let id = action.actionID else { return }
+        if action.kind == "output" {
+            if case .string(let output) = action.value { allowedOutput = output }
+            else if let output = action.deviceID { allowedOutput = output }
+        }
+        submit(text: action.buttonLabel ?? action.title,
+               choice: .init(resultSetID: result, actionID: id))
+    }
+    private func submit(text: String, choice: DJConnectConversationChoice?) {
+        guard let host, let captured, matchesOriginal(scope), withinDeadline,
+              !host.isSendingAskDJText else { return }
+        let token = generation
+        phase = .loading; actions = [] // Synchronous latch prevents duplicate taps.
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let response = try await host.sessionHistory.sendStartupChoice(text: text, choice: choice,
+                    sessionID: captured.session, isCurrent: { [weak self] in
+                        self?.current(captured, token) == true && self?.withinDeadline == true
+                    })
+                guard current(captured, token) else { return }
+                accept(response)
+            } catch {
+                guard current(captured, token) else { return }
+                finish() // Unknown effects are never resent with a fresh ID.
+            }
+        }
+    }
+    private func finish() {
+        if let captured { consumedSessions.insert(captured.owner + ":" + captured.session) }
+        expiryTask?.cancel(); expiryTask = nil
+        actions = []; phase = .finished
+    }
+    private func accept(_ response: DJConnectAskDJMessageResponse) {
+        guard withinDeadline, let state = response.firstPlay, state.isSupported else { finish(); return }
+        message = response.text ?? response.djText ?? response.message
+        guard ["output", "genres"].contains(state.state), let result = response.resultSet else { finish(); return }
+        let offered = result.admittedPlaybackActions
+        guard !offered.isEmpty, offered.count <= 20,
+              state.state != "genres" || (offered.count == 3 && offered.allSatisfy { $0.kind == "track_mix" }),
+              state.state != "output" || offered.allSatisfy({ $0.kind == "output" && $0.command == "set_output" })
+        else { finish(); return }
+        guard let host, let lease = host.resolveConversationPresentationDeadline(response), lease > now() else { finish(); return }
+        let remaining = min(state.expires_in, result.expiresIn, lease.timeIntervalSince(now()))
+        wallDeadline = min(wallDeadline!, now().addingTimeInterval(remaining))
+        monotonicDeadline = min(monotonicDeadline!, instant().advanced(by: .seconds(remaining)))
+        guard withinDeadline else { finish(); return }
+        actions = offered; phase = .choices
+        armExpiry(after: max(0, wallDeadline!.timeIntervalSince(now())))
+    }
+    private func armExpiry(after delay: Double) {
+        expiryTask?.cancel()
+        let token = generation
+        expiryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self, self.generation == token else { return }
+            self.finish()
+        }
+    }
+}
+
+struct SessionStartupCard: View {
+    @ObservedObject private var startup: SessionStartupModel
+    @ObservedObject private var model: DJConnectAppModel
+    init(model: DJConnectAppModel) {
+        self.model = model; self.startup = model.sessionStartup
+    }
+    var body: some View {
+        Group {
+            if startup.phase != .hidden && startup.phase != .finished {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let message = startup.message { Text(message).fixedSize(horizontal: false, vertical: true) }
+                    if startup.phase == .loading { ProgressView() }
+                    if startup.phase == .ready, let menu = startup.catalogue {
+                        ForEach(menu.items, id: \.id) { item in
+                            if let copy = item.copy(language: model.language) {
+                                Button(copy.label) {
+                                    if item.kind == "navigation" { startup.selectPlaylist() } else { startup.surprise() }
+                                }.disabled(!item.available || model.isSendingAskDJText)
+                                .accessibilityIdentifier("session-startup-" + item.id)
+                            }
+                        }
+                    }
+                    ForEach(startup.actions) { action in
+                        Button(action.buttonLabel ?? action.title) { startup.choose(action) }
+                            .disabled(!startup.canChoose)
+                    }
+                }
+                .buttonStyle(.bordered).padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+            }
+        }
+        .task(id: startup.scope) { await startup.refresh() }
+    }
+}

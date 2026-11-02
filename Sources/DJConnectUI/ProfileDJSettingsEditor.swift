@@ -222,26 +222,27 @@ struct ProfileDJSettingsEditor: View, Equatable {
             outputField(response)
             if (review ? draft.announcement_output ?? e.announcement_output : e.announcement_output) != .textOnly {
             HAProviderVoiceVisibility(model: model) {
-            Text(text("voice")).font(.subheadline.weight(.semibold))
-            Picker(text("voice"), selection: Binding(get: { voiceTag(voice) }, set: { tag in
-                if tag == "default" { choose(.init(voice: .init())) }
-                else if let item = inventory.voices.first(where: {
-                    voiceTag(.init(kind: .providerVoice, providerID: inventory.provider_id, voiceID: $0.voice_id)) == tag
-                }) { choose(.init(voice: .init(kind: .providerVoice, providerID: inventory.provider_id, voiceID: item.voice_id))) }
-            })) {
-                Text(text("provider_default")).tag("default")
-                ForEach(inventory.voices, id: \.voice_id) { item in
-                    Text(item.name).tag(voiceTag(.init(kind: .providerVoice, providerID: inventory.provider_id, voiceID: item.voice_id)))
-                        .disabled(gender != .default && item.gender != gender.rawValue)
+            SpeechPreferenceRow(label: text("voice")) {
+                Picker(text("voice"), selection: Binding(get: { voiceTag(voice) }, set: { tag in
+                    if tag == "default" { choose(.init(voice: .init())) }
+                    else if let item = inventory.voices.first(where: {
+                        voiceTag(.init(kind: .providerVoice, providerID: inventory.provider_id, voiceID: $0.voice_id)) == tag
+                    }) { choose(.init(voice: .init(kind: .providerVoice, providerID: inventory.provider_id, voiceID: item.voice_id))) }
+                })) {
+                    Text(text("provider_default")).tag("default")
+                    ForEach(inventory.voices, id: \.voice_id) { item in
+                        Text(item.name).tag(voiceTag(.init(kind: .providerVoice, providerID: inventory.provider_id, voiceID: item.voice_id)))
+                            .disabled(gender != .default && item.gender != gender.rawValue)
+                    }
+                    if voice.kind == .providerVoice && (voice.provider_id != inventory.provider_id || !inventory.voices.contains(where: { $0.voice_id == voice.voice_id })) {
+                        Text(text("selection_unavailable")).tag(voiceTag(voice)).disabled(true)
+                    }
                 }
-                if voice.kind == .providerVoice && (voice.provider_id != inventory.provider_id || !inventory.voices.contains(where: { $0.voice_id == voice.voice_id })) {
-                    Text(text("selection_unavailable")).tag(voiceTag(voice)).disabled(true)
-                }
+                .pickerStyle(.menu).frame(minHeight: 44).disabled(!state.canEdit)
+                .labelsHidden()
+                .accessibilityLabel(text("voice"))
+                .accessibilityIdentifier("dj-settings-voice")
             }
-            .pickerStyle(.menu).frame(minHeight: 44).disabled(!state.canEdit)
-            .labelsHidden()
-            .accessibilityLabel(text("voice"))
-            .accessibilityIdentifier("dj-settings-voice")
             if response.allowed_values.gender.contains("male") || response.allowed_values.gender.contains("female") {
                 let genders = ["male", "female"].filter { response.allowed_values.gender.contains($0) }
                 SessionGlassChoiceSelector(
@@ -269,8 +270,7 @@ struct ProfileDJSettingsEditor: View, Equatable {
     private func outputField(_ response: DJConnectProfileDJSettingsResponse) -> some View {
         let e = response.snapshot.effective
         let review = response.requiresSelection
-        return VStack(alignment: .leading, spacing: 8) {
-            Text(text("output")).font(.subheadline.weight(.semibold))
+        return SpeechPreferenceRow(label: text("output")) {
             Picker(text("output"), selection: Binding(get: {
                 (review ? draft.announcement_output ?? e.announcement_output : e.announcement_output).rawValue
             }, set: { choose(.init(output: DJAnnouncementOutput(rawValue: $0))) })) {
@@ -304,8 +304,10 @@ private struct DeviceAppleSpeechPreferencesSection: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Toggle(text("ui.device_stt.enabled"), isOn: $model.deviceSTTEnabled)
-                .accessibilityIdentifier("device-stt-enabled")
+            SpeechPreferenceRow(label: text("ui.device_stt.enabled")) {
+                Toggle(text("ui.device_stt.enabled"), isOn: $model.deviceSTTEnabled)
+                    .accessibilityIdentifier("device-stt-enabled")
+            }
             Text(text("ui.device_stt.explanation"))
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -364,14 +366,8 @@ struct HASpeechConfigurationView: View {
     private func row(_ key: String, _ route: DJConnectDeviceSpeechAvailability.Route?) -> some View {
         let label = text("ui.ha_speech." + key)
         let status = text("ui.ha_speech." + HASpeechConfigurationStatus(route).rawValue)
-        return ViewThatFits(in: .horizontal) {
-            LabeledContent(label) { Text(status) }
-                .fixedSize(horizontal: true, vertical: true)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(label)
-                Text(status)
-            }
-            .fixedSize(horizontal: false, vertical: true)
+        return SpeechPreferenceRow(label: label) {
+            Text(status).multilineTextAlignment(.trailing)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -392,7 +388,7 @@ private struct DeviceSpeechPreferencesSection: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .accessibilityAddTraits(.isHeader)
-            LabeledContent(speechPreferencesText(model, "ui.wakeword")) {
+            SpeechPreferenceRow(label: speechPreferencesText(model, "ui.wakeword")) {
                 if model.wakeWordEnabled {
                     Button {
                         model.setWakeWordEnabled(false)
@@ -411,11 +407,11 @@ private struct DeviceSpeechPreferencesSection: View {
                         Text(speechPreferencesText(model, "ui.enable.voice.activation.321a28"))
                             .foregroundStyle(.white)
                     }
-                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary))
                 }
             }
             wakeWordPhraseField(model)
-            LabeledContent(speechPreferencesText(model, "ui.wakeword.status")) {
+            SpeechPreferenceRow(label: speechPreferencesText(model, "ui.wakeword.status")) {
                 Text(wakeWordStatusText(model))
                     .foregroundStyle(.secondary)
             }
@@ -449,7 +445,7 @@ struct SharedDJSpeechActions: View {
     }
     var body: some View {
         if model.profileDJSettings.effective?.announcement_output != .textOnly, let reference {
-            HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 Spacer(minLength: 0)
                 if model.sharedSpeechReference == reference,
                    let status = model.sharedSpeechDelivery["local"],
@@ -516,7 +512,7 @@ private func wakeWordPhraseField(_ model: DJConnectAppModel) -> some View {
         get: { model.wakeWordPhrase },
         set: { model.wakeWordPhrase = $0 }
     )
-    LabeledContent(speechPreferencesText(model, "ui.wake.word")) {
+    SpeechPreferenceRow(label: speechPreferencesText(model, "ui.wake.word")) {
         TextField(speechPreferencesText(model, "ui.wake.word"), text: phrase)
             .textFieldStyle(.plain)
             .foregroundStyle(.white)

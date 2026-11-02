@@ -12766,8 +12766,8 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 
     #expect(snapshot.title == "Innerbloom")
     #expect(snapshot.artist == "RUFUS DU SOL")
-    #expect(snapshot.energy == 1)
-    #expect(snapshot.danceability == 0)
+    #expect(snapshot.energy == nil) // Invalid values are absent, not invented measurements.
+    #expect(snapshot.danceability == nil)
     #expect(snapshot.intensity == 0.58)
     #expect(snapshot.musicDNAMatchPercent == nil)
     #expect(snapshot.progress == 138)
@@ -13036,7 +13036,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(complicationResources.contains("Localizable.strings in Resources"))
 }
 
-@Test(.isolatedClientResources) func defaultDisplayLanguageUsesSharedAppLanguageOverrideForWidgets() throws {
+@Test(.isolatedClientResources) @MainActor func defaultDisplayLanguageUsesSharedAppLanguageOverrideForWidgets() throws {
     let sharedDefaults = try #require(UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier))
     let oldSharedOverride = sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
     defer {
@@ -13164,13 +13164,9 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 @Test(.isolatedClientResources) func moodPickerIsCentralizedInSessionToolbarOnly() throws {
     let root = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
     let timeline = try loadRepositoryText("Sources/DJConnectUI/SessionTimelineScreen.swift")
-    let nowPlaying = try #require(root.structBody(named: "NowPlayingView"))
-    let iosNowPlaying = try #require(root.structBody(named: "IOSNowPlayingView"))
     let askDJ = try #require(root.structBody(named: "AskDJView"))
     #expect(!root.contains("NowPlayingMoodControlSection"))
     #expect(!root.contains("AskDJMoodModeControl"))
-    #expect(!nowPlaying.contains("MoodModeControl"))
-    #expect(!iosNowPlaying.contains("MoodModeControl"))
     #expect(!askDJ.contains("MoodModeControl"))
     #expect(timeline.contains("struct ActiveSessionMoodToolbar: View"))
 }
@@ -13192,6 +13188,102 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
     #expect(DJConnectGameViewport.canvasHeight(viewportHeight: 1194, pickerHeight: picker,
                                               chromeHeight: controls, verticalPadding: 12) > 560)
+}
+
+@Test(arguments: [CGSize(width: 1300, height: 300), CGSize(width: 600, height: 900), CGSize(width: 320, height: 170)])
+func gamesKeepRoundSpritesAndMapTouchesIntoCenteredBoard(_ size: CGSize) {
+    let scale = DJConnectGameViewport.scale(in: size)
+    let origin = DJConnectGameViewport.origin(in: size)
+    #expect(scale > 0 && origin.x >= 0 && origin.y >= 0)
+    #expect(origin.x + 320 * scale <= size.width + 0.001)
+    #expect(origin.y + 170 * scale <= size.height + 0.001)
+    // A square sprite and the game axes use one scale, irrespective of pane shape.
+    let topLeft = CGPoint(x: origin.x + 40 * scale, y: origin.y + 60 * scale)
+    let bottomRight = CGPoint(x: origin.x + 48 * scale, y: origin.y + 68 * scale)
+    #expect(abs((bottomRight.x - topLeft.x) - (bottomRight.y - topLeft.y)) < 0.001)
+    let logical = DJConnectGameViewport.gamePoint(topLeft, in: size)
+    #expect(abs(logical.x - 40) < 0.001 && abs(logical.y - 60) < 0.001)
+    let center = DJConnectGameViewport.gamePoint(CGPoint(x: size.width / 2, y: size.height / 2), in: size)
+    #expect(abs(center.x - 160) < 0.001 && abs(center.y - 85) < 0.001)
+}
+
+@Test func mazeChaseTraversesEveryPelletCenterAndStopsAtPaddedEdges() {
+    var position = MazeChaseBoard.center(0)
+    var direction = MazeChaseBoard.Direction.right
+    var visited: Set<Int> = [0]
+    func advance(_ requested: MazeChaseBoard.Direction, ticks: Int) {
+        for _ in 0..<ticks {
+            let next = MazeChaseBoard.step(position: position, direction: direction, requested: requested)
+            position = next.position; direction = next.direction
+            for index in 0..<36 where MazeChaseBoard.center(index) == position { visited.insert(index) }
+            let column = (position.x - MazeChaseBoard.origin.x) / MazeChaseBoard.spacing
+            let row = (position.y - MazeChaseBoard.origin.y) / MazeChaseBoard.spacing
+            #expect(abs(column - column.rounded()) < 0.001 || abs(row - row.rounded()) < 0.001)
+            #expect(position.x >= 9 && position.x <= 311 && position.y >= 9 && position.y <= 161)
+        }
+    }
+    for row in 0..<4 {
+        let horizontal: MazeChaseBoard.Direction = row.isMultiple(of: 2) ? .right : .left
+        advance(horizontal, ticks: 8 * 7)
+        #expect(position == MazeChaseBoard.center(row * 9 + (row.isMultiple(of: 2) ? 8 : 0)))
+        advance(horizontal, ticks: 3) // No drift beyond the outermost pellet lane.
+        if row < 3 { advance(.down, ticks: 7) }
+    }
+    #expect(visited == Set(0..<36))
+    advance(.down, ticks: 10)
+    #expect(position == MazeChaseBoard.center(27))
+    advance(.left, ticks: 10)
+    #expect(position == MazeChaseBoard.center(27))
+    advance(.up, ticks: 21)
+    #expect(position == MazeChaseBoard.center(0))
+    advance(.up, ticks: 10)
+    #expect(position == MazeChaseBoard.center(0))
+    #expect(MazeChaseBoard.origin.x == 320 - MazeChaseBoard.center(35).x)
+    #expect(MazeChaseBoard.origin.y == 170 - MazeChaseBoard.center(35).y)
+}
+
+@Test func mazeChaseBuffersPerpendicularTurnsUntilTheNextPelletCenter() {
+    let start = MazeChaseBoard.start
+    var next = MazeChaseBoard.step(position: start, direction: .right, requested: .right)
+    for _ in 0..<6 { next = MazeChaseBoard.step(position: next.position, direction: next.direction, requested: .down) }
+    #expect(next.position == MazeChaseBoard.center(10))
+    #expect(next.direction == .right)
+    next = MazeChaseBoard.step(position: next.position, direction: next.direction, requested: .down)
+    #expect(next.position.x == MazeChaseBoard.center(10).x)
+    #expect(next.position.y == MazeChaseBoard.center(10).y + 4)
+    let reversed = MazeChaseBoard.step(position: next.position, direction: next.direction, requested: .up)
+    #expect(reversed.position == MazeChaseBoard.center(10))
+}
+
+@Test func meteorStarsMoveInDepthLayersAndRespectReducedMotion() {
+    let initial = MeteorRunStarfield.stars(time: 0, height: 340, reducedMotion: false)
+    let next = MeteorRunStarfield.stars(time: 0.5, height: 340, reducedMotion: false)
+    #expect(initial.count == 36 && next.count == 36)
+    let shifts = (0..<3).map { next[$0].center.y - initial[$0].center.y }
+    #expect(shifts == [2.5, 5.5, 10])
+    #expect(Set(initial.map(\.radius)).count == 3)
+    #expect(next.contains { $0.trail > 0 })
+    let still = MeteorRunStarfield.stars(time: 0, height: 340, reducedMotion: true)
+    #expect(still == MeteorRunStarfield.stars(time: 500, height: 340, reducedMotion: true))
+    #expect(still.allSatisfy { $0.trail == 0 })
+}
+
+@Test func meteorStarWrapFadesAtTheEdgesWithoutAClockResetJump() {
+    // Star zero begins at -12 + 31/349 * 364 and moves at five units/sec.
+    let wrap = (364 - CGFloat(31) / 349 * 364) / 5
+    let before = MeteorRunStarfield.stars(time: Double(wrap - 0.001), height: 340, reducedMotion: false)[0]
+    let after = MeteorRunStarfield.stars(time: Double(wrap + 0.001), height: 340, reducedMotion: false)[0]
+    #expect(before.opacity < 0.001 && after.opacity < 0.001)
+    // The old implementation reset its phase at 2pi, producing discontinuities.
+    let a = MeteorRunStarfield.stars(time: 2 * .pi - 0.001, height: 340, reducedMotion: false)
+    let b = MeteorRunStarfield.stars(time: 2 * .pi + 0.001, height: 340, reducedMotion: false)
+    #expect(zip(a, b).allSatisfy { abs($0.center.y - $1.center.y) < 0.05 })
+    for time in [0.0, 10, 100, 10000] {
+        #expect(MeteorRunStarfield.stars(time: time, height: 340, reducedMotion: false).allSatisfy {
+            $0.center.x >= 0 && $0.center.x <= 320 && $0.center.y >= -12 && $0.center.y <= 352 &&
+                (0...0.76).contains($0.opacity)
+        })
+    }
 }
 
 @Test(.isolatedClientResources) func publicReleaseWorkflowPublishesFiveLocalizedReleaseNoteJSONFiles() throws {
@@ -14724,3 +14816,164 @@ func discoveryPlayRefreshesTheQueueAfterAnyPreselectionReadFinishes(_ oldReadInF
     }
     #expect(recorder.requests.count == 3)
 }
+
+@MainActor
+@Test(.isolatedClientResources, arguments: ["confirmed", "rejected", "unconfirmed", "speaker-change", "stale"], [DJConnectRepeatState.off, .track, .context])
+func playbackModesRetainPendingChoiceAndReconcileWithProvider(_ outcome: String, _ repeatTarget: DJConnectRepeatState) async throws {
+    let shuffleTarget = repeatTarget != .off
+    let initialRepeat: DJConnectRepeatState = repeatTarget == .off ? .context : .off
+    let host = "playback-modes-\(outcome)-\(repeatTarget.rawValue).local"
+    let calls = RequestJSONRecorder()
+    let session = mockSession(host: host) { request in
+        let body = try JSONSerialization.jsonObject(with: requestBodyData(request) ?? Data()) as? [String: Any]
+        let command = body?["command"] as? String ?? ""
+        try calls.append(request)
+        let isRead = command == "status"
+        let fresh = isRead && outcome == "confirmed"
+        let success = outcome == "rejected" ? #""success":false,"# : outcome == "unconfirmed" ? "" : #""success":true,"#
+        let json = """
+        {\(success)"backend_available":true,"playback":{"has_playback":true,"is_playing":true,"track_name":"Track","shuffle":\(fresh ? shuffleTarget : !shuffleTarget),"repeat_state":"\(fresh ? repeatTarget.rawValue : initialRepeat.rawValue)","device":{"id":"speaker","name":"Speaker","active":true}}}
+        """
+        return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: try testDefaults(), host: host, session: session)
+    defer { model.markInactiveSession() }
+    model.isConnected = true
+    model.apply(playback: DJConnectPlayback(hasPlayback: true, shuffle: !shuffleTarget, repeatState: initialRepeat,
+        device: DJConnectPlaybackDevice(id: "speaker", name: "Speaker", active: true)))
+    model.setShuffle(shuffleTarget); model.setRepeat(repeatTarget)
+    #expect(model.displayedShuffle == shuffleTarget && model.displayedRepeatState == repeatTarget)
+    // A concurrent pre-command status read must not erase either selection.
+    model.apply(playback: model.playback)
+    #expect(model.displayedShuffle == shuffleTarget && model.displayedRepeatState == repeatTarget)
+    if outcome == "speaker-change" {
+        model.apply(playback: DJConnectPlayback(shuffle: !shuffleTarget, repeatState: initialRepeat,
+            device: DJConnectPlaybackDevice(id: "other", name: "Other", active: true)))
+        #expect(model.displayedShuffle == !shuffleTarget && model.displayedRepeatState == initialRepeat)
+    }
+    let deadline = ContinuousClock.now.advanced(by: .seconds(8))
+    while (model.isChangingShuffle || model.isChangingRepeat), .now < deadline {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(!model.isChangingShuffle && !model.isChangingRepeat)
+    #expect(model.displayedShuffle == (outcome == "confirmed" ? shuffleTarget : !shuffleTarget))
+    #expect(model.displayedRepeatState == (outcome == "confirmed" ? repeatTarget : initialRepeat))
+    #expect(calls.payloads.filter { $0["command"] as? String == "set_shuffle" }.count == (outcome == "speaker-change" ? 0 : 1))
+    #expect(calls.payloads.filter { $0["command"] as? String == "set_repeat" }.count == (outcome == "speaker-change" ? 0 : 1))
+    if outcome == "confirmed" || outcome == "stale" { #expect(calls.payloads.contains { $0["command"] as? String == "status" }) }
+}
+
+
+@MainActor @Test(.isolatedClientResources, arguments: [1, 2, 10, 100])
+func queuePresentationCompactsAdjacentCopiesAndRetainsOriginalOffsets(_ copies: Int) async throws {
+    let recorder = RequestJSONRecorder()
+    let host = "queue-presentation-\(copies).local"
+    let session = mockSession(host: host) { request in
+        try recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: try testDefaults(), host: host, session: session)
+    defer { model.markInactiveSession() }
+    let repeated = DJConnectQueueItem(title: "All We Need", artist: "Loner Deer", album: "Wildflowers", uri: "spotify:track:AbC", durationMS: 200_000)
+    let next = DJConnectQueueItem(title: "Next song", artist: "Other artist", uri: "spotify:track:next")
+    let source = Array(repeating: repeated, count: copies) + [next, repeated]
+    model.apply(commandResponse: .init(success: true, queue: source, queueContext: "spotify:playlist:fixture"))
+    let retained = model.queueItems
+    for _ in 0..<3 {
+        let rows = DJConnectQueuePresentation.rows(model.queueItems)
+        #expect(rows.map(\.index) == [0, copies, copies + 1])
+        #expect(rows.map { $0.item.title } == [repeated.title, next.title, repeated.title])
+        #expect(model.queueItems == retained && model.queueItems.count == source.count)
+        #expect(DJConnectQueueWidgetSnapshot(items: model.queueItems).totalCount == source.count)
+    }
+    let nextRow = try #require(DJConnectQueuePresentation.rows(model.queueItems).first { $0.item.uri == next.uri })
+    model.startQueueItem(nextRow.item, at: nextRow.index)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while recorder.payloads.isEmpty, .now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+    let command = try #require(recorder.payloads.first)
+    #expect(command["command"] as? String == "play_context_at")
+    let value = try #require(command["value"] as? [String: Any])
+    #expect(value["index"] as? String == String(copies))
+    #expect(value["uri"] as? String == next.uri)
+}
+
+@Test(.isolatedClientResources) func queuePresentationKeepsDifferentRecordingsAndURIIdentityCase() {
+    let original = DJConnectQueueItem(title: "Song", artist: "Artist", album: "Album", uri: "spotify:track:AbC", durationMS: 200_000)
+    var artworkCopy = original; artworkCopy.id = "other-row-id"; artworkCopy.albumImageURL = URL(string: "https://example.test/refreshed.jpg")
+    var otherVersion = original; otherVersion.album = "Live Album"
+    var otherArtist = original; otherArtist.artist = "Another Artist"
+    var otherDuration = original; otherDuration.durationMS = 210_000
+    var otherURI = original; otherURI.uri = "spotify:track:abc"
+    var unavailable = original; unavailable.uri = nil
+    let items = [original, artworkCopy, otherVersion, otherArtist, otherDuration, otherURI, unavailable, unavailable]
+    let rows = DJConnectQueuePresentation.rows(items)
+    #expect(rows.map(\.index) == [0, 2, 3, 4, 5, 6, 7])
+    #expect(rows[0].item == original)
+    #expect(items.count == 8)
+}
+
+
+@MainActor
+@Test(.isolatedClientResources) func macBluetoothSpeakerFollowsHardwareWithoutChangingSpotifyTarget() async throws {
+    let fixtureURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/moment-contract-receipt.json")
+    let fixture = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [String: Any])
+    let response = try JSONSerialization.data(withJSONObject: ["success": true, "session": #require(fixture["runtime"])])
+    let host = "bluetooth-\(UUID().uuidString.lowercased()).local"
+    let session = mockSession(host: host) { request in
+        (try httpResponse(for: request, statusCode: 200), response)
+    }
+    defer { session.invalidateAndCancel() }
+    let model = makePairedMusicDNAModel(defaults: try testDefaults(), host: host, session: session)
+    defer { model.markInactiveSession() }
+    #expect(await model.refreshActiveDJSession())
+    model.isConnected = true; model.backendAvailable = true
+    let mac = DJConnectOutputDevice(id: "spotify-macbook", name: "MacBook Pro van Peter", type: "Computer", active: true, supportsVolume: true, volumePercent: 62)
+    let remote = DJConnectOutputDevice(id: "spotify-mini", name: "Mac mini", type: "Computer", active: false)
+    model.availableOutputs = [mac, remote]
+    model.playback = DJConnectPlayback(volumePercent: 62, device: DJConnectPlaybackDevice(id: mac.id, name: mac.name, type: mac.type, active: true, supportsVolume: true))
+    model.localAudioRoute = .init(localDeviceName: mac.name, bluetoothPortNames: ["JBL Charge 5 Wi-Fi"], localDeviceTypes: ["computer"])
+    #expect(model.currentPlaybackOutputDisplayName == "JBL Charge 5 Wi-Fi")
+    #expect(model.sessionPlaybackOutputName == "JBL Charge 5 Wi-Fi")
+    #expect(model.outputDisplayName(mac) == "JBL Charge 5 Wi-Fi" && model.outputUsesLocalBluetooth(mac))
+    #expect(model.outputDisplayName(remote) == "Mac mini" && !model.outputUsesLocalBluetooth(remote))
+    #expect(model.playback?.device?.id == mac.id && model.playback?.device?.name == mac.name)
+    #expect(model.availableOutputs == [mac, remote] && model.playback?.volumePercent == 62)
+    #expect(model.currentPlaybackVolumePercent == nil) // The provider's 62% is not the hardware speaker volume.
+    model.localAudioRoute = .init(localDeviceName: mac.name, bluetoothPortNames: [], hasOtherOutputs: true, localDeviceTypes: ["computer"])
+    #expect(model.currentPlaybackOutputDisplayName == mac.name && !model.outputUsesLocalBluetooth(mac))
+    model.localAudioRoute = .init(localDeviceName: mac.name, bluetoothPortNames: ["Other Bluetooth headset"], localDeviceTypes: ["computer"])
+    #expect(model.outputDisplayName(mac) == "Other Bluetooth headset")
+}
+
+@MainActor
+@Test(.isolatedClientResources, arguments: ["remote", "duplicate-name", "cached", "offline", "inactive", "wrong-type", "demo"])
+func macBluetoothDoesNotRelabelUnprovenSpotifyHosts(_ reason: String) throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.isConnected = true; model.backendAvailable = true
+    var mac = DJConnectOutputDevice(id: "macbook", name: "MacBook Pro van Peter", type: "Computer", active: true)
+    model.localAudioRoute = .init(localDeviceName: mac.name, bluetoothPortNames: ["Private JBL"], localDeviceTypes: ["computer"])
+    if reason == "remote" { mac.name = "Mac mini" }
+    if reason == "cached" { mac.cached = true }
+    if reason == "wrong-type" { mac.type = "speaker" }
+    if reason == "inactive" { mac.active = false }
+    model.availableOutputs = [mac]
+    if reason == "duplicate-name" { model.availableOutputs.append(.init(id: "another-mac", name: mac.name, type: "Computer", active: false)) }
+    model.playback = DJConnectPlayback(device: DJConnectPlaybackDevice(id: mac.id, name: mac.name, type: mac.type, active: mac.active, cached: mac.cached))
+    if reason == "offline" { model.isConnected = false }
+    if reason == "demo" { model.isDemoMode = true }
+    #expect(model.currentPlaybackBluetoothDeviceName == nil && !model.outputUsesLocalBluetooth(mac))
+    #expect(model.outputDisplayName(mac) == mac.name)
+}
+
+#if os(macOS)
+import CoreAudio
+@Test(arguments: [kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE,
+                  kAudioDeviceTransportTypeBuiltIn, kAudioDeviceTransportTypeAirPlay, kAudioDeviceTransportTypeAggregate])
+@MainActor func macAudioHardwareTransportIsExplicit(_ transport: UInt32) {
+    let route = DJConnectMacAudioRouteMonitor.route(computer: "MacBook", output: "JBL", transport: transport)
+    let expectedBluetooth = transport == kAudioDeviceTransportTypeBluetooth || transport == kAudioDeviceTransportTypeBluetoothLE
+    #expect(route.bluetoothName == (expectedBluetooth ? "JBL" : nil))
+    #expect(route.localDeviceTypes == ["computer"])
+    #expect(DJConnectMacAudioRouteMonitor.route(computer: "MacBook", output: nil, transport: transport).bluetoothName == nil)
+}
+#endif

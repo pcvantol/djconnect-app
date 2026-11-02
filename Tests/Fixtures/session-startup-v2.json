@@ -1,0 +1,292 @@
+{
+  "provenance": {
+    "source": "pcvantol/djconnect b33ea880 examples/client_contracts/session_first_play_v2/actual-ha-wire.json",
+    "sha256": "c3edee7ee13b263d870e630b83af4cdc5770a8c548fa5c336caf2773dc7897e2",
+    "classification": "ACTUAL_ISOLATED_HA_SOURCE_ONLY_NOT_INSTALLED_OR_NATIVE"
+  },
+  "menu": {
+    "schema_version": 1,
+    "available": true,
+    "automatic_playback": false,
+    "items": [
+      {
+        "schema_version": 2,
+        "id": "session_first_play_surprise_mix",
+        "available": true,
+        "genre_basis": "music_dna",
+        "unavailable_reason": null,
+        "label": "Verras me",
+        "prompt": "Verras me met een mix voor deze sessie",
+        "localizations": {
+          "en": {
+            "label": "Surprise me",
+            "prompt": "Surprise me with a mix for this session"
+          },
+          "nl": {
+            "label": "Verras me",
+            "prompt": "Verras me met een mix voor deze sessie"
+          },
+          "de": {
+            "label": "\u00dcberrasche mich",
+            "prompt": "\u00dcberrasche mich mit einem Mix f\u00fcr diese Session"
+          },
+          "fr": {
+            "label": "Surprends-moi",
+            "prompt": "Surprends-moi avec un mix pour cette session"
+          },
+          "es": {
+            "label": "Sorpr\u00e9ndeme",
+            "prompt": "Sorpr\u00e9ndeme con una mezcla para esta sesi\u00f3n"
+          }
+        },
+        "mix_availability": "not_queried",
+        "transport": "existing_session_conversation",
+        "selection_effect": "genre_starts_exact_mix",
+        "automatic_playback": false,
+        "kind": "conversation_request"
+      },
+      {
+        "schema_version": 1,
+        "id": "session_start_playlists",
+        "kind": "navigation",
+        "available": true,
+        "destination": "playlists",
+        "label": "Selecteer playlist",
+        "localizations": {
+          "en": {
+            "label": "Select playlist"
+          },
+          "nl": {
+            "label": "Selecteer playlist"
+          },
+          "de": {
+            "label": "Playlist ausw\u00e4hlen"
+          },
+          "fr": {
+            "label": "Choisir une playlist"
+          },
+          "es": {
+            "label": "Seleccionar playlist"
+          }
+        },
+        "automatic_playback": false
+      }
+    ]
+  },
+  "output": {
+    "first_play": {
+      "schema_version": 2,
+      "genre_basis": "music_dna",
+      "state": "output",
+      "selection_effect": "genre_starts_exact_mix",
+      "reason": null,
+      "expires_in": 59.99919128417969
+    },
+    "text": "Kies eerst een speaker.",
+    "result_set": {
+      "schema_version": 1,
+      "result_set_id": "choices-0a388297afef4ab4a6693aa122abdae5",
+      "expires_in": 59.997886000004655,
+      "items": [
+        {
+          "id": "set_output:synthetic-first-play-output",
+          "title": "Synthetic speaker",
+          "subtitle": "Speaker",
+          "label": "Activeer",
+          "kind": "output",
+          "command": "set_output",
+          "value": "synthetic-first-play-output",
+          "device_id": "synthetic-first-play-output",
+          "device_name": "Synthetic speaker",
+          "active": false,
+          "backend": "spotify",
+          "provider": "spotify",
+          "result_set_id": "choices-0a388297afef4ab4a6693aa122abdae5",
+          "action_id": "e48d710fee3f6810ec2571f56ade31f6"
+        }
+      ]
+    },
+    "playback_actions": [
+      {
+        "id": "set_output:synthetic-first-play-output",
+        "title": "Synthetic speaker",
+        "subtitle": "Speaker",
+        "label": "Activeer",
+        "kind": "output",
+        "command": "set_output",
+        "value": "synthetic-first-play-output",
+        "device_id": "synthetic-first-play-output",
+        "device_name": "Synthetic speaker",
+        "active": false,
+        "backend": "spotify",
+        "provider": "spotify",
+        "result_set_id": "choices-0a388297afef4ab4a6693aa122abdae5",
+        "action_id": "e48d710fee3f6810ec2571f56ade31f6"
+      }
+    ]
+  },
+  "genres": {
+    "first_play": {
+      "schema_version": 2,
+      "genre_basis": "music_dna",
+      "state": "genres",
+      "selection_effect": "genre_starts_exact_mix",
+      "reason": null,
+      "expires_in": 59.99181533400406
+    },
+    "text": "Kies een genre om je DJConnect-mix met Spotify-nummers te starten.",
+    "result_set": {
+      "schema_version": 1,
+      "result_set_id": "choices-837b021d48494186b5a503f937541ecc",
+      "expires_in": 59.990626750004594,
+      "items": [
+        {
+          "kind": "track_mix",
+          "title": "neo soul",
+          "label": "neo soul",
+          "button_label": "neo soul",
+          "uri": "spotify:track:d99e75eba015b972ea1a6c",
+          "uris": [
+            "spotify:track:d99e75eba015b972ea1a6c",
+            "spotify:track:e9f444c528d0bf4f3fca92",
+            "spotify:track:cd61e7c107faad876fba5c"
+          ],
+          "subtitle": "3 Spotify-nummers",
+          "backend": "source-spotify",
+          "genre": "neo soul",
+          "genre_basis": "music_dna",
+          "selection_source": "spotify_genre_search",
+          "fit_basis": "catalog_genre_query",
+          "fit_qualified": false,
+          "queue_effect": "start_context_now",
+          "result_set_id": "choices-837b021d48494186b5a503f937541ecc",
+          "action_id": "45aee755677625f4867ef3cb537a2484"
+        },
+        {
+          "kind": "track_mix",
+          "title": "r&b",
+          "label": "r&b",
+          "button_label": "r&b",
+          "uri": "spotify:track:86980d8e019cc0a3842470",
+          "uris": [
+            "spotify:track:86980d8e019cc0a3842470",
+            "spotify:track:966cd869d2411b812cab3b",
+            "spotify:track:96a249e60d1e16ad0c024e"
+          ],
+          "subtitle": "3 Spotify-nummers",
+          "backend": "source-spotify",
+          "genre": "r&b",
+          "genre_basis": "music_dna",
+          "selection_source": "spotify_genre_search",
+          "fit_basis": "catalog_genre_query",
+          "fit_qualified": false,
+          "queue_effect": "start_context_now",
+          "result_set_id": "choices-837b021d48494186b5a503f937541ecc",
+          "action_id": "7b170d7665f2f4fd5fdc84c9804fbd4a"
+        },
+        {
+          "kind": "track_mix",
+          "title": "indie rock",
+          "label": "indie rock",
+          "button_label": "indie rock",
+          "uri": "spotify:track:7000c10a9769bfb383dcea",
+          "uris": [
+            "spotify:track:7000c10a9769bfb383dcea",
+            "spotify:track:6abef8ca721534737530de",
+            "spotify:track:df9e4f804bd182d22b4b85"
+          ],
+          "subtitle": "3 Spotify-nummers",
+          "backend": "source-spotify",
+          "genre": "indie rock",
+          "genre_basis": "music_dna",
+          "selection_source": "spotify_genre_search",
+          "fit_basis": "catalog_genre_query",
+          "fit_qualified": false,
+          "queue_effect": "start_context_now",
+          "result_set_id": "choices-837b021d48494186b5a503f937541ecc",
+          "action_id": "c2fc0b9898bb263528403dec06acafaf"
+        }
+      ]
+    },
+    "playback_actions": [
+      {
+        "kind": "track_mix",
+        "title": "neo soul",
+        "label": "neo soul",
+        "button_label": "neo soul",
+        "uri": "spotify:track:d99e75eba015b972ea1a6c",
+        "uris": [
+          "spotify:track:d99e75eba015b972ea1a6c",
+          "spotify:track:e9f444c528d0bf4f3fca92",
+          "spotify:track:cd61e7c107faad876fba5c"
+        ],
+        "subtitle": "3 Spotify-nummers",
+        "backend": "source-spotify",
+        "genre": "neo soul",
+        "genre_basis": "music_dna",
+        "selection_source": "spotify_genre_search",
+        "fit_basis": "catalog_genre_query",
+        "fit_qualified": false,
+        "queue_effect": "start_context_now",
+        "result_set_id": "choices-837b021d48494186b5a503f937541ecc",
+        "action_id": "45aee755677625f4867ef3cb537a2484"
+      },
+      {
+        "kind": "track_mix",
+        "title": "r&b",
+        "label": "r&b",
+        "button_label": "r&b",
+        "uri": "spotify:track:86980d8e019cc0a3842470",
+        "uris": [
+          "spotify:track:86980d8e019cc0a3842470",
+          "spotify:track:966cd869d2411b812cab3b",
+          "spotify:track:96a249e60d1e16ad0c024e"
+        ],
+        "subtitle": "3 Spotify-nummers",
+        "backend": "source-spotify",
+        "genre": "r&b",
+        "genre_basis": "music_dna",
+        "selection_source": "spotify_genre_search",
+        "fit_basis": "catalog_genre_query",
+        "fit_qualified": false,
+        "queue_effect": "start_context_now",
+        "result_set_id": "choices-837b021d48494186b5a503f937541ecc",
+        "action_id": "7b170d7665f2f4fd5fdc84c9804fbd4a"
+      },
+      {
+        "kind": "track_mix",
+        "title": "indie rock",
+        "label": "indie rock",
+        "button_label": "indie rock",
+        "uri": "spotify:track:7000c10a9769bfb383dcea",
+        "uris": [
+          "spotify:track:7000c10a9769bfb383dcea",
+          "spotify:track:6abef8ca721534737530de",
+          "spotify:track:df9e4f804bd182d22b4b85"
+        ],
+        "subtitle": "3 Spotify-nummers",
+        "backend": "source-spotify",
+        "genre": "indie rock",
+        "genre_basis": "music_dna",
+        "selection_source": "spotify_genre_search",
+        "fit_basis": "catalog_genre_query",
+        "fit_qualified": false,
+        "queue_effect": "start_context_now",
+        "result_set_id": "choices-837b021d48494186b5a503f937541ecc",
+        "action_id": "c2fc0b9898bb263528403dec06acafaf"
+      }
+    ]
+  },
+  "played": {
+    "first_play": {
+      "schema_version": 2,
+      "genre_basis": "music_dna",
+      "state": "requested",
+      "selection_effect": "genre_starts_exact_mix",
+      "reason": null,
+      "expires_in": 59.98667487499915
+    },
+    "text": "De mix is aangevraagd.",
+    "playback_actions": []
+  }
+}

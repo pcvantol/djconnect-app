@@ -963,7 +963,16 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     case "refresh": await model.sessionHistory.refreshConversation()
     case "list": await model.sessionHistory.loadSessions()
     case "timeline": await model.sessionHistory.loadTimeline(page.session.id)
-    case "search": model.sessionHistory.search(sessionID: page.session.id, query: "One"); try await Task.sleep(for: .milliseconds(500))
+    case "search":
+        model.sessionHistory.search(sessionID: page.session.id, query: "One")
+        try #require(model.sessionHistory.searchLoading)
+        // Wait for the actual debounced read and denial handling, rather than
+        // assuming the300ms debounce and response finish within500ms under load.
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while model.sessionHistory.searchLoading && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(!model.sessionHistory.searchLoading)
     case "open": _ = await model.sessionHistory.open(.init(reference: page.entries[0].reference))
     case "fetch": _ = try? await model.sessionHistory.fetchExistingHistory()
     case "send": _ = try? await model.sessionHistory.sendExistingText("Question", clientMessageID: "authority-test")
@@ -4457,9 +4466,23 @@ func activePersonaConfirmedConflictAndAuthorityHandling(_ status:Int, _ backgrou
     let(model,defaults,name)=fixture.model();defer{defaults.removePersistentDomain(forName:name)}
     await model.sessionHistory.prepare();await model.refreshActiveDJSession();await model.refreshActiveMoodCapability()
     #expect(model.activePersonaAvailable && model.sessionHistory.hasAuthorizedOwner)
+    let visual = VisualDirectorVisit()
+    let initialPersona = try #require(model.activeDJSession?.confirmedPersona)
+    visual.enter(mood: model.activeDJSession?.selectedMood, occurrence: "synthetic-persona-occurrence",
+                 family: VibeScapeFamily(persona: initialPersona.selectedPersona), personaRevision: initialPersona.personaRevision)
+    #expect(visual.setDynamics(0.2))
+    func projectConfirmedVisual() {
+        guard let runtime = model.activeDJSession else { visual.revoke(); return }
+        let confirmed = runtime.confirmedPersona
+        _ = visual.personaChanged(family: confirmed.map { VibeScapeFamily(persona: $0.selectedPersona) } ?? .neutral,
+            revision: confirmed?.personaRevision, floor: runtime.personaRevisionFloor,
+            conflicted: runtime.hasUnconfirmedPersonaRevision, mood: runtime.selectedMood)
+    }
     let pending = Task {await model.changeActiveSessionPersona(.radioDJ,expectedSessionID:sessionID,expectedEpoch:model.sessionHistory.responseEpoch)}
     try await Task.sleep(for:.milliseconds(25))
     #expect(model.activePersonaPending && model.activeDJSession?.confirmedPersona?.selectedPersona == .homeDJ)
+    projectConfirmedVisual()
+    #expect(visual.scene?.family == .home && visual.dynamics == 0.2)
     if background {model.markInactiveSession()}
     await pending.value
     #expect(!model.activePersonaPending)
@@ -4469,6 +4492,10 @@ func activePersonaConfirmedConflictAndAuthorityHandling(_ status:Int, _ backgrou
         #expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .homeDJ)
         return
     }
+    projectConfirmedVisual()
+    if status == 200 {#expect(visual.scene?.family == .radio && visual.dynamics == 0.2)}
+    if status == 409 {#expect(visual.scene?.family == .club && visual.dynamics == 0.2)}
+    if status == 403 {#expect(visual.scene == nil)}
     if status == 200 {#expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .radioDJ && model.activePersonaError == nil)}
     if status == 409 {#expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .clubDJ && model.activePersonaError != nil)}
     if status == 403 {#expect(!model.sessionHistory.hasAuthorizedOwner && model.activeDJSession == nil && !model.activePersonaAvailable)}
@@ -8188,7 +8215,13 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     let firstSearch = try historyData(["success": true, "schema_version": 1, "session_id": id, "query": query,
         "revision": revision, "matches": [], "returned_count": 0, "complete": false, "next_cursor": "content-page-two",
         "normalization": "NFKC-casefold", "highlight_units": "utf16"])
-    let entries = try #require(timeline["entries"] as? [[String: Any]])
+    var entries = try #require(timeline["entries"] as? [[String: Any]])
+    let retainedDeadline = Date().addingTimeInterval(10)
+    entries = entries.map { entry in
+        var entry = entry
+        entry["retained_until"] = ISO8601DateFormatter().string(from: retainedDeadline)
+        return entry
+    }
     let lastSearch = try historyData(["success": true, "schema_version": 1, "session_id": id, "query": query,
         "revision": revision, "matches": entries, "returned_count": entries.count, "complete": true,
         "normalization": "NFKC-casefold", "highlight_units": "utf16"])
@@ -8219,6 +8252,30 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
         #expect(model.sessionHistory.archiveSearchComplete)
         #expect(model.sessionHistory.archiveSearchSessions.map(\.id) == [id])
         #expect(model.sessionHistory.archiveSearchErrorKey == nil)
+        let completedRequests = fixture.requests.count
+        #expect(model.sessionHistory.canReuseArchiveSearch(query: query))
+        #expect(!model.sessionHistory.canReuseArchiveSearch(query: "Different"))
+        #expect(!model.sessionHistory.canReuseArchiveSearch(query: query, at: retainedDeadline.addingTimeInterval(1)))
+        #expect(!model.sessionHistory.canReuseArchiveSearch(query: query, at: Date().addingTimeInterval(16)))
+        #expect(!model.sessionHistory.canReuseArchiveSearch(query: query, at: Date().addingTimeInterval(-60)))
+        await model.sessionHistory.searchArchivedSessions(query: "  " + query + "  ")
+        #expect(fixture.requests.count == completedRequests)
+        #expect(model.sessionHistory.archiveSearchSessions.map(\.id) == [id])
+        await model.sessionHistory.searchArchivedSessions(query: query, reuseCompletedResults: false)
+        #expect(fixture.requests.count > completedRequests)
+
+        // Opening an inherited search must not hydrate the unused tail timeline.
+        let navigationStart = fixture.requests.count
+        await model.sessionHistory.restoreVisibleTimeline(id, active: false, anchor: nil, searchQuery: query)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while model.sessionHistory.searchLoading && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(!model.sessionHistory.searchLoading)
+        #expect(model.sessionHistory.acceptedSearchQuery == query)
+        #expect(model.sessionHistory.acceptedSearchSessionID == id)
+        #expect(fixture.requests.dropFirst(navigationStart).contains { $0.url!.path.hasSuffix("/search") })
+        #expect(!fixture.requests.dropFirst(navigationStart).contains { $0.url!.path.hasSuffix("/" + id) })
     } else {
         #expect(!model.sessionHistory.archiveSearchComplete)
         #expect(model.sessionHistory.archiveSearchSessions.isEmpty)
@@ -8229,6 +8286,7 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     #expect(fixture.requests.allSatisfy { !$0.url!.path.contains("/playback") && !$0.url!.path.hasSuffix("/start") })
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/" + id) })
     model.sessionHistory.clearArchiveSearch()
+    #expect(!model.sessionHistory.canReuseArchiveSearch(query: query))
     #expect(model.sessionHistory.archiveSearchSessions.isEmpty && model.sessionHistory.archiveSearchQuery.isEmpty)
 }
 
@@ -9387,4 +9445,297 @@ func visualVoiceReadinessAcrossActualContextHTTPPreservesReachabilityAndOriginal
     #expect(context.expires_at == "2026-11-01T20:00:00Z" && requestStarted == 102)
     #expect(counter.value == 3 && wire.requests.count == 3)
     #expect(modes.values == [.local, .local, .local])
+}
+
+@Test(.isolatedClientResources, arguments: ["session-mode-picker", "forecast-content", "flow-search", "current-conversation-local", "live-moment-local", "pending-local", "unknown", "current", "tail", "known", "anchor-failure", "tail-failure", "authority-loss"])
+@MainActor func sessionRefreshIgnoresScreenAnchorsButReportsRealReadFailures(_ position: String) async throws {
+    let receipt = try historyObject("window-producer-receipt")
+    let first = try historyData(try #require(receipt["first_page"]))
+    var tailObject = try #require(receipt["tail_window"] as? [String: Any])
+    var anchorObject = try #require(receipt["anchor_window"] as? [String: Any])
+    tailObject["window_limit"] = 20; anchorObject["window_limit"] = 20
+    let tail = try historyData(tailObject), anchored = try historyData(anchorObject)
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: first)
+    let anchorPage = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: anchored)
+    let entryID = try #require(anchorPage.anchorEntryID)
+    try #require(page.entries.contains { $0.id == entryID && $0.isRetained() })
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8)
+    let authority = HistoryAuthorityGate()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let window = query.first { $0.name == "window" }?.value
+        if authority.denied, window != nil { return (403, Data(#"{"success":false,"error":"invalid_profile"}"#.utf8), 0) }
+        if window == "anchor" {
+            if query.first(where: { $0.name == "anchor_entry_id" })?.value != entryID {
+                return (404, Data(#"{"success":false,"error":"entry_not_found"}"#.utf8), 0)
+            }
+            if position == "anchor-failure" { return (503, Data(), 0) }
+            return (200, anchored, 0)
+        }
+        if window == "tail" { return position == "tail-failure" ? (503, Data(), 0) : (200, tail, 0) }
+        return (200, first, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    try #require(await model.sessionHistory.loadTimeline(page.session.id))
+    let before = fixture.requests.count
+    authority.denied = position == "authority-loss"
+    let genuine = ["known", "anchor-failure"].contains(position)
+    let anchor = genuine ? entryID : position == "authority-loss" ? "session-mode-picker" : position
+    let result = await model.sessionHistory.refreshVisibleTimeline(page.session.id, anchor: anchor)
+    #expect(result == !["anchor-failure", "tail-failure", "authority-loss"].contains(position))
+    let reads = Array(fixture.requests.dropFirst(before))
+    func mode(_ request: URLRequest) -> String? {
+        URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "window" }?.value
+    }
+    #expect(reads.filter { mode($0) == "anchor" }.count == (genuine ? 1 : 0))
+    #expect(reads.filter { mode($0) == "tail" }.count == 1)
+    #expect(reads.allSatisfy { $0.httpMethod == "GET" })
+    if position == "authority-loss" { #expect(!model.sessionHistory.hasAuthorizedOwner && model.sessionHistory.timelines.isEmpty) }
+}
+
+@Test(.isolatedClientResources, arguments: ["supported", "missing-flag", "false-flag", "missing-version", "future-version", "boolean-version", "string-flag"])
+func visualVoiceRequiresAdvertisedSettingsFenceV1(_ scenario: String) async throws {
+    let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/vibescape-visual-catalogue-v1.json")
+    var value = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+    var flags = try #require(value["capabilities"] as? [String: Any])
+    flags["vibescape_visual_settings_fence"] = true
+    var versions: [String: Any] = ["vibescape_visual_settings_fence": 1]
+    switch scenario {
+    case "missing-flag": flags.removeValue(forKey: "vibescape_visual_settings_fence")
+    case "false-flag": flags["vibescape_visual_settings_fence"] = false
+    case "missing-version": versions.removeValue(forKey: "vibescape_visual_settings_fence")
+    case "future-version": versions["vibescape_visual_settings_fence"] = 2
+    case "boolean-version": versions["vibescape_visual_settings_fence"] = true
+    case "string-flag": flags["vibescape_visual_settings_fence"] = "true"
+    default: break
+    }
+    value["capabilities"] = flags; value["contract_versions"] = versions
+    let data = try historyData(value)
+    let wire = HistoryWireFixture { request in
+        #expect(request.url?.path.hasSuffix("/capabilities") == true)
+        return (200, data, 0)
+    }
+    defer { wire.close() }
+    if scenario == "supported" {
+        let help = try await wire.client().visualDirectorHelp(language: "nl", requiringSettingsFence: true)
+        #expect(help.isValid)
+    } else {
+        await #expect(throws: (any Error).self) {
+            _ = try await wire.client().visualDirectorHelp(language: "nl", requiringSettingsFence: true)
+        }
+    }
+    #expect(wire.requests.count == 1)
+    #expect(wire.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@Test(.isolatedClientResources) @MainActor
+func visualConfirmedSettingsRejectConflictsAndFencePersonaAndMoodABA() throws {
+    var runtime = try #require(JSONDecoder().decode(DJConnectSessionResponse.self, from: activePersonaRuntimeWire()).session)
+    runtime.moodRevision = 0; runtime.broadcast.session.moodRevision = 0
+    let original = try #require(VibeScapeConfirmedSettings(runtime))
+    var bad = runtime; bad.broadcast.session.selectedMood = "party"
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.broadcast.session.moodRevision = 1
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.moodRevision = nil
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.moodRevision = -1; bad.broadcast.session.moodRevision = -1
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.broadcast.session.selectedPersona = .clubDJ
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.broadcast.session.personaRevision = 1
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.broadcast.session.sessionID = "other"
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.runtimeState = "ended"
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    #expect(VibeScapeConfirmedSettings(nil) == nil)
+
+    let visit = VisualDirectorVisit()
+    visit.enter(mood: original.mood, occurrence: "synthetic-original-occurrence", salt: 1,
+                family: VibeScapeFamily(persona: original.persona.selectedPersona), personaRevision: original.persona.personaRevision)
+    let fence = VisualDirectorTurnFence(visit: visit)
+    let turn = try #require(fence.begin(originalSourceDeadline: visit.now() + 10) {
+        VibeScapeConfirmedSettings(runtime) == original
+    })
+    // Real accepted revisions distinguish a later return to the same values.
+    runtime = runtime.applying(persona: .init(sessionID: runtime.id, selectedPersona: .radioDJ, personaRevision: 1))
+    runtime = runtime.applying(persona: .init(sessionID: runtime.id, selectedPersona: original.persona.selectedPersona, personaRevision: 2))
+    #expect(VibeScapeConfirmedSettings(runtime) != original)
+    var applied = false
+    #expect(!fence.complete(turn) { applied = true; return true })
+    #expect(!applied)
+    runtime = try #require(JSONDecoder().decode(DJConnectSessionResponse.self, from: activePersonaRuntimeWire()).session)
+    runtime.moodRevision = 0; runtime.broadcast.session.moodRevision = 0
+    let moodTurn = try #require(fence.begin(originalSourceDeadline: visit.now() + 10) {
+        VibeScapeConfirmedSettings(runtime) == original
+    })
+    runtime.selectedMood = "party"; runtime.broadcast.session.selectedMood = "party"
+    runtime.moodRevision = 1; runtime.broadcast.session.moodRevision = 1
+    runtime.selectedMood = original.mood; runtime.broadcast.session.selectedMood = original.mood
+    runtime.moodRevision = 2; runtime.broadcast.session.moodRevision = 2
+    #expect(!fence.complete(moodTurn) { applied = true; return true })
+    #expect(!applied)
+}
+
+private func startupFixtureObject() throws -> [String: Any] {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    return try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-startup-v2.json"))) as? [String: Any])
+}
+
+@Test func sessionStartupV2RequiresExactCapabilitiesAndSafeAdditiveContract() throws {
+    let source = try startupFixtureObject()
+    let menu = try JSONDecoder().decode(DJConnectSessionStartupActions.self, from: historyData(source["menu"]!))
+    #expect(menu.isSupported)
+    for language in ["en", "nl", "de", "fr", "es"] {
+        #expect(menu.items[0].copy(language: language)?.prompt?.isEmpty == false)
+        #expect(menu.items[1].copy(language: language)?.label.isEmpty == false)
+    }
+    for version in [0, 1, 2, 3] {
+        let caps: [String: Any] = ["capabilities": ["session_start_actions": true, "session_first_play_surprise_mix": true],
+            "contract_versions": ["session_start_actions": 1, "session_first_play_surprise_mix": version]]
+        #expect(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self, from: historyData(caps)).sessionStartupAvailable == (version == 2))
+    }
+    var wire = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+    wire["session_start_actions"] = ["schema_version": 99]
+    let response = try JSONDecoder().decode(DJConnectSessionResponse.self, from: historyData(wire))
+    #expect(response.resolvedSession != nil && response.startupActions == nil)
+    for field in ["automatic_playback", "schema_version"] {
+        var broken = try #require(source["menu"] as? [String: Any])
+        broken[field] = field == "automatic_playback" ? true : 99
+        #expect(try !JSONDecoder().decode(DJConnectSessionStartupActions.self, from: historyData(broken)).isSupported)
+    }
+}
+
+@Test(.isolatedClientResources, arguments: ["play", "playlist", "noDNA", "expired", "continued_expired", "scope", "unknown"])
+@MainActor func sessionStartupOriginalChoicesUseConversationExactlyOnce(_ scenario: String) async throws {
+    let source = try startupFixtureObject(), receipt = try historyObject()
+    let sessionID = try #require(receipt["session_id"] as? String)
+    var timelineObject = try #require(receipt["archived_timeline"] as? [String: Any])
+    timelineObject["window"] = "tail"; timelineObject["window_limit"] = 20
+    timelineObject["scan_complete"] = true
+    let orders = (timelineObject["entries"] as? [[String: Any]] ?? []).compactMap { $0["order"] as? Int }
+    timelineObject["scanned_order_min"] = orders.min(); timelineObject["scanned_order_max"] = orders.max()
+    let timeline = try historyData(timelineObject)
+    let profile = try historyData(receipt["later_historical_answer"]!)
+    var runtime = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+    var session = try #require(runtime["session"] as? [String: Any]); session["session_id"] = sessionID
+    var broadcast = try #require(session["broadcast"] as? [String: Any])
+    var fields = try #require(broadcast["session"] as? [String: Any]); fields["session_id"] = sessionID
+    broadcast["session"] = fields; session["broadcast"] = broadcast
+    runtime["session"] = session
+    var menu = try #require(source["menu"] as? [String: Any])
+    if scenario == "noDNA" {
+        var items = try #require(menu["items"] as? [[String: Any]])
+        items[0]["available"] = false; menu["items"] = items
+    }
+    runtime["session_start_actions"] = menu
+    let runtimeData = try historyData(runtime)
+    func answer(_ key: String, revision: Int) throws -> Data {
+        var body = try #require(receipt["text_turn"] as? [String: Any])
+        let overlay = try #require(source[key] as? [String: Any])
+        for (key, value) in overlay { body[key] = value }
+        body["history_revision"] = revision
+        body["server_time"] = ISO8601DateFormatter().string(from: Date())
+        var context = try #require(body["conversation"] as? [String: Any])
+        context["context"] = ["session_id": sessionID]; context["entry_ids"] = []
+        body["conversation"] = context
+        // The original producer first_play/result identities remain unmodified.
+        return try historyData(body)
+    }
+    let output = try answer("output", revision: 100), genres = try answer("genres", revision: 101), played = try answer("played", revision: 102)
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_start_actions": true, "session_first_play_surprise_mix": true],
+        "contract_versions": ["session_conversation_history": 1, "session_start_actions": 1, "session_first_play_surprise_mix": 2]])
+    let genreResultID = try #require(((source["genres"] as? [String: Any])?["result_set"] as? [String: Any])?["result_set_id"] as? String)
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/session/active") { return (200, runtimeData, 0) }
+        if path.hasSuffix("/ask_dj/message") {
+            if scenario == "unknown" { return (503, Data(), 0) }
+            let data = try presenceRequestBody(request)
+            let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let choice = body["choice_action"] as? [String: Any]
+            if choice == nil { return (200, output, 0) }
+            return (200, choice?["result_set_id"] as? String == genreResultID ? played : genres, 0)
+        }
+        if path.contains("/session/history") { return (200, timeline, 0) }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare(); await model.refreshActiveDJSession(); model.isConnected = true
+    model.language = "nl"; model.askDJDraft = "Niet verzenden"
+    let startup = model.sessionStartup
+    await startup.refresh()
+    #expect(startup.phase == .ready)
+    #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+    if scenario == "playlist" || scenario == "noDNA" {
+        if scenario == "noDNA" { startup.surprise(); #expect(startup.phase == .ready) }
+        startup.selectPlaylist()
+        #expect(model.homeScreenActionRequest?.action == .playlists)
+        #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+        return
+    }
+    startup.surprise(); startup.surprise()
+    for _ in 0..<150 where startup.phase == .loading { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(model.askDJDraft == "Niet verzenden")
+    if scenario == "unknown" {
+        #expect(startup.phase == .finished)
+        await startup.refresh(); startup.surprise()
+    } else {
+        #expect(startup.phase == .choices && startup.actions.count > 0)
+        let speaker = try #require(startup.actions.first)
+        if scenario == "expired" { startup.now = { Date().addingTimeInterval(61) } }
+        if scenario == "scope" { model.language = "en"; startup.reconcile() }
+        if scenario == "continued_expired" { startup.now = { Date().addingTimeInterval(50) } }
+        startup.choose(speaker); startup.choose(speaker)
+        for _ in 0..<150 where startup.phase == .loading { try await Task.sleep(for: .milliseconds(10)) }
+        if scenario == "continued_expired" {
+            #expect(startup.phase == .choices && startup.actions.count == 3)
+            let genre = try #require(startup.actions.first)
+            startup.now = { Date().addingTimeInterval(61) }
+            startup.choose(genre)
+        }
+        if scenario == "play" {
+            #expect(startup.phase == .choices && startup.actions.count == 3)
+            let genre = try #require(startup.actions.first)
+            startup.choose(genre); startup.choose(genre)
+            for _ in 0..<150 where startup.phase == .loading { try await Task.sleep(for: .milliseconds(10)) }
+            #expect(startup.phase == .finished)
+        }
+    }
+    let posts = fixture.requests.filter { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }
+    #expect(posts.count == (scenario == "play" ? 3 : scenario == "continued_expired" ? 2 : 1))
+    let bodies = try posts.map { request in
+        let data = try presenceRequestBody(request)
+        return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+    for body in bodies {
+        let context = try #require(body["conversation_context"] as? [String: Any])
+        #expect(context["session_id"] as? String == sessionID)
+        #expect(context["selected_entry"] == nil)
+        #expect(body["uris"] == nil && body["uri"] == nil)
+    }
+    #expect(bodies.first?["text"] as? String == "Verras me met een mix voor deze sessie")
+    #expect(Set(bodies.compactMap { $0["client_message_id"] as? String }).count == posts.count)
+    if bodies.count > 1 {
+        let outputResult = try #require((source["output"] as? [String: Any])?["result_set"] as? [String: Any])
+        let outputAction = try #require((outputResult["items"] as? [[String: Any]])?.first)
+        let choice = try #require(bodies[1]["choice_action"] as? [String: Any])
+        #expect(choice["result_set_id"] as? String == outputResult["result_set_id"] as? String)
+        #expect(choice["action_id"] as? String == outputAction["action_id"] as? String)
+    }
+    for body in bodies.dropFirst() {
+        #expect((body["choice_action"] as? [String: Any])?["operation"] as? String == "select")
+    }
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/command") })
 }

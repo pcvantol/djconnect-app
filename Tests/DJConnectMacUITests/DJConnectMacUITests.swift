@@ -69,7 +69,7 @@ final class DJConnectMacUITests: XCTestCase {
         let app = launchMonkeyApp()
         let duration = TimeInterval(ProcessInfo.processInfo.environment["DJCONNECT_MONKEY_SECONDS"] ?? "20") ?? 20
         let deadline = Date().addingTimeInterval(duration)
-        let destinations = ["Speelt Nu", "Wachtrij", "Ask DJ", "Track Insight", "Ontdek", "Afspeellijsten", "Games", "Instellingen", "Over"]
+        let destinations = ["DJ-sessie", "Wachtrij", "Ask DJ", "Track Insight", "Ontdek", "Afspeellijsten", "Games", "Instellingen", "Over"]
         var index = 0
 
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 12))
@@ -80,7 +80,7 @@ final class DJConnectMacUITests: XCTestCase {
             app.staticTexts[title].tapIfExists()
 
             switch title {
-            case "Speelt Nu":
+            case "DJ-sessie":
                 app.buttons["Volgend nummer"].tapIfExists()
                 app.buttons["Afspelen"].tapIfExists()
             case "Wachtrij":
@@ -109,7 +109,7 @@ final class DJConnectMacUITests: XCTestCase {
     func testConnectionStatusIsSharedAcrossLivePagesAndAbsentFromSavedSessions() {
         let app = launchMonkeyApp()
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 12))
-        for title in ["DJ-sessie", "Speelt Nu", "Track Insight", "Ontdek", "Ask DJ", "Music DNA", "Wachtrij", "Afspeellijsten"] {
+        for title in ["DJ-sessie", "Wachtrij", "Track Insight", "Ontdek", "Ask DJ", "Music DNA", "Afspeellijsten"] {
             openScreen(title, in: app)
             let status = app.buttons["session-connection-toggle"]
             XCTAssertTrue(status.waitForExistence(timeout: 6), "Missing connection status on \(title)")
@@ -162,7 +162,7 @@ final class DJConnectMacUITests: XCTestCase {
         try cleanScreenshotDirectory()
 
         let screens = [
-            ("01-now-playing", "Speelt Nu"),
+            ("01-dj-session", "DJ-sessie"),
             ("02-queue", "Wachtrij"),
             ("03-ask-dj", "Ask DJ"),
             ("04-track-insight", "Track Insight"),
@@ -180,7 +180,7 @@ final class DJConnectMacUITests: XCTestCase {
         for (name, title) in screens {
             openScreen(title, in: app)
             RunLoop.current.run(until: Date().addingTimeInterval(0.8))
-            try captureVerifiedScreenshot(named: name, allowDuplicate: name == "01-now-playing")
+            try captureVerifiedScreenshot(named: name, allowDuplicate: name == "01-dj-session")
         }
     }
     func testMomentFirstSessionAndIndependentPlayerNavigation() async throws {
@@ -211,8 +211,8 @@ final class DJConnectMacUITests: XCTestCase {
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits.")).firstMatch.waitForExistence(timeout: 10))
         try saveMomentScreenshot(app, "mac-02-next-moment")
-        app.buttons["Speelt Nu"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 6))
+        app.buttons["Wachtrij"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-queue"].waitForExistence(timeout: 6))
         try saveMomentScreenshot(app, "mac-03-player-active-session")
         app.buttons["DJ-sessie"].firstMatch.tap()
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
@@ -227,14 +227,14 @@ final class DJConnectMacUITests: XCTestCase {
         XCTAssertEqual(metrics["ended"] as? Bool, false)
         app.buttons["Sessie beëindigen"].firstMatch.tap()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
-        app.buttons["Speelt Nu"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 6))
+        app.buttons["Wachtrij"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-queue"].waitForExistence(timeout: 6))
         XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 6))
         try saveMomentScreenshot(app, "mac-04-player-ended-session")
         app.terminate(); app.launch()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
-        app.buttons["Speelt Nu"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 6))
+        app.buttons["Wachtrij"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-queue"].waitForExistence(timeout: 6))
         try saveMomentScreenshot(app, "mac-05-player-no-session")
     }
 
@@ -358,8 +358,8 @@ final class DJConnectMacUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["One · Metallica · …And Justice for All"].firstMatch.waitForExistence(timeout: 10))
         try saveHistoryScreenshot("mac-history-03-search-beyond-loaded-page")
         app.buttons["Zoeken sluiten"].firstMatch.tap()
-        app.buttons["Speelt Nu"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 5))
+        app.buttons["Wachtrij"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-queue"].waitForExistence(timeout: 5))
         try saveHistoryScreenshot("mac-history-05-player-during-session")
         app.buttons["DJ-sessie"].firstMatch.tap()
         let end = app.buttons["session-end-button"]
@@ -468,16 +468,16 @@ final class DJConnectMacUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForNonExistence(timeout: 5))
         let readback2 = try await activeID()
         XCTAssertEqual(readback2, sessionB)
-        app.buttons["Speelt Nu"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 5))
+        app.buttons["Wachtrij"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-queue"].waitForExistence(timeout: 5))
         let readback3 = try await activeID()
         XCTAssertEqual(readback3, sessionB)
         try saveHistoryScreenshot("mac-history-10-player-preserves-B")
         _ = try await control("end")
         dj.tap()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
-        app.buttons["Speelt Nu"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 5))
+        app.buttons["Wachtrij"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-queue"].waitForExistence(timeout: 5))
         let finalReadback = try await activeID()
         XCTAssertNil(finalReadback)
         try saveHistoryScreenshot("mac-history-11-player-without-session")
@@ -751,7 +751,7 @@ extension DJConnectMacUITests {
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: menu)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 16), .completed)
         XCTAssertFalse(splash.exists, "Toolbar may appear only after splash removal")
-        let screens = [("DJ-sessie", "screen-dj-session"), ("Speelt Nu", "screen-now-playing"),
+        let screens = [("DJ-sessie", "screen-dj-session"), ("Wachtrij", "screen-queue"),
                        ("Track Insight", "screen-track-insight"), ("Ontdek", "screen-discovery"),
                        ("Ask DJ", "screen-ask-dj"), ("Eerdere sessies", "screen-saved-sessions"),
                        ("Music DNA", "screen-music-dna"), ("Wachtrij", "screen-queue"),

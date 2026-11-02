@@ -21,8 +21,8 @@ curl --fail --max-time 5 -s http://127.0.0.1:18787/fixture/advance > /private/tm
 wait_native 'Nora Vale kwamen we eerder'
 cp build/moment-first/mac-proof-state.txt build/moment-first/mac-current-02.txt
 screencapture -x -l "$proof_window" build/moment-first/screenshots/mac-02-current.png
-"$proof_ui" "$proof_pid" press 'Speelt Nu'
-wait_native 'Slow Lanterns'
+"$proof_ui" "$proof_pid" press 'Wachtrij'
+wait_native 'Wachtrij'
 screencapture -x -l "$proof_window" build/moment-first/screenshots/mac-03-player-active-session.png
 "$proof_ui" "$proof_pid" press 'DJ-sessie'
 "$proof_ui" "$proof_pid" read > build/moment-first/mac-normal-session.txt
@@ -39,7 +39,7 @@ sleep 2
 if rg -q 'Nora Vale|MusicBrainz' build/moment-first/mac-reconnected.txt; then exit 3; fi
 "$proof_ui" "$proof_pid" press 'Sessie beëindigen'
 wait_native 'Start DJ-sessie'
-"$proof_ui" "$proof_pid" press 'Speelt Nu'
-wait_native 'Slow Lanterns'
+"$proof_ui" "$proof_pid" press 'Wachtrij'
+wait_native 'Wachtrij'
 screencapture -x -l "$proof_window" build/moment-first/screenshots/mac-04-player-ended-session.png
-print 'MAC_NATIVE_REAL_WINDOW_SEQUENCE_PASS'
+print 'MAC_NATIVE_QUEUE_NAVIGATION_SEQUENCE_PASS'
