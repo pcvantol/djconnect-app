@@ -15604,7 +15604,8 @@ private struct LocalGameSurface: View {
                         .foregroundStyle(game.mood == .energy ? .black : .white)
                         .frame(minWidth: 180)
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, foregroundColor: game.mood == .energy ? .black : .white, primaryFill: game.tint))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, showsFocusIndicator: false, foregroundColor: game.mood == .energy ? .black : .white, primaryFill: game.tint))
+                .focusEffectDisabled()
                 .controlSize(.large)
             }
         }
