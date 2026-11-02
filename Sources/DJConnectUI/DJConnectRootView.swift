@@ -15193,17 +15193,17 @@ enum MazeChaseBoard {
 }
 
 enum DJConnectGameViewport {
-    static func scale(in size: CGSize) -> CGFloat {
-        max(0.001, min(size.width / 320, size.height / 170))
+    static func scale(in size: CGSize, board: CGSize = CGSize(width: 320, height: 170)) -> CGFloat {
+        max(0.001, min(size.width / board.width, size.height / board.height))
     }
 
-    static func origin(in size: CGSize) -> CGPoint {
-        let scale = scale(in: size)
-        return CGPoint(x: (size.width - 320 * scale) / 2, y: (size.height - 170 * scale) / 2)
+    static func origin(in size: CGSize, board: CGSize = CGSize(width: 320, height: 170)) -> CGPoint {
+        let scale = scale(in: size, board: board)
+        return CGPoint(x: (size.width - board.width * scale) / 2, y: (size.height - board.height * scale) / 2)
     }
 
-    static func gamePoint(_ point: CGPoint, in size: CGSize) -> CGPoint {
-        let scale = scale(in: size), origin = origin(in: size)
+    static func gamePoint(_ point: CGPoint, in size: CGSize, board: CGSize = CGSize(width: 320, height: 170)) -> CGPoint {
+        let scale = scale(in: size, board: board), origin = origin(in: size, board: board)
         return CGPoint(x: (point.x - origin.x) / scale, y: (point.y - origin.y) / scale)
     }
 
@@ -15398,7 +15398,9 @@ private struct LocalGameSurface: View {
     @State private var isPlaying = false
     @FocusState private var isGameFocused: Bool
     private let tick = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
-    private let gameAspectRatio: CGFloat = 320.0 / 170.0
+    private var logicalCanvasSize: CGSize { CGSize(width: 320, height: game == .asteroids ? 340 : 170) }
+    private var gameAspectRatio: CGFloat { logicalCanvasSize.width / logicalCanvasSize.height }
+    private var canvasHeightLimit: CGFloat? { maxCanvasHeight.map { $0 * (game == .asteroids ? 2 : 1) } }
 
     private var fillsAvailableCanvas: Bool {
         #if os(iOS)
@@ -15459,12 +15461,12 @@ private struct LocalGameSurface: View {
             }
 
             Group {
-                if fillsAvailableCanvas, let maxCanvasHeight {
-                    gameCanvas.frame(height: maxCanvasHeight)
+                if fillsAvailableCanvas, let canvasHeightLimit {
+                    gameCanvas.frame(height: canvasHeightLimit)
                 } else {
                     gameCanvas
                         .aspectRatio(gameAspectRatio, contentMode: .fit)
-                        .frame(maxHeight: maxCanvasHeight)
+                        .frame(maxHeight: canvasHeightLimit)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -15644,9 +15646,9 @@ private struct LocalGameSurface: View {
 
     private func drawGame(in parentContext: GraphicsContext, size: CGSize, isPlaying: Bool) {
         var context = parentContext
-        let scaleX = DJConnectGameViewport.scale(in: size)
+        let scaleX = DJConnectGameViewport.scale(in: size, board: logicalCanvasSize)
         let scaleY = scaleX
-        let origin = DJConnectGameViewport.origin(in: size)
+        let origin = DJConnectGameViewport.origin(in: size, board: logicalCanvasSize)
         context.translateBy(x: origin.x, y: origin.y)
 
         func rect(_ x: CGFloat, _ y: CGFloat, _ width: CGFloat, _ height: CGFloat) -> CGRect {
@@ -15672,9 +15674,9 @@ private struct LocalGameSurface: View {
         case .asteroids:
             drawMeteorRunBackground(in: &context, scaleX: scaleX, scaleY: scaleY)
             var ship = Path()
-            ship.move(to: point(shipX, 128))
-            ship.addLine(to: point(shipX - 9, 146))
-            ship.addLine(to: point(shipX + 9, 146))
+            ship.move(to: point(shipX, logicalCanvasSize.height - 42))
+            ship.addLine(to: point(shipX - 9, logicalCanvasSize.height - 24))
+            ship.addLine(to: point(shipX + 9, logicalCanvasSize.height - 24))
             ship.closeSubpath()
             context.fill(ship, with: .color(djConnectAccent))
             drawMeteor(in: &context, rect: rect, point: point)
@@ -15750,7 +15752,7 @@ private struct LocalGameSurface: View {
         for star in stars {
             let twinkle = 0.35 + 0.45 * (sin(Double(meteorStarPhase + star.phase)) + 1) / 2
             context.fill(
-                Path(ellipseIn: CGRect(x: (star.x - star.size / 2) * scaleX, y: (star.y - star.size / 2) * scaleY, width: star.size * scaleX, height: star.size * scaleY)),
+                Path(ellipseIn: CGRect(x: (star.x - star.size / 2) * scaleX, y: (star.y * logicalCanvasSize.height / 170 - star.size / 2) * scaleY, width: star.size * scaleX, height: star.size * scaleY)),
                 with: .color(.white.opacity(twinkle))
             )
         }
@@ -16125,7 +16127,7 @@ private struct LocalGameSurface: View {
     }
 
     private func handleDrag(_ location: CGPoint) {
-        let location = DJConnectGameViewport.gamePoint(location, in: canvasSize)
+        let location = DJConnectGameViewport.gamePoint(location, in: canvasSize, board: logicalCanvasSize)
         if !isPlaying {
             startGame()
         }
@@ -16159,7 +16161,7 @@ private struct LocalGameSurface: View {
             if !asteroidBulletActive {
                 DJConnectGameSounds.play(.fire)
                 asteroidBulletActive = true
-                asteroidBulletY = 120
+                asteroidBulletY = logicalCanvasSize.height - 50
             }
         case .fly:
             if !flyShotActive {
@@ -16244,7 +16246,7 @@ private struct LocalGameSurface: View {
         meteorStarPhase = (meteorStarPhase + 0.08).truncatingRemainder(dividingBy: CGFloat.pi * 2)
         asteroidY += asteroidSpeed + CGFloat(min(score / 8, 3)) * 0.18
         updateAsteroidBullet()
-        if asteroidY > 150 { finishAsteroidRun() }
+        if asteroidY > logicalCanvasSize.height - 20 { finishAsteroidRun() }
     }
 
     private func updateAsteroidBullet() {
