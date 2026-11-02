@@ -15386,7 +15386,6 @@ private struct LocalGameSurface: View {
     @State private var ballY: CGFloat = 86
     @State private var ballVX: CGFloat = 3
     @State private var ballVY: CGFloat = 2
-    @State private var paddleHitTicks = 0
     @State private var ballWallBounceTicks = 0
     @State private var paddleMissTicks = 0
     @State private var shipX: CGFloat = 160
@@ -15703,7 +15702,6 @@ private struct LocalGameSurface: View {
             centerLine.addLine(to: point(160, 148))
             context.stroke(centerLine, with: .color(.white.opacity(0.22)), style: StrokeStyle(lineWidth: 1.5, dash: [5, 7]))
             context.fill(Path(roundedRect: rect(18, paddleY - 17, 8, 34), cornerRadius: 3), with: .color(game.highlightTint))
-            drawPaddleHit(in: &context, rect: rect)
             if isPlaying {
                 drawBallWallBounce(in: &context, rect: rect)
                 context.fill(Path(ellipseIn: rect(ballX - 4, ballY - 4, 8, 8)), with: .color(game.secondaryTint))
@@ -15745,16 +15743,6 @@ private struct LocalGameSurface: View {
             drawGhost(in: &context, at: point(ghostX, ghostY), scaleX: scaleX, scaleY: scaleY, isVulnerable: isGhostVulnerable, isBlinking: isGhostBlinking)
             drawPacmanDeath(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
         }
-    }
-
-    private func drawPaddleHit(in context: inout GraphicsContext, rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect) {
-        guard paddleHitTicks > 0 else {
-            return
-        }
-        let progress = CGFloat(10 - paddleHitTicks) / 10
-        let opacity = Double(max(0, 1 - progress))
-        context.fill(Path(roundedRect: rect(28, paddleY - 22, 4 + progress * 22, 44), cornerRadius: 4), with: .color(game.tint.opacity(opacity * 0.55)))
-        context.stroke(Path(ellipseIn: rect(22, paddleY - 17 - progress * 8, 20 + progress * 22, 34 + progress * 16)), with: .color(game.secondaryTint.opacity(opacity)), lineWidth: 2)
     }
 
     private func drawBallWallBounce(in context: inout GraphicsContext, rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect) {
@@ -16278,7 +16266,6 @@ private struct LocalGameSurface: View {
             if paddleMissTicks == 0 { resetPaddleBall() }
             return
         }
-        if paddleHitTicks > 0 { paddleHitTicks -= 1 }
         if ballWallBounceTicks > 0 { ballWallBounceTicks -= 1 }
         ballX += ballVX
         ballY += ballVY
@@ -16304,7 +16291,6 @@ private struct LocalGameSurface: View {
     private func resolvePongPaddleContact() {
         if ballY >= paddleY - 20 && ballY <= paddleY + 20 {
             ballVX = abs(ballVX)
-            paddleHitTicks = 10
             DJConnectGameHaptics.impact()
             DJConnectGameSounds.play(.hit)
             setScore(score + 1)
@@ -16471,7 +16457,6 @@ private struct LocalGameSurface: View {
         ballY = 86
         ballVX = 3
         ballVY = 2
-        paddleHitTicks = 0
         ballWallBounceTicks = 0
         paddleMissTicks = 0
         shipX = 160
@@ -16506,7 +16491,6 @@ private struct LocalGameSurface: View {
         ballY = 86
         ballVX = 3
         ballVY = Bool.random() ? 2 : -2
-        paddleHitTicks = 0
         ballWallBounceTicks = 0
     }
 
