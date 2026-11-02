@@ -963,7 +963,16 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     case "refresh": await model.sessionHistory.refreshConversation()
     case "list": await model.sessionHistory.loadSessions()
     case "timeline": await model.sessionHistory.loadTimeline(page.session.id)
-    case "search": model.sessionHistory.search(sessionID: page.session.id, query: "One"); try await Task.sleep(for: .milliseconds(500))
+    case "search":
+        model.sessionHistory.search(sessionID: page.session.id, query: "One")
+        try #require(model.sessionHistory.searchLoading)
+        // Wait for the actual debounced read and denial handling, rather than
+        // assuming the300ms debounce and response finish within500ms under load.
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while model.sessionHistory.searchLoading && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(!model.sessionHistory.searchLoading)
     case "open": _ = await model.sessionHistory.open(.init(reference: page.entries[0].reference))
     case "fetch": _ = try? await model.sessionHistory.fetchExistingHistory()
     case "send": _ = try? await model.sessionHistory.sendExistingText("Question", clientMessageID: "authority-test")
