@@ -292,12 +292,14 @@ struct AskDJSuggestionStrip: View {
         select(item.prompt) // The composer sends through its existing context-bound route.
     }
     var body: some View {
-        AskDJSuggestionRows(suggestions: observation.isCurrent ? suggestions : [], surface: surface,
-            disabled: selecting || frozen || !model.canUseAskDJFeatures) { item in Task { await choose(item) } }
-        Button(action: more) {
-            Label(DJConnectLocalization.localized(key: "ui.more", language: model.language), systemImage: "ellipsis.circle")
+        VStack(alignment: .leading, spacing: 12) {
+            AskDJSuggestionRows(suggestions: observation.isCurrent ? suggestions : [], surface: surface,
+                disabled: selecting || frozen || !model.canUseAskDJFeatures) { item in Task { await choose(item) } }
+            Button(action: more) {
+                Label(DJConnectLocalization.localized(key: "ui.more", language: model.language), systemImage: "ellipsis.circle")
+            }
+            .accessibilityIdentifier("ask-dj-more-" + surface.rawValue)
         }
-        .accessibilityIdentifier("ask-dj-more-" + surface.rawValue)
         .task { await open() }
         .onChange(of: context) { _, next in observation.contextChanged(to: next); if !observation.isCurrent { suggestions = [] } }
         .onChange(of: model.language) { _, _ in observation.contextChanged(to: context); if !observation.isCurrent { suggestions = [] } }
