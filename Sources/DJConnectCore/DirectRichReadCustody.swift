@@ -218,6 +218,18 @@ import Foundation
         return context
     }
 
+    var firstKeySurfaceData: String { authorization.fields["surface"]?.string ?? "" }
+    /// Negative paired-source continuity before and across the original authorize.
+    /// No decoded test transport can acquire a genuine ReceivingContext here.
+    var firstKeyPairSourceIsCurrent: Bool {
+        guard fence.isLive, originalClientIdentity?.clientType == .ios,
+              channel.receivingContext?.isLive == true else { return false }
+        guard pairCurrent(), ownerIsCurrent() else { retire(unknown: state == .unknown); return false }
+        // Foreground suspension/cancellation closes this SDK binding, not the
+        // separately transferred original registered-read continuation.
+        guard !Task.isCancelled, [.idle, .authorizing, .active].contains(state) else { return false }
+        return state == .idle || originalLocalResourcesAreCurrent
+    }
     private(set) var state: State = .idle
     private(set) var authorizationWasStarted = false
     private let channel: DirectRichHTTPSChannel

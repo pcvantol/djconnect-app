@@ -152,6 +152,8 @@ import UIKit
     // original clock/enrollment suppliers before using these original inputs.
     // There is no public frame/DTO -> parent or native permission conversion.
     var nativeQualificationInputs: DirectRichReadCustody.Candidate.NativeInputs? { candidate?.nativeQualificationInputs }
+    var firstKeySurfaceData: String { custody.firstKeySurfaceData }
+    var firstKeyPairSourceIsCurrent: Bool { custody.firstKeyPairSourceIsCurrent }
     var originalPurposeContext: DirectRichReadCustody.OriginalPurposeContext? { custody.originalPurposeContext }
 }
 

@@ -11157,6 +11157,18 @@ public final class DJConnectAppModel: ObservableObject {
         let runtime = try prepareDirectSessionRuntime(surface: surface, lockedDisplay: lockedDisplay)
         try await runtime.begin()
     }
+    /// The explicit local operator captures the actual retained paired sources
+    /// synchronously; remote authorization belongs to the latched Core owner.
+    public func operatorRequestsOriginalHostWake(using host: DJConnectHostWakeFirstKeyOwner) {
+        guard host.showsOperatorAction else { return }
+        guard isAppInForeground, !isDemoMode, pairingStatus == .paired else { host.closeOriginalOperation(); return }
+        do {
+            let runtimes = try host.originalSurfacesData.map {
+                try prepareDirectSessionRuntime(surface: $0, lockedDisplay: $0 == .liveActivity)
+            }
+            host.operatorRequestsFirstKey(runtimes: runtimes)
+        } catch { host.closeOriginalOperation() }
+    }
     public func prepareOriginalHostWake(using host: DJConnectHostWakeFirstKeyOwner) async throws {
         try Task.checkCancellation()
         guard host.state == .referenceRecorded, isAppInForeground, !isDemoMode, pairingStatus == .paired,
@@ -11170,8 +11182,8 @@ public final class DJConnectAppModel: ObservableObject {
         for surface in host.originalSurfacesData {
             guard isAppInForeground, hostWakeAPNSTokenEpoch == tokenEpoch,
                   hostWakeOriginalAPNSToken == token else { throw CancellationError() }
-            let runtime = try prepareDirectSessionRuntime(surface: surface, lockedDisplay: surface == .liveActivity)
-            if runtime.phase == .idle { try await runtime.begin() }
+            guard let runtime = host.retainedOriginalRuntime(for: surface),
+                  directSessionSelected[surface.rawValue] === runtime else { throw CancellationError() }
             try Task.checkCancellation()
             guard runtime.phase == .active, hostWakeAPNSTokenEpoch == tokenEpoch,
                   hostWakeOriginalAPNSToken == token else { throw CancellationError() }

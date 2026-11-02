@@ -17,6 +17,7 @@ import DeviceCheck
     private var task: Task<Void, Never>?
     private var prepareTasks: [String: Task<Void, any Error>] = [:]
     private var warmReference: WarmReference?
+    private var firstKeyPreparation: HostWakeFirstKeyPreparation<HostWakeFirstKeyRuntimeSource>?
     private var proxies: [CoreHostWakeProxyCustody] = []
     private let selection: ReviewedSelection?
 
@@ -36,6 +37,7 @@ import DeviceCheck
         let journal: HostWakeFirstKeyJournal
         let attempt: HostWakeFirstKeyAttempt
         let host: ActualHost
+        let parents: HostWakeFirstKeyPreparation<HostWakeFirstKeyRuntimeSource>
     }
     public init() {
         selection = Self.reviewedLaunchSelection
@@ -59,33 +61,51 @@ import DeviceCheck
 
     /// The actual app's explicit local Button is the only production callsite.
     /// A future concrete selection must be reviewed before this can become live.
-    public func operatorRequestsFirstKey() {
+    /// An unbound request is negative only; it cannot initialize any effect.
+    public func operatorRequestsFirstKey() { closeOriginalOperation() }
+
+    public func operatorRequestsFirstKey(runtimes: [DJConnectDirectSessionRuntime]) {
         guard state == .available, task == nil, let selection else { return }
-        state = .running // Latch synchronously before task creation/reentrancy.
+        state = .running // Latch and capture BEFORE any Task/authorize/queue await.
+        let window = HostWakeFirstKeyWindow()
+        let preparation: HostWakeFirstKeyPreparation<HostWakeFirstKeyRuntimeSource>
+        let actual: ActualHost
+        do {
+            actual = try ActualHost.capture()
+            guard actual.bundleID == selection.bundleID, actual.build == selection.build,
+                  actual.profileSHA256 == selection.profileSHA256 else { throw HostWakeFirstKeyAttempt.Failure.closed }
+            preparation = .init(sources: try runtimes.map { try HostWakeFirstKeyRuntimeSource(runtime: $0, hostIsCurrent: { actual.isStillCurrent }) },
+                                expected: selection.surfaces, window: window)
+        } catch { window.close(); state = .unknown; return }
+        firstKeyPreparation = preparation
         task = Task { [weak self] in
-            guard let self else { return }
+            guard let self else { preparation.close(); return }
             do {
-                let actual = try ActualHost.capture()
-                guard actual.bundleID == selection.bundleID, actual.build == selection.build,
-                      actual.profileSHA256 == selection.profileSHA256 else { throw HostWakeFirstKeyAttempt.Failure.closed }
-                // The exact SIGNED artifact is bound by the external install/
-                // effect review, not a self-referential digest compiled into it.
-                // This measurement retains local continuity only, not admission.
-                let storage = try HostWakeFirstKeyJournal(freshInExistingSupport: actual.support,
-                    artifact: actual.executableSHA256)
-                let attempt = HostWakeFirstKeyAttempt(storage: storage, sdk: SystemHostWakeFirstKeySDK(),
-                    current: { actual.isStillCurrent })
+                let (key, storage, attempt) = try await preparation.generate(journal: {
+                    // No await between final bound-parent/host checks and mkdir.
+                    guard preparation.isCurrent, actual.isStillCurrent else { throw HostWakeFirstKeyAttempt.Failure.closed }
+                    return try HostWakeFirstKeyJournal(freshInExistingSupport: actual.support,
+                        artifact: actual.executableSHA256)
+                }, sdk: SystemHostWakeFirstKeySDK())
+                guard preparation.isCurrent, actual.isStillCurrent else {
+                    attempt.close(); throw HostWakeFirstKeyAttempt.Failure.closed
+                }
                 self.attempt = attempt
-                let key = try await attempt.perform()
-                self.warmReference = .init(key: key, journal: storage, attempt: attempt, host: actual)
-                self.state = .referenceRecorded // Key-reference DATA, NOT enrolled.
-            } catch { self.state = .unknown }
+                self.warmReference = .init(key: key, journal: storage, attempt: attempt, host: actual, parents: preparation)
+                self.state = .referenceRecorded // Original reference DATA, NOT enrollment.
+            } catch { preparation.close(); self.attempt?.close(); self.warmReference = nil; self.state = .unknown }
         }
+    }
+    /// No new parent or authorization may be looked up after key generation.
+    public func retainedOriginalRuntime(for surface: DJConnectPassiveSurface) -> DJConnectDirectSessionRuntime? {
+        guard [.referenceRecorded, .registered].contains(state), let reference = warmReference,
+              reference.parents.isCurrent, reference.attempt.referenceIsCurrent, reference.host.isStillCurrent else { return nil }
+        return reference.parents.sources.first { $0.surface == surface }?.runtime
     }
     /// Foreground loss is terminal for this original operator/task. Reactivation
     /// cannot select another plan, recreate initialization or retry an unknown SDK.
     public func closeOriginalOperation() {
-        attempt?.close(); task?.cancel()
+        firstKeyPreparation?.close(); attempt?.close(); task?.cancel()
         for task in prepareTasks.values { task.cancel() }
         for proxy in proxies { proxy.retire() }
         warmReference = nil
@@ -102,13 +122,16 @@ import DeviceCheck
         guard [.referenceRecorded, .registered].contains(state), let reference = warmReference,
               let selection, ["sandbox", "production"].contains(selection.apnsEnvironment),
               reference.attempt.referenceIsCurrent, reference.host.isStillCurrent,
+              reference.parents.isCurrent,
               tokenIsCurrent(), let parent = runtime.originalPurposeContext,
+              let captured = reference.parents.captured(runtime: runtime, parent: parent),
               selection.surfaces.contains(where: { $0.rawValue == parent.surface }),
               prepareTasks[parent.surface] == nil else {
             throw HostWakeFirstKeyAttempt.Failure.closed
         }
         state = .preparing // Once BEFORE child creation or any suspension.
         do {
+            try reference.parents.beginEnrollment(captured)
             let child = try parent.proxyCustody()
             proxies.append(child)
             let intent = CoreHostWakeProxyCustody.NativeIntentData(token: token,
@@ -116,7 +139,7 @@ import DeviceCheck
                 platform: reference.host.platform, environment: selection.apnsEnvironment, nativeKeyID: reference.key)
             let operation = Task { @MainActor [weak self] in
                 guard let self, self.state == .preparing, reference.attempt.referenceIsCurrent,
-                      reference.host.isStillCurrent, tokenIsCurrent(), parent.isActive else { throw CancellationError() }
+                      reference.parents.isCurrent, reference.host.isStillCurrent, tokenIsCurrent(), parent.isActive else { throw CancellationError() }
                 _ = try await child.prepare(intent)
                 try Task.checkCancellation()
                 guard self.state == .preparing, reference.attempt.referenceIsCurrent,
@@ -158,6 +181,9 @@ import DeviceCheck
                 }
                 guard current(), child.phase == .registered else { throw CancellationError() }
                 try runtime.retainRegisteredHostWakeRead(child: child, parent: parent)
+                // Only the actual matching registered ACK can advance this local
+                // order; an SDK callback or warm reference never advances it.
+                try reference.parents.completeEnrollment(captured)
                 self.state = .registered
             }
             prepareTasks[parent.surface] = operation
@@ -165,7 +191,7 @@ import DeviceCheck
             try Task.checkCancellation()
         } catch {
             for proxy in proxies { proxy.retire() }
-            attempt?.close(); warmReference = nil; state = .unknown
+            firstKeyPreparation?.close(); attempt?.close(); warmReference = nil; state = .unknown
             throw error // No fresh operation, UUID, key or automatic retry.
         }
     }
@@ -230,18 +256,18 @@ import DeviceCheck
     private let storage: HostWakeFirstKeyJournal
     private let sdk: any HostWakeFirstKeySDK
     private let current: @MainActor @Sendable () -> Bool
-    private let started = ContinuousClock.now
+    private let window: HostWakeFirstKeyWindow
     private var entered = false
     private var closed = false
     private let cancellation = HostWakeFirstKeyCancellation()
     init(storage: HostWakeFirstKeyJournal, sdk: any HostWakeFirstKeySDK,
-         current: @escaping @MainActor @Sendable () -> Bool) {
-        self.storage = storage; self.sdk = sdk; self.current = current
+         window: HostWakeFirstKeyWindow = .init(), current: @escaping @MainActor @Sendable () -> Bool) {
+        self.storage = storage; self.sdk = sdk; self.window = window; self.current = current
     }
-    func close() { cancellation.close(); closed = true; storage.close() }
+    func close() { cancellation.close(); closed = true; window.close(); storage.close() }
     private var isCurrent: Bool {
         guard !closed, cancellation.isLive, current(),
-              ContinuousClock.now < started.advanced(by: .seconds(120)),
+              window.isCurrent,
               (try? storage.validateOriginal()) != nil else {
             close() // An OBSERVED loss is terminal, including a pre-prepare guard.
             return false
@@ -270,7 +296,7 @@ import DeviceCheck
         try storage.claimBeforeSDK() // File AND directory durable before SDK scheduling.
         try Task.checkCancellation()
         guard isCurrent else { throw Failure.closed }
-        let key = try await sdk.generate(deadline: started.advanced(by: .seconds(120)), current: { [self] in isCurrent })
+        let key = try await sdk.generate(deadline: window.deadline, current: { [self] in isCurrent })
         try Task.checkCancellation()
         guard isCurrent else { throw Failure.closed }
         try storage.recordOriginalCallback(key)
@@ -417,5 +443,149 @@ private final class HostWakeFirstKeyCancellation: @unchecked Sendable {
         guard !finished else { return }; finished = true
         timeout?.cancel(); timeout = nil
         continuation?.resume(throwing: HostWakeFirstKeyAttempt.Failure.unknown); continuation = nil
+    }
+}
+
+// Shared negative sequencing engine. Synthetic tests cannot construct the private
+// shipping source adapter, select an artifact or obtain SystemHostWakeFirstKeySDK.
+@MainActor final class HostWakeFirstKeyWindow {
+    let started: ContinuousClock.Instant
+    let deadline: ContinuousClock.Instant
+    private let now: () -> ContinuousClock.Instant
+    private var closed = false
+    init() {
+        let start = ContinuousClock.now
+        started = start; deadline = start.advanced(by: .seconds(120))
+        now = { ContinuousClock.now }
+    }
+    /// Internal synthetic clock seam; never used by the production owner.
+    init(testStarted: ContinuousClock.Instant, testNow: @escaping () -> ContinuousClock.Instant) {
+        started = testStarted; deadline = testStarted.advanced(by: .seconds(120)); now = testNow
+    }
+    var isCurrent: Bool {
+        let value = now()
+        guard !closed, !Task.isCancelled, value >= started, value < deadline else { close(); return false }
+        return true // Local resource bound ONLY, not source/SDK/clock admission.
+    }
+    func close() { closed = true }
+}
+
+@MainActor protocol HostWakeFirstKeySource: AnyObject {
+    associatedtype Parent: AnyObject
+    var surface: DJConnectPassiveSurface { get }
+    var isCurrent: Bool { get }
+    func authorizeOriginal() async throws -> Parent
+    func retains(_ parent: Parent) -> Bool
+}
+
+@MainActor final class HostWakeFirstKeyPreparation<Source: HostWakeFirstKeySource> {
+    let window: HostWakeFirstKeyWindow
+    let sources: [Source]
+    private(set) var parents: [Source.Parent] = []
+    private let expected: [DJConnectPassiveSurface]
+    private var entered = false
+    private var closed = false
+    private var keyReferencePublished = false
+    private var nextEnrollment = 0
+    private var pendingEnrollment: Source.Parent?
+    init(sources: [Source], expected: [DJConnectPassiveSurface], window: HostWakeFirstKeyWindow) {
+        self.sources = sources; self.expected = expected; self.window = window
+    }
+    private var partialIsCurrent: Bool {
+        guard !closed, window.isCurrent, (1...2).contains(sources.count),
+              sources.map(\.surface) == expected, Set(expected).count == expected.count,
+              Set(sources.map(ObjectIdentifier.init)).count == sources.count,
+              sources.allSatisfy({ $0.isCurrent }), parents.count <= sources.count,
+              zip(sources, parents).allSatisfy({ $0.retains($1) }),
+              Set(parents.map(ObjectIdentifier.init)).count == parents.count else { close(); return false }
+        return true
+    }
+    var isCurrent: Bool { entered && partialIsCurrent && parents.count == sources.count }
+    func close() { closed = true; window.close() }
+    /// Local negative ordering only. No API policy, proofkind or ACK authority.
+    func beginEnrollment(_ parent: Source.Parent) throws {
+        guard isCurrent, keyReferencePublished, pendingEnrollment == nil,
+              parents.indices.contains(nextEnrollment), parents[nextEnrollment] === parent else {
+            throw HostWakeFirstKeyAttempt.Failure.closed
+        }
+        pendingEnrollment = parent
+    }
+    /// Shipping caller reaches this only after its verified registered child ACK.
+    func completeEnrollment(_ parent: Source.Parent) throws {
+        guard isCurrent, pendingEnrollment === parent,
+              parents.indices.contains(nextEnrollment), parents[nextEnrollment] === parent else {
+            close(); throw HostWakeFirstKeyAttempt.Failure.closed
+        }
+        pendingEnrollment = nil; nextEnrollment += 1
+    }
+    private func prepare() async throws {
+        guard !entered else { throw HostWakeFirstKeyAttempt.Failure.closed }
+        entered = true
+        do {
+            for source in sources {
+                guard partialIsCurrent else { throw HostWakeFirstKeyAttempt.Failure.closed }
+                let parent = try await source.authorizeOriginal()
+                parents.append(parent)
+                guard partialIsCurrent else { throw HostWakeFirstKeyAttempt.Failure.closed }
+            }
+            guard isCurrent else { throw HostWakeFirstKeyAttempt.Failure.closed }
+        } catch { close(); throw error }
+    }
+    func generate(journal: () throws -> HostWakeFirstKeyJournal, sdk: any HostWakeFirstKeySDK)
+        async throws -> (String, HostWakeFirstKeyJournal, HostWakeFirstKeyAttempt) {
+        try await prepare()
+        guard isCurrent else { throw HostWakeFirstKeyAttempt.Failure.closed }
+        let storage: HostWakeFirstKeyJournal
+        do { storage = try journal() } catch { close(); throw error }
+        guard isCurrent else { storage.close(); close(); throw HostWakeFirstKeyAttempt.Failure.closed }
+        let attempt = HostWakeFirstKeyAttempt(storage: storage, sdk: sdk, window: window, current: { self.isCurrent })
+        do {
+            let key = try await attempt.perform()
+            guard isCurrent else { throw HostWakeFirstKeyAttempt.Failure.closed }
+            keyReferencePublished = true
+            return (key, storage, attempt)
+        } catch { attempt.close(); close(); throw error }
+    }
+}
+
+/// Production adapter: only real runtime custody can supply its private Parent.
+/// This carries negative continuity, never native/clock/effect admission.
+@MainActor private final class HostWakeFirstKeyRuntimeSource: HostWakeFirstKeySource {
+    final class Parent {
+        let runtime: DJConnectDirectSessionRuntime
+        let original: DirectRichReadCustody.OriginalPurposeContext
+        init(runtime: DJConnectDirectSessionRuntime, original: DirectRichReadCustody.OriginalPurposeContext) {
+            self.runtime = runtime; self.original = original
+        }
+    }
+    let runtime: DJConnectDirectSessionRuntime
+    let surface: DJConnectPassiveSurface
+    private let hostIsCurrent: @MainActor () -> Bool
+    init(runtime: DJConnectDirectSessionRuntime, hostIsCurrent: @escaping @MainActor () -> Bool) throws {
+        guard let surface = DJConnectPassiveSurface(rawValue: runtime.firstKeySurfaceData) else {
+            throw HostWakeFirstKeyAttempt.Failure.closed
+        }
+        self.runtime = runtime; self.surface = surface; self.hostIsCurrent = hostIsCurrent
+    }
+    var isCurrent: Bool { runtime.firstKeyPairSourceIsCurrent && hostIsCurrent() }
+    func authorizeOriginal() async throws -> Parent {
+        guard isCurrent else { throw HostWakeFirstKeyAttempt.Failure.closed }
+        if runtime.phase == .idle { try await runtime.begin() }
+        guard isCurrent, runtime.phase == .active, let parent = runtime.originalPurposeContext,
+              parent.isActive, parent.surface == surface.rawValue, parent.pairedIdentity.clientType == .ios else {
+            throw HostWakeFirstKeyAttempt.Failure.closed
+        }
+        return Parent(runtime: runtime, original: parent)
+    }
+    func retains(_ parent: Parent) -> Bool {
+        isCurrent && runtime === parent.runtime && runtime.originalPurposeContext === parent.original && parent.original.isActive
+    }
+}
+private extension HostWakeFirstKeyPreparation where Source == HostWakeFirstKeyRuntimeSource {
+    func captured(runtime: DJConnectDirectSessionRuntime, parent: DirectRichReadCustody.OriginalPurposeContext) -> HostWakeFirstKeyRuntimeSource.Parent? {
+        guard isCurrent else { return nil }
+        return zip(sources, parents).first { source, captured in
+            source.runtime === runtime && captured.runtime === runtime && captured.original === parent
+        }?.1
     }
 }
