@@ -10,6 +10,7 @@ import UIKit
 /// This object does not grant native display, SDK, enrollment or clock rights.
 @MainActor public final class DJConnectDirectSessionRuntime {
     public enum Phase: Equatable, Sendable { case idle, authorizing, active, suspended, closed, unknown }
+    let firstKeyOwnerContinuity: DirectSessionOwnerContinuity
     private let custody: DirectRichReadCustody
     private let captureHostWakeAttempt: (@MainActor @Sendable () -> (@MainActor @Sendable () -> Bool))?
     private var candidate: DirectRichReadCustody.Candidate?
@@ -21,10 +22,12 @@ import UIKit
 
     public init(client: DJConnectClient, sessionID: String, surface: DJConnectPassiveSurface,
                 lockedDisplay: Bool,
+                sourceOwner: AnyObject? = nil, sourceGeneration: AnyObject? = nil,
                 pairedIsCurrent: @escaping @MainActor @Sendable () -> Bool,
                 ownerIsCurrent: @escaping @MainActor @Sendable () -> Bool,
                 captureAttempt: @escaping @MainActor @Sendable () -> (@MainActor @Sendable () -> Bool),
                 captureHostWakeAttempt: (@MainActor @Sendable () -> (@MainActor @Sendable () -> Bool))? = nil) throws {
+        firstKeyOwnerContinuity = .init(owner: sourceOwner, generation: sourceGeneration)
         self.captureHostWakeAttempt = captureHostWakeAttempt
         custody = try DirectRichReadCustody(client: client, sessionID: sessionID, surface: surface,
             lockedDisplay: lockedDisplay, pairedIsCurrent: pairedIsCurrent,
@@ -33,7 +36,10 @@ import UIKit
 
     /// Internal synthetic DATA tests retain the existing injected transport's
     /// missing ReceivingContext. This cannot create a genuine parent or permit.
-    init(testCustody: DirectRichReadCustody) { custody = testCustody; captureHostWakeAttempt = nil }
+    init(testCustody: DirectRichReadCustody) {
+        firstKeyOwnerContinuity = .init(owner: nil, generation: nil)
+        custody = testCustody; captureHostWakeAttempt = nil
+    }
     deinit { withdrawalCancellation.cancelAll(); custody.cancelOwnedResources() }
 
     /// Synchronous negative resource hook for the actual AppModel's deinit.
@@ -301,5 +307,20 @@ import UIKit
     var isCurrent: Bool {
         guard !closed, originalIsCurrent() else { closed = true; return false }
         return true
+    }
+}
+
+/// Negative identity join only. Neither object can authorize a source, create a
+/// genuine ReceivingContext, or grant an SDK/native effect. Missing owners fail.
+@MainActor struct DirectSessionOwnerContinuity {
+    private weak var owner: AnyObject?
+    private let generation: AnyObject?
+    init(owner: AnyObject?, generation: AnyObject?) {
+        self.owner = owner; self.generation = generation
+    }
+    func sharesOriginalOwner(with other: Self) -> Bool {
+        guard let owner, let otherOwner = other.owner,
+              let generation, let otherGeneration = other.generation else { return false }
+        return owner === otherOwner && generation === otherGeneration
     }
 }

@@ -2075,6 +2075,9 @@ public final class DJConnectAppModel: ObservableObject {
     #if os(iOS) && canImport(ActivityKit)
     private var directStatusActivityCarry: DJConnectSessionSurfaceActivityController.StatusCarry?
     #endif
+    private final class DirectSessionOwnerGeneration {}
+    private var directSessionOwnerGeneration = DirectSessionOwnerGeneration()
+    private var directSessionOwnerScope: DirectSessionScope?
     private var directSessionAttemptEpoch = UUID()
     private var sessionSurfaceActivityTask: Task<Void, Never>?
     private var sessionSurfaceActivityDispatchVersion = UUID()
@@ -11090,11 +11093,16 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func retireDirectSessionRuntimes() {
+        directSessionOwnerGeneration = DirectSessionOwnerGeneration()
         directSessionAttemptEpoch = UUID()
         for runtime in directSessionRuntimes.values { runtime.retire() }
     }
     private func reconcileDirectSessionRuntimes() {
         let scope = directSessionScope
+        if directSessionOwnerScope != scope {
+            directSessionOwnerGeneration = DirectSessionOwnerGeneration()
+            directSessionOwnerScope = scope
+        }
         for (slot, runtime) in directSessionRuntimes where slot.scope != scope { runtime.retire() }
     }
 
@@ -11116,17 +11124,19 @@ public final class DJConnectAppModel: ObservableObject {
         // Bound retained resource/tombstone ownership without pressure eviction
         // or a fresh operation after a terminal record. This is not a send cap.
         guard directSessionRuntimes.count < 64 else { throw DJConnectError.invalidResponse }
+        let originalOwnerGeneration = directSessionOwnerGeneration
         let originalHostWakeToken = hostWakeOriginalAPNSToken
         let originalHostWakeTokenEpoch = hostWakeAPNSTokenEpoch
         let client = DJConnectClient(baseURL: origin, identity: identity, tokenStore: tokenStore, session: urlSession)
         let runtime = try DJConnectDirectSessionRuntime(client: client, sessionID: scope.session, surface: surface,
-            lockedDisplay: lockedDisplay, pairedIsCurrent: { [weak self] in
+            lockedDisplay: lockedDisplay, sourceOwner: self, sourceGeneration: originalOwnerGeneration, pairedIsCurrent: { [weak self] in
                 guard let self else { return false }
                 return self.pairingStatus == .paired && self.identity.deviceID == scope.device &&
                     self.identity.clientType.rawValue == scope.client && self.directSessionPairedOrigin?.absoluteString == scope.origin &&
                     self.defaults.string(forKey: self.haInstallIDKey) == scope.installation
             }, ownerIsCurrent: { [weak self] in
-                self?.directSessionScope == scope && self?.profileDJSettingsBoundOwner == profileOwner
+                self?.directSessionScope == scope && self?.profileDJSettingsBoundOwner == profileOwner &&
+                    self?.directSessionOwnerGeneration === originalOwnerGeneration
             }, captureAttempt: { [weak self] in
                 guard let self else { return { false } }
                 let epoch = self.directSessionAttemptEpoch

@@ -476,6 +476,7 @@ private final class HostWakeFirstKeyCancellation: @unchecked Sendable {
     var isCurrent: Bool { get }
     func authorizeOriginal() async throws -> Parent
     func retains(_ parent: Parent) -> Bool
+    func sharesPairedOwner(_ first: Parent, _ other: Parent) -> Bool
 }
 
 @MainActor final class HostWakeFirstKeyPreparation<Source: HostWakeFirstKeySource> {
@@ -497,7 +498,8 @@ private final class HostWakeFirstKeyCancellation: @unchecked Sendable {
               Set(sources.map(ObjectIdentifier.init)).count == sources.count,
               sources.allSatisfy({ $0.isCurrent }), parents.count <= sources.count,
               zip(sources, parents).allSatisfy({ $0.retains($1) }),
-              Set(parents.map(ObjectIdentifier.init)).count == parents.count else { close(); return false }
+              Set(parents.map(ObjectIdentifier.init)).count == parents.count,
+              parents.isEmpty || parents.allSatisfy({ sources[0].sharesPairedOwner(parents[0], $0) }) else { close(); return false }
         return true
     }
     var isCurrent: Bool { entered && partialIsCurrent && parents.count == sources.count }
@@ -548,14 +550,32 @@ private final class HostWakeFirstKeyCancellation: @unchecked Sendable {
     }
 }
 
+/// Comparison DATA only; never constructs or replaces either genuine parent.
+/// Production callers still retain and recheck the original runtime/context.
+@MainActor struct HostWakeFirstKeyOwnerJoin {
+    let continuity: DirectSessionOwnerContinuity
+    let origin: URL
+    let device: String
+    let client: DJConnectClientType
+    let session: String
+    func sharesOriginalOwner(with other: Self) -> Bool {
+        continuity.sharesOriginalOwner(with: other.continuity) &&
+            origin == other.origin && device == other.device &&
+            client == other.client && session == other.session
+    }
+}
+
 /// Production adapter: only real runtime custody can supply its private Parent.
 /// This carries negative continuity, never native/clock/effect admission.
 @MainActor private final class HostWakeFirstKeyRuntimeSource: HostWakeFirstKeySource {
     final class Parent {
         let runtime: DJConnectDirectSessionRuntime
         let original: DirectRichReadCustody.OriginalPurposeContext
+        let ownerJoin: HostWakeFirstKeyOwnerJoin
         init(runtime: DJConnectDirectSessionRuntime, original: DirectRichReadCustody.OriginalPurposeContext) {
             self.runtime = runtime; self.original = original
+            ownerJoin = .init(continuity: runtime.firstKeyOwnerContinuity, origin: original.pairedOrigin,
+                device: original.pairedIdentity.deviceID, client: original.pairedIdentity.clientType, session: original.sessionID)
         }
     }
     let runtime: DJConnectDirectSessionRuntime
@@ -579,6 +599,11 @@ private final class HostWakeFirstKeyCancellation: @unchecked Sendable {
     }
     func retains(_ parent: Parent) -> Bool {
         isCurrent && runtime === parent.runtime && runtime.originalPurposeContext === parent.original && parent.original.isActive
+    }
+    func sharesPairedOwner(_ first: Parent, _ other: Parent) -> Bool {
+        // Negative consistency check on already genuine retained contexts only;
+        // matching DATA cannot construct either source or confer admission.
+        first.ownerJoin.sharesOriginalOwner(with: other.ownerJoin)
     }
 }
 private extension HostWakeFirstKeyPreparation where Source == HostWakeFirstKeyRuntimeSource {

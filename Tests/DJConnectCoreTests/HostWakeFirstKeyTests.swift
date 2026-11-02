@@ -225,7 +225,7 @@ import Testing
 /// Synthetic sequencing tests. These cannot mint a shipping ReceivingContext,
 /// select a native effect, or invoke the private system SDK.
 @Suite @MainActor struct HostWakeFirstKeyPairBindingTests {
-    @Test(.isolatedClientResources, arguments: ["missing", "replacement", "aba", "pre-journal-loss", "queue-loss", "callback-loss", "expired-window", "elapsed-window", "two-surfaces", "two-surfaces-success", "post-key-replacement", "authorize-cancel", "callback-cancel", "duplicate", "wrong-order", "nil-selection"])
+    @Test(.isolatedClientResources, arguments: ["missing", "replacement", "aba", "pre-journal-loss", "queue-loss", "callback-loss", "expired-window", "elapsed-window", "two-surfaces", "two-surfaces-success", "post-key-replacement", "authorize-cancel", "callback-cancel", "duplicate", "wrong-order", "mixed-owner", "mixed-generation", "mixed-origin", "mixed-device", "mixed-client", "mixed-session", "nil-selection"])
     func originalPairPrecedesEveryEffect(vector: String) async throws {
         if vector == "nil-selection" {
             let owner = DJConnectHostWakeFirstKeyOwner()
@@ -236,9 +236,10 @@ import Testing
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("first-key-pair-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
         defer { try? FileManager.default.removeItem(at: root) }
-        let clock = PairClock(), a = PairSource(.widget), b = PairSource(.liveActivity), sdk = PairSDK()
+        let pair = PairOwner()
+        let clock = PairClock(), a = PairSource(.widget, pair: pair), b = PairSource(.liveActivity, pair: vector == "mixed-owner" ? PairOwner() : pair, generation: vector == "mixed-generation" ? PairGeneration() : nil, mismatch: vector), sdk = PairSDK()
         let window = HostWakeFirstKeyWindow(testStarted: clock.start, testNow: { clock.value })
-        let sources = ["two-surfaces", "two-surfaces-success", "wrong-order"].contains(vector) ? [a, b] : vector == "duplicate" ? [a, a] : [a]
+        let sources = ["two-surfaces", "two-surfaces-success", "wrong-order", "mixed-owner", "mixed-generation", "mixed-origin", "mixed-device", "mixed-client", "mixed-session"].contains(vector) ? [a, b] : vector == "duplicate" ? [a, a] : [a]
         let expected = vector == "wrong-order" ? [DJConnectPassiveSurface.liveActivity, .widget] : sources.map(\.surface)
         let preparation = HostWakeFirstKeyPreparation(sources: sources, expected: expected, window: window)
         var initializations = 0
@@ -281,7 +282,7 @@ import Testing
         }
         var result: (String, HostWakeFirstKeyJournal, HostWakeFirstKeyAttempt)?
         do { result = try await operation.value } catch {}
-        if ["missing", "replacement", "aba", "pre-journal-loss", "expired-window", "two-surfaces", "authorize-cancel", "duplicate", "wrong-order"].contains(vector) {
+        if ["missing", "replacement", "aba", "pre-journal-loss", "expired-window", "two-surfaces", "authorize-cancel", "duplicate", "wrong-order", "mixed-owner", "mixed-generation", "mixed-origin", "mixed-device", "mixed-client", "mixed-session"].contains(vector) {
             #expect(initializations == 0, "No journal may exist before every original pair is retained: \(vector)")
             #expect(sdk.calls == 0)
             #expect(HostWakeFirstKeyJournal.namespaceIsAbsent(inExistingSupport: root))
@@ -309,16 +310,31 @@ import Testing
     let start = ContinuousClock.now
     lazy var value = start
 }
-@MainActor private final class PairParent {}
+@MainActor private final class PairGeneration {}
+@MainActor private final class PairOwner { let generation = PairGeneration() }
+@MainActor private final class PairParent {
+    let pair: PairOwner
+    let join: HostWakeFirstKeyOwnerJoin
+    init(pair: PairOwner = .init(), generation: PairGeneration? = nil, mismatch: String = "") {
+        self.pair = pair
+        join = .init(continuity: .init(owner: pair, generation: generation ?? pair.generation),
+            origin: URL(string: mismatch == "mixed-origin" ? "https://other.invalid" : "https://paired.invalid")!,
+            device: mismatch == "mixed-device" ? "other" : "original",
+            client: mismatch == "mixed-client" ? .macos : .ios,
+            session: mismatch == "mixed-session" ? "other" : "original")
+    }
+}
 @MainActor private final class PairSource: HostWakeFirstKeySource {
     let surface: DJConnectPassiveSurface
-    var parent = PairParent()
+    var parent: PairParent
     private let originalParent: PairParent
     private var live = true
     var onAuthorize: (() -> Void)?
     var hold = false
     let gate = PairQueueGate()
-    init(_ surface: DJConnectPassiveSurface) { self.surface = surface; originalParent = parent }
+    init(_ surface: DJConnectPassiveSurface, pair: PairOwner = .init(), generation: PairGeneration? = nil, mismatch: String = "") {
+        self.surface = surface; parent = PairParent(pair: pair, generation: generation, mismatch: mismatch); originalParent = parent
+    }
     var isCurrent: Bool { live }
     func authorizeOriginal() async throws -> PairParent {
         let original = originalParent
@@ -327,6 +343,9 @@ import Testing
         return original
     }
     func retains(_ parent: PairParent) -> Bool { live && self.parent === parent }
+    func sharesPairedOwner(_ first: PairParent, _ other: PairParent) -> Bool {
+        first.join.sharesOriginalOwner(with: other.join)
+    }
     func retire() { live = false }
     func restoreVisibleFields() { /* A retired generation cannot be rearmed. */ }
 }
@@ -374,7 +393,8 @@ extension HostWakeFirstKeyPairBindingTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("first-key-child-order-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
         defer { try? FileManager.default.removeItem(at: root) }
-        let a = PairSource(.widget), b = PairSource(.liveActivity), sdk = PairSDK()
+        let pair = PairOwner()
+        let a = PairSource(.widget, pair: pair), b = PairSource(.liveActivity, pair: pair), sdk = PairSDK()
         sdk.hold = true
         let preparation = HostWakeFirstKeyPreparation(sources: [a, b], expected: [.widget, .liveActivity], window: .init())
         let operation = Task {
@@ -401,5 +421,22 @@ extension HostWakeFirstKeyPairBindingTests {
         #expect(secondIssuerCalls == 1)
         try preparation.completeEnrollment(second)
         do { try preparation.beginEnrollment(second); Issue.record("registered original repeated") } catch {}
+    }
+}
+
+@Suite @MainActor struct DirectSessionOwnerContinuityTests {
+    @Test func onlyOriginalOwnerAndGenerationJoin() {
+        let owner = PairOwner(), generation = PairGeneration()
+        let original = DirectSessionOwnerContinuity(owner: owner, generation: generation)
+        #expect(original.sharesOriginalOwner(with: .init(owner: owner, generation: generation)))
+        let otherOwner = PairOwner(), otherGeneration = PairGeneration()
+        #expect(!original.sharesOriginalOwner(with: .init(owner: otherOwner, generation: generation)))
+        #expect(!original.sharesOriginalOwner(with: .init(owner: owner, generation: otherGeneration)))
+        #expect(!original.sharesOriginalOwner(with: .init(owner: nil, generation: generation)))
+        #expect(!original.sharesOriginalOwner(with: .init(owner: owner, generation: nil)))
+        var released: PairOwner? = PairOwner()
+        let orphan = DirectSessionOwnerContinuity(owner: released, generation: generation)
+        released = nil
+        #expect(!orphan.sharesOriginalOwner(with: orphan))
     }
 }
