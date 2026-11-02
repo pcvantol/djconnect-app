@@ -13207,6 +13207,54 @@ func gamesKeepRoundSpritesAndMapTouchesIntoCenteredBoard(_ size: CGSize) {
     #expect(abs(center.x - 160) < 0.001 && abs(center.y - 85) < 0.001)
 }
 
+@Test func mazeChaseTraversesEveryPelletCenterAndStopsAtPaddedEdges() {
+    var position = MazeChaseBoard.center(0)
+    var direction = MazeChaseBoard.Direction.right
+    var visited: Set<Int> = [0]
+    func advance(_ requested: MazeChaseBoard.Direction, ticks: Int) {
+        for _ in 0..<ticks {
+            let next = MazeChaseBoard.step(position: position, direction: direction, requested: requested)
+            position = next.position; direction = next.direction
+            for index in 0..<36 where MazeChaseBoard.center(index) == position { visited.insert(index) }
+            let column = (position.x - MazeChaseBoard.origin.x) / MazeChaseBoard.spacing
+            let row = (position.y - MazeChaseBoard.origin.y) / MazeChaseBoard.spacing
+            #expect(abs(column - column.rounded()) < 0.001 || abs(row - row.rounded()) < 0.001)
+            #expect(position.x >= 9 && position.x <= 311 && position.y >= 9 && position.y <= 161)
+        }
+    }
+    for row in 0..<4 {
+        let horizontal: MazeChaseBoard.Direction = row.isMultiple(of: 2) ? .right : .left
+        advance(horizontal, ticks: 8 * 7)
+        #expect(position == MazeChaseBoard.center(row * 9 + (row.isMultiple(of: 2) ? 8 : 0)))
+        advance(horizontal, ticks: 3) // No drift beyond the outermost pellet lane.
+        if row < 3 { advance(.down, ticks: 7) }
+    }
+    #expect(visited == Set(0..<36))
+    advance(.down, ticks: 10)
+    #expect(position == MazeChaseBoard.center(27))
+    advance(.left, ticks: 10)
+    #expect(position == MazeChaseBoard.center(27))
+    advance(.up, ticks: 21)
+    #expect(position == MazeChaseBoard.center(0))
+    advance(.up, ticks: 10)
+    #expect(position == MazeChaseBoard.center(0))
+    #expect(MazeChaseBoard.origin.x == 320 - MazeChaseBoard.center(35).x)
+    #expect(MazeChaseBoard.origin.y == 170 - MazeChaseBoard.center(35).y)
+}
+
+@Test func mazeChaseBuffersPerpendicularTurnsUntilTheNextPelletCenter() {
+    let start = MazeChaseBoard.start
+    var next = MazeChaseBoard.step(position: start, direction: .right, requested: .right)
+    for _ in 0..<6 { next = MazeChaseBoard.step(position: next.position, direction: next.direction, requested: .down) }
+    #expect(next.position == MazeChaseBoard.center(10))
+    #expect(next.direction == .right)
+    next = MazeChaseBoard.step(position: next.position, direction: next.direction, requested: .down)
+    #expect(next.position.x == MazeChaseBoard.center(10).x)
+    #expect(next.position.y == MazeChaseBoard.center(10).y + 4)
+    let reversed = MazeChaseBoard.step(position: next.position, direction: next.direction, requested: .up)
+    #expect(reversed.position == MazeChaseBoard.center(10))
+}
+
 @Test(.isolatedClientResources) func publicReleaseWorkflowPublishesFiveLocalizedReleaseNoteJSONFiles() throws {
     let workflow = try loadRepositoryText(".github/workflows/public-unsigned-release.yml")
     let readme = try loadRepositoryText("README.md")

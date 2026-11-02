@@ -15155,6 +15155,43 @@ private struct DJConnectRedTrashLabelStyle: LabelStyle {
     }
 }
 
+enum MazeChaseBoard {
+    static let columns = 9, rows = 4
+    static let spacing: CGFloat = 28
+    static let origin = CGPoint(x: (320 - CGFloat(columns - 1) * spacing) / 2,
+                                y: (170 - CGFloat(rows - 1) * spacing) / 2)
+    static func center(_ index: Int) -> CGPoint {
+        CGPoint(x: origin.x + CGFloat(index % columns) * spacing,
+                y: origin.y + CGFloat(index / columns) * spacing)
+    }
+    static let start = center(columns)
+    static let ghostStart = center(columns * 2 - 2)
+
+    enum Direction {
+        case up, down, left, right
+        var vector: CGPoint {
+            switch self {
+            case .up: CGPoint(x: 0, y: -1)
+            case .down: CGPoint(x: 0, y: 1)
+            case .left: CGPoint(x: -1, y: 0)
+            case .right: CGPoint(x: 1, y: 0)
+            }
+        }
+    }
+
+    static func step(position: CGPoint, direction: Direction, requested: Direction) -> (position: CGPoint, direction: Direction) {
+        let column = (position.x - origin.x) / spacing
+        let row = (position.y - origin.y) / spacing
+        let atIntersection = abs(column - column.rounded()) < 0.001 && abs(row - row.rounded()) < 0.001
+        let reverse = direction.vector.x == -requested.vector.x && direction.vector.y == -requested.vector.y
+        let nextDirection = atIntersection || reverse ? requested : direction
+        let delta = nextDirection.vector
+        let last = center(columns * rows - 1)
+        return (CGPoint(x: min(last.x, max(origin.x, position.x + delta.x * 4)),
+                        y: min(last.y, max(origin.y, position.y + delta.y * 4))), nextDirection)
+    }
+}
+
 enum DJConnectGameViewport {
     static func scale(in size: CGSize) -> CGFloat {
         max(0.001, min(size.width / 320, size.height / 170))
@@ -15345,8 +15382,9 @@ private struct LocalGameSurface: View {
     @State private var skyObstacleExplosionTicks = 0
     @State private var flyShotX: CGFloat = 58
     @State private var flyShotActive = false
-    @State private var pacmanX: CGFloat = 46
-    @State private var pacmanY: CGFloat = 86
+    @State private var pacmanX: CGFloat = MazeChaseBoard.start.x
+    @State private var pacmanY: CGFloat = MazeChaseBoard.start.y
+    @State private var pacmanRequestedDirection: MazeChaseBoard.Direction = .right
     @State private var pacmanDX: CGFloat = 1
     @State private var pacmanDY: CGFloat = 0
     @State private var ghostX: CGFloat = 250
@@ -15587,16 +15625,9 @@ private struct LocalGameSurface: View {
         .accessibilityIdentifier("games-restart")
     }
 
-    private var pacmanColumnCount: Int { 9 }
-    private var pacmanRowCount: Int { 4 }
+    private var pacmanColumnCount: Int { MazeChaseBoard.columns }
+    private var pacmanRowCount: Int { MazeChaseBoard.rows }
     private var pacmanPelletCount: Int { pacmanColumnCount * pacmanRowCount }
-    private var pacmanPelletStartX: CGFloat { 48 }
-    private var pacmanPelletStartY: CGFloat { 52 }
-    private var pacmanPelletSpacing: CGFloat { 28 }
-    private var pacmanMinX: CGFloat { pacmanPelletStartX }
-    private var pacmanMaxX: CGFloat { pacmanPelletStartX + CGFloat(pacmanColumnCount - 1) * pacmanPelletSpacing }
-    private var pacmanMinY: CGFloat { pacmanPelletStartY - 8 }
-    private var pacmanMaxY: CGFloat { pacmanPelletStartY + CGFloat(pacmanRowCount - 1) * pacmanPelletSpacing + 8 }
     private var pacmanPowerPellets: Set<Int> {
         [
             0,
@@ -15667,12 +15698,11 @@ private struct LocalGameSurface: View {
             }
         case .pacman:
             for pellet in pellets {
-                let column = pellet % pacmanColumnCount
-                let row = pellet / pacmanColumnCount
+                let center = MazeChaseBoard.center(pellet)
                 let isPowerPellet = pacmanPowerPellets.contains(pellet)
                 let pelletSize: CGFloat = isPowerPellet ? 8 : 4
                 context.fill(
-                    Path(ellipseIn: rect(pacmanPelletStartX + CGFloat(column) * pacmanPelletSpacing - pelletSize / 2, pacmanPelletStartY + CGFloat(row) * pacmanPelletSpacing - pelletSize / 2, pelletSize, pelletSize)),
+                    Path(ellipseIn: rect(center.x - pelletSize / 2, center.y - pelletSize / 2, pelletSize, pelletSize)),
                     with: .color(.white.opacity(isPowerPellet ? 0.98 : 0.82))
                 )
             }
@@ -16074,8 +16104,7 @@ private struct LocalGameSurface: View {
         case .fly:
             planeY = min(max(planeY + direction * 12, 52), 138)
         case .pacman:
-            pacmanDY = direction
-            pacmanDX = 0
+            setPacmanDirection(dx: 0, dy: direction)
         }
     }
 
@@ -16111,11 +16140,9 @@ private struct LocalGameSurface: View {
             let dx = location.x - pacmanX
             let dy = location.y - pacmanY
             if abs(dx) > abs(dy) {
-                pacmanDX = dx < 0 ? -1 : 1
-                pacmanDY = 0
+                setPacmanDirection(dx: dx < 0 ? -1 : 1, dy: 0)
             } else {
-                pacmanDX = 0
-                pacmanDY = dy < 0 ? -1 : 1
+                setPacmanDirection(dx: 0, dy: dy < 0 ? -1 : 1)
             }
         }
     }
@@ -16302,8 +16329,11 @@ private struct LocalGameSurface: View {
     }
 
     private func movePacmanAndGhost() {
-        pacmanX = min(max(pacmanX + pacmanDX * 4, pacmanMinX), pacmanMaxX)
-        pacmanY = min(max(pacmanY + pacmanDY * 4, pacmanMinY), pacmanMaxY)
+        let direction: MazeChaseBoard.Direction = pacmanDX < 0 ? .left : pacmanDX > 0 ? .right : pacmanDY < 0 ? .up : .down
+        let next = MazeChaseBoard.step(position: CGPoint(x: pacmanX, y: pacmanY), direction: direction,
+                                      requested: pacmanRequestedDirection)
+        pacmanX = next.position.x; pacmanY = next.position.y
+        pacmanDX = next.direction.vector.x; pacmanDY = next.direction.vector.y
         if ghostVulnerableTicks > 0 { ghostVulnerableTicks -= 1 }
         let ghostStep: CGFloat = (isGhostVulnerable ? 0.62 : 0.88) + CGFloat(min(score / 12, 3)) * 0.20
         if abs(ghostX - pacmanX) > 2 { ghostX += ghostX < pacmanX ? ghostStep : -ghostStep }
@@ -16312,11 +16342,8 @@ private struct LocalGameSurface: View {
 
     private func collectPacmanPellet() {
         for pellet in pellets {
-            let column = pellet % pacmanColumnCount
-            let row = pellet / pacmanColumnCount
-            let pelletX = pacmanPelletStartX + CGFloat(column) * pacmanPelletSpacing
-            let pelletY = pacmanPelletStartY + CGFloat(row) * pacmanPelletSpacing
-            guard abs(pelletX - pacmanX) < 10 && abs(pelletY - pacmanY) < 10 else { continue }
+            let center = MazeChaseBoard.center(pellet)
+            guard hypot(center.x - pacmanX, center.y - pacmanY) <= 4 else { continue }
             pellets.remove(pellet)
             setScore(score + 1)
             if pacmanPowerPellets.contains(pellet) {
@@ -16334,8 +16361,8 @@ private struct LocalGameSurface: View {
     private func resetPacmanRoundIfNeeded() {
         guard pellets.isEmpty else { return }
         pellets = Set(0..<pacmanPelletCount)
-        ghostX = 250
-        ghostY = 86
+        ghostX = MazeChaseBoard.ghostStart.x
+        ghostY = MazeChaseBoard.ghostStart.y
         ghostVulnerableTicks = 0
     }
 
@@ -16383,12 +16410,13 @@ private struct LocalGameSurface: View {
     }
 
     private func resetPacman() {
-        pacmanX = 46
-        pacmanY = 86
+        pacmanX = MazeChaseBoard.start.x
+        pacmanY = MazeChaseBoard.start.y
+        pacmanRequestedDirection = .right
         pacmanDX = 1
         pacmanDY = 0
-        ghostX = 250
-        ghostY = 86
+        ghostX = MazeChaseBoard.ghostStart.x
+        ghostY = MazeChaseBoard.ghostStart.y
         ghostVulnerableTicks = 0
         pacmanDeathTicks = 0
         pellets = Set(0..<pacmanPelletCount)
@@ -16407,8 +16435,7 @@ private struct LocalGameSurface: View {
         if !isPlaying {
             startGame()
         }
-        pacmanDX = dx
-        pacmanDY = dy
+        pacmanRequestedDirection = dx < 0 ? .left : dx > 0 ? .right : dy < 0 ? .up : .down
     }
 
     private func resetAsteroid() {
