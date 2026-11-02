@@ -1620,3 +1620,5 @@
 "ui.content.delete.recover_previous" = "Vérifier la suppression précédente";
 "ui.vibescape.voice.starting" = "Préparation du microphone…";
 "ui.vibescape.voice.start_failed" = "L’enregistrement n’a pas pu démarrer. Réessayez.";
+
+"ui.welcome.queue.description" = "Consultez les prochains titres et choisissez quoi écouter.";

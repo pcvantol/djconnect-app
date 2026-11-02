@@ -118,13 +118,13 @@ The pairing sheet also offers Demo Mode. Use it only for local UI work or App
 Store review/auditing when a real Home Assistant backend is unavailable. Demo
 Mode does not validate HA entities, legacy pairing callbacks, Spotify OAuth, or voice
 round trips. Demo Mode is session-only; restarting an unpaired app returns to
-the pairing sheet. Stopping Demo Mode from Settings returns to Now Playing with
+the pairing sheet. Stopping Demo Mode from Settings returns to the DJ Session with
 the pairing sheet on top. Pressing the microphone in Demo Mode plays and shows
 a local sample DJ announcement for UI review.
 
 Reset Pairing clears the locally stored DJConnect token and creates a fresh
 local `device_id` for a new DJConnect app client setup. It also clears Demo
-Mode, returns to Now Playing, and reopens the pairing sheet.
+Mode, returns to the DJ Session, and reopens the pairing sheet.
 
 ## Debug Logging
 
@@ -363,7 +363,7 @@ permission rows, primary navigation, jump URL routing, Settings URL seeding,
 local Games menu choices, hardware-keyboard game input, safe monkey navigation,
 screenshot capture cleanup, and recorded runtime fixture flows for successful
 pairing, paired status loading, stale auth, backend unavailable, version
-mismatch, queue, playlist, output, Now Playing favorite state, Ask DJ, and
+mismatch, queue, playlist, output, Session favorite state, Ask DJ, and
 voice unavailable states.
 
 ## Home Assistant Transport Check

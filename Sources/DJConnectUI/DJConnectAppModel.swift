@@ -2529,6 +2529,7 @@ public final class DJConnectAppModel: ObservableObject {
                 return !isShowingWelcome
                     && !isShowingCrashReportPrompt
                     && !isShowingTokenStorageError
+                    && (uiTestRuntimeFixtureScenario != "pairing_success" || !isPairingScreenDismissed)
             default:
                 return false
             }

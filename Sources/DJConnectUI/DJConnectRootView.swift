@@ -793,7 +793,6 @@ struct DJConnectCanvasBackground: View {
 private enum DJConnectSection: Hashable {
     case djSession
     case savedSessions
-    case nowPlaying
     case trackInsight
     case discovery
     case musicDNA
@@ -852,12 +851,12 @@ public struct DJConnectRootView: View {
                             focus: $focusedSidebarItem
                         ) { selectSidebarSection(.djSession) }
                         SidebarItem(
-                            title: localizedKey(model.language, "ui.now.playing"),
-                            systemImage: "music.note",
-                            isSelected: selectedSection == .nowPlaying,
-                            focusTarget: .section(.nowPlaying),
+                            title: localizedKey(model.language, "ui.queue"),
+                            systemImage: "music.note.list",
+                            isSelected: selectedSection == .queue,
+                            focusTarget: .section(.queue),
                             focus: $focusedSidebarItem
-                        ) { selectSidebarSection(.nowPlaying) }
+                        ) { selectSidebarSection(.queue) }
                         SidebarItem(
                             title: "Track Insight",
                             systemImage: "waveform.path.ecg",
@@ -893,13 +892,6 @@ public struct DJConnectRootView: View {
                             focusTarget: .section(.musicDNA),
                             focus: $focusedSidebarItem
                         ) { selectSidebarSection(.musicDNA) }
-                        SidebarItem(
-                            title: localizedKey(model.language, "ui.queue"),
-                            systemImage: "music.note.list",
-                            isSelected: selectedSection == .queue,
-                            focusTarget: .section(.queue),
-                            focus: $focusedSidebarItem
-                        ) { selectSidebarSection(.queue) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.playlists"),
                             systemImage: "rectangle.stack",
@@ -1106,7 +1098,7 @@ public struct DJConnectRootView: View {
         }
         .onChange(of: model.shouldShowPairingScreen) {
             if model.shouldShowPairingScreen {
-                selectedSection = .nowPlaying
+                selectedSection = .djSession
             }
         }
         #if !os(macOS)
@@ -1195,7 +1187,7 @@ public struct DJConnectRootView: View {
         case .djSession:
             selectedSection = .djSession
         case .nowPlaying:
-            selectedSection = .nowPlaying
+            selectedSection = .djSession
         case .queue:
             selectedSection = .queue
         case .askDJ:
@@ -1229,7 +1221,7 @@ public struct DJConnectRootView: View {
         case "more":
             selectedSection = .more
         case "now-playing":
-            selectedSection = .nowPlaying
+            selectedSection = .djSession
         case "queue":
             selectedSection = .queue
         case "ask-dj":
@@ -1306,11 +1298,11 @@ public struct DJConnectRootView: View {
                     Label { Text(localizedKey(model.language, "ui.session.title")) } icon: { DJConnectFeatureSymbols.image(DJConnectFeatureSymbols.djSession) }
                 }
                 .tag(DJConnectSection.djSession)
-            NowPlayingView(model: model) { selectedSection = .queue }
+            QueueView(model: model)
                 .environment(\.djConnectContentSizeClass, horizontalSizeClass)
                 .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }
-                .tabItem { Label(localizedKey(model.language, "ui.now.playing"), systemImage: "music.note") }
-                .tag(DJConnectSection.nowPlaying)
+                .tabItem { Label(localizedKey(model.language, "ui.queue"), systemImage: "music.note.list") }
+                .tag(DJConnectSection.queue)
             TrackInsightView(model: model)
                 .environment(\.djConnectContentSizeClass, horizontalSizeClass)
                 .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }
@@ -1326,7 +1318,7 @@ public struct DJConnectRootView: View {
                 }
                 .tag(DJConnectSection.discovery)
             MoreView(model: model, requestedSection: isMoreSectionSelected && selectedSection != .more ? selectedSection : nil) {
-                selectedSection = .nowPlaying
+                selectedSection = .djSession
             }
             .id(moreResetID)
                 .environment(\.djConnectContentSizeClass, horizontalSizeClass)
@@ -1352,7 +1344,7 @@ public struct DJConnectRootView: View {
     }
 
     private var iPadRootTabs: some View {
-        let sections: [DJConnectSection] = [.djSession, .nowPlaying, .trackInsight, .discovery, .more]
+        let sections: [DJConnectSection] = [.djSession, .queue, .trackInsight, .discovery, .more]
         let selection = Binding<Int>(
             get: { sections.firstIndex(of: compactTabSelection.wrappedValue) ?? 0 },
             set: { index in if sections.indices.contains(index) { compactTabSelection.wrappedValue = sections[index] } }
@@ -1362,7 +1354,7 @@ public struct DJConnectRootView: View {
                 AnyView(DJSessionView(model: model) { selectedSection = .queue }
                     .environment(\.djConnectContentSizeClass, horizontalSizeClass)
                     .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }),
-                AnyView(NowPlayingView(model: model) { selectedSection = .queue }
+                AnyView(QueueView(model: model)
                     .environment(\.djConnectContentSizeClass, horizontalSizeClass)
                     .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }),
                 AnyView(TrackInsightView(model: model)
@@ -1372,22 +1364,22 @@ public struct DJConnectRootView: View {
                     .environment(\.djConnectContentSizeClass, horizontalSizeClass)
                     .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }),
                 AnyView(MoreView(model: model, requestedSection: isMoreSectionSelected && selectedSection != .more ? selectedSection : nil) {
-                    selectedSection = .nowPlaying
+                    selectedSection = .djSession
                 }.id(moreResetID)
                     .environment(\.djConnectContentSizeClass, horizontalSizeClass)
                     .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice })
             ],
-            titles: [localizedKey(model.language, "ui.session.title"), localizedKey(model.language, "ui.now.playing"), "Track Insight",
+            titles: [localizedKey(model.language, "ui.session.title"), localizedKey(model.language, "ui.queue"), "Track Insight",
                      localizedKey(model.language, "ui.discover"), localizedKey(model.language, "ui.more")],
-            symbols: [DJConnectFeatureSymbols.djSession, "music.note", "waveform.path.ecg", "wand.and.stars", "ellipsis"],
+            symbols: [DJConnectFeatureSymbols.djSession, "music.note.list", "waveform.path.ecg", "wand.and.stars", "ellipsis"],
             scenePhase: scenePhase, selection: selection)
     }
 
     private var isMoreSectionSelected: Bool {
         switch selectedSection {
-        case .djSession, .nowPlaying, .trackInsight, .discovery:
+        case .djSession, .queue, .trackInsight, .discovery:
             false
-        case .savedSessions, .askDJ, .more, .queue, .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
+        case .savedSessions, .askDJ, .more, .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
             true
         }
     }
@@ -1399,7 +1391,7 @@ public struct DJConnectRootView: View {
             return false
         }
         switch selectedSection {
-        case .djSession, .savedSessions, .nowPlaying, .askDJ, .trackInsight, .discovery, .musicDNA, .queue, .playlists:
+        case .djSession, .savedSessions, .askDJ, .trackInsight, .discovery, .musicDNA, .queue, .playlists:
             return true
         case .more, .games, .settings, .logs, .about, .legal, .privacy:
             return false
@@ -1581,10 +1573,6 @@ public struct DJConnectRootView: View {
             #else
             SavedSessionsView(model: model)
             #endif
-        case .nowPlaying:
-            NowPlayingView(model: model) {
-                selectedSection = .queue
-            }
         case .trackInsight:
             TrackInsightView(model: model)
         case .discovery:
@@ -1600,7 +1588,7 @@ public struct DJConnectRootView: View {
             QueueView(model: model)
         case .more:
             MoreView(model: model) {
-                selectedSection = .nowPlaying
+                selectedSection = .djSession
             }
         case .playlists:
             PlaylistsView(model: model)
@@ -1608,7 +1596,7 @@ public struct DJConnectRootView: View {
             GamesView(language: model.language, isDemoMode: model.isDemoMode)
         case .settings:
             SettingsView(model: model) {
-                selectedSection = .nowPlaying
+                selectedSection = .djSession
             }
         case .logs:
             LogsView(model: model)
@@ -3149,10 +3137,10 @@ private struct WelcomeTourStep: Identifiable, Equatable {
     static func steps(language: String) -> [WelcomeTourStep] {
         [
             WelcomeTourStep(
-                id: .nowPlaying,
-                title: localizedKey(language, "ui.now.playing"),
-                body: localizedKey(language, "ui.control.playback.volume.and.the.active.output.from.the.main"),
-                systemImage: "music.note"
+                id: .queue,
+                title: localizedKey(language, "ui.queue"),
+                body: localizedKey(language, "ui.welcome.queue.description"),
+                systemImage: "music.note.list"
             ),
             WelcomeTourStep(
                 id: .askDJ,
@@ -3514,57 +3502,6 @@ private struct WhatsNewMarkdownBody: View {
         case paragraph(String)
         case separator
     }
-}
-
-struct NowPlayingView: View {
-    @StateObject private var manualRefresh = DJConnectManualRefreshController()
-    @ObservedObject var model: DJConnectAppModel
-    var openQueueAction: () -> Void = {}
-
-    var body: some View {
-        #if os(iOS)
-        IOSNowPlayingView(model: model, openQueueAction: openQueueAction)
-            .accessibilityIdentifier("screen-now-playing")
-        #else
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    TrackSummaryView(model: model)
-                    OutputSelectorView(model: model)
-                }
-                .djConnectScreenPadding()
-                .frame(maxWidth: djConnectContentMaxWidth)
-                .frame(maxWidth: .infinity)
-            }
-            .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
-            .toolbar {
-                #if os(macOS)
-                ConnectionStatusToolbar(model: model)
-                #endif
-                ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
-                    RefreshButton(model: model) {
-                        Task { await refreshNowPlayingWithToast() }
-                    }
-                }
-                #if !os(macOS)
-                ConnectionStatusToolbar(model: model)
-                #endif
-            }
-            .djStatusToastOverlay(manualRefresh.notice, screenImage: "music.note")
-            .djUserNoticeToast(model: model, screenImage: "music.note")
-        }
-        .accessibilityIdentifier("screen-now-playing")
-        #endif
-    }
-
-    private func refreshNowPlayingWithToast() async {
-        await manualRefresh.run(model: model, systemImage: "music.note") {
-            let succeeded = await model.refreshNowPlaying()
-            return localizedKey(model.language, succeeded ? "appModel.now.playing.updated" : "appModel.now.playing.update.failed")
-        }
-    }
-
-
 }
 
 private struct AppleWatchPairingReminderButton: View {
@@ -9779,63 +9716,6 @@ private struct VibeCastCodeEntry: View {
 #endif
 
 #if os(iOS)
-private struct IOSNowPlayingView: View {
-    @StateObject private var manualRefresh = DJConnectManualRefreshController()
-    @ObservedObject var model: DJConnectAppModel
-    var openQueueAction: () -> Void
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                DJConnectCanvasBackground()
-                ScrollView {
-                    VStack(spacing: 16) {
-                        IOSTrackHero(model: model, openQueueAction: openQueueAction)
-                        OutputSelectorView(model: model)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                }
-                .background(.clear)
-                .djContentRefreshable(enabled: !model.isDemoMode && model.pairingStatus == .paired) {
-                    await refreshNowPlayingWithToast()
-                }
-            }
-            .djStatusToastOverlay(manualRefresh.notice, screenImage: "music.note")
-            .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                #if os(macOS)
-                ConnectionStatusToolbar(model: model)
-                #endif
-                if model.shouldShowAppleWatchPairingReminder {
-                    ToolbarItem(placement: .topBarLeading) {
-                        AppleWatchPairingReminderButton(model: model)
-                    }
-                }
-                ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
-                    RefreshButton(model: model) {
-                        Task { await refreshNowPlayingWithToast() }
-                    }
-                }
-                #if !os(macOS)
-                ConnectionStatusToolbar(model: model)
-                #endif
-            }
-            .djUserNoticeToast(model: model, screenImage: "music.note")
-        }
-    }
-
-    private func refreshNowPlayingWithToast() async {
-        await manualRefresh.run(model: model, systemImage: "music.note") {
-            let succeeded = await model.refreshNowPlaying()
-            return localizedKey(model.language, succeeded ? "appModel.now.playing.updated" : "appModel.now.playing.update.failed")
-        }
-    }
-
-
-}
-
 struct IOSConnectionCard: View {
     @ObservedObject var model: DJConnectAppModel
     var openAbout: () -> Void
@@ -16648,15 +16528,13 @@ private struct MoreView: View {
     @ObservedObject var model: DJConnectAppModel
     var requestedSection: DJConnectSection? = nil
     @State private var destinationSelection: DJConnectSection?
-    var returnToNowPlaying: () -> Void
+    var returnToDJSession: () -> Void
     @State private var showingFeedback = false
-    @State private var showingPlayerQueue = false
 
     var body: some View {
         moreList
         .onAppear { routeRequestedSection() }
         .onChange(of: requestedSection) { routeRequestedSection() }
-        .sheet(isPresented: $showingPlayerQueue) { QueueView(model: model) }
         .sheet(isPresented: $showingFeedback) {
             FeedbackPromptView(model: model)
         }
@@ -16669,7 +16547,6 @@ private struct MoreView: View {
                     MoreNavigationRow(title: "Ask DJ", systemImage: "bubble.left.and.bubble.right") { destinationSelection = .askDJ }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "headphones") { destinationSelection = .savedSessions }
                     MoreNavigationRow(title: "Music DNA", systemImage: "heart") { destinationSelection = .musicDNA }
-                    MoreNavigationRow(title: localizedKey(model.language, "ui.queue"), systemImage: "music.note.list") { destinationSelection = .queue }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.playlists"), systemImage: "rectangle.stack") { destinationSelection = .playlists }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.games"), systemImage: "gamecontroller") { destinationSelection = .games }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.settings"), systemImage: "gearshape") { destinationSelection = .settings }
@@ -16698,7 +16575,6 @@ private struct MoreView: View {
 
     @ViewBuilder private func destination(_ section: DJConnectSection) -> some View {
         switch section {
-        case .nowPlaying: NowPlayingView(model: model) { showingPlayerQueue = true }
         case .askDJ: AskDJView(model: model, embedsNavigationStack: false) {
             model.performHomeScreenAction(.trackInsight)
             model.openTrackInsight()
@@ -16708,7 +16584,7 @@ private struct MoreView: View {
         case .playlists: PlaylistsView(model: model)
         case .musicDNA: MusicDNAView(model: model)
         case .games: GamesView(language: model.language, isDemoMode: model.isDemoMode)
-        case .settings: SettingsView(model: model, returnToNowPlaying: returnToNowPlaying)
+        case .settings: SettingsView(model: model, returnToDJSession: returnToDJSession)
         case .logs: LogsView(model: model)
         case .about: AboutView(model: model)
         case .legal: LegalNoticesView(language: model.language)
@@ -17200,7 +17076,7 @@ private struct MusicDNAStatPill: View {
 
 struct SettingsView: View {
     @ObservedObject var model: DJConnectAppModel
-    var returnToNowPlaying: () -> Void = {}
+    var returnToDJSession: () -> Void = {}
     @Environment(\.openURL) private var openURL
     @State private var isShowingResetPairingConfirmation = false
     @State private var isShowingLoggingDisableConfirmation = false
@@ -17517,7 +17393,7 @@ struct SettingsView: View {
                     if model.isDemoMode {
                         LabeledContent(localizedKey(model.language, "ui.demo.mode")) {
                             Button(localizedKey(model.language, "ui.stop.demo.mode"), role: .destructive) {
-                                returnToNowPlaying()
+                                returnToDJSession()
                                 model.stopDemoMode()
                             }
                             .accessibilityIdentifier("settings-stop-demo")
@@ -17732,7 +17608,7 @@ struct SettingsView: View {
             ) {
                 Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
                 Button(localizedKey(model.language, "ui.pair.app.again"), role: .destructive) {
-                    returnToNowPlaying()
+                    returnToDJSession()
                     model.resetPairing()
                 }
             } message: {

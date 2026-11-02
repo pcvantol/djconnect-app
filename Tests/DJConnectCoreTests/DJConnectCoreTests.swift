@@ -13164,13 +13164,9 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 @Test(.isolatedClientResources) func moodPickerIsCentralizedInSessionToolbarOnly() throws {
     let root = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
     let timeline = try loadRepositoryText("Sources/DJConnectUI/SessionTimelineScreen.swift")
-    let nowPlaying = try #require(root.structBody(named: "NowPlayingView"))
-    let iosNowPlaying = try #require(root.structBody(named: "IOSNowPlayingView"))
     let askDJ = try #require(root.structBody(named: "AskDJView"))
     #expect(!root.contains("NowPlayingMoodControlSection"))
     #expect(!root.contains("AskDJMoodModeControl"))
-    #expect(!nowPlaying.contains("MoodModeControl"))
-    #expect(!iosNowPlaying.contains("MoodModeControl"))
     #expect(!askDJ.contains("MoodModeControl"))
     #expect(timeline.contains("struct ActiveSessionMoodToolbar: View"))
 }

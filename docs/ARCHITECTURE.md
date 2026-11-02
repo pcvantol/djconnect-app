@@ -194,8 +194,11 @@ with stale/auth failures routed through the regular pairing recovery path.
 Export/import never use the Home Assistant WebSocket fast path; only Music DNA
 profile, settings, and clear can use advertised fast-path routes.
 
-Ask DJ is also the only Apple-client DJ request surface. Now Playing focuses on
-playback status and controls; it must not carry a separate `DJ verzoek` card.
+Ask DJ is also the only Apple-client DJ request surface. The DJ Session owns playback status, speaker selection and playback controls,
+including their glass popovers. Queue occupies the second primary navigation slot
+on macOS, iOS and iPadOS; there is no standalone Now Playing page. Legacy Now
+Playing navigation requests open the DJ Session. It must not carry a separate
+`DJ verzoek` card.
 rbpi had no separate rich DJ request UI, and ESP32 remains a firmware/device
 surface without the Apple Ask DJ chat UI.
 
