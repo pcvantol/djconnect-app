@@ -1240,8 +1240,12 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
         guard await waitForRead() else { return false }
         var anchorSucceeded = true
-        if let anchor, !["current", "tail"].contains(anchor), !anchor.hasPrefix("pending-") {
-            anchorSucceeded = await loadTimeline(sessionID, window: .anchor, anchorEntryID: anchor)
+        // Scroll positions also name local headers, controls and live rows.
+        // Only an already retained server entry can select an anchor read.
+        if let anchor, let entry = timelines[sessionID]?.entries.first(where: {
+            $0.id == anchor && $0.sessionID == sessionID && $0.isRetained()
+        }) {
+            anchorSucceeded = await loadTimeline(sessionID, window: .anchor, anchorEntryID: entry.id)
         }
         guard await waitForRead() else { return false }
         let tailSucceeded = await loadTimeline(sessionID, window: .tail)

@@ -9397,3 +9397,55 @@ func visualVoiceReadinessAcrossActualContextHTTPPreservesReachabilityAndOriginal
     #expect(counter.value == 3 && wire.requests.count == 3)
     #expect(modes.values == [.local, .local, .local])
 }
+
+@Test(.isolatedClientResources, arguments: ["session-mode-picker", "forecast-content", "flow-search", "current-conversation-local", "live-moment-local", "pending-local", "unknown", "current", "tail", "known", "anchor-failure", "tail-failure", "authority-loss"])
+@MainActor func sessionRefreshIgnoresScreenAnchorsButReportsRealReadFailures(_ position: String) async throws {
+    let receipt = try historyObject("window-producer-receipt")
+    let first = try historyData(try #require(receipt["first_page"]))
+    var tailObject = try #require(receipt["tail_window"] as? [String: Any])
+    var anchorObject = try #require(receipt["anchor_window"] as? [String: Any])
+    tailObject["window_limit"] = 20; anchorObject["window_limit"] = 20
+    let tail = try historyData(tailObject), anchored = try historyData(anchorObject)
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: first)
+    let anchorPage = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: anchored)
+    let entryID = try #require(anchorPage.anchorEntryID)
+    try #require(page.entries.contains { $0.id == entryID && $0.isRetained() })
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8)
+    let authority = HistoryAuthorityGate()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let window = query.first { $0.name == "window" }?.value
+        if authority.denied, window != nil { return (403, Data(#"{"success":false,"error":"invalid_profile"}"#.utf8), 0) }
+        if window == "anchor" {
+            if query.first(where: { $0.name == "anchor_entry_id" })?.value != entryID {
+                return (404, Data(#"{"success":false,"error":"entry_not_found"}"#.utf8), 0)
+            }
+            if position == "anchor-failure" { return (503, Data(), 0) }
+            return (200, anchored, 0)
+        }
+        if window == "tail" { return position == "tail-failure" ? (503, Data(), 0) : (200, tail, 0) }
+        return (200, first, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    try #require(await model.sessionHistory.loadTimeline(page.session.id))
+    let before = fixture.requests.count
+    authority.denied = position == "authority-loss"
+    let genuine = ["known", "anchor-failure"].contains(position)
+    let anchor = genuine ? entryID : position == "authority-loss" ? "session-mode-picker" : position
+    let result = await model.sessionHistory.refreshVisibleTimeline(page.session.id, anchor: anchor)
+    #expect(result == !["anchor-failure", "tail-failure", "authority-loss"].contains(position))
+    let reads = Array(fixture.requests.dropFirst(before))
+    func mode(_ request: URLRequest) -> String? {
+        URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "window" }?.value
+    }
+    #expect(reads.filter { mode($0) == "anchor" }.count == (genuine ? 1 : 0))
+    #expect(reads.filter { mode($0) == "tail" }.count == 1)
+    #expect(reads.allSatisfy { $0.httpMethod == "GET" })
+    if position == "authority-loss" { #expect(!model.sessionHistory.hasAuthorizedOwner && model.sessionHistory.timelines.isEmpty) }
+}

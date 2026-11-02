@@ -13036,7 +13036,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(complicationResources.contains("Localizable.strings in Resources"))
 }
 
-@Test(.isolatedClientResources) func defaultDisplayLanguageUsesSharedAppLanguageOverrideForWidgets() throws {
+@Test(.isolatedClientResources) @MainActor func defaultDisplayLanguageUsesSharedAppLanguageOverrideForWidgets() throws {
     let sharedDefaults = try #require(UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier))
     let oldSharedOverride = sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
     defer {
