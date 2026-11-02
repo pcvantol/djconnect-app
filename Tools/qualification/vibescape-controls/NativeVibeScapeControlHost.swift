@@ -39,7 +39,11 @@ final class VisualButtonWire: URLProtocol, @unchecked Sendable {
    var value:Any;var status=200
    if path.hasSuffix("/capabilities") {
     var caps=try JSONSerialization.jsonObject(with:Data(contentsOf:root.appendingPathComponent("vibescape-visual-catalogue-v1.json"))) as! [String:Any]
-    var flags=caps["capabilities"] as! [String:Bool];flags["session_conversation_history"]=true;flags["active_session_persona"]=true;caps["capabilities"]=flags;caps["contract_versions"]=["session_conversation_history":1,"active_session_persona":1]
+    var flags=caps["capabilities"] as! [String:Bool];flags["session_conversation_history"]=true;flags["active_session_persona"]=true;flags["vibescape_visual_settings_fence"]=true;caps["capabilities"]=flags;caps["contract_versions"]=["session_conversation_history":1,"active_session_persona":1,"vibescape_visual_settings_fence":1]
+    if ProcessInfo.processInfo.arguments.contains("--without-settings-fence") {
+     flags.removeValue(forKey:"vibescape_visual_settings_fence");caps["capabilities"]=flags
+     caps["contract_versions"]=["session_conversation_history":1,"active_session_persona":1]
+    }
     caps["active_session_persona"]=["available":true,"version":1,"path":"/api/djconnect/v1/session/persona","method":"POST","authentication":"paired_device_bearer","values":["home_dj","radio_dj","club_dj","festival_dj"],"ordering":"expected_persona_revision","scope":"active_device_bound_owner_session"] as [String:Any]
     var catalogue=caps["vibescape_visual_director"] as! [String:Any];var help=catalogue["help"] as! [String:Any];var english=help["en"] as! [String:Any];var examples=english["examples"] as! [[String:Any]];examples[0]["text"]="Probe visual read \(number)";english["examples"]=examples;help["en"]=english;catalogue["help"]=help;caps["vibescape_visual_director"]=catalogue;value=caps
    } else if path.hasSuffix("/session/persona"), request.httpMethod == "POST" {

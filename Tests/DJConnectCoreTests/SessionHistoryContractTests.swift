@@ -9498,3 +9498,89 @@ func visualVoiceReadinessAcrossActualContextHTTPPreservesReachabilityAndOriginal
     #expect(reads.allSatisfy { $0.httpMethod == "GET" })
     if position == "authority-loss" { #expect(!model.sessionHistory.hasAuthorizedOwner && model.sessionHistory.timelines.isEmpty) }
 }
+
+@Test(.isolatedClientResources, arguments: ["supported", "missing-flag", "false-flag", "missing-version", "future-version", "boolean-version", "string-flag"])
+func visualVoiceRequiresAdvertisedSettingsFenceV1(_ scenario: String) async throws {
+    let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/vibescape-visual-catalogue-v1.json")
+    var value = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+    var flags = try #require(value["capabilities"] as? [String: Any])
+    flags["vibescape_visual_settings_fence"] = true
+    var versions: [String: Any] = ["vibescape_visual_settings_fence": 1]
+    switch scenario {
+    case "missing-flag": flags.removeValue(forKey: "vibescape_visual_settings_fence")
+    case "false-flag": flags["vibescape_visual_settings_fence"] = false
+    case "missing-version": versions.removeValue(forKey: "vibescape_visual_settings_fence")
+    case "future-version": versions["vibescape_visual_settings_fence"] = 2
+    case "boolean-version": versions["vibescape_visual_settings_fence"] = true
+    case "string-flag": flags["vibescape_visual_settings_fence"] = "true"
+    default: break
+    }
+    value["capabilities"] = flags; value["contract_versions"] = versions
+    let data = try historyData(value)
+    let wire = HistoryWireFixture { request in
+        #expect(request.url?.path.hasSuffix("/capabilities") == true)
+        return (200, data, 0)
+    }
+    defer { wire.close() }
+    if scenario == "supported" {
+        let help = try await wire.client().visualDirectorHelp(language: "nl", requiringSettingsFence: true)
+        #expect(help.isValid)
+    } else {
+        await #expect(throws: (any Error).self) {
+            _ = try await wire.client().visualDirectorHelp(language: "nl", requiringSettingsFence: true)
+        }
+    }
+    #expect(wire.requests.count == 1)
+    #expect(wire.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@Test(.isolatedClientResources) @MainActor
+func visualConfirmedSettingsRejectConflictsAndFencePersonaAndMoodABA() throws {
+    var runtime = try #require(JSONDecoder().decode(DJConnectSessionResponse.self, from: activePersonaRuntimeWire()).session)
+    runtime.moodRevision = 0; runtime.broadcast.session.moodRevision = 0
+    let original = try #require(VibeScapeConfirmedSettings(runtime))
+    var bad = runtime; bad.broadcast.session.selectedMood = "party"
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.broadcast.session.moodRevision = 1
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.moodRevision = nil
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.moodRevision = -1; bad.broadcast.session.moodRevision = -1
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.broadcast.session.selectedPersona = .clubDJ
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.broadcast.session.personaRevision = 1
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.broadcast.session.sessionID = "other"
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    bad = runtime; bad.runtimeState = "ended"
+    #expect(VibeScapeConfirmedSettings(bad) == nil)
+    #expect(VibeScapeConfirmedSettings(nil) == nil)
+
+    let visit = VisualDirectorVisit()
+    visit.enter(mood: original.mood, occurrence: "synthetic-original-occurrence", salt: 1,
+                family: VibeScapeFamily(persona: original.persona.selectedPersona), personaRevision: original.persona.personaRevision)
+    let fence = VisualDirectorTurnFence(visit: visit)
+    let turn = try #require(fence.begin(originalSourceDeadline: visit.now() + 10) {
+        VibeScapeConfirmedSettings(runtime) == original
+    })
+    // Real accepted revisions distinguish a later return to the same values.
+    runtime = runtime.applying(persona: .init(sessionID: runtime.id, selectedPersona: .radioDJ, personaRevision: 1))
+    runtime = runtime.applying(persona: .init(sessionID: runtime.id, selectedPersona: original.persona.selectedPersona, personaRevision: 2))
+    #expect(VibeScapeConfirmedSettings(runtime) != original)
+    var applied = false
+    #expect(!fence.complete(turn) { applied = true; return true })
+    #expect(!applied)
+    runtime = try #require(JSONDecoder().decode(DJConnectSessionResponse.self, from: activePersonaRuntimeWire()).session)
+    runtime.moodRevision = 0; runtime.broadcast.session.moodRevision = 0
+    let moodTurn = try #require(fence.begin(originalSourceDeadline: visit.now() + 10) {
+        VibeScapeConfirmedSettings(runtime) == original
+    })
+    runtime.selectedMood = "party"; runtime.broadcast.session.selectedMood = "party"
+    runtime.moodRevision = 1; runtime.broadcast.session.moodRevision = 1
+    runtime.selectedMood = original.mood; runtime.broadcast.session.selectedMood = original.mood
+    runtime.moodRevision = 2; runtime.broadcast.session.moodRevision = 2
+    #expect(!fence.complete(moodTurn) { applied = true; return true })
+    #expect(!applied)
+}

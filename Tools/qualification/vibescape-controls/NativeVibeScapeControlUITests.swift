@@ -1,6 +1,21 @@
 import Foundation
 import XCTest
 @MainActor final class VisualButtonProbeTests:XCTestCase {
+ func testAbsentSettingsFenceRefusesVoiceBeforeMicrophonePermission() {
+  let a=XCUIApplication();a.launchArguments=["--uitesting","--without-settings-fence"];a.launch();defer{a.terminate()}
+  let status=a.staticTexts["probe-status"]
+  let ready=XCTNSPredicateExpectation(predicate:NSPredicate {_,_ in status.exists && status.label.contains("ready:1")},object:nil)
+  XCTAssertEqual(XCTWaiter.wait(for:[ready],timeout:20),.completed)
+  a.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.9)).tap()
+  let mic=a.buttons["vibescape-microphone"];XCTAssertTrue(mic.waitForExistence(timeout:5));mic.tap()
+  let failed=a.staticTexts["vibescape-voice-status"]
+  // Hidden chrome may consume the first tap only to reveal its controls.
+  if !failed.waitForExistence(timeout:1) { mic.tap() }
+  XCTAssertTrue(failed.waitForExistence(timeout:5))
+  XCTAssertTrue(status.label.contains("mic:0") && status.label.contains("speech:0"),status.label)
+  XCTAssertTrue(status.label.contains("post:0") && status.label.contains("ask:0"),status.label)
+  XCTAssertFalse(a.alerts.firstMatch.exists)
+ }
  func testAcceptedCharacterControlsChangeTheLiveWorld() {
   let a=XCUIApplication();a.launchArguments=["--uitesting","--worlds"];a.launch();defer{a.terminate()}
   let screen=a.otherElements["screen-vibescape"]

@@ -141,3 +141,11 @@ frame/energy/thermal behaviour; real VoiceOver navigation and final artistic
 acceptance against the reference images on those screens. Older open #177
 requirements remain open. No merge, protected-source bypass, deployment,
 TestFlight/App Store publication or ordinary-device installation was performed.
+
+## Core1424 settings-fence adoption
+
+The follow-up [settings-fence evidence](APPLE_VIBESCAPE_SETTINGS_FENCE_20261102.md)
+records explicit server capability/version detection, original local confirmed
+settings checks, fresh full-suite/native/GPU qualification and the remaining
+joint installed run. The owner expects the Core update tomorrow; that run has
+not been performed or substituted with synthetic results.

@@ -615,14 +615,17 @@ public final class DJConnectClient: Sendable {
         return decoded.sessionBroadcast?.pairedOwnerWebsocket
     }
 
-    public func visualDirectorHelp(language: String) async throws -> DJConnectVisualHelp {
+    public func visualDirectorHelp(language: String, requiringSettingsFence: Bool = false) async throws -> DJConnectVisualHelp {
         struct Envelope: Decodable {
             let success: Bool
             let capabilities: [String: Bool]
+            let contract_versions: [String: Int]?
             let vibescape_visual_director: DJConnectVisualCatalogue?
         }
         let envelope: Envelope = try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
         guard envelope.success, envelope.capabilities["vibescape_visual_director"] == true,
+              !requiringSettingsFence || (envelope.capabilities["vibescape_visual_settings_fence"] == true &&
+                                          envelope.contract_versions?["vibescape_visual_settings_fence"] == 1),
               let catalogue = envelope.vibescape_visual_director, catalogue.isValid,
               let help = catalogue.help[language], help.isValid else { throw DJConnectError.invalidResponse }
         return help

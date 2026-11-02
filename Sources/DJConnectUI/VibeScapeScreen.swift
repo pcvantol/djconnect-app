@@ -30,6 +30,32 @@ enum VibeScapeTrackIntensity {
     }
 }
 
+/// Local confirmed settings only; these fields never extend the closed visual v1 wire.
+/// Both original Runtime and Broadcast axes must agree before private voice work.
+struct VibeScapeConfirmedSettings: Equatable {
+    let sessionID: String
+    let persona: DJConnectSessionPersonaSnapshot
+    let mood: String
+    let moodRevision: Int
+
+    init?(_ runtime: DJConnectSessionRuntime?) {
+        guard let runtime, runtime.runtimeState == "active", !runtime.id.isEmpty,
+              runtime.broadcast.session.sessionID == runtime.id,
+              runtime.broadcast.session.runtimeState == "active",
+              let persona = runtime.confirmedPersona,
+              runtime.selectedPersona == persona.selectedPersona,
+              runtime.personaRevision == persona.personaRevision,
+              runtime.broadcast.session.selectedPersona == persona.selectedPersona,
+              runtime.broadcast.session.personaRevision == persona.personaRevision,
+              ["chill", "groove", "energy", "party"].contains(runtime.selectedMood),
+              let revision = runtime.moodRevision, revision >= 0,
+              runtime.broadcast.session.moodRevision == revision,
+              runtime.broadcast.session.selectedMood == runtime.selectedMood else { return nil }
+        self.sessionID = runtime.id; self.persona = persona
+        self.mood = runtime.selectedMood; self.moodRevision = revision
+    }
+}
+
 enum VibeScapeAvailability {
     static var previewEnabled: Bool {
         #if DEBUG || DJCONNECT_VIBESCAPE_PREVIEW
@@ -213,7 +239,7 @@ struct VibeScapeScreen: View {
         }
         .onChange(of: automaticIntensity) { _, _ in updateAutomaticIntensity() }
         .onChange(of: model.activeDJSession?.selectedMood) { _, mood in voice.cancel(); visit.moodChanged(mood) }
-        .onChange(of: model.activeDJSession?.confirmedMoodRevision) { _, _ in voice.cancel() }
+        .onChange(of: VibeScapeConfirmedSettings(model.activeDJSession)) { _, _ in voice.cancel() }
         .onChange(of: model.activeDJSession?.confirmedPersona) { _, _ in synchronizePersona() }
         .onChange(of: model.activeDJSession?.personaRevisionFloor) { _, _ in synchronizePersona() }
         .onChange(of: model.activeDJSession?.hasUnconfirmedPersonaRevision) { _, _ in synchronizePersona() }
@@ -288,6 +314,7 @@ struct VibeScapeScreen: View {
               model.sessionHistory.responseEpoch == epoch, model.homeAssistantURL == origin {
             if !voice.busy, let source = visit.ticket {
                 let started = visit.now()
+                let settings = VibeScapeConfirmedSettings(model.activeDJSession)
                 lastIssuedVisit = source.visit
                 let context = try? await model.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
                     try await $0.visualDirectorContext(sessionID: session, visitID: source.visit)
@@ -295,6 +322,7 @@ struct VibeScapeScreen: View {
                 if !Task.isCancelled, screenIsActive, admitted, !voice.busy,
                    model.activeDJSession?.id == session, self.owner == owner,
                    model.sessionHistory.responseEpoch == epoch, model.homeAssistantURL == origin, visit.ticket == source,
+                   settings != nil, VibeScapeConfirmedSettings(model.activeDJSession) == settings,
                    let context, context.success, context.schema_version == 1,
                    UUID(uuidString: context.visit_id) == source.visit,
                    !context.context_lease_id.isEmpty, context.context_lease_id.utf8.count <= 256,
@@ -683,20 +711,17 @@ import AVFoundation
         guard model.voiceEnabled, !model.isRecordingVoice, model.voiceStatus != .processing,
               let owner = model.sessionHistory.authorizedProfileID,
               let sessionID = model.activeDJSession?.id, let visitID = visit.ticket?.visit,
-              let persona = model.activeDJSession?.confirmedPersona,
-              visit.scene?.family == VibeScapeFamily(persona: persona.selectedPersona),
-              visit.personaRevision == persona.personaRevision else { return }
+              let settings = VibeScapeConfirmedSettings(model.activeDJSession),
+              visit.scene?.family == VibeScapeFamily(persona: settings.persona.selectedPersona),
+              visit.personaRevision == settings.persona.personaRevision else { return }
         let epoch = model.sessionHistory.responseEpoch, language = model.language
         let origin = model.homeAssistantURL
-        let mood = model.activeDJSession?.selectedMood
-        let moodRevision = model.activeDJSession?.confirmedMoodRevision
         let token = UUID(); operation = token; busy = true; statusKey = "ui.vibescape.voice.starting"
         func current() -> Bool {
             operation == token && !Task.isCancelled && model.voiceEnabled && model.isShowingVibeScape && model.canRefreshSessionHistory &&
             model.sessionHistory.authorizedProfileID == owner && model.sessionHistory.responseEpoch == epoch &&
             model.activeDJSession?.id == sessionID && model.activeDJSession?.runtimeState == "active" &&
-            model.homeAssistantURL == origin && model.activeDJSession?.confirmedPersona == persona &&
-            model.activeDJSession?.selectedMood == mood && model.activeDJSession?.confirmedMoodRevision == moodRevision &&
+            model.homeAssistantURL == origin && VibeScapeConfirmedSettings(model.activeDJSession) == settings &&
             visit.isCurrent && visit.ticket?.visit == visitID
         }
         if fence == nil { fence = VisualDirectorTurnFence(visit: visit) }
@@ -706,7 +731,7 @@ import AVFoundation
             var captured = false
             do {
                 _ = try await model.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
-                    try await $0.visualDirectorHelp(language: language)
+                    try await $0.visualDirectorHelp(language: language, requiringSettingsFence: true)
                 }
                 guard current() else { throw CancellationError() }
                 awaitingPermission = true
