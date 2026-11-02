@@ -1180,7 +1180,7 @@ struct SessionTimelineScreen: View {
             else { toggleFlowSearch(proxy: proxy) }
         } label: {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(searching ? djConnectAccent : .primary)
+                .foregroundStyle((activeSession == nil ? searching : flowSearchExpanded) ? djConnectAccent : .primary)
         }
             .disabled(!history.searchAvailable)
             .accessibilityLabel(text("ui.session.history.search"))
