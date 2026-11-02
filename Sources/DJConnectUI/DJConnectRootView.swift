@@ -6687,13 +6687,14 @@ private struct MusicDiscoveryCard: View {
             }
             .djConnectPlainButtonStyle()
             .accessibilityLabel(item.title)
-            MusicDiscoveryCardDetails(item: item).equatable()
+            MusicDiscoveryCardDetails(item: item, sectionID: sectionID).equatable()
         }
     }
 }
 
 private struct MusicDiscoveryCardDetails: View, Equatable {
     let item: DJConnectMusicDiscoveryItem
+    let sectionID: String
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(item.title)
@@ -6713,7 +6714,7 @@ private struct MusicDiscoveryCardDetails: View, Equatable {
                     .foregroundStyle(.white.opacity(0.58))
                     .lineLimit(2)
             }
-            if item.kind != .artist {
+            if item.kind != .artist && !(sectionID == "rediscover" && item.kind == .track) {
                 Text(item.kind.rawValue.capitalized)
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.white)
