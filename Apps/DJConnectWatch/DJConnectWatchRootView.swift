@@ -4905,9 +4905,17 @@ private struct DJConnectWatchCompanionPages: View {
             .focusable(canScroll)
             .focused($crownFocused)
             .digitalCrownRotation(
-                Binding(get: { Double(index) }, set: { moveCrown(to: $0, count: rows.count) }),
+                Binding(get: { Double(index) }, set: { moveFlow(to: $0, count: rows.count) }),
                 from: 0, through: Double(max(1, rows.count)), by: 1,
                 sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true
+            )
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 20).onEnded { drag in
+                    let vertical = drag.translation.height
+                    guard abs(vertical) > abs(drag.translation.width) else { return }
+                    moveFlow(to: Double(index + (vertical < 0 ? 1 : -1)), count: rows.count)
+                },
+                including: canScroll ? .all : .none
             )
             .onChange(of: canScroll, initial: true) { _, enabled in crownFocused = enabled }
             .onChange(of: rows.map(\.id)) { old, new in
@@ -4921,8 +4929,8 @@ private struct DJConnectWatchCompanionPages: View {
             }
             .accessibilityAdjustableAction { direction in
                 switch direction {
-                case .increment: moveCrown(to: Double(index + 1), count: rows.count)
-                case .decrement: moveCrown(to: Double(index - 1), count: rows.count)
+                case .increment: moveFlow(to: Double(index + 1), count: rows.count)
+                case .decrement: moveFlow(to: Double(index - 1), count: rows.count)
                 @unknown default: break
                 }
             }
@@ -4935,7 +4943,7 @@ private struct DJConnectWatchCompanionPages: View {
         return (flowRows ?? []).filter { now < $0.expiresAt }
     }
 
-    private func moveCrown(to value: Double, count: Int) {
+    private func moveFlow(to value: Double, count: Int) {
         let next = min(max(0, value.rounded()), Double(count))
         guard next != flowPosition else { return }
         crownAdvance = next > flowPosition
