@@ -620,7 +620,8 @@ final class DJConnectIOSUITests: XCTestCase {
 
         tapTabOrMoreItem("Games", in: app)
 
-        XCTAssertTrue(app.navigationBars["Games"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["games-surface"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.navigationBars["Games"].exists)
         XCTAssertTrue(app.buttons["Paddle Rally"].exists || app.staticTexts["Paddle Rally"].exists)
         XCTAssertTrue(app.buttons["Meteor Run"].exists || app.staticTexts["Meteor Run"].exists)
         XCTAssertTrue(app.buttons["Sky Dash"].exists || app.staticTexts["Sky Dash"].exists)

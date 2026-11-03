@@ -15249,23 +15249,8 @@ enum DJConnectGameViewport {
         return CGPoint(x: (point.x - origin.x) / scale, y: (point.y - origin.y) / scale)
     }
 
-    static func canvasHeight(viewportHeight: CGFloat, pickerHeight: CGFloat, chromeHeight: CGFloat,
-                             verticalPadding: CGFloat) -> CGFloat {
-        // Leave room for the picker, measured controls/help and ordinary edge spacing.
-        max(170, viewportHeight - pickerHeight - chromeHeight - 18 - 2 * verticalPadding - 2)
-    }
-}
-
-private struct GameHeightPreferenceKey: PreferenceKey {
-    static let defaultValue: [String: CGFloat] = [:]
-    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
-    }
-}
-
-private func gameHeightReader(_ component: String) -> some View {
-    GeometryReader { proxy in
-        Color.clear.preference(key: GameHeightPreferenceKey.self, value: [component: proxy.size.height])
+    static func prefersSideControls(in size: CGSize) -> Bool {
+        size.height < 370 && size.width >= 370
     }
 }
 
@@ -15276,7 +15261,6 @@ private struct GamesView: View {
     @Environment(\.djConnectContentSizeClass) private var contentSizeClass
     private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var selectedGame = LocalGameMode.pong
-    @State private var measuredGameHeights: [String: CGFloat] = [:]
 
     private func contentMaxWidth(for size: CGSize) -> CGFloat {
         #if os(macOS)
@@ -15286,43 +15270,28 @@ private struct GamesView: View {
         #endif
     }
 
-    private func gameCanvasMaxHeight(for size: CGSize) -> CGFloat? {
-        #if os(iOS)
-        guard horizontalSizeClass == .regular else { return nil }
-        #endif
-        let surfaceHeight = measuredGameHeights["surface"] ?? 0
-        let canvasHeight = measuredGameHeights["canvas"] ?? 0
-        let chromeHeight = surfaceHeight > 0 ? max(0, surfaceHeight - canvasHeight) : 180
-        // Measure the controls and localized help rather than estimating from width.
-        // Small windows retain scrolling so the game remains usable.
-        return DJConnectGameViewport.canvasHeight(viewportHeight: size.height, pickerHeight: 0,
-                                                  chromeHeight: chromeHeight, verticalPadding: djConnectScreenVerticalPadding)
-    }
-
     var body: some View {
         NavigationStack {
             GeometryReader { proxy in
                 let contentMaxWidth = contentMaxWidth(for: proxy.size)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        LocalGameSurface(
-                            game: $selectedGame,
-                            language: language,
-                            maxCanvasHeight: gameCanvasMaxHeight(for: proxy.size)
-                        )
-                            .frame(maxWidth: .infinity, alignment: .top)
-                            .background(gameHeightReader("surface"))
-                    }
-                    .djConnectScreenPadding()
+                LocalGameSurface(game: $selectedGame, language: language,
+                                 controlsBesideCanvas: DJConnectGameViewport.prefersSideControls(in: proxy.size))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.horizontal, djConnectScreenHorizontalPadding)
+                    .padding(.top, 4)
+                    .padding(.bottom, 6)
                     .frame(maxWidth: contentMaxWidth)
-                    .frame(maxWidth: .infinity)
-                }
-                .background(DJSessionPinnedMoodBackground(mood: selectedGame.mood.rawValue))
-                .background(DJConnectCanvasBackground())
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background {
+                        DJSessionPinnedMoodBackground(mood: selectedGame.mood.rawValue)
+                            .ignoresSafeArea(.container)
+                    }
             }
-            .navigationTitle(localizedKey(language, "ui.games"))
+            .navigationTitle("")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .accessibilityIdentifier("screen-games")
-            .onPreferenceChange(GameHeightPreferenceKey.self) { measuredGameHeights = $0 }
         }
         .id("games-\(isDemoMode)-\(language)")
     }
@@ -15331,13 +15300,13 @@ private struct GamesView: View {
 private struct LocalGameSurface: View {
     @Binding var game: LocalGameMode
     let language: String
-    var maxCanvasHeight: CGFloat? = nil
+    let controlsBesideCanvas: Bool
+    private var gameLayout: AnyLayout {
+        controlsBesideCanvas ? AnyLayout(HStackLayout(spacing: 12)) : AnyLayout(VStackLayout(spacing: 14))
+    }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var isSurfaceVisible = false
-    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
-    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
-    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @AppStorage("djconnect.app.game.pong.high") private var pongHighScore = 0
     @AppStorage("djconnect.app.game.asteroids.high") private var asteroidsHighScore = 0
     @AppStorage("djconnect.app.game.fly.high") private var flyHighScore = 0
@@ -15395,17 +15364,6 @@ private struct LocalGameSurface: View {
     @FocusState private var isGameFocused: Bool
     private let tick = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
     private var logicalCanvasSize: CGSize { CGSize(width: 320, height: game == .asteroids ? 340 : 170) }
-    private var gameAspectRatio: CGFloat { logicalCanvasSize.width / logicalCanvasSize.height }
-    private var canvasHeightLimit: CGFloat? { maxCanvasHeight.map { $0 * (game == .asteroids ? 2 : 1) } }
-
-    private var fillsAvailableCanvas: Bool {
-        #if os(iOS)
-        horizontalSizeClass == .regular
-        #else
-        false
-        #endif
-    }
-
     private var highScore: Int {
         switch game {
         case .pong:
@@ -15456,45 +15414,38 @@ private struct LocalGameSurface: View {
                     .minimumScaleFactor(0.76)
             }
 
-            Group {
-                if fillsAvailableCanvas, let canvasHeightLimit {
-                    gameCanvas.frame(height: canvasHeightLimit)
-                } else {
-                    gameCanvas
-                        .aspectRatio(gameAspectRatio, contentMode: .fit)
-                        .frame(maxHeight: canvasHeightLimit)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .onGeometryChange(for: CGSize.self) { $0.size } action: { canvasSize = $0 }
-            .background(gameHeightReader("canvas"))
-            .accessibilityIdentifier("games-surface")
-            .accessibilityLabel(game.title)
-            .accessibilityValue(gameAccessibilityValue)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        handleDrag(value.location)
+            gameLayout {
+                gameCanvas
+                .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { canvasSize = $0 }
+                .accessibilityIdentifier("games-surface")
+                .accessibilityLabel(game.title)
+                .accessibilityValue(gameAccessibilityValue)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            handleDrag(value.location)
+                        }
+                        .onEnded { _ in
+                            fire()
+                        }
+                )
+                .onReceive(tick) { _ in
+                    guard isSurfaceVisible, scenePhase == .active else { return }
+                    if game == .asteroids && !reduceMotion { meteorStarTime += 1.0 / 30.0 }
+                    guard isPlaying else {
+                        return
                     }
-                    .onEnded { _ in
-                        fire()
-                    }
-            )
-            .onReceive(tick) { _ in
-                guard isSurfaceVisible, scenePhase == .active else { return }
-                if game == .asteroids && !reduceMotion { meteorStarTime += 1.0 / 30.0 }
-                guard isPlaying else {
-                    return
+                    update()
                 }
-                update()
-            }
-            .onChange(of: game) {
-                DJConnectGameHaptics.cancel(); DJConnectGameSounds.cancel()
-                reset()
-                isPlaying = false
-            }
+                .onChange(of: game) {
+                    DJConnectGameHaptics.cancel(); DJConnectGameSounds.cancel()
+                    reset()
+                    isPlaying = false
+                }
 
-            controlsView
+                controlsView
+            }
 
             Text(helpText)
                 .font(.callout)
@@ -15507,7 +15458,7 @@ private struct LocalGameSurface: View {
                 .accessibilityLabel("Game state")
                 .accessibilityValue(gameAccessibilityValue)
         }
-        .padding(18)
+        .padding(12)
         .djSessionFrostedSurface(mood: game.mood.rawValue)
         .focusable(true)
         .focusEffectDisabled()
@@ -15613,8 +15564,8 @@ private struct LocalGameSurface: View {
             DJConnectGameHaptics.impact()
             _ = handleArrowKey(direction)
         }
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity)
+        .padding(.vertical, controlsBesideCanvas ? 0 : 8)
+        .frame(maxWidth: controlsBesideCanvas ? 160 : .infinity)
     }
 
     private var resetButton: some View {

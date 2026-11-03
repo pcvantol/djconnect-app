@@ -13171,23 +13171,11 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(timeline.contains("struct ActiveSessionMoodToolbar: View"))
 }
 
-@Test(.isolatedClientResources) func gamesViewportUsesAvailableHeightAndKeepsControlsReachable() {
-    let picker: CGFloat = 60
-    let controls: CGFloat = 180
-    for viewport: CGFloat in [320, 600, 834, 1194] {
-        let canvas = DJConnectGameViewport.canvasHeight(viewportHeight: viewport, pickerHeight: picker,
-                                                       chromeHeight: controls, verticalPadding: 12)
-        #expect(canvas >= 170)
-        let occupied = canvas + picker + controls + 24 + 18
-        if viewport >= 454 {
-            #expect(occupied <= viewport && viewport - occupied <= 2)
-        } else {
-            // Small windows deliberately scroll instead of crushing the game/controls.
-            #expect(occupied > viewport)
-        }
-    }
-    #expect(DJConnectGameViewport.canvasHeight(viewportHeight: 1194, pickerHeight: picker,
-                                              chromeHeight: controls, verticalPadding: 12) > 560)
+@Test func gamesUseSideControlsOnlyWhenTheViewportIsLowAndWide() {
+    #expect(DJConnectGameViewport.prefersSideControls(in: CGSize(width: 800, height: 285)))
+    #expect(DJConnectGameViewport.prefersSideControls(in: CGSize(width: 520, height: 350)))
+    #expect(!DJConnectGameViewport.prefersSideControls(in: CGSize(width: 375, height: 600)))
+    #expect(!DJConnectGameViewport.prefersSideControls(in: CGSize(width: 320, height: 350)))
 }
 
 @Test(arguments: [CGSize(width: 1300, height: 300), CGSize(width: 600, height: 900), CGSize(width: 320, height: 170)])
