@@ -5248,23 +5248,25 @@ private struct DJConnectWatchCompanionTrackView: View {
                                    startPoint: .top, endPoint: .bottom)
                 }
                 .accessibilityHidden(true)
-
-                HStack(spacing: 0) {
-                    playbackButton(command: "previous", icon: "backward.fill", label: "watch.previous.track")
-                    playbackButton(command: isPlaying ? "pause" : "play",
-                                   icon: isPlaying ? "pause.fill" : "play.fill",
-                                   label: isPlaying ? "watch.pause" : "watch.play")
-                    playbackButton(command: "next", icon: "forward.fill", label: "watch.next.track")
-                }
-                .foregroundStyle(.white)
-                .frame(width: min(max(0, size.width - 20), 156))
-                .padding(.vertical, 4)
-                .background(DJConnectMaterial(.regular), in: Capsule())
-                .disabled(!model.canUseBackend && !model.isDemoMode)
             }
-            .overlay(alignment: .bottomTrailing) {
-                favoriteButton
-                    .padding(14)
+            .overlay(alignment: .bottom) {
+                VStack(spacing: 4) {
+                    favoriteButton
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    HStack(spacing: 0) {
+                        playbackButton(command: "previous", icon: "backward.fill", label: "watch.previous.track")
+                        playbackButton(command: isPlaying ? "pause" : "play",
+                                       icon: isPlaying ? "pause.fill" : "play.fill",
+                                       label: isPlaying ? "watch.pause" : "watch.play")
+                        playbackButton(command: "next", icon: "forward.fill", label: "watch.next.track")
+                    }
+                    .foregroundStyle(.white)
+                    .frame(width: min(max(0, size.width - 20), 156))
+                    .padding(.vertical, 4)
+                    .background(DJConnectMaterial(.regular), in: Capsule())
+                    .disabled(!model.canUseBackend && !model.isDemoMode)
+                }
+                .padding(14)
             }
             .clipShape(RoundedRectangle(cornerRadius: min(size.width, size.height) * 0.20, style: .continuous))
         }
