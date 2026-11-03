@@ -1,6 +1,13 @@
 #include <metal_stdlib>
 using namespace metal;
 
+[[ stitchable ]] float2 horizonWave(float2 position, float4 bounds, float phase) {
+    float2 uv = (position - bounds.xy) / max(bounds.zw, float2(1.0));
+    float ribbonBand = smoothstep(0.20, 0.43, uv.y) * (1.0 - smoothstep(0.58, 0.78, uv.y));
+    float wave = sin(uv.x * 12.56637 - phase + uv.y * 4.0);
+    return position + float2(0.0, 1.75 * ribbonBand * wave);
+}
+
 // Compiled procedural geometry only. No bitmap, video, live audio or runtime code.
 struct SceneUniforms {
     float4 composition, paletteMotion, shape, secondary, accent, style;

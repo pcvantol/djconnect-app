@@ -176,13 +176,15 @@ private struct SessionHorizonHero: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
-    private var animates: Bool {
-        #if os(macOS)
-        false
+    private final class ShaderBundleToken {}
+
+    private static let shaders: ShaderLibrary = {
+        #if SWIFT_PACKAGE
+        ShaderLibrary.bundle(.module)
         #else
-        !reduceMotion && scenePhase == .active
+        ShaderLibrary.bundle(Bundle(for: ShaderBundleToken.self))
         #endif
-    }
+    }()
 
     var body: some View {
         GeometryReader { geometry in
@@ -190,11 +192,14 @@ private struct SessionHorizonHero: View {
                 .resizable()
                 .scaledToFill()
                 .frame(width: geometry.size.width, height: geometry.size.height)
-            if animates {
-                artwork.phaseAnimator([false, true]) { image, illuminated in
-                    image.scaleEffect(illuminated ? 1.025 : 1)
-                        .brightness(illuminated ? 0.035 : 0)
-                } animation: { _ in .easeInOut(duration: 6) }
+            if !reduceMotion && scenePhase == .active {
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { clock in
+                    let seconds = clock.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 12)
+                    artwork.distortionEffect(
+                        Self.shaders.horizonWave(.boundingRect, .float(Float(seconds * 2 * .pi / 12))),
+                        maxSampleOffset: CGSize(width: 0, height: 2)
+                    )
+                }
             } else {
                 artwork
             }
