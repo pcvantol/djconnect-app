@@ -4888,18 +4888,18 @@ private struct DJConnectWatchCompanionPages: View {
                         .contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityLabel(text(model.playback?.isPlaying == true ? "watch.pause" : "watch.play"))
             }
-            Button {
-                destination = .voice(context)
-            } label: {
-                ZStack(alignment: .bottomTrailing) {
-                    DJConnectWatchGlassBrandIcon(size: Self.avatarSize)
-                    Image(systemName: heldVoice != nil && model.voiceState == .recording ? "stop.fill" : "mic.fill")
-                        .font(.caption2).padding(3).background(.regularMaterial, in: Circle())
-                }.frame(minWidth: 44, minHeight: 44)
+            ZStack(alignment: .bottomTrailing) {
+                DJConnectWatchGlassBrandIcon(size: Self.avatarSize)
+                Image(systemName: heldVoice != nil && model.voiceState == .recording ? "stop.fill" : "mic.fill")
+                    .font(.caption2).padding(3).background(.regularMaterial, in: Circle())
             }
-            .buttonStyle(.plain)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+            .gesture(holdToSpeak.exclusively(before: TapGesture().onEnded { openVoiceComposer() }))
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(text("watch.v2.speak"))
-            .highPriorityGesture(holdToSpeak)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { openVoiceComposer() }
             .onChange(of: holdingVoice) { _, holding in
                 guard !holding, let generation = heldVoice?.generation else { return }
                 // A completed gesture gets first chance to finish. A cancelled
@@ -4919,6 +4919,11 @@ private struct DJConnectWatchCompanionPages: View {
                 }.buttonStyle(.plain).accessibilityLabel(text("watch.next.track"))
             }
         }
+    }
+
+    private func openVoiceComposer() {
+        guard page == 0, flowPosition == 0, destination == nil else { return }
+        destination = .voice(context)
     }
 
     private var holdToSpeak: some Gesture {
