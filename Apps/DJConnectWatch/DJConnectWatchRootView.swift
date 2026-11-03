@@ -5689,7 +5689,7 @@ private struct DJConnectWatchCompanionSoundView: View {
                 .accessibilityLabel(watchLocalizedKey(model.language, "watch.volume"))
                 .listRowBackground(Color.clear)
             NavigationLink { DJConnectWatchOutputsView() } label: {
-                Text(watchLocalizedKey(model.language, "watch.output"))
+                Label(watchLocalizedKey(model.language, "watch.output"), systemImage: "speaker.wave.2")
             }
         }
         .listStyle(.plain)
