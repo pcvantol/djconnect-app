@@ -4679,6 +4679,7 @@ private struct DJConnectWatchCompanionPages: View {
     @State private var flowOwner: String?
     @State private var flowSessionID: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @FocusState private var crownFocused: Bool
     @State private var flowPosition = 0.0
     @State private var crownPosition = 0.0
@@ -4952,7 +4953,8 @@ private struct DJConnectWatchCompanionPages: View {
     }
 
     private var crownHome: some View {
-        TimelineView(.explicit([Date()] + (flowRows ?? []).map(\.expiresAt).sorted())) { _ in
+        let acceptsCrown = page == 0 && destination == nil && scenePhase == .active && !currentFlowRows.isEmpty
+        return TimelineView(.explicit([Date()] + (flowRows ?? []).map(\.expiresAt).sorted())) { _ in
             let rows = currentFlowRows
             let index = min(Int(flowPosition.rounded()), rows.count)
             let canScroll = page == 0 && destination == nil && !rows.isEmpty
@@ -4970,15 +4972,6 @@ private struct DJConnectWatchCompanionPages: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .focusable(canScroll)
-            .focused($crownFocused)
-            .digitalCrownRotation(
-                $crownPosition, from: 0, through: Double(max(1, rows.count)), by: 1,
-                sensitivity: .medium, isContinuous: false, isHapticFeedbackEnabled: false
-            )
-            .onChange(of: crownPosition) { _, value in
-                if canScroll { moveFlow(to: value, count: rows.count) }
-            }
             .onChange(of: flowPosition) { _, value in
                 if crownPosition.rounded() != value { crownPosition = value }
             }
@@ -4990,10 +4983,6 @@ private struct DJConnectWatchCompanionPages: View {
                 flowSwipe(index: index, count: rows.count),
                 including: canScroll && index == 0 ? .all : .none
             )
-            .onChange(of: canScroll, initial: true) { _, enabled in crownFocused = enabled }
-            .onChange(of: index) { _, _ in
-                if canScroll && !crownFocused { crownFocused = true }
-            }
             .onChange(of: rows.map(\.id)) { old, new in
                 if let unseenFlowID, !new.contains(unseenFlowID) { self.unseenFlowID = nil }
                 let previous = Int(flowPosition.rounded())
@@ -5014,6 +5003,23 @@ private struct DJConnectWatchCompanionPages: View {
                 @unknown default: break
                 }
             }
+        }
+        // Keep the Crown's focus target outside the timeline and card transitions.
+        .focusable()
+        .focused($crownFocused)
+        .digitalCrownRotation(
+            $crownPosition, from: 0, through: Double(max(1, currentFlowRows.count)), by: 1,
+            sensitivity: .medium, isContinuous: false, isHapticFeedbackEnabled: false
+        )
+        .onChange(of: crownPosition) { _, value in
+            if acceptsCrown { moveFlow(to: value, count: currentFlowRows.count) }
+        }
+        .defaultFocus($crownFocused, acceptsCrown)
+        .task(id: acceptsCrown) {
+            guard acceptsCrown else { crownFocused = false; return }
+            // Tab and navigation focus settle after the page becomes visible.
+            do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            crownFocused = true
         }
     }
 
