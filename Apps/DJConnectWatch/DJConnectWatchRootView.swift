@@ -4725,7 +4725,7 @@ private struct DJConnectWatchCompanionPages: View {
                     let translation = drag.translation
                     if abs(translation.height) > abs(translation.width) {
                         moveFlowFromSwipe(vertical: translation.height)
-                    } else if translation.width >= 16 {
+                    } else if translation.width <= -16 {
                         openFlowRow(row)
                     }
                 },
