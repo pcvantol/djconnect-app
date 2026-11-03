@@ -4903,7 +4903,6 @@ private struct DJConnectWatchCompanionPages: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
             .focusable(canScroll)
             .focused($crownFocused)
             .digitalCrownRotation(
