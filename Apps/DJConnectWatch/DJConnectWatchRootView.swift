@@ -4812,26 +4812,20 @@ private struct DJConnectWatchCompanionPages: View {
     @ViewBuilder private var homeHeading: some View {
         if session != nil {
             NavigationLink { DJConnectWatchCompanionTrackView(playback: model.playback, context: context, binding: snapshot?.settings.binding) } label: {
-                    HStack(spacing: 5) {
-                        if !dynamicTypeSize.isAccessibilitySize {
-                            DJConnectWatchArtwork(url: model.playback?.albumImageURL, fallbackSystemImage: "music.note")
-                                .frame(width: 24, height: 24)
-                        }
-                        VStack(alignment: .leading, spacing: 1) {
-                            let title = model.playback?.trackName ?? "DJConnect"
-                            DJConnectWatchScrollingTitle(title: title)
-                                .font(.caption.weight(.semibold))
-                                .id(title)
-                            if let artist = model.playback?.artistName {
-                                Text(artist)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }.buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 1) {
+                let title = model.playback?.trackName ?? "DJConnect"
+                DJConnectWatchScrollingTitle(title: title)
+                    .font(.caption.weight(.semibold))
+                    .id(title)
+                if let artist = model.playback?.artistName {
+                    Text(artist)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                }
+            }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }.buttonStyle(.plain)
         } else {
             Text(text("watch.v2.ask.prompt")).font(.caption).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
         }
