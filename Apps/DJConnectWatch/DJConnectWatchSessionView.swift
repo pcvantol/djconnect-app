@@ -205,7 +205,7 @@ private struct DJConnectWatchSharedDJSettingsView: View {
                         (voiceTag(.init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: item.voice_id)), item.name)
                     }
                     choiceLink(title: text("ui.dj_settings.voice"), values: voiceChoices, selected: voiceTag(voice),
-                               unavailableTitle: text("ui.dj_settings.selection_unavailable")) { tag in
+                               unavailableTitle: text("ui.dj_settings.selection_unavailable"), field: "voice") { tag in
                         if tag == "default" { choose(.init(voice: .init())) }
                         else if let item = availableVoices.first(where: {
                             voiceTag(.init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: $0.voice_id)) == tag
@@ -277,7 +277,7 @@ private struct DJConnectWatchSharedDJSettingsView: View {
         } label: {
             HStack(spacing: 10) {
                 LabeledContent(title, value: values.first { $0.0 == selected }?.1 ?? unavailableTitle)
-                if let field, ["mood", "presence", "persona", "output"].contains(field) {
+                if let field, ["mood", "presence", "persona", "output", "voice"].contains(field) {
                     selectedIcon(field: field, value: selected)
                         .frame(width: 22)
                         .accessibilityHidden(true)
@@ -306,6 +306,9 @@ private struct DJConnectWatchSharedDJSettingsView: View {
             if let output = DJAnnouncementOutput(rawValue: value) {
                 Image(systemName: output.watchIcon).foregroundStyle(.purple)
             }
+        case "voice":
+            Image(systemName: value == "default" ? "waveform" : "mic.fill")
+                .foregroundStyle(.purple)
         default:
             EmptyView()
         }
