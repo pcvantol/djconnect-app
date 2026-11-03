@@ -15035,6 +15035,8 @@ public final class DJConnectAppModel: ObservableObject {
             registerWatchProxy(message)
         case "watch_proxy_ha_request":
             handleWatchProxyHARequest(message)
+        case "watch_proxy_voice_chunk":
+            handleWatchVoiceChunk(message)
         default:
             break
         }
@@ -15415,6 +15417,39 @@ public final class DJConnectAppModel: ObservableObject {
         ])
     }
 
+    private let watchVoiceAssembly = DJConnectWatchVoiceAssembly()
+    private var watchVoiceAssemblyOwner: String? {
+        guard let registration = watchProxyRegistration,
+              let token = defaults.string(forKey: watchProxyDeviceTokenKey), !token.isEmpty else { return nil }
+        // In-memory custody only; never encoded, persisted or logged.
+        return registration.identity.deviceID + "|" + token + "|" + localHomeAssistantURL()
+    }
+    private func handleWatchVoiceChunk(_ message: [String: Any]) {
+        let correlationID = message["correlation_id"] as? String
+        do {
+            let owner = watchVoiceAssemblyOwner
+            watchVoiceAssembly.bind(owner: owner)
+            guard owner != nil, let id = message["operation_id"] as? String,
+                  let header = message["header"] as? Data, let bytes = message["bytes"] as? Data,
+                  let sequence = message["sequence"] as? Int,
+                  let index = message["index"] as? Int, let total = message["total"] as? Int else { throw DJConnectError.invalidResponse }
+            guard let payload = try watchVoiceAssembly.receive(id: id, sequence: sequence, header: header, index: index, total: total, bytes: bytes) else {
+                sendWatchProxyHAResponse(.init(success: true, payload: try JSONEncoder().encode(true)), correlationID: correlationID)
+                return
+            }
+            Task { @MainActor in
+                guard watchVoiceAssemblyOwner == owner else {
+                    sendWatchProxyHAResponse(.init(success: false, error: "outcome_unknown"), correlationID: correlationID); return
+                }
+                let request = DJConnectWatchProxyRequest(operation: .voice, payload: try? JSONEncoder().encode(payload))
+                let response = await performWatchProxyHARequest(request)
+                sendWatchProxyHAResponse(response, correlationID: correlationID)
+            }
+        } catch {
+            sendWatchProxyHAResponse(.init(success: false, error: "bad_request"), correlationID: correlationID)
+        }
+    }
+
     private func handleWatchProxyHARequest(_ message: [String: Any]) {
         guard let requestData = message["request"] as? Data, requestData.count < 42_000,
               let request = try? JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: requestData) else {
@@ -15441,7 +15476,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             let encoded = try await withWatchProxyHomeAssistantClient(identity: registration.identity, token: token,
                 allowsOperationReplay: !request.isAskDJTextSubmission && request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech &&
-                    request.operation != .startSession && request.operation != .endSession) { client in
+                    request.operation != .startSession && request.operation != .endSession && request.operation != .voice) { client in
                 try await self.performWatchProxyOperation(request, client: client)
             }
             guard encoded.count < 42_000 else { throw DJConnectError.payloadTooLarge(limitBytes: 42_000, actualBytes: encoded.count) }
@@ -15488,23 +15523,16 @@ public final class DJConnectAppModel: ObservableObject {
                 settings: { try await client.profileDJSettings() },
                 session: { try await client.activeSession() })
             return try encoder.encode(value)
-        case .startSession, .endSession:
+        case .startSession:
+            // Keep decoding legacy packets, but never let a Watch create a Session.
+            throw DJConnectError.invalidResponse
+        case .endSession:
             let intent = try decoder.decode(DJConnectWatchSessionAction.self, from: request.payload ?? Data())
-            guard (request.operation == .startSession) == (intent.sessionID == nil) else {
-                throw DJConnectError.invalidResponse
-            }
+            guard let sessionID = intent.sessionID else { throw DJConnectError.invalidResponse }
             try await intent.perform(settings: { try await client.profileDJSettings() },
-                session: { try await client.activeSession() }, write: { original in
-                    let response: DJConnectSessionResponse
-                    if let sessionID = original.sessionID {
-                        response = try await client.endSession(.init(sessionID: sessionID))
-                    } else {
-                        response = try await client.startSession(.init(mood: original.mood, language: original.language))
-                    }
-                    return response.success
+                session: { try await client.activeSession() }, write: { _ in
+                    try await client.endSession(.init(sessionID: sessionID)).success
                 })
-            // Session responses may contain a large broadcast. Only acknowledge
-            // the write; the Watch obtains its compact projection through GET.
             return try encoder.encode(true)
         case .profileDJSettings:
             return try encoder.encode(try await client.profileDJSettings())
@@ -15524,6 +15552,12 @@ public final class DJConnectAppModel: ObservableObject {
             return try encoder.encode(response)
         case .trackInsight:
             let payload = try decoder.decode(DJConnectTrackInsightRequest.self, from: request.payload ?? Data())
+            if let selection = payload.trackInsightSubject {
+                guard selection.isValid, let detail = try await client.currentTrackInsight(payload) else {
+                    throw DJConnectError.trackInsightUnavailable(code: nil, message: nil)
+                }
+                return try encoder.encode(detail)
+            }
             let response = try await client.trackInsight(payload)
             return try encoder.encode(response)
         case .askDJHistory:
@@ -15536,6 +15570,10 @@ public final class DJConnectAppModel: ObservableObject {
         case .askDJMessage:
             var payload = try decoder.decode(DJConnectAskDJRequest.self, from: request.payload ?? Data())
             payload.audioResponse = .never // legacy Watch text has no negotiated deferred speech grant
+            if payload.conversationContext != nil {
+                let response = try await client.sendSessionConversation(payload)
+                return try encoder.encode(response.base)
+            }
             let response = try await client.sendAskDJMessage(payload)
             return try encoder.encode(response)
         case .askDJIdleSuggestion:
@@ -15595,6 +15633,16 @@ public final class DJConnectAppModel: ObservableObject {
                   defaults.string(forKey: watchProxyDeviceTokenKey) == watchToken,
                   defaults.string(forKey: haInstallIDKey) == install,
                   availability?.allowsHAInput(locale: locale) == true else { throw DJConnectError.invalidResponse }
+            if let context = payload.conversationContext {
+                guard let operationID = payload.clientMessageID, !operationID.isEmpty,
+                      context.selectedMoment == nil else { throw DJConnectError.invalidResponse }
+                let response = try await client.sendSessionVoice(wavData: payload.wavData, context: context,
+                    clientMessageID: operationID, language: locale, mood: payload.mood,
+                    djStyle: payload.djStyle, musicDNAKey: payload.musicDNAKey)
+                var original = response.base
+                original.text = response.base.assistantMessage?.text ?? response.base.djText ?? response.base.text
+                return try encoder.encode(original)
+            }
             let response = try await client.sendVoice(
                 wavData: payload.wavData,
                 mood: payload.mood,

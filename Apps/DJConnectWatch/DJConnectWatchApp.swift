@@ -1,5 +1,8 @@
+import AVFoundation
 import SwiftUI
 import WatchKit
+import UserNotifications
+import DJConnectCore
 
 @main
 struct DJConnectWatchApp: App {
@@ -11,6 +14,12 @@ struct DJConnectWatchApp: App {
             DJConnectWatchRootView()
                 .environmentObject(model)
                 .djConnectGlassPreferences()
+                .onOpenURL { model.openWatchHome(from: $0) }
+                .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { notification in
+                    guard let type = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                          type == AVAudioSession.InterruptionType.began.rawValue else { return }
+                    model.interruptWatchQuestionRecording()
+                }
                 .onAppear {
                     applicationDelegate.model = model
                 }
@@ -28,8 +37,27 @@ struct DJConnectWatchApp: App {
     }
 }
 
-final class DJConnectWatchApplicationDelegate: NSObject, WKApplicationDelegate {
-    weak var model: DJConnectWatchModel?
+final class DJConnectWatchApplicationDelegate: NSObject, WKApplicationDelegate, UNUserNotificationCenterDelegate {
+    weak var model: DJConnectWatchModel? {
+        didSet { if let pendingOpen { model?.openWatchMoment(pendingOpen); self.pendingOpen = nil } }
+    }
+    private var pendingOpen: DJConnectWatchMomentOpenIntent?
+    func applicationDidFinishLaunching() { UNUserNotificationCenter.current().delegate = self }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        // Dismiss/custom actions, silent wakes and other token families cannot
+        // trigger navigation. Decode before crossing the actor boundary.
+        let intent = response.actionIdentifier == UNNotificationDefaultActionIdentifier
+            ? try? DJConnectWatchMomentOpenIntent(notification: response.notification.request.content.userInfo) : nil
+        Task { @MainActor in
+            if let intent {
+                if let model = self.model { model.openWatchMoment(intent) }
+                else { self.pendingOpen = intent }
+            }
+        }
+        completionHandler()
+    }
 
     func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {
         model?.handleRemoteNotificationDeviceToken(deviceToken)

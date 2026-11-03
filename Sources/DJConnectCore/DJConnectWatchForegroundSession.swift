@@ -83,6 +83,7 @@ public struct DJConnectWatchSessionAction: Codable, Sendable {
     @MainActor public func perform(settings: () async throws -> DJConnectProfileDJSettingsResponse,
                                    session: () async throws -> DJConnectSessionResponse,
                                    write: (Self) async throws -> Bool) async throws {
+        guard sessionID != nil else { throw DJConnectError.invalidResponse } // Watch never starts a Session.
         let current = try await DJConnectWatchSessionSnapshot.read(settings: settings, session: session)
         guard matches(current) else { throw DJConnectError.invalidResponse }
         try Task.checkCancellation()
@@ -192,9 +193,9 @@ public struct DJConnectWatchSettingsReceipt: Codable, Sendable {
                        write: (DJConnectWatchSessionAction) async throws -> Void,
                        read: () async throws -> DJConnectWatchSessionSnapshot) async {
         guard !isChanging, !outcomeUnknown, !isRefreshing, let current = current(),
-              !current.settings.requiresSelection else { return }
+              current.session != nil, !current.settings.requiresSelection else { return }
         let epoch = generation
-        expectedActive = current.session == nil; isChanging = true
+        expectedActive = false; isChanging = true
         do { try await write(.init(snapshot: current, language: language)) }
         catch { /* A transport failure does not prove that the write failed. */ }
         guard epoch == generation, active else { return }

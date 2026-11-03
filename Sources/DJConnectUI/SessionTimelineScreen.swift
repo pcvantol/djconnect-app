@@ -115,6 +115,11 @@ struct SavedSessionsView: View {
         guard !searchQuery.isEmpty else { return history.sessions }
         return history.archiveSearchQuery == searchQuery ? history.archiveSearchSessions : []
     }
+    private var selectedSearchSessionID: String? {
+        let sessions = filteredSessions
+        guard isSearchVisible, !searchQuery.isEmpty, sessions.indices.contains(selectedSearchIndex) else { return nil }
+        return sessions[selectedSearchIndex].id
+    }
     private func closeSearch() {
         isSearchFocused = false
         searchText = ""
@@ -184,7 +189,9 @@ struct SavedSessionsView: View {
                         .listRowBackground(Color.clear).listRowSeparator(.hidden)
                         .accessibilityIdentifier("saved-sessions-refresh-error")
                     }
+                    let selectedSessionID = selectedSearchSessionID
                     ForEach(filteredSessions) { session in
+                        let isSelectedMatch = session.id == selectedSessionID
                         Button {
                             isSearchFocused = false
                             openedSession.wrappedValue = SavedSessionDestination(
@@ -195,6 +202,14 @@ struct SavedSessionsView: View {
                                 .equatable()
                         }
                         .buttonStyle(DJConnectMediaRowButtonStyle())
+                        .overlay {
+                            if isSelectedMatch {
+                                RoundedRectangle(cornerRadius: DJConnectMediaRowSurface.cornerRadius, style: .continuous)
+                                    .stroke(DJConnectCardAppearance.searchFocusGradient, lineWidth: DJConnectCardAppearance.searchFocusWidth)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                        .accessibilityAddTraits(isSelectedMatch ? [.isSelected] : [])
                         .accessibilityIdentifier("saved-session-" + session.id)
                         .id(session.id)
                         .frame(maxWidth: rowMaxWidth, alignment: .leading).frame(maxWidth: .infinity)
@@ -699,6 +714,12 @@ struct SessionTimelineScreen: View {
                         .modifier(ContentRemovalAnimation(history: history))
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
                         .padding(.top, activeSession != nil ? 0 : archivedTopPadding).padding(.bottom, 20)
+                        #if os(iOS)
+                        .simultaneousGesture(
+                            TapGesture().onEnded { searchFocused = false },
+                            including: activeSession == nil && searchFocused ? .all : .none
+                        )
+                        #endif
                         .scrollTargetLayout()
                         // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
@@ -706,6 +727,9 @@ struct SessionTimelineScreen: View {
                         // the toolbar; reserve live refractive glass for controls.
                         .environment(\.djConnectScrollingSurface, true)
                     }
+                    #if os(iOS)
+                    .scrollDismissesKeyboard(searchFocused ? .interactively : .automatic)
+                    #endif
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
                             if activeSession == nil && history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback {
@@ -960,8 +984,13 @@ struct SessionTimelineScreen: View {
                     // Keep preparation and row publication out of the push animation.
                     do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
                 }
-                await history.restoreVisibleTimeline(sessionID, active: activeSession != nil, anchor: nil,
-                    searchQuery: filtersTimeline ? query : nil)
+                if activeSession == nil, filtersTimeline {
+                    // Search results are separate from the regular timeline.
+                    // Load both so closing an inherited filter can reveal the session.
+                    await history.restoreVisibleTimeline(sessionID, active: false, anchor: nil, searchQuery: query)
+                    guard !Task.isCancelled else { return }
+                }
+                await history.restoreVisibleTimeline(sessionID, active: activeSession != nil, anchor: nil)
                 guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
                 if filtersTimeline { return }
                 if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
@@ -1491,7 +1520,12 @@ struct SessionTimelineScreen: View {
                            closeAction: {
                                closeSearch(proxy: proxy)
                            },
-                           submitAction: { moveMatch(1, proxy: proxy) })
+                           submitAction: {
+                               #if os(iOS)
+                               searchFocused = false
+                               #endif
+                               moveMatch(1, proxy: proxy)
+                           })
             }
             if let key = history.searchErrorKey {
                 Text(text(key))

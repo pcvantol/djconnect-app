@@ -125,6 +125,10 @@ final class DJConnectIOSUITests: XCTestCase {
             XCTAssertTrue(app.descendants(matching: .any)["session-entry-demo-evening-entry-1"].firstMatch.waitForExistence(timeout: 5))
             XCTAssertFalse(app.descendants(matching: .any)["session-entry-demo-evening-entry-2"].firstMatch.exists)
         }
+        app.buttons["Zoeken sluiten"].firstMatch.tap()
+        XCTAssertTrue(sessionSearch.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["session-entry-demo-evening-entry-2"].firstMatch.waitForExistence(timeout: 5),
+                      "Closing inherited search restores entries outside the filter")
     }
 
     private struct ScreenshotScreen {
@@ -2064,12 +2068,16 @@ extension DJConnectIOSUITests {
         let search = app.textFields["session-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         XCTAssertEqual(search.placeholderValue, "Zoek in deze sessie")
-        XCTAssertFalse(input.exists, "Searching hides the composer completely")
-        search.typeText("groove\n")
+        search.typeText("groove")
+        XCTAssertTrue(input.waitForNonExistence(timeout: 5), "Filtering hides the composer")
+        search.typeText("\n")
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        search.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "iphone-floating-composer-session-search"; shot.lifetime = .keepAlways; add(shot)
         app.buttons["Zoeken sluiten"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         XCTAssertTrue(input.waitForExistence(timeout: 5))
     }
 

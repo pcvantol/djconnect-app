@@ -69,21 +69,15 @@ struct DJConnectWatchSessionView: View {
                             Label(confirmation, systemImage: "sparkles").font(.callout)
                         }
                     }
-                    if !snapshot.settings.requiresSelection {
-                        Button(role: snapshot.session == nil ? nil : .destructive) {
-                            if snapshot.session == nil { Task { await model.changeForegroundSession() } }
-                            else { endingSessionID = snapshot.session?.id; confirmsEnd = true }
+                    if let session = snapshot.session, !snapshot.settings.requiresSelection {
+                        Button(role: .destructive) {
+                            endingSessionID = session.id; confirmsEnd = true
                         } label: {
-                            Label {
-                                Text(text(snapshot.session == nil ? "ui.session.start" : "ui.session.end"))
-                            } icon: {
-                                Image(systemName: snapshot.session == nil ? "play.fill" : "stop.fill")
-                                    .foregroundStyle(snapshot.session == nil ? Color.primary : Color(red: 0.84, green: 0.22, blue: 0.96))
-                            }
+                            Label(text("ui.session.end"), systemImage: "stop.fill")
                         }
                         .disabled(state.isChanging || state.isRefreshing || state.outcomeUnknown || settings.hasUncertainOperation)
-                        .accessibilityIdentifier(snapshot.session == nil ? "watch-session-start" : "watch-session-end")
-                    } else { Text(text("ui.dj_settings.review_choices")).font(.caption) }
+                        .accessibilityIdentifier("watch-session-end")
+                    }
                     if snapshot.settings.allowsSpeech(.local) {
                         NavigationLink {
                             DJConnectWatchSessionSpeechSettingsView()
@@ -269,7 +263,7 @@ private struct DJConnectWatchSharedDJSettingsView: View {
     }
 }
 
-private struct DJConnectWatchSessionSpeechSettingsView: View {
+struct DJConnectWatchSessionSpeechSettingsView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     var body: some View {
         ScrollView {

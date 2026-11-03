@@ -504,6 +504,7 @@
 		C2F31C0F4860EC860D73445B /* NativeSessionMomentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8559C062E8B01097AFFB103A /* NativeSessionMomentsView.swift */; };
 		C33C265498D17D9D1EF0DBEF /* SessionSpeechContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BF69FA52F132D5D80E3FDF8 /* SessionSpeechContractTests.swift */; };
 		C36BA68C62A6AF9F69820651 /* RendezvousNativeRunGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEFC436CF4FE607EEAA53086 /* RendezvousNativeRunGate.swift */; };
+		C4177A225FD7A7AE2E345886 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */; };
 		C44F11B0B828A67CE4F83F34 /* AskDJCatalogueViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E53B00A4F8A82C75934D455 /* AskDJCatalogueViews.swift */; };
 		C49A3883CD063A048112871F /* PersonaReactionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A09632C93D839766384CA4 /* PersonaReactionController.swift */; };
 		C50821E77FD4001AAB9C70DE /* rendezvous-fixed-qa-api-3b43332.json in Resources */ = {isa = PBXBuildFile; fileRef = 52ACC307FF0CE77C7E860B82 /* rendezvous-fixed-qa-api-3b43332.json */; };
@@ -2344,6 +2345,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4177A225FD7A7AE2E345886 /* Assets.xcassets in Resources */,
 				30511F254DD0BBF8DBDA8618 /* InfoPlist.strings in Resources */,
 				761936DE154AC9191A6AD73C /* JOSESwift-LICENSE.txt in Resources */,
 				2329BAE9585FE20E43B8CED8 /* Localizable.strings in Resources */,

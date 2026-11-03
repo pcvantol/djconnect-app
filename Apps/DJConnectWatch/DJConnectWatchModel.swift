@@ -464,8 +464,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private let lastPushErrorKey = "DJConnectWatchLastPushError"
     private let maxDiagnosticLogLines = 80
     private let maxInteractiveWatchProxyRequestBytes = 55_000
-    private let maxWatchVoiceWAVBytes = 32_000
-    private let maxWatchVoiceRecordingDuration: TimeInterval = 4
+    private let maxWatchVoiceWAVBytes = 200_000
+    private let maxWatchVoiceRecordingDuration: TimeInterval = 6
     private let tokenStore = DJConnectUserDefaultsTokenStore(key: "DJConnectWatchDeviceToken")
     private let monkeyTestingMode: Bool
     private var networkMonitor: NWPathMonitor?
@@ -953,10 +953,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     func changeForegroundSession(expectedSessionID: String? = nil) async {
         guard isAppForeground, canUseBackend, !isDemoMode,
               !profileDJSettings.hasUncertainOperation,
-              let current = foregroundSession.current(), current.session?.id == expectedSessionID else { return }
+              let expectedSessionID, let current = foregroundSession.current(),
+              current.session?.id == expectedSessionID else { return }
         sessionSpeech.stop()
         await foregroundSession.change(language: language, write: { [unowned self] intent in
-            let _: Bool = try await sendCompanionHARequest(intent.sessionID == nil ? .startSession : .endSession,
+            let _: Bool = try await sendCompanionHARequest(.endSession,
                                                           payload: intent)
         }, read: { [unowned self] in try await sendCompanionHARequest(.foregroundSession) })
         await refreshForegroundSession(force: true)
@@ -1453,6 +1454,26 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    func loadRecordingInsight(_ recording: String, binding: String) async -> TrackInsight? {
+        guard DJConnectCurrentInsightSubject.isRecordingURI(recording), playback?.uri == recording,
+              canUseBackend, isAppForeground, !isDemoMode,
+              foregroundSession.current()?.settings.binding == binding else { return nil }
+        let owner = stableInstallID
+        let requestedAt = Date()
+        var request = DJConnectTrackInsightRequest(clientType: identity.clientType.rawValue,
+                                                  locale: language, mood: backendMoodHint)
+        request.trackInsightSubject = .init()
+        do {
+            let detail: DJConnectCurrentInsightDetail = try await sendCompanionHARequest(.trackInsight, payload: request)
+            guard !Task.isCancelled, canUseBackend, isAppForeground, stableInstallID == owner,
+                  foregroundSession.current()?.settings.binding == binding,
+                  detail.subject.deadline(recording: recording, requestedAt: requestedAt, at: Date()) != nil else { return nil }
+            return detail.insight
+        } catch {
+            return nil
+        }
+    }
+
     func refreshTrackInsight() async {
         guard !isRefreshingTrackInsight else {
             return
@@ -1818,7 +1839,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: "set_output",
                     value: .string(output.id),
-                    play: true,
+                    play: playback?.isPlaying == true,
                     language: currentRequestLocale,
                     mood: backendMoodHint
                 )
@@ -1925,11 +1946,133 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    // Only an explicit notification tap is retained. This is opaque navigation
+    // intent, not text, bearer, admission or permission to speak/start playback.
+    @Published var watchMomentNotificationsEnabled = UserDefaults.standard.bool(forKey: "watch.moment.notifications.v1") {
+        didSet {
+            guard oldValue != watchMomentNotificationsEnabled else { return }
+            UserDefaults.standard.set(watchMomentNotificationsEnabled, forKey: "watch.moment.notifications.v1")
+            watchMomentNotificationPreferenceConfirmed = false
+            UserDefaults.standard.removeObject(forKey: registeredPushSignatureKey)
+            registerStoredPushTokenIfPossible()
+        }
+    }
+    @Published private(set) var watchMomentNotificationPreferenceConfirmed = false
+    private var pushRegistrationTask: Task<Void, Never>?
+    private var watchNotificationCategories: [String] {
+        DJConnectPushRegistrationRequest.defaultNotificationCategories + (watchMomentNotificationsEnabled ? ["dj_moments_v1"] : [])
+    }
+    func requestWatchNotificationPermission() {
+        Task { @MainActor in
+            if await requestAskDJNotificationAuthorization(center: .current()) { registerStoredPushTokenIfPossible() }
+        }
+    }
+
+    @Published private(set) var watchHomeOpenSequence = 0
+    func openWatchHome(from url: URL) {
+        guard ["djconnect://", "djconnect://watch/ask-dj"].contains(url.absoluteString) else { return }
+        watchHomeOpenSequence &+= 1
+    }
+    @Published private(set) var watchMomentOpenIntent: DJConnectWatchMomentOpenIntent? = {
+        guard let data = UserDefaults.standard.data(forKey: "watch.moment.open.intent.v1"),
+              let intent = try? JSONDecoder().decode(DJConnectWatchMomentOpenIntent.self, from: data),
+              intent.isPending() else { return nil }
+        return intent
+    }()
+    func openWatchMoment(_ intent: DJConnectWatchMomentOpenIntent) {
+        guard intent.isPending() else { return }
+        watchMomentOpenIntent = intent
+        UserDefaults.standard.set(try? JSONEncoder().encode(intent), forKey: "watch.moment.open.intent.v1")
+    }
+    func clearWatchMomentIntent() {
+        watchMomentOpenIntent = nil
+        UserDefaults.standard.removeObject(forKey: "watch.moment.open.intent.v1")
+    }
+
+    @Published private(set) var lastWatchTextReply: DJConnectWatchAskDJMessage?
+    @Published private(set) var watchTextPending = false
+    @Published private(set) var watchTextOutcomeUnknown = false
+    private var pendingWatchTextID: String?
+    private var pendingWatchTextOwner: String?
+    func checkWatchTextOutcome() async {
+        guard watchTextOutcomeUnknown, let id = pendingWatchTextID,
+              pendingWatchTextOwner == identity.deviceID else { return }
+        await syncAskDJHistory(showErrors: false) // Read only. Never repeat the POST.
+        guard pendingWatchTextOwner == identity.deviceID,
+              let reply = askDJMessages.first(where: { $0.clientMessageID == id && $0.role == .dj }) else { return }
+        lastWatchTextReply = reply; watchTextOutcomeUnknown = false
+    }
+    func beginNewWatchTextTurn() {
+        guard !watchTextPending else { return }
+        pendingWatchTextID = nil; pendingWatchTextOwner = nil
+        watchTextOutcomeUnknown = false; lastWatchTextReply = nil
+    }
+
+    /// One frozen explicit text turn. Failure is not permission for an automatic resend.
+    func sendWatchText(_ original: String, context: DJConnectConversationContext, expectedBinding: String?) async -> Bool {
+        let text = original.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canUseBackend, isAppForeground, !watchTextPending, !watchTextOutcomeUnknown,
+              !text.isEmpty, text.utf8.count <= 16_000 else { return false }
+        await refreshForegroundSession()
+        guard let current = foregroundSession.current(), let expectedBinding,
+              current.settings.binding == expectedBinding else { return false }
+        let owner = stableInstallID
+        let binding = current.settings.binding
+        let operationID = UUID().uuidString
+        var request = DJConnectAskDJRequest(identity: identity, text: text, clientMessageID: operationID,
+            inputType: "text", mood: backendMoodHint, djStyle: djStyle, musicDNAKey: musicDNAKey,
+            audioResponse: .never, djAnnouncementOutput: .clientDevice, language: currentRequestLocale)
+        request.conversationContext = context
+        pendingWatchTextID = operationID; pendingWatchTextOwner = identity.deviceID
+        watchTextPending = true
+        defer { watchTextPending = false }
+        appendAskDJMessage(role: .user, text: text)
+        do {
+            let response: DJConnectAskDJMessageResponse = try await sendCompanionHARequest(.askDJMessage, payload: request)
+            guard canUseBackend, isAppForeground, stableInstallID == owner,
+                  foregroundSession.current()?.settings.binding == binding else { return false }
+            applyAskDJMessageResponse(response)
+            let reply = response.assistantMessage?.text ?? response.djText ?? response.text
+            lastWatchTextReply = reply.map { DJConnectWatchAskDJMessage(role: .dj, text: $0) }
+            return true
+        } catch {
+            watchTextOutcomeUnknown = true
+            showAskDJToast(Self.askDJToastText(for: error))
+            return false
+        }
+    }
+
+    private var watchRecordingGeneration = UUID()
+    private var watchRecordingContext: DJConnectConversationContext?
+    private var watchRecordingOwner: String?
+    private var watchRecordingOperation: DJConnectWatchVoiceOperation?
+    func toggleWatchQuestionRecording(context: DJConnectConversationContext) {
+        if voiceState == .recording { stopRecordingAndSend(); return }
+        guard voiceState != .processing, foregroundSession.current() != nil else { return }
+        watchRecordingGeneration = UUID()
+        watchRecordingContext = context
+        watchRecordingOwner = stableInstallID
+        toggleRecording()
+    }
+
+    func cancelWatchQuestionRecording() { cancelRecording(reason: "Watch question cancelled") }
+
+    func interruptWatchQuestionRecording() {
+        guard voiceState == .recording else { return }
+        cancelRecording(reason: DJConnectLocalization.localized(key: "watch.v2.recording_interrupted", language: language))
+    }
+
     func toggleRecording() {
         switch voiceState {
         case .recording:
             stopRecordingAndSend()
         case .idle, .failed:
+            if watchRecordingContext == nil {
+                guard let current = foregroundSession.current() else { return }
+                watchRecordingGeneration = UUID()
+                watchRecordingContext = .init(sessionID: current.session?.id)
+                watchRecordingOwner = stableInstallID
+            }
             startRecording()
         case .processing:
             break
@@ -1937,6 +2080,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func resetPairing() {
+        cancelWatchQuestionRecording()
         foregroundSession.bind(owner: nil, active: false)
         profileDJSettings.bind(owner: nil, active: false)
         companionRequests.cancelAll()
@@ -3302,6 +3446,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func startRecording() {
+        stopAskDJAudio()
+        sessionSpeech.stop()
         cancelVoiceActivationScheduledTasks()
         stopVoiceActivationListening(status: .paused)
         if isDemoMode {
@@ -3319,8 +3465,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         shouldBypassMicrophonePermissionExplanationOnce = false
+        let generation = watchRecordingGeneration
+        let owner = identity.deviceID
         Task {
             let granted = await requestMicrophoneAccess()
+            guard generation == watchRecordingGeneration, isAppForeground, canUseBackend, identity.deviceID == owner else { return }
             guard granted else {
                 voiceState = .failed("Microfoontoegang is nodig.")
                 updateVoiceActivationListening()
@@ -3338,13 +3487,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     .appendingPathExtension("wav")
                 let settings: [String: Any] = [
                     AVFormatIDKey: Int(kAudioFormatLinearPCM),
-                    AVSampleRateKey: 8_000,
+                    AVSampleRateKey: 16_000,
                     AVNumberOfChannelsKey: 1,
-                    AVLinearPCMBitDepthKey: 8,
+                    AVLinearPCMBitDepthKey: 16,
                     AVLinearPCMIsFloatKey: false,
                     AVLinearPCMIsBigEndianKey: false
                 ]
                 let recorder = try AVAudioRecorder(url: url, settings: settings)
+                guard watchVoiceTransferSequence < Int.max else { throw DJConnectError.invalidResponse }
+                watchVoiceTransferSequence += 1
+                watchRecordingOperation = DJConnectWatchVoiceOperation(sequence: watchVoiceTransferSequence)
                 recorder.record(forDuration: maxWatchVoiceRecordingDuration)
                 self.recorder = recorder
                 self.recordingURL = url
@@ -3384,24 +3536,30 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func stopRecordingAndSend() {
+        guard voiceState == .recording else { return }
+        voiceState = .processing
+        statusMessage = "Verwerken..."
         recorder?.stop()
         recorder = nil
         let url = recordingURL
         recordingURL = nil
+        let originalContext = watchRecordingContext
+        let originalOwner = watchRecordingOwner
+        let originalOperation = watchRecordingOperation
+        let originalGeneration = watchRecordingGeneration
+        watchRecordingContext = nil; watchRecordingOwner = nil; watchRecordingOperation = nil
         playVoiceHaptic(.stopListening)
+        #if !targetEnvironment(simulator)
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
 
         Task {
-            await Task.yield()
-            voiceState = .processing
-            statusMessage = "Verwerken..."
             defer {
-                #if !targetEnvironment(simulator)
-                try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-                #endif
                 if let url {
                     try? FileManager.default.removeItem(at: url)
                 }
             }
+            guard originalGeneration == watchRecordingGeneration else { return }
             guard let url else {
                 voiceState = .idle
                 updateVoiceActivationListening()
@@ -3412,17 +3570,23 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     from: url,
                     maxBytes: maxWatchVoiceWAVBytes
                 )
+                guard originalGeneration == watchRecordingGeneration, isAppForeground, canUseBackend else { return }
+                guard let originalOperation else { throw DJConnectError.invalidResponse }
                 appendAskDJMessage(role: .user, text: "Stemverzoek")
-                let response: DJConnectVoiceResponse = try await sendCompanionHARequest(
-                    .voice,
-                    payload: DJConnectWatchProxyVoicePayload(
+                let response = try await sendWatchVoice(
+                    DJConnectWatchProxyVoicePayload(
                         wavData: data,
                         mood: backendMoodHint,
                         djStyle: djStyle,
                         musicDNAKey: musicDNAKey,
-                        language: currentRequestLocale
-                    )
+                        language: currentRequestLocale,
+                        conversationContext: originalContext
+                    ),
+                    operation: originalOperation,
+                    generation: originalGeneration
                 )
+                guard originalGeneration == watchRecordingGeneration,
+                      originalOwner == nil || (isAppForeground && canUseBackend && stableInstallID == originalOwner) else { return }
                 voiceState = .idle
                 statusMessage = response.djText ?? response.text ?? "DJ antwoord ontvangen"
                 responseImages = proxiedResponseImages(response.images)
@@ -3431,14 +3595,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     text: statusMessage,
                     images: responseImages,
                     links: safeResponseLinks(response.links),
-                    audioURL: resolvedAudioURL(response.audioURL)
+                    audioURL: originalContext == nil ? resolvedAudioURL(response.audioURL) : nil
                 )
                 notifyAskDJResponse(statusMessage)
-                await playVoiceResponse(response)
+                // A contextual reply is not a HA-audio grant or an autoplay
+                // choice. V2 source selection/leases require Core's handoff.
+                if originalContext == nil { await playVoiceResponse(response) }
                 await syncAskDJHistory(showErrors: false)
                 await refreshStatus(confirmAskDJBeat: true)
                 updateVoiceActivationListening()
             } catch {
+                guard originalGeneration == watchRecordingGeneration else { return }
                 voiceState = .failed(Self.userMessage(for: error))
                 showAskDJToast(Self.askDJToastText(for: error))
                 appendAskDJMessage(role: .dj, text: Self.userMessage(for: error))
@@ -3447,7 +3614,44 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    @AppStorage("watchVoiceTransferSequence") private var watchVoiceTransferSequence = 0
+
+    private func sendWatchVoice(
+        _ payload: DJConnectWatchProxyVoicePayload,
+        operation: DJConnectWatchVoiceOperation,
+        generation: UUID
+    ) async throws -> DJConnectVoiceResponse {
+        #if canImport(WatchConnectivity)
+        guard payload.conversationContext != nil, !payload.wavData.isEmpty,
+              payload.wavData.count <= DJConnectWatchVoiceAssembly.maximumBytes else { throw DJConnectError.invalidResponse }
+        let header = try operation.header(for: payload)
+        let size = DJConnectWatchVoiceAssembly.chunkBytes
+        let total = (payload.wavData.count + size - 1) / size
+        for index in 0..<total {
+            guard generation == watchRecordingGeneration, isAppForeground, canUseBackend,
+                  !Task.isCancelled, WCSession.default.isReachable else { throw CancellationError() }
+            let bytes = payload.wavData.subdata(in: (index * size)..<min((index + 1) * size, payload.wavData.count))
+            let final = index == total - 1
+            let response = await companionRequests.request(timeout: final ? .seconds(300) : .seconds(20)) { correlationID in
+                WCSession.default.sendMessage(["type": "watch_proxy_voice_chunk", "correlation_id": correlationID,
+                    "operation_id": operation.id, "sequence": operation.sequence, "header": header, "index": index, "total": total, "bytes": bytes], replyHandler: nil) { [weak self] _ in
+                    Task { @MainActor [weak self] in self?.companionRequests.complete(id: correlationID,
+                        response: .init(success: false, error: "outcome_unknown")) }
+                }
+            }
+            guard response.success, let data = response.payload else { throw DJConnectHybridTransportError.deliveryUnknown }
+            if final { return try JSONDecoder().decode(DJConnectVoiceResponse.self, from: data) }
+            guard (try? JSONDecoder().decode(Bool.self, from: data)) == true else { throw DJConnectError.invalidResponse }
+        }
+        #endif
+        throw DJConnectError.invalidResponse
+    }
+
     private func cancelRecording(reason: String) {
+        watchRecordingGeneration = UUID()
+        isShowingMicrophonePermissionExplanation = false
+        shouldBypassMicrophonePermissionExplanationOnce = false
+        watchRecordingContext = nil; watchRecordingOwner = nil; watchRecordingOperation = nil
         voiceActivationCaptureTask?.cancel()
         voiceActivationCaptureTask = nil
         recorder?.stop()
@@ -3702,10 +3906,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         UserDefaults.standard.removeObject(forKey: legacyPushTokenKey)
         let environment = Self.pushEnvironment
         let tokenHash = Self.pushTokenHash(token)
-        let appBundleID = Bundle.main.bundleIdentifier ?? "dev.djconnect.watch"
+        let appBundleID = Bundle.main.bundleIdentifier ?? "dev.djconnect.ios.watch"
         let locale = Locale.current.identifier
         let bootstrapProof: String? = nil
-        let categories = DJConnectPushRegistrationRequest.defaultNotificationCategories
+        let categories = watchNotificationCategories
         let registrationSignature = pushRegistrationSignature(
             pushToken: token,
             pushEnvironment: environment,
@@ -3717,9 +3921,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
            UserDefaults.standard.string(forKey: registeredPushEnvironmentKey) == environment.rawValue,
            UserDefaults.standard.string(forKey: registeredPushSignatureKey) == registrationSignature,
            UserDefaults.standard.bool(forKey: pushRegisteredKey) {
+            watchMomentNotificationPreferenceConfirmed = true
             return
         }
-        Task { @MainActor in
+        let previous = pushRegistrationTask
+        let originalDevice = identity.deviceID
+        let originalInstall = stableInstallID
+        pushRegistrationTask = Task { @MainActor in
+            await previous?.value
+            guard canUseBackend, stableInstallID == originalInstall, identity.deviceID == originalDevice,
+                  currentAPNsPushToken == token, watchNotificationCategories == categories else { return }
             do {
                 let authPresent = (try? tokenStore.loadToken())?.isEmpty == false
                 logPush("register payload endpoint=/api/djconnect/v1/push/register ha_host=\(Self.hostForLog(from: haBaseURL)) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(environment.rawValue) app_bundle_id=\(appBundleID) app_version=\(identity.appVersion ?? "<missing>") locale=\(locale) categories=\(categories) push_token_present=\(!token.isEmpty) token=\(DJConnectLogRedactor.redactSecret(token)) bootstrap_proof_present=\(bootstrapProof?.isEmpty == false) bootstrap_proof=\(DJConnectLogRedactor.redactSecret(bootstrapProof)) auth_present=\(authPresent)")
@@ -3736,6 +3947,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                         bootstrapProof: bootstrapProof
                     )
                 )
+                guard canUseBackend, stableInstallID == originalInstall, identity.deviceID == originalDevice,
+                      currentAPNsPushToken == token, watchNotificationCategories == categories else { return }
                 applyPushRegistrationStatus(from: response)
                 let responseError = Self.redactedPushFailureReason(response.lastPushError ?? response.error ?? "<missing>")
                 let responseEnvironment = response.pushEnvironment
@@ -3764,6 +3977,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 UserDefaults.standard.set(environment.rawValue, forKey: registeredPushEnvironmentKey)
                 UserDefaults.standard.set(registrationSignature, forKey: registeredPushSignatureKey)
                 UserDefaults.standard.set(true, forKey: pushRegisteredKey)
+                watchMomentNotificationPreferenceConfirmed = true
                 UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
                 refreshPushNotificationStatus()
                 logPush("registered with Home Assistant client_type=\(identity.clientType.rawValue) env=\(canonicalEnvironment.rawValue) push_registered=true", level: .info)
@@ -3839,6 +4053,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             identity.appVersion ?? "",
             locale,
             bootstrapProof ?? "",
+            watchNotificationCategories.joined(separator: ","),
             haBaseURL
         ].joined(separator: "|")
     }
@@ -4319,21 +4534,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func updateVoiceActivationListening() {
-        voiceActivationRestartTask?.cancel()
-        voiceActivationRestartTask = nil
-        guard storedVoiceActivationEnabled else {
-            voiceActivationListenTimeoutTask?.cancel()
-            voiceActivationListenTimeoutTask = nil
-            stopVoiceActivationListening(status: .paused)
-            return
-        }
-        guard isAppForeground, canUseBackend, voiceState == .idle else {
-            voiceActivationListenTimeoutTask?.cancel()
-            voiceActivationListenTimeoutTask = nil
-            stopVoiceActivationListening(status: .paused)
-            return
-        }
-        startVoiceActivationListening()
+        // Watch V2 accepts only an explicit foreground recording gesture. Preserve
+        // the old stored setting for migration, but it grants no microphone start.
+        cancelVoiceActivationScheduledTasks()
+        stopVoiceActivationListening(status: .paused)
     }
 
     private func startVoiceActivationListening() {

@@ -10,7 +10,7 @@ public struct DJConnectCurrentInsightSelection: Codable, Equatable, Sendable {
 }
 
 /// Ephemeral proof from the owner endpoint. Never put this observation in history or widgets.
-public struct DJConnectCurrentInsightSubject: Decodable, Equatable, Sendable {
+public struct DJConnectCurrentInsightSubject: Codable, Equatable, Sendable {
     public let schemaVersion: Int
     public let mode: String
     public let mediaIdentity: String
@@ -39,7 +39,7 @@ public struct DJConnectCurrentInsightSubject: Decodable, Equatable, Sendable {
     }
 }
 
-public struct DJConnectCurrentInsightDetail: Sendable {
+public struct DJConnectCurrentInsightDetail: Codable, Sendable {
     public let insight: TrackInsight
     public let subject: DJConnectCurrentInsightSubject
 }

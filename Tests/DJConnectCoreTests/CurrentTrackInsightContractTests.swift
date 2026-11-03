@@ -31,6 +31,21 @@ private func currentInsightWire() throws -> [String: Any] {
     #expect(proof.deadline(recording: "spotify:track:BBBBBBBBBBBBBBBBBBBBBB", requestedAt: start, at: start) == nil)
 }
 
+@Test func currentInsightWatchProxyPreservesOriginalRecordingProof() throws {
+    let wire = try JSONSerialization.data(withJSONObject: currentInsightWire())
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: wire)
+    let original = try DJConnectCurrentInsightDetail(insight: #require(response.trackInsightValue),
+                                                     subject: #require(response.currentSubject))
+    let packet = try JSONEncoder().encode(original)
+    let returned = try JSONDecoder().decode(DJConnectCurrentInsightDetail.self, from: packet)
+    #expect(returned.insight == original.insight)
+    #expect(returned.subject == original.subject)
+    let expiry = Date(timeIntervalSince1970: original.subject.expiresAt)
+    let request = expiry.addingTimeInterval(-1)
+    #expect(returned.subject.deadline(recording: original.subject.mediaIdentity, requestedAt: request, at: request) == expiry)
+    #expect(returned.subject.deadline(recording: "spotify:track:BBBBBBBBBBBBBBBBBBBBBB", requestedAt: request, at: request) == nil)
+}
+
 @Test func currentInsightClosedSelectorCannotCarryLegacyAuthority() throws {
     var request = DJConnectTrackInsightRequest(locale: "nl")
     request.trackInsightSubject = .init()

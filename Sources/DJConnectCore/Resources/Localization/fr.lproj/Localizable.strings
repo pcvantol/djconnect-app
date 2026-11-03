@@ -1635,3 +1635,34 @@
 "ui.vibescape.world.radio" = "Atelier cinétique";
 "ui.vibescape.world.club" = "Architecture lumineuse";
 "ui.vibescape.world.festival" = "Floraison cosmique";
+
+// Watch companion V2
+"watch.v2.moments" = "Moments";
+"watch.v2.more" = "Plus";
+"watch.v2.ask.prompt" = "Interrogez votre DJ sur la musique, les artistes et plus.";
+"watch.v2.text" = "Saisir une question";
+"watch.v2.sound" = "Son";
+"watch.v2.music" = "Musique";
+"watch.v2.voice" = "Voix et réponses";
+"watch.v2.notifications" = "Notifications";
+"watch.v2.ask_about" = "Poser une question à ce sujet";
+"watch.v2.listen" = "Écouter";
+"watch.v2.no_moments" = "Aucune contribution récente.";
+"watch.v2.speak" = "Parlez à votre DJ";
+"watch.v2.send" = "Envoyer";
+"watch.v2.stop_send" = "Arrêter et envoyer";
+
+"watch.v2.transfer.confirm" = "Transférer la musique sur cette enceinte ?";
+
+"watch.v2.notification.confirmed" = "Préférence confirmée par le serveur";
+"watch.v2.notification.pending" = "Préférence pas encore confirmée par le serveur";
+"watch.v2.notification.permission" = "Autoriser les notifications";
+
+"watch.v2.widget.ask_dj" = "Ask DJ";
+
+"watch.v2.moments.new" = "Dernières contributions";
+
+"watch.v2.question.new" = "Nouvelle question";
+
+"watch.v2.track.question" = "Parle-moi de %@ de %@.";
+"watch.v2.recording_interrupted" = "Enregistrement interrompu.";
