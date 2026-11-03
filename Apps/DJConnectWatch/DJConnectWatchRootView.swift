@@ -5007,6 +5007,7 @@ private struct DJConnectWatchCompanionPages: View {
                             } label: {
                                 Label(text("watch.v2.ask_about"), systemImage: "bubble.left")
                             }
+                            .buttonStyle(DJConnectWatchFlatActionRowStyle())
                         }
                     }
                 } else {
@@ -5177,6 +5178,18 @@ private struct DJConnectWatchCompanionMusicView: View {
         .navigationTitle(watchLocalizedKey(model.language, "watch.v2.music"))
     }
 }
+private struct DJConnectWatchFlatActionRowStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+            .padding(.horizontal, 12)
+            .background(.white.opacity(configuration.isPressed ? 0.20 : 0.12),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .contentShape(Rectangle())
+    }
+}
+
 private struct DJConnectWatchCompanionTrackView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     @Environment(\.watchSessionTheme) private var theme
@@ -5243,7 +5256,7 @@ private struct DJConnectWatchCompanionTrackView: View {
                         }
                     }
                 }
-                .buttonStyle(TrackActionRowStyle())
+                .buttonStyle(DJConnectWatchFlatActionRowStyle())
             }
             .padding(.bottom, 12)
         }
@@ -5281,18 +5294,6 @@ private struct DJConnectWatchCompanionTrackView: View {
 
     private func trackTime(_ seconds: Int) -> String {
         "\(seconds / 60):" + String(format: "%02d", seconds % 60)
-    }
-
-    private struct TrackActionRowStyle: ButtonStyle {
-        func makeBody(configuration: Configuration) -> some View {
-            configuration.label
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
-                .padding(.horizontal, 12)
-                .background(.white.opacity(configuration.isPressed ? 0.20 : 0.12),
-                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .contentShape(Rectangle())
-        }
     }
 
     private func trackArtwork(_ artwork: Image?) -> some View {
