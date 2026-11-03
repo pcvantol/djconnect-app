@@ -5088,9 +5088,11 @@ private struct DJConnectWatchCompanionPages: View {
                     }
                     Text("\(index)/\(count)").font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
                 }
+                .layoutPriority(1)
                 Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
-                    .font(.body).lineLimit(dynamicTypeSize.isAccessibilitySize ? 4 : 7)
+                    .font(.body)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 0)
                 HStack {
                     Text(row.date, style: .time).font(.caption2).foregroundStyle(.secondary)
                     if row.spotifyAttribution { flowSpotifyAttribution }
@@ -5098,9 +5100,11 @@ private struct DJConnectWatchCompanionPages: View {
                     Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
                         .accessibilityHidden(true)
                 }
+                .layoutPriority(1)
             }
             .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
