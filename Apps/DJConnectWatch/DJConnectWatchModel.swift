@@ -1454,7 +1454,25 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
-    func loadRecordingInsight(_ recording: String, binding: String) async -> TrackInsight? {
+    func loadOriginalHistoryEntry(_ intent: DJConnectWatchOriginalContext, isMoment: Bool) async -> DJConnectHistoryEntry? {
+        guard canUseBackend, isAppForeground, !isDemoMode,
+              foregroundSession.current()?.settings.binding == intent.binding else { return nil }
+        let owner = stableInstallID
+        do {
+            let entry: DJConnectHistoryEntry = try await sendCompanionHARequest(
+                isMoment ? .retainedMoment : .recordingHistoryEntry, payload: intent)
+            guard !Task.isCancelled, canUseBackend, isAppForeground, stableInstallID == owner,
+                  foregroundSession.current()?.settings.binding == intent.binding,
+                  entry.sessionID == intent.sessionID, entry.isContractValid, entry.isRetained(),
+                  isMoment ? (entry.kind == .djMoment && entry.momentID == intent.originalID)
+                           : entry.matchesWatchRecording(intent.originalID) else { return nil }
+            return entry
+        } catch {
+            return nil
+        }
+    }
+
+    func loadRecordingInsight(_ recording: String, binding: String) async -> (insight: TrackInsight, expiresAt: Date)? {
         guard DJConnectCurrentInsightSubject.isRecordingURI(recording), playback?.uri == recording,
               canUseBackend, isAppForeground, !isDemoMode,
               foregroundSession.current()?.settings.binding == binding else { return nil }
@@ -1467,8 +1485,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             let detail: DJConnectCurrentInsightDetail = try await sendCompanionHARequest(.trackInsight, payload: request)
             guard !Task.isCancelled, canUseBackend, isAppForeground, stableInstallID == owner,
                   foregroundSession.current()?.settings.binding == binding,
-                  detail.subject.deadline(recording: recording, requestedAt: requestedAt, at: Date()) != nil else { return nil }
-            return detail.insight
+                  let deadline = detail.subject.deadline(recording: recording, requestedAt: requestedAt, at: Date()) else { return nil }
+            return (detail.insight, deadline)
         } catch {
             return nil
         }

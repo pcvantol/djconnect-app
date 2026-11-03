@@ -4983,16 +4983,34 @@ private struct DJConnectWatchCompanionTextView: View {
     @State private var sent = false
     @State private var answer: DJConnectWatchAskDJMessage?
     @State private var originalBinding: String?
-    init(context: DJConnectConversationContext, initialText: String = "") {
+    @State private var originalEntry: DJConnectHistoryEntry?
+    @State private var isResolvingRecording = false
+    private let recording: DJConnectWatchOriginalContext?
+    init(context: DJConnectConversationContext, initialText: String = "", binding: String? = nil,
+         recording: DJConnectWatchOriginalContext? = nil) {
         _context = State(initialValue: context); _text = State(initialValue: initialText)
+        _originalBinding = State(initialValue: binding)
+        self.recording = recording
     }
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
                 TextField(watchLocalizedKey(model.language, "watch.v2.text"), text: $text)
                 Button(watchLocalizedKey(model.language, "watch.v2.send")) {
-                    Task { sent = await model.sendWatchText(text, context: context, expectedBinding: originalBinding); if sent { answer = model.lastWatchTextReply; text = "" } }
-                }.disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.watchTextPending || model.watchTextOutcomeUnknown)
+                    let selectedContext: DJConnectConversationContext
+                    if recording != nil {
+                        guard let originalEntry, originalEntry.isRetained() else { return }
+                        selectedContext = .init(sessionID: context.sessionID, selectedEntry: originalEntry.reference)
+                    } else {
+                        selectedContext = context
+                    }
+                    Task { sent = await model.sendWatchText(text, context: selectedContext, expectedBinding: originalBinding); if sent { answer = model.lastWatchTextReply; text = "" } }
+                }.disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.watchTextPending || model.watchTextOutcomeUnknown ||
+                           (recording != nil && originalEntry?.isRetained() != true))
+                if isResolvingRecording { ProgressView() }
+                if recording != nil && !isResolvingRecording && originalEntry?.isRetained() != true {
+                    Text(watchLocalizedKey(model.language, "ui.session.history.contribution_unavailable")).font(.caption)
+                }
                 if model.watchTextPending { ProgressView() }
                 if sent, let answer { Text(answer.text) }
                 if model.watchTextOutcomeUnknown {
@@ -5008,7 +5026,14 @@ private struct DJConnectWatchCompanionTextView: View {
         }
         .watchStandardBackground()
         .navigationTitle("Ask DJ")
-        .onAppear { if originalBinding == nil { originalBinding = model.foregroundSession.current()?.settings.binding } }
+        .task {
+            if originalBinding == nil { originalBinding = model.foregroundSession.current()?.settings.binding }
+            if let recording {
+                isResolvingRecording = true
+                originalEntry = await model.loadOriginalHistoryEntry(recording, isMoment: false)
+                isResolvingRecording = false
+            }
+        }
     }
 }
 private struct DJConnectWatchCompanionVoiceView: View {
@@ -5057,7 +5082,6 @@ private struct DJConnectWatchCompanionTrackView: View {
     }
     private var originalQuestion: String {
         watchLocalizedKey(model.language, "watch.v2.track.question", arguments: original?.trackName ?? "", original?.artistName ?? "")
-        + (original?.uri.map { " (" + $0 + ")" } ?? "")
     }
     private var isPlaying: Bool { model.playback?.isPlaying == true }
 
@@ -5077,9 +5101,13 @@ private struct DJConnectWatchCompanionTrackView: View {
                     Text(original?.artistName ?? "").foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                NavigationLink {
-                    DJConnectWatchCompanionTextView(context: context, initialText: originalQuestion)
-                } label: { Label(watchLocalizedKey(model.language, "watch.v2.ask_about"), systemImage: "bubble.left") }
+                if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
+                   let binding = originalBinding, let sessionID = context.sessionID {
+                    NavigationLink {
+                        DJConnectWatchCompanionTextView(context: context, initialText: originalQuestion, binding: binding,
+                            recording: .init(binding: binding, sessionID: sessionID, originalID: recording))
+                    } label: { Label(watchLocalizedKey(model.language, "watch.v2.ask_about"), systemImage: "bubble.left") }
+                }
                 if model.isDemoMode {
                     NavigationLink("Track Insight") { DJConnectWatchRootView.DJConnectWatchTrackInsightView() }
                 } else if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
@@ -5191,37 +5219,40 @@ private struct DJConnectWatchRecordingInsightView: View {
     let binding: String
     @ObservedObject var session: DJConnectWatchForegroundSession
     let artworkURL: URL?
-    @State private var insight: TrackInsight?
+    @State private var result: (insight: TrackInsight, expiresAt: Date)?
     @State private var isLoading = true
 
     var body: some View {
-        ScrollView {
-            if isLoading {
-                ProgressView()
-            } else if let insight, session.current()?.settings.binding == binding {
-                VStack(alignment: .leading, spacing: 8) {
-                    DJConnectWatchRootView.DJConnectWatchTrackInsightVisualCard(
-                        insight: insight,
-                        language: model.language,
-                        moodStepIndex: model.askDJMoodStepIndex,
-                        isPlaying: model.playback?.uri == recording && model.playback?.isPlaying == true,
-                        fallbackArtworkURL: artworkURL
-                    )
-                    DJConnectWatchRootView.DJConnectWatchTrackInsightAnalysisCard(insight: insight, language: model.language)
+        TimelineView(.explicit([Date()] + [result?.expiresAt].compactMap { $0 })) { _ in
+            ScrollView {
+                if isLoading {
+                    ProgressView()
+                } else if let result, Date() < result.expiresAt, session.current()?.settings.binding == binding {
+                    let insight = result.insight
+                    VStack(alignment: .leading, spacing: 8) {
+                        DJConnectWatchRootView.DJConnectWatchTrackInsightVisualCard(
+                            insight: insight,
+                            language: model.language,
+                            moodStepIndex: model.askDJMoodStepIndex,
+                            isPlaying: model.playback?.uri == recording && model.playback?.isPlaying == true,
+                            fallbackArtworkURL: artworkURL
+                        )
+                        DJConnectWatchRootView.DJConnectWatchTrackInsightAnalysisCard(insight: insight, language: model.language)
+                    }
+                } else {
+                    Text(watchLocalizedKey(model.language, "appModel.track.insight.is.unavailable.for.this.track"))
+                        .foregroundStyle(.secondary)
                 }
-            } else {
-                Text(watchLocalizedKey(model.language, "appModel.track.insight.is.unavailable.for.this.track"))
-                    .foregroundStyle(.secondary)
             }
         }
         .watchStandardBackground()
         .navigationTitle("Track Insight")
         .task {
-            insight = await model.loadRecordingInsight(recording, binding: binding)
+            result = await model.loadRecordingInsight(recording, binding: binding)
             isLoading = false
         }
         .onChange(of: session.current()?.settings.binding) { _, current in
-            if current != binding { insight = nil }
+            if current != binding { result = nil }
         }
     }
 }
@@ -5283,25 +5314,67 @@ struct DJConnectWatchCompanionMoodView: View {
     }
 }
 
-/// One tap lands on the original locator. A locator itself never admits content.
-/// Until Core selects a generic authenticated lookup, only the exact currently
-/// admitted original contribution is readable; never substitute the latest one.
+/// A locator never grants access. Read only the exact original publication.
 private struct DJConnectWatchMomentNotificationView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     let intent: DJConnectWatchMomentOpenIntent
     @ObservedObject var state: DJConnectWatchForegroundSession
+    @State private var retained: DJConnectHistoryEntry?
+    @State private var originalBinding: String?
+    @State private var isLoading = true
+
     private var original: DJConnectMoment? {
         guard intent.isPending(), let session = state.current()?.session, session.id == intent.sessionID else { return nil }
         let current = session.broadcast.nativeCurrentMoment(at: Date(), spotifyAttributionAvailable: true)
         return ([current].compactMap { $0 } + session.broadcast.nativeFlowMoments(at: Date())).first { $0.id == intent.momentID }
     }
+
     var body: some View {
-        Group {
-            if let original { DJConnectWatchCompanionMomentView(moment: original, state: state) }
-            else if state.isRefreshing { ProgressView() }
-            else { Text(watchLocalizedKey(model.language, "ui.session.history.contribution_unavailable")).padding(8) }
+        TimelineView(.explicit([Date()] + [retained.flatMap { DJConnectHistoryEntry.date($0.retainedUntil) }].compactMap { $0 })) { _ in
+            Group {
+                if let original {
+                    DJConnectWatchCompanionMomentView(moment: original, state: state)
+                } else if isLoading || state.isRefreshing {
+                    ProgressView()
+                } else if let retained, retained.isRetained(),
+                          let originalBinding, state.current()?.settings.binding == originalBinding {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(retained.text ?? "").fixedSize(horizontal: false, vertical: true)
+                            if retained.requiresSpotifyAttribution == true {
+                                Image("SpotifyAttribution").resizable().scaledToFit()
+                                    .frame(width: 72, height: 24).accessibilityLabel("Spotify")
+                            }
+                            NavigationLink {
+                                DJConnectWatchCompanionTextView(context: .init(sessionID: nil, selectedEntry: retained.reference),
+                                                               binding: originalBinding)
+                            } label: {
+                                Label(watchLocalizedKey(model.language, "watch.v2.ask_about"), systemImage: "bubble.left")
+                            }
+                        }.padding(8)
+                    }
+                    .navigationTitle(watchLocalizedKey(model.language, "watch.v2.moments"))
+                } else {
+                    Text(watchLocalizedKey(model.language, "ui.session.history.contribution_unavailable")).padding(8)
+                }
+            }
         }
-        .task { await model.refreshForegroundSession(force: true) }
+        .task(id: intent) {
+            retained = nil
+            originalBinding = nil
+            isLoading = true
+            defer { isLoading = false }
+            await model.refreshForegroundSession(force: true)
+            guard !Task.isCancelled, intent.isPending(), original == nil,
+                  let binding = state.current()?.settings.binding else { return }
+            originalBinding = binding
+            let entry = await model.loadOriginalHistoryEntry(
+                .init(binding: binding, sessionID: intent.sessionID, originalID: intent.momentID), isMoment: true)
+            if intent.isPending(), !Task.isCancelled { retained = entry }
+        }
+        .onChange(of: state.current()?.settings.binding) { _, binding in
+            if binding != originalBinding { retained = nil }
+        }
         .onDisappear { model.clearWatchMomentIntent() }
     }
 }

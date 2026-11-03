@@ -279,6 +279,14 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
     public func isContractValid(historyContractVersion: Int) -> Bool {
         isContractValid && (archiveBasis != "runtime_accepted_settings_v1" || historyContractVersion == 2)
     }
+    public func matchesWatchRecording(_ recording: String) -> Bool {
+        guard DJConnectCurrentInsightSubject.isRecordingURI(recording),
+              kind == .playbackObserved, isRetained(),
+              playback?.provider == "Spotify" else { return false }
+        let trackID = recording.dropFirst("spotify:track:".count)
+        return playback?.sourceURL == "https://open.spotify.com/track/" + trackID
+    }
+
     public func isRetained(at date: Date = Date()) -> Bool {
         guard !entryID.isEmpty, !sessionID.isEmpty, order > 0,
               Self.date(occurredAt) != nil, let deadline = Self.date(retainedUntil) else { return false }
