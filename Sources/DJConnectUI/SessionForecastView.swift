@@ -137,6 +137,7 @@ struct SessionForecastContent: View {
     var body: some View {
         TimelineView(SessionEntryRefreshSchedule(deadlines: deadlines)) { clock in
             VStack(alignment: .leading, spacing: 12) {
+                SessionHorizonHero()
                 Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                 Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
                 if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
@@ -168,6 +169,50 @@ struct SessionForecastContent: View {
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
             }
         }
+    }
+}
+
+private struct SessionHorizonHero: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    private final class ShaderBundleToken {}
+
+    private static let shaders: ShaderLibrary = {
+        #if SWIFT_PACKAGE
+        ShaderLibrary.bundle(.module)
+        #else
+        ShaderLibrary.bundle(Bundle(for: ShaderBundleToken.self))
+        #endif
+    }()
+
+    var body: some View {
+        GeometryReader { geometry in
+            let artwork = Image("HorizonHero")
+                .resizable()
+                .scaledToFill()
+                .frame(width: geometry.size.width, height: geometry.size.height)
+            if !reduceMotion && scenePhase == .active {
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { clock in
+                    let seconds = clock.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 12)
+                    artwork.distortionEffect(
+                        Self.shaders.horizonWave(.boundingRect, .float(Float(seconds * 2 * .pi / 12))),
+                        maxSampleOffset: CGSize(width: 0, height: 2)
+                    )
+                }
+            } else {
+                artwork
+            }
+        }
+        .frame(height: 132)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(8)
+        .djSessionFrostedSurface(
+            cornerRadius: 22,
+            surfaceTint: Color(red: 0.52, green: 0.26, blue: 0.72)
+        )
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

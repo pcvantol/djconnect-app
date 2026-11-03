@@ -28,6 +28,10 @@ private final class DeviceSpeechObservations {
     public private(set) var isSpeaking = false
     public override init() {
         super.init(); synthesizer.delegate = self
+        #if os(watchOS)
+        // Short local speech uses the synthesizer's system-managed audio route.
+        synthesizer.usesApplicationAudioSession = false
+        #endif
         var names: [Notification.Name] = [AVSpeechSynthesizer.availableVoicesDidChangeNotification]
         #if os(iOS) || os(watchOS)
         names += [AVAudioSession.interruptionNotification, AVAudioSession.routeChangeNotification]

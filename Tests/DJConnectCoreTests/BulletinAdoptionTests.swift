@@ -139,7 +139,7 @@ private func bulletinDate(_ raw: String) throws -> Date { try #require(DJConnect
     #expect(SessionTimelineLiveRow.merge(retained: [], bulletins: [], at: try bulletinDate(first.createdAt)).isEmpty)
 }
 
-@Test func watchSessionFlowKeepsLatestEightMixedRowsAndOriginalBulletinExpiry() throws {
+@Test func watchSessionFlowKeepsLatestTwentyMixedRowsAndOriginalBulletinExpiry() throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let old = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/moment-contract-receipt.json"))) as? [String: Any])
     var runtime: DJConnectSessionRuntime = try bulletinDecode(old["runtime"]!)
@@ -150,18 +150,18 @@ private func bulletinDate(_ raw: String) throws -> Date { try #require(DJConnect
     runtime.broadcast = broadcast
     let formatter = ISO8601DateFormatter()
     let kinds = ["playback_observed", "dj_moment", "conversation_user", "conversation_dj"]
-    let history: [DJConnectHistoryEntry] = try (0..<9).map { index in
+    let history: [DJConnectHistoryEntry] = try (0..<21).map { index in
         let entry: [String: Any] = [
             "entry_id": "row-\(index)", "session_id": runtime.id, "order": index + 1,
             "kind": kinds[index % kinds.count], "text": "Row \(index)",
-            "occurred_at": formatter.string(from: now.addingTimeInterval(Double(index - 10))),
+            "occurred_at": formatter.string(from: now.addingTimeInterval(Double(index - 22))),
             "retained_until": formatter.string(from: now.addingTimeInterval(300)),
         ]
         return try bulletinDecode(entry)
     }
     let rows = DJConnectWatchFlowRow.latest(history: history, session: runtime, at: now)
-    #expect(rows.count == 8)
-    #expect(rows.map(\.id) == ["bulletin:" + bulletin.id] + (2...8).reversed().map { "row-\($0)" })
+    #expect(rows.count == 20)
+    #expect(rows.map(\.id) == ["bulletin:" + bulletin.id] + (2...20).reversed().map { "row-\($0)" })
     #expect(Set(rows.map(\.labelKey)).count == 5)
     let bulletinRow = try #require(rows.first)
     #expect(bulletinRow.sources == bulletin.sources)

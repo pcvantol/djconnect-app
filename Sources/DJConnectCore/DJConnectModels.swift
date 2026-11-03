@@ -48,6 +48,7 @@ public enum DJConnectWatchProxyOperation: String, Codable, Sendable {
     case retainedMoment = "retained_moment"
     case recordingHistoryEntry = "recording_history_entry"
     case sessionFlow = "session_flow"
+    case sessionFlowArtwork = "session_flow_artwork"
     case foregroundSession = "foreground_session"
     case startSession = "start_session"
     case endSession = "end_session"
@@ -58,6 +59,7 @@ public enum DJConnectWatchProxyOperation: String, Codable, Sendable {
     case command
     case trackInsight = "track_insight"
     case askDJHistory = "ask_dj_history"
+    case askDJTextOutcome = "ask_dj_text_outcome"
     case clearAskDJHistory = "clear_ask_dj_history"
     case askDJMessage = "ask_dj_message"
     case askDJIdleSuggestion = "ask_dj_idle_suggestion"

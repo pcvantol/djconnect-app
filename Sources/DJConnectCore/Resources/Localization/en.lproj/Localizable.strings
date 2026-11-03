@@ -1563,7 +1563,6 @@
 "watch.session.retry" = "The session could not be loaded. Tap Refresh to try again.";
 "watch.session.pair_again" = "Pair your Watch again using DJConnect on your iPhone.";
 "watch.session.expired" = "Your session needs refreshing. Tap Refresh.";
-"watch.session.check_outcome" = "Checking your session. Tap Refresh to check whether the change was applied.";
 
 "ui.askdj.help.global.entry" = "How Ask DJ works";
 
@@ -1620,6 +1619,7 @@
 "ui.vibescape.voice.starting" = "Preparing the microphone…";
 "ui.vibescape.voice.start_failed" = "Recording could not start. Try again.";
 
+"ui.welcome.session.description" = "Choose a mood, ask your DJ about the music, and follow what happens in your session.";
 "ui.welcome.queue.description" = "See which tracks are coming up next and choose what to play.";
 
 "ui.askdj.help.item.unavailable" = "Currently unavailable";
@@ -1670,3 +1670,6 @@
 
 "watch.v2.flow.question" = "Ask DJ question";
 "watch.v2.flow.answer" = "Ask DJ answer";
+
+"watch.playback.controls" = "Playback controls";
+"watch.playback.replay" = "Restart track";

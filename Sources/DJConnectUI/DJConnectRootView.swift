@@ -219,8 +219,9 @@ private let djConnectIconGradient = LinearGradient(
     startPoint: .topLeading,
     endPoint: .bottomTrailing
 )
-private let djConnectScreenHorizontalPadding: CGFloat = 16
-let djConnectScreenVerticalPadding: CGFloat = 12
+let djConnectCardSpacing: CGFloat = 16
+private let djConnectScreenHorizontalPadding = djConnectCardSpacing
+let djConnectScreenVerticalPadding = djConnectCardSpacing
 private let djConnectContentMaxWidth: CGFloat = 760
 private let djConnectCompactContentMaxWidth: CGFloat = 640
 private let djConnectMacDetailContentMaxWidth: CGFloat = 1_680
@@ -296,6 +297,11 @@ private struct DJConnectGradientCardStyle: ViewModifier {
 private extension View {
     func djConnectHeroCard() -> some View {
         djSessionFrostedSurface()
+    }
+
+    func djConnectStandardHeroWidth() -> some View {
+        frame(maxWidth: djConnectContentMaxWidth - 2 * djConnectScreenHorizontalPadding)
+            .frame(maxWidth: .infinity)
     }
 
     func djConnectGradientCard() -> some View {
@@ -672,31 +678,6 @@ private extension View {
 }
 
 #if os(macOS)
-// Opt in only from main vertical content, never from nested card carousels.
-private struct DJConnectMacMainScrollPolicy: NSViewRepresentable {
-    func makeNSView(context: Context) -> MainScrollPolicyView { MainScrollPolicyView() }
-    func updateNSView(_ view: MainScrollPolicyView, context: Context) { view.scheduleConfiguration() }
-
-    final class MainScrollPolicyView: NSView {
-        override func viewDidMoveToSuperview() { super.viewDidMoveToSuperview(); scheduleConfiguration() }
-        override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); scheduleConfiguration() }
-        override func layout() { super.layout(); scheduleConfiguration() }
-
-        func scheduleConfiguration() {
-            DispatchQueue.main.async { [weak self] in self?.configureEnclosingScrollView() }
-        }
-
-        private func configureEnclosingScrollView() {
-            guard let scroll = enclosingScrollView else { return }
-            // Legacy bars stay visible for overflow, independent of input-device policy.
-            // Hide the bar only when all content fits; no application/global defaults change.
-            if scroll.scrollerStyle != .legacy { scroll.scrollerStyle = .legacy }
-            if !scroll.hasVerticalScroller { scroll.hasVerticalScroller = true }
-            if !scroll.autohidesScrollers { scroll.autohidesScrollers = true }
-        }
-    }
-}
-
 private struct DJConnectMacListBackgroundClearer: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -3028,24 +3009,8 @@ private struct WelcomeView: View {
                     WelcomeTourPreview(
                         steps: steps,
                         selectedStep: selectedStep,
-                        language: model.language,
                         selectStep: selectWelcomeTourStep
                     )
-
-                    VStack(spacing: 10) {
-                        Label(selectedStep.title, systemImage: selectedStep.systemImage)
-                            .font(.title2.bold())
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.center)
-                        Text(selectedStep.body)
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minHeight: 52)
-                    }
-
-                    WelcomeTourProgress(count: steps.count, selectedIndex: selectedStepIndex)
 
                     VStack(spacing: 8) {
                         Text(localizedKey(model.language, "ui.setup.runs.through.home.assistant.spotify.playback.requires.spotify.premium"))
@@ -3139,6 +3104,12 @@ private struct WelcomeTourStep: Identifiable, Equatable {
     static func steps(language: String) -> [WelcomeTourStep] {
         [
             WelcomeTourStep(
+                id: .djSession,
+                title: localizedKey(language, "ui.session.title"),
+                body: localizedKey(language, "ui.welcome.session.description"),
+                systemImage: "headphones"
+            ),
+            WelcomeTourStep(
                 id: .queue,
                 title: localizedKey(language, "ui.queue"),
                 body: localizedKey(language, "ui.welcome.queue.description"),
@@ -3175,7 +3146,6 @@ private struct WelcomeTourStep: Identifiable, Equatable {
 private struct WelcomeTourPreview: View {
     let steps: [WelcomeTourStep]
     let selectedStep: WelcomeTourStep
-    let language: String
     let selectStep: (WelcomeTourStep) -> Void
     @State private var isPulsing = false
 
@@ -3195,11 +3165,11 @@ private struct WelcomeTourPreview: View {
                 }
                 .frame(width: 190)
 
-                WelcomeTourPanel(step: selectedStep, language: language)
+                WelcomeTourPanel(step: selectedStep)
                     .frame(maxWidth: .infinity)
             }
             #else
-            WelcomeTourPanel(step: selectedStep, language: language)
+            WelcomeTourPanel(step: selectedStep)
             HStack(spacing: 8) {
                 ForEach(steps) { step in
                     WelcomeTourButton(
@@ -3228,21 +3198,9 @@ private struct WelcomeTourPreview: View {
 
 private struct WelcomeTourPanel: View {
     let step: WelcomeTourStep
-    let language: String
 
     var body: some View {
         VStack(spacing: 12) {
-            HStack {
-                Circle()
-                    .fill(djConnectAccent.opacity(0.88))
-                    .frame(width: 10, height: 10)
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Color.white.opacity(0.18))
-                    .frame(width: 90, height: 8)
-                Spacer()
-            }
-            .padding(.horizontal, 6)
-
             Image(systemName: step.systemImage)
                 .font(.system(size: 48, weight: .semibold))
                 .foregroundStyle(
@@ -3255,17 +3213,18 @@ private struct WelcomeTourPanel: View {
                 .frame(height: 58)
 
             Text(step.title)
-                .font(.headline.weight(.bold))
-                .lineLimit(1)
+                .font(.title2.bold())
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
 
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(djConnectAccent.opacity(0.32))
-                .frame(width: 64, height: 6)
+            Text(step.body)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(18)
-        .frame(minHeight: 184)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
-        .background(Color.black.opacity(0.20), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -3281,7 +3240,7 @@ private struct WelcomeTourButton: View {
                 .labelStyle(.iconOnly)
                 .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(isSelected ? .white : .secondary)
-                .frame(width: 48, height: 42)
+                .frame(minWidth: 32, maxWidth: 48, minHeight: 44)
                 .background {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(isSelected ? djConnectAccent.opacity(0.28) : Color.white.opacity(0.06))
@@ -3297,23 +3256,6 @@ private struct WelcomeTourButton: View {
         .djConnectPlainButtonStyle()
         .accessibilityLabel(step.title)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-    }
-}
-
-private struct WelcomeTourProgress: View {
-    let count: Int
-    let selectedIndex: Int
-
-    var body: some View {
-        HStack(spacing: 7) {
-            ForEach(0..<count, id: \.self) { index in
-                Capsule()
-                    .fill(index == selectedIndex ? djConnectAccent : Color.white.opacity(0.22))
-                    .frame(width: index == selectedIndex ? 26 : 8, height: 8)
-            }
-        }
-        .animation(.easeOut(duration: 0.18), value: selectedIndex)
-        .accessibilityLabel("\(selectedIndex + 1) / \(count)")
     }
 }
 
@@ -4215,7 +4157,7 @@ struct TrackInsightView: View {
                     let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
                     ZStack(alignment: .top) {
                         ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 16) {
+                            LazyVStack(alignment: .leading, spacing: djConnectCardSpacing) {
                                 if let insight {
                                     TrackInsightHero(
                                         model: model,
@@ -4250,12 +4192,12 @@ struct TrackInsightView: View {
                                     }.padding(24).frame(maxWidth: .infinity, alignment: .leading).djSessionFrostedSurface()
                                 } else {
                                     TrackInsightEmptyState(model: model)
+                                        .djConnectStandardHeroWidth()
                                 }
                             }
                             .accessibilityElement(children: .contain)
                             .accessibilityIdentifier("track-insight-content")
-                            .padding(.horizontal, djConnectScreenHorizontalPadding)
-                            .padding(.vertical, djConnectScreenVerticalPadding)
+                            .djConnectScreenPadding()
                             .frame(width: contentWidth, alignment: .topLeading)
                             .frame(maxWidth: .infinity, alignment: .top)
                         }
@@ -4530,8 +4472,9 @@ private struct MusicDNAView: View {
                 GeometryReader { proxy in
                     ScrollView {
                         let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                             MusicDNAHeroView(model: model, moodStepIndex: model.askDJMoodStepIndex)
+                                .djConnectStandardHeroWidth()
                                 .frame(maxWidth: .infinity, alignment: .top)
                             MusicDNAContentView(model: model, refreshAction: { Task { await refreshMusicDNAWithToast() } })
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -4540,14 +4483,9 @@ private struct MusicDNAView: View {
                                     .frame(maxWidth: .infinity, alignment: .center)
                             }
                         }
-                        .padding(.horizontal, djConnectScreenHorizontalPadding)
-                        .padding(.top, djConnectScreenVerticalPadding)
-                        .padding(.bottom, djConnectScreenVerticalPadding + 28)
+                        .djConnectScreenPadding()
                         .frame(maxWidth: contentWidth, alignment: .topLeading)
                         .frame(maxWidth: .infinity, alignment: .top)
-                        #if os(macOS)
-                        .background(DJConnectMacMainScrollPolicy())
-                        #endif
                     }
                 }
                 #if os(iOS)
@@ -4855,7 +4793,7 @@ private struct MusicDNASectionGrid: View {
     var body: some View {
         if usesHorizontalRows {
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 12) {
+                LazyHStack(alignment: .top, spacing: djConnectCardSpacing) {
                     panels
                 }
                 .padding(.vertical, 2)
@@ -6295,7 +6233,7 @@ private struct MusicDNAChipRow: View {
 /// Keep source/accessibility order stable while filling the shortest visible column.
 private struct MusicDNAAdaptiveCardLayout: Layout {
     var minimumColumnWidth: CGFloat = 280
-    var spacing: CGFloat = 12
+    var spacing: CGFloat = djConnectCardSpacing
 
     struct Cache {
         var width: CGFloat?
@@ -6499,12 +6437,12 @@ private struct MusicDiscoveryView: View {
                 GeometryReader { proxy in
                     ScrollView {
                         let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
-                        VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                             header
+                                .djConnectStandardHeroWidth()
                             content
                         }
-                        .padding(.horizontal, djConnectScreenHorizontalPadding)
-                        .padding(.vertical, djConnectScreenVerticalPadding)
+                        .djConnectScreenPadding()
                         .frame(width: contentWidth, alignment: .topLeading)
                         .frame(maxWidth: .infinity, alignment: .top)
                     }
@@ -6574,7 +6512,7 @@ private struct MusicDiscoveryView: View {
         } else if model.musicDiscoveryResponse == nil || visibleSections.isEmpty {
             MusicDiscoveryEmptyState(model: model)
         } else {
-            LazyVStack(alignment: .leading, spacing: 22) {
+            LazyVStack(alignment: .leading, spacing: djConnectCardSpacing) {
                 ForEach(visibleSections) { section in
                     MusicDiscoverySectionView(
                         model: model,
@@ -7492,9 +7430,6 @@ private struct TrackInsightHero: View {
             )
             .frame(minHeight: 430)
             .frame(maxWidth: .infinity)
-            Text(localizedKey(model.language, "ui.trackInsight.visual.decorative"))
-                .font(.caption).foregroundStyle(.secondary)
-                .accessibilityIdentifier("track-insight-decorative-caption")
         }
         .padding(14)
         .frame(maxWidth: .infinity)
@@ -8617,16 +8552,16 @@ struct TrackInsightMetricsGrid: View, Equatable {
 
     var body: some View {
         if !metrics.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                 if usesHorizontalRows {
                     if metrics.numericCount > 0 { horizontalMetricRow { numericMetrics } }
                     if metrics.hasLabels { horizontalMetricRow { metricPills } }
                 } else {
                     if metrics.numericCount > 0 {
-                        LazyVGrid(columns: metricColumns, spacing: 10) { numericMetrics }
+                        LazyVGrid(columns: metricColumns, spacing: djConnectCardSpacing) { numericMetrics }
                     }
                     if metrics.hasLabels {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) { metricPills }
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: djConnectCardSpacing, alignment: .top)], spacing: djConnectCardSpacing) { metricPills }
                     }
                 }
             }
@@ -8668,7 +8603,7 @@ struct TrackInsightMetricsGrid: View, Equatable {
 
     private func horizontalMetricRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(alignment: .top, spacing: 10) {
+            LazyHStack(alignment: .top, spacing: djConnectCardSpacing) {
                 content()
             }
             .padding(.vertical, 2)
@@ -8677,7 +8612,7 @@ struct TrackInsightMetricsGrid: View, Equatable {
     }
 
     private var metricColumns: [GridItem] {
-        Array(repeating: GridItem(.flexible(minimum: 132), spacing: 10, alignment: .top), count: min(3, metrics.numericCount))
+        Array(repeating: GridItem(.flexible(minimum: 132), spacing: djConnectCardSpacing, alignment: .top), count: min(3, metrics.numericCount))
     }
 }
 
@@ -11079,7 +11014,7 @@ private struct AskDJView: View {
                     ScrollViewReader { proxy in
                         ZStack(alignment: .top) {
                             ScrollView {
-                                LazyVStack(spacing: 12) {
+                                LazyVStack(spacing: djConnectCardSpacing) {
                                     #if !os(macOS)
                                     Color.clear.frame(height: 1).id("ask-dj-top")
                                     #endif
@@ -11190,7 +11125,7 @@ private struct AskDJView: View {
                                 #endif
                                 .padding(.horizontal, djConnectScreenHorizontalPadding)
                                 .padding(.top, chatTopPadding)
-                                .padding(.bottom, 16)
+                                .padding(.bottom, djConnectCardSpacing)
                                 .frame(width: contentWidth, alignment: .top)
                                 .frame(maxWidth: .infinity, alignment: .top)
                                 .contentShape(Rectangle())
@@ -11787,6 +11722,7 @@ private struct AskDJEmptyState: View {
         DJConnectIntroductionCard(systemImage: "bubble.left.and.bubble.right",
             title: localizedKey(language, "ui.ask.dj"),
             message: localizedKey(language, "ui.ask.about.the.music.or.give.your.dj.a.request"))
+        .djConnectStandardHeroWidth()
     }
 
 }
@@ -13276,44 +13212,21 @@ private struct AskDJImageStrip: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let spacing: CGFloat = 10
-            let visibleCount = min(max(images.count, 1), 3)
-            let availableWidth = max(1, geometry.size.width)
-            let cardWidth = min(
-                maxCardWidth,
-                floor((availableWidth - spacing * CGFloat(visibleCount - 1)) / CGFloat(visibleCount))
-            )
-            let stripHeight = imageStripHeight(for: cardWidth)
-
+        let cardWidth: CGFloat = isCompact ? 96 : 132
+        if images.count == 1, let image = images.first {
+            AskDJImageCard(image: image, width: cardWidth)
+        } else {
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: spacing) {
+                HStack(alignment: .top, spacing: 10) {
                     ForEach(images) { image in
                         AskDJImageCard(image: image, width: cardWidth)
                     }
                 }
                 .padding(.vertical, 1)
             }
-            .scrollClipDisabled()
-            .frame(height: stripHeight)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: 520, alignment: .leading)
         }
-        .frame(maxWidth: 520, alignment: .leading)
-        .frame(height: reservedStripHeight)
-    }
-
-    private var reservedStripHeight: CGFloat {
-        imageStripHeight(for: maxCardWidth)
-    }
-
-    private var maxCardWidth: CGFloat {
-        isCompact ? 112 : 190
-    }
-
-    private func imageStripHeight(for cardWidth: CGFloat) -> CGFloat {
-        let textHeight: CGFloat = images.contains { image in
-            image.title?.isEmpty == false || image.subtitle?.isEmpty == false
-        } ? 58 : 0
-        return cardWidth + textHeight + 4
     }
 }
 
@@ -13326,43 +13239,38 @@ private struct AskDJImageCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            if image.isProtectedReplyArtwork {
-                ResponseArtworkImageView(image: image, width: width)
-            } else {
-            CachedArtworkImage(url: displayURL, mode: .fill) {
-                Image(systemName: "photo")
-                    .font(.title2)
-                    .foregroundStyle(.white.opacity(0.78))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .frame(width: width, height: width)
-            .clipped()
-            .clipShape(DJConnectCardAppearance.shape)
-            .overlay {
-                DJConnectCardAppearance.shape
-                    .stroke(.white.opacity(0.18), lineWidth: 1)
-            }
-
-            }
-
-            if image.title?.isEmpty == false || image.subtitle?.isEmpty == false {
-                VStack(alignment: .leading, spacing: 2) {
-                    if let title = image.title, !title.isEmpty {
-                        Text(title)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
-                    }
-                    if let subtitle = image.subtitle, !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.70))
-                            .lineLimit(2)
-                    }
+        if image.isProtectedReplyArtwork {
+            ResponseArtworkImageView(image: image, width: width) { caption }
+        } else {
+            VStack(alignment: .leading, spacing: 7) {
+                CachedArtworkImage(url: displayURL, mode: .fill) {
+                    Image(systemName: "photo")
+                        .font(.title2)
+                        .foregroundStyle(.white.opacity(0.78))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(width: width, alignment: .leading)
+                .frame(width: width, height: width)
+                .clipped()
+                .clipShape(DJConnectCardAppearance.shape)
+                .overlay {
+                    DJConnectCardAppearance.shape.stroke(.white.opacity(0.18), lineWidth: 1)
+                }
+                caption
             }
+        }
+    }
+
+    @ViewBuilder private var caption: some View {
+        if image.title?.isEmpty == false || image.subtitle?.isEmpty == false {
+            VStack(alignment: .leading, spacing: 2) {
+                if let title = image.title, !title.isEmpty {
+                    Text(title).font(.caption.weight(.semibold)).foregroundStyle(.white).lineLimit(2)
+                }
+                if let subtitle = image.subtitle, !subtitle.isEmpty {
+                    Text(subtitle).font(.caption2).foregroundStyle(.white.opacity(0.70)).lineLimit(2)
+                }
+            }
+            .frame(width: width, alignment: .leading)
         }
     }
 }
@@ -13609,7 +13517,8 @@ struct AskDJInputBar: View {
                 #if os(iOS)
                 AskDJPromptTextView(text: editorDraft, isInputFocused: isInputFocused,
                                     isEditing: $isNativeEditorFocused, replacementRevision: model.askDJDraftRevision, replacementText: model.askDJDraft,
-                                    inputSelection: model.askDJCatalogueInputSelection, selectionRequest: model.askDJCatalogueFocusRequest)
+                                    inputSelection: model.askDJCatalogueInputSelection, selectionRequest: model.askDJCatalogueFocusRequest,
+                                    submit: { if canSend { send() } })
                     .frame(minHeight: 44)
                 #else
                 TextField("", text: editorDraft, selection: $promptSelection, axis: .vertical)
@@ -13632,7 +13541,8 @@ struct AskDJInputBar: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
                     .onKeyPress(.return, phases: .down) { key in
-                        if key.modifiers.intersection([.control, .command, .option, .shift]) == .control {
+                        let modifiers = key.modifiers.intersection([.control, .command, .option, .shift])
+                        if modifiers.isEmpty || modifiers == .control {
                             if canSend { send() }
                         } else {
                             insertPromptNewline()
@@ -13986,10 +13896,12 @@ private struct AskDJPromptTextView: UIViewRepresentable {
     let replacementText: String
     let inputSelection: NSRange?
     let selectionRequest: UUID?
+    let submit: () -> Void
 
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
         textView.delegate = context.coordinator
+        textView.returnKeyType = .send
         textView.backgroundColor = .clear
         textView.accessibilityLabel = "Ask DJ"
         textView.textColor = .white
@@ -14004,6 +13916,7 @@ private struct AskDJPromptTextView: UIViewRepresentable {
     }
 
     func updateUIView(_ textView: UITextView, context: Context) {
+        context.coordinator.submit = submit
         // Native typing owns the current text; only an explicit app replacement writes it back.
         if context.coordinator.lastReplacementRevision != replacementRevision {
             if textView.text != replacementText {
@@ -14045,13 +13958,14 @@ private struct AskDJPromptTextView: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, isInputFocused: isInputFocused, isEditing: $isEditing)
+        Coordinator(text: $text, isInputFocused: isInputFocused, isEditing: $isEditing, submit: submit)
     }
 
     final class Coordinator: NSObject, UITextViewDelegate {
         @Binding var text: String
         var isInputFocused: FocusState<Bool>.Binding
         @Binding var isEditing: Bool
+        var submit: () -> Void
         var lastRequestedFocus = false
         var lastReplacementRevision: Int?
         var lastSelectionRequest: UUID?
@@ -14083,10 +13997,18 @@ private struct AskDJPromptTextView: UIViewRepresentable {
             }
         }
 
-        init(text: Binding<String>, isInputFocused: FocusState<Bool>.Binding, isEditing: Binding<Bool>) {
+        init(text: Binding<String>, isInputFocused: FocusState<Bool>.Binding, isEditing: Binding<Bool>,
+             submit: @escaping () -> Void) {
             _text = text
             self.isInputFocused = isInputFocused
             _isEditing = isEditing
+            self.submit = submit
+        }
+
+        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText: String) -> Bool {
+            guard replacementText == "\n", textView.markedTextRange == nil else { return true }
+            submit()
+            return false
         }
 
         func textViewDidChange(_ textView: UITextView) {
@@ -14273,6 +14195,8 @@ struct QueueView: View {
         return canOpenQueueSearch ? .primary : .secondary
     }
 
+    @State private var usesWideList = false
+
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
@@ -14295,43 +14219,47 @@ struct QueueView: View {
                     }
 
                     #if os(macOS)
-                    queueScrollContent(proxy: proxy)
+                    queueScrollContent(maxWidth: 1000)
                     #else
-                    List {
-                        if shouldShowEmptyQueueState || shouldShowFilteredEmptyQueueState {
-                            DJConnectEmptyState(
-                                title: shouldShowFilteredEmptyQueueState
-                                    ? localizedKey(model.language, "ui.no.search.results")
-                                    : localizedKey(model.language, "ui.no.queue"),
-                                systemImage: shouldShowFilteredEmptyQueueState ? "magnifyingglass" : "music.note.list"
-                            )
-                            .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                        } else {
-                            ForEach(filteredQueueItems, id: \.index) { index, item in
-                                Button {
-                                    showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
-                                    model.startQueueItem(item, at: index)
-                                } label: {
-                                    QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
-                                        .equatable()
-                                        .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
-                                }
-                                .buttonStyle(DJConnectMediaRowButtonStyle())
+                    if usesWideList {
+                        queueScrollContent(maxWidth: .infinity)
+                    } else {
+                        List {
+                            if shouldShowEmptyQueueState || shouldShowFilteredEmptyQueueState {
+                                DJConnectEmptyState(
+                                    title: shouldShowFilteredEmptyQueueState
+                                        ? localizedKey(model.language, "ui.no.search.results")
+                                        : localizedKey(model.language, "ui.no.queue"),
+                                    systemImage: shouldShowFilteredEmptyQueueState ? "magnifyingglass" : "music.note.list"
+                                )
+                                .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
-                                .listRowInsets(djConnectListRowInsets)
-                                .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
-                                .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
-                                .accessibilityLabel(item.displayTitle)
-                                .accessibilityIdentifier("queue-item-row-\(index)")
-                                .id(index)
+                            } else {
+                                ForEach(filteredQueueItems, id: \.index) { index, item in
+                                    Button {
+                                        showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
+                                        model.startQueueItem(item, at: index)
+                                    } label: {
+                                        QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
+                                            .equatable()
+                                            .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
+                                    }
+                                    .buttonStyle(DJConnectMediaRowButtonStyle())
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(djConnectListRowInsets)
+                                    .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
+                                    .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
+                                    .accessibilityLabel(item.displayTitle)
+                                    .accessibilityIdentifier("queue-item-row-\(index)")
+                                    .id(index)
+                                }
                             }
                         }
+                        .listStyle(.plain)
+                        .scrollIndicators(.visible)
                     }
-                    .listStyle(.plain)
-                    .scrollIndicators(.visible)
                     #endif
                 }
                 .onAppear { rebuildQueueRows() }
@@ -14346,6 +14274,7 @@ struct QueueView: View {
                     scrollToActiveQueueSearchResult(proxy)
                 }
             }
+            .djConnectObserveWidePadLayout($usesWideList)
             .djContentRefreshable(enabled: !model.isDemoMode && canUsePlayback) { await refreshQueueWithToast() }
             .navigationTitle(screenTitle(model.language, key: "Queue", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-queue")
@@ -14396,8 +14325,7 @@ struct QueueView: View {
         .background(DJConnectCanvasBackground())
     }
 
-    #if os(macOS)
-    private func queueScrollContent(proxy: ScrollViewProxy) -> some View {
+    private func queueScrollContent(maxWidth: CGFloat) -> some View {
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(spacing: 10) {
                 if shouldShowEmptyQueueState || shouldShowFilteredEmptyQueueState {
@@ -14427,13 +14355,12 @@ struct QueueView: View {
                     }
                 }
             }
-            .frame(maxWidth: 1000, alignment: .leading)
+            .frame(maxWidth: maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .top)
             .padding(.horizontal, djConnectScreenHorizontalPadding)
             .padding(.vertical, djConnectScreenVerticalPadding)
         }
     }
-    #endif
 
     private func queueSearchMatches(_ item: DJConnectQueueItem) -> Bool {
         let searchable = [
@@ -14582,6 +14509,8 @@ struct PlaylistsView: View {
         return canOpenPlaylistSearch ? .primary : .secondary
     }
 
+    @State private var usesWideList = false
+
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
@@ -14604,41 +14533,45 @@ struct PlaylistsView: View {
                     }
 
                     #if os(macOS)
-                    playlistsScrollContent(proxy: proxy)
+                    playlistsScrollContent(maxWidth: 1000)
                     #else
-                    List {
-                        if model.playlistItems.isEmpty || shouldShowFilteredEmptyPlaylistState {
-                            DJConnectEmptyState(
-                                title: shouldShowFilteredEmptyPlaylistState
-                                    ? localizedKey(model.language, "ui.no.search.results")
-                                    : localizedKey(model.language, "ui.no.playlists"),
-                                systemImage: shouldShowFilteredEmptyPlaylistState ? "magnifyingglass" : "rectangle.stack"
-                            )
-                            .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                        } else {
-                            ForEach(filteredPlaylistItems) { playlist in
-                                Button {
-                                    showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"), systemImage: "play.fill")
-                                    model.startPlaylist(playlist)
-                                } label: {
-                                    PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
-                                        .equatable()
-                                        .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
-                                }
-                                .buttonStyle(DJConnectMediaRowButtonStyle())
+                    if usesWideList {
+                        playlistsScrollContent(maxWidth: .infinity)
+                    } else {
+                        List {
+                            if model.playlistItems.isEmpty || shouldShowFilteredEmptyPlaylistState {
+                                DJConnectEmptyState(
+                                    title: shouldShowFilteredEmptyPlaylistState
+                                        ? localizedKey(model.language, "ui.no.search.results")
+                                        : localizedKey(model.language, "ui.no.playlists"),
+                                    systemImage: shouldShowFilteredEmptyPlaylistState ? "magnifyingglass" : "rectangle.stack"
+                                )
+                                .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
-                                .listRowInsets(djConnectListRowInsets)
-                                .disabled(arePlaylistItemsDisabled)
-                                .allowsHitTesting(!arePlaylistItemsDisabled)
-                                .id(playlist.id)
+                            } else {
+                                ForEach(filteredPlaylistItems) { playlist in
+                                    Button {
+                                        showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"), systemImage: "play.fill")
+                                        model.startPlaylist(playlist)
+                                    } label: {
+                                        PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
+                                            .equatable()
+                                            .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
+                                    }
+                                    .buttonStyle(DJConnectMediaRowButtonStyle())
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(djConnectListRowInsets)
+                                    .disabled(arePlaylistItemsDisabled)
+                                    .allowsHitTesting(!arePlaylistItemsDisabled)
+                                    .id(playlist.id)
+                                }
                             }
                         }
+                        .listStyle(.plain)
+                        .scrollIndicators(.visible)
                     }
-                    .listStyle(.plain)
-                    .scrollIndicators(.visible)
                     #endif
                 }
                 .onAppear { rebuildPlaylistRows() }
@@ -14653,6 +14586,7 @@ struct PlaylistsView: View {
                     scrollToActivePlaylistSearchResult(proxy)
                 }
             }
+            .djConnectObserveWidePadLayout($usesWideList)
             .djContentRefreshable(enabled: !model.isDemoMode && canUsePlayback) { await refreshPlaylistsWithToast() }
             .navigationTitle(screenTitle(model.language, key: "ui.playlists", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-playlists")
@@ -14702,8 +14636,7 @@ struct PlaylistsView: View {
         }
     }
 
-    #if os(macOS)
-    private func playlistsScrollContent(proxy: ScrollViewProxy) -> some View {
+    private func playlistsScrollContent(maxWidth: CGFloat) -> some View {
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(spacing: 10) {
                 if model.playlistItems.isEmpty || shouldShowFilteredEmptyPlaylistState {
@@ -14731,13 +14664,12 @@ struct PlaylistsView: View {
                     }
                 }
             }
-            .frame(maxWidth: 1000, alignment: .leading)
+            .frame(maxWidth: maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .top)
             .padding(.horizontal, djConnectScreenHorizontalPadding)
             .padding(.vertical, djConnectScreenVerticalPadding)
         }
     }
-    #endif
 
     private func playlistSearchMatches(_ playlist: DJConnectPlaylist) -> Bool {
         let searchable = [
@@ -15133,13 +15065,13 @@ enum LocalGameMode: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .pong:
-            "circle.grid.cross"
+            "tennis.racket"
         case .asteroids:
-            "paperplane"
+            "moon.stars"
         case .fly:
             "airplane"
         case .pacman:
-            "circle.circle"
+            "square.grid.3x3"
         }
     }
 
@@ -15249,23 +15181,8 @@ enum DJConnectGameViewport {
         return CGPoint(x: (point.x - origin.x) / scale, y: (point.y - origin.y) / scale)
     }
 
-    static func canvasHeight(viewportHeight: CGFloat, pickerHeight: CGFloat, chromeHeight: CGFloat,
-                             verticalPadding: CGFloat) -> CGFloat {
-        // Leave room for the picker, measured controls/help and ordinary edge spacing.
-        max(170, viewportHeight - pickerHeight - chromeHeight - 18 - 2 * verticalPadding - 2)
-    }
-}
-
-private struct GameHeightPreferenceKey: PreferenceKey {
-    static let defaultValue: [String: CGFloat] = [:]
-    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
-    }
-}
-
-private func gameHeightReader(_ component: String) -> some View {
-    GeometryReader { proxy in
-        Color.clear.preference(key: GameHeightPreferenceKey.self, value: [component: proxy.size.height])
+    static func prefersSideControls(in size: CGSize) -> Bool {
+        size.height < 370 && size.width >= 370
     }
 }
 
@@ -15276,7 +15193,6 @@ private struct GamesView: View {
     @Environment(\.djConnectContentSizeClass) private var contentSizeClass
     private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var selectedGame = LocalGameMode.pong
-    @State private var measuredGameHeights: [String: CGFloat] = [:]
 
     private func contentMaxWidth(for size: CGSize) -> CGFloat {
         #if os(macOS)
@@ -15286,43 +15202,26 @@ private struct GamesView: View {
         #endif
     }
 
-    private func gameCanvasMaxHeight(for size: CGSize) -> CGFloat? {
-        #if os(iOS)
-        guard horizontalSizeClass == .regular else { return nil }
-        #endif
-        let surfaceHeight = measuredGameHeights["surface"] ?? 0
-        let canvasHeight = measuredGameHeights["canvas"] ?? 0
-        let chromeHeight = surfaceHeight > 0 ? max(0, surfaceHeight - canvasHeight) : 180
-        // Measure the controls and localized help rather than estimating from width.
-        // Small windows retain scrolling so the game remains usable.
-        return DJConnectGameViewport.canvasHeight(viewportHeight: size.height, pickerHeight: 0,
-                                                  chromeHeight: chromeHeight, verticalPadding: djConnectScreenVerticalPadding)
-    }
-
     var body: some View {
         NavigationStack {
             GeometryReader { proxy in
                 let contentMaxWidth = contentMaxWidth(for: proxy.size)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        LocalGameSurface(
-                            game: $selectedGame,
-                            language: language,
-                            maxCanvasHeight: gameCanvasMaxHeight(for: proxy.size)
-                        )
-                            .frame(maxWidth: .infinity, alignment: .top)
-                            .background(gameHeightReader("surface"))
-                    }
-                    .djConnectScreenPadding()
+                LocalGameSurface(game: $selectedGame, language: language,
+                                 controlsBesideCanvas: DJConnectGameViewport.prefersSideControls(in: proxy.size))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(djConnectScreenHorizontalPadding)
                     .frame(maxWidth: contentMaxWidth)
-                    .frame(maxWidth: .infinity)
-                }
-                .background(DJSessionPinnedMoodBackground(mood: selectedGame.mood.rawValue))
-                .background(DJConnectCanvasBackground())
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background {
+                        DJSessionPinnedMoodBackground(mood: selectedGame.mood.rawValue)
+                            .ignoresSafeArea(.container)
+                    }
             }
-            .navigationTitle(localizedKey(language, "ui.games"))
+            .navigationTitle("")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .accessibilityIdentifier("screen-games")
-            .onPreferenceChange(GameHeightPreferenceKey.self) { measuredGameHeights = $0 }
         }
         .id("games-\(isDemoMode)-\(language)")
     }
@@ -15331,13 +15230,13 @@ private struct GamesView: View {
 private struct LocalGameSurface: View {
     @Binding var game: LocalGameMode
     let language: String
-    var maxCanvasHeight: CGFloat? = nil
+    let controlsBesideCanvas: Bool
+    private var gameLayout: AnyLayout {
+        controlsBesideCanvas ? AnyLayout(HStackLayout(spacing: 12)) : AnyLayout(VStackLayout(spacing: 14))
+    }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var isSurfaceVisible = false
-    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
-    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
-    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @AppStorage("djconnect.app.game.pong.high") private var pongHighScore = 0
     @AppStorage("djconnect.app.game.asteroids.high") private var asteroidsHighScore = 0
     @AppStorage("djconnect.app.game.fly.high") private var flyHighScore = 0
@@ -15395,17 +15294,6 @@ private struct LocalGameSurface: View {
     @FocusState private var isGameFocused: Bool
     private let tick = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
     private var logicalCanvasSize: CGSize { CGSize(width: 320, height: game == .asteroids ? 340 : 170) }
-    private var gameAspectRatio: CGFloat { logicalCanvasSize.width / logicalCanvasSize.height }
-    private var canvasHeightLimit: CGFloat? { maxCanvasHeight.map { $0 * (game == .asteroids ? 2 : 1) } }
-
-    private var fillsAvailableCanvas: Bool {
-        #if os(iOS)
-        horizontalSizeClass == .regular
-        #else
-        false
-        #endif
-    }
-
     private var highScore: Int {
         switch game {
         case .pong:
@@ -15456,45 +15344,38 @@ private struct LocalGameSurface: View {
                     .minimumScaleFactor(0.76)
             }
 
-            Group {
-                if fillsAvailableCanvas, let canvasHeightLimit {
-                    gameCanvas.frame(height: canvasHeightLimit)
-                } else {
-                    gameCanvas
-                        .aspectRatio(gameAspectRatio, contentMode: .fit)
-                        .frame(maxHeight: canvasHeightLimit)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .onGeometryChange(for: CGSize.self) { $0.size } action: { canvasSize = $0 }
-            .background(gameHeightReader("canvas"))
-            .accessibilityIdentifier("games-surface")
-            .accessibilityLabel(game.title)
-            .accessibilityValue(gameAccessibilityValue)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        handleDrag(value.location)
+            gameLayout {
+                gameCanvas
+                .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { canvasSize = $0 }
+                .accessibilityIdentifier("games-surface")
+                .accessibilityLabel(game.title)
+                .accessibilityValue(gameAccessibilityValue)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            handleDrag(value.location)
+                        }
+                        .onEnded { _ in
+                            fire()
+                        }
+                )
+                .onReceive(tick) { _ in
+                    guard isSurfaceVisible, scenePhase == .active else { return }
+                    if game == .asteroids && !reduceMotion { meteorStarTime += 1.0 / 30.0 }
+                    guard isPlaying else {
+                        return
                     }
-                    .onEnded { _ in
-                        fire()
-                    }
-            )
-            .onReceive(tick) { _ in
-                guard isSurfaceVisible, scenePhase == .active else { return }
-                if game == .asteroids && !reduceMotion { meteorStarTime += 1.0 / 30.0 }
-                guard isPlaying else {
-                    return
+                    update()
                 }
-                update()
-            }
-            .onChange(of: game) {
-                DJConnectGameHaptics.cancel(); DJConnectGameSounds.cancel()
-                reset()
-                isPlaying = false
-            }
+                .onChange(of: game) {
+                    DJConnectGameHaptics.cancel(); DJConnectGameSounds.cancel()
+                    reset()
+                    isPlaying = false
+                }
 
-            controlsView
+                controlsView
+            }
 
             Text(helpText)
                 .font(.callout)
@@ -15507,7 +15388,7 @@ private struct LocalGameSurface: View {
                 .accessibilityLabel("Game state")
                 .accessibilityValue(gameAccessibilityValue)
         }
-        .padding(18)
+        .padding(12)
         .djSessionFrostedSurface(mood: game.mood.rawValue)
         .focusable(true)
         .focusEffectDisabled()
@@ -15552,6 +15433,9 @@ private struct LocalGameSurface: View {
                             .labelStyle(.iconOnly)
                             .foregroundStyle(game == mode ? djConnectAccent : .primary)
                     }
+                    #if os(iOS)
+                    .tint(game == mode ? djConnectAccent : nil)
+                    #endif
                     .help(mode.title)
                     .accessibilityAddTraits(game == mode ? [.isSelected] : [])
                 }
@@ -15610,8 +15494,8 @@ private struct LocalGameSurface: View {
             DJConnectGameHaptics.impact()
             _ = handleArrowKey(direction)
         }
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity)
+        .padding(.vertical, controlsBesideCanvas ? 0 : 8)
+        .frame(maxWidth: controlsBesideCanvas ? 160 : .infinity)
     }
 
     private var resetButton: some View {
@@ -16619,7 +16503,7 @@ private struct MoreView: View {
     private var moreList: some View {
         NavigationStack {
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: djConnectCardSpacing)], spacing: djConnectCardSpacing) {
                     MoreNavigationRow(title: "Ask DJ", systemImage: "bubble.left.and.bubble.right") { destinationSelection = .askDJ }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "headphones") { destinationSelection = .savedSessions }
                     MoreNavigationRow(title: "Music DNA", systemImage: "heart") { destinationSelection = .musicDNA }
@@ -17656,14 +17540,8 @@ struct SettingsView: View {
                 .accentColor(.white)
                 .scrollContentBackgroundIfAvailable(.hidden)
                 .background(.clear)
-                .safeAreaInset(edge: .bottom) {
-                    Color.clear
-                        .frame(height: 28)
-                        .allowsHitTesting(false)
-                }
                 .djTransparentMacListBackground()
             }
-            .ignoresSafeArea(edges: .bottom)
             .navigationTitle(localizedKey(model.language, "ui.settings"))
             .accessibilityIdentifier("screen-settings")
             .alert(
@@ -17913,16 +17791,13 @@ private struct LogsView: View {
             }
             .padding(.vertical, 12)
             .djSessionFrostedSurface()
-            .padding(.horizontal, 20)
-            #if !os(macOS)
-            .padding(.vertical, 16)
+            #if os(macOS)
+            .frame(maxWidth: djConnectMacDetailContentMaxWidth)
             #endif
-            .background(DJConnectCanvasBackground())
+            .padding(djConnectScreenHorizontalPadding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .navigationTitle(localizedKey(model.language, "ui.logs"))
             .accessibilityIdentifier("screen-logs")
-            #if os(macOS)
-            .djConnectMacDetailContent()
-            #endif
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -18155,7 +18030,7 @@ private struct AboutView: View {
         ZStack {
             DJConnectCanvasBackground()
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                     AboutBanner()
 
                     SettingsSection(title: localizedKey(model.language, "ui.app"), showsDivider: false) {
@@ -18271,8 +18146,7 @@ private struct AboutView: View {
                 .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
                 #else
                 .frame(maxWidth: contentMaxWidth, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 28)
+                .djConnectScreenPadding()
                 #endif
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -18390,7 +18264,7 @@ private struct LegalNoticesView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                         AboutBanner()
 
                         SettingsSection(title: localizedKey(language, "ui.legal"), showsDivider: false) {
@@ -18414,7 +18288,7 @@ private struct LegalNoticesView: View {
                     #if os(macOS)
                     .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
                     #else
-                    .padding(24)
+                    .djConnectScreenPadding()
                     .frame(maxWidth: contentMaxWidth, alignment: .leading)
                     #endif
                 }
@@ -18441,7 +18315,7 @@ private struct PrivacyView: View {
         ZStack {
             DJConnectCanvasBackground()
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                     AboutBanner()
                     SettingsSection(title: localizedKey(language, "ui.privacy"), showsDivider: false) {
                         SelectableValue(localizedKey(language, "ui.djconnect.does.not.collect.sell.or.process.personal.data.in"))
@@ -18458,8 +18332,7 @@ private struct PrivacyView: View {
                 .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
                 #else
                 .frame(maxWidth: contentMaxWidth, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 28)
+                .djConnectScreenPadding()
                 #endif
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -18724,22 +18597,17 @@ private struct SettingsContentContainer<Content: View>: View {
     var body: some View {
         ScrollView {
             #if os(macOS)
-            VStack(alignment: .leading, spacing: 28) { content }
+            VStack(alignment: .leading, spacing: djConnectScreenHorizontalPadding) { content }
                 .labeledContentStyle(SettingsTrailingContentStyle())
                 .toggleStyle(SwitchToggleStyle(tint: DJConnectGlassAppearance.toggleTint))
-                .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+                .padding(djConnectScreenHorizontalPadding)
             #else
             DJSessionGlassGroup {
-                VStack(alignment: .leading, spacing: 20) { content }
+                VStack(alignment: .leading, spacing: djConnectScreenHorizontalPadding) { content }
             }
             .pickerStyle(.menu)
             .frame(maxWidth: maximumContentWidth)
-            .padding(.horizontal, djConnectScreenHorizontalPadding)
-            .padding(.vertical, djConnectScreenVerticalPadding)
-            #if os(iOS)
-            // Keep the final permissions card scrollable above the floating tab bar.
-            .padding(.bottom, 96)
-            #endif
+            .padding(djConnectScreenHorizontalPadding)
             .frame(maxWidth: .infinity, alignment: .top)
             #endif
         }
@@ -18751,15 +18619,15 @@ private struct SettingsGlassSection<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: djConnectScreenHorizontalPadding) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .accessibilityAddTraits(.isHeader)
-            VStack(alignment: .leading, spacing: 18) { content }
+            VStack(alignment: .leading, spacing: djConnectScreenHorizontalPadding) { content }
         }
-        .padding(24)
+        .padding(djConnectScreenHorizontalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .djSessionFrostedSurface()
     }

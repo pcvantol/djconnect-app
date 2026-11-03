@@ -911,10 +911,28 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             })
     }
 
+    private var pendingEndNavigation: (binding: String, sessionID: String)?
+
+    private func returnHomeAfterConfirmedEnd() {
+        guard let pending = pendingEndNavigation, let current = foregroundSession.current() else { return }
+        guard current.settings.binding == pending.binding else {
+            pendingEndNavigation = nil
+            return
+        }
+        if let session = current.session {
+            if session.id != pending.sessionID { pendingEndNavigation = nil }
+            return
+        }
+        guard !foregroundSession.outcomeUnknown, !foregroundSession.isChanging else { return }
+        pendingEndNavigation = nil
+        watchHomeOpenSequence &+= 1
+    }
+
     func refreshForegroundSession(force: Bool = false) async {
         guard force || !isUpdatingSessionMood else { return }
         let active = isAppForeground && canUseBackend && !isDemoMode
         if !active { settingsOperationConfirmation = nil }
+        if !canUseBackend || isDemoMode { pendingEndNavigation = nil }
         foregroundSession.bind(owner: active ? stableInstallID : nil, active: active)
         guard active else {
             if isAppForeground { publishStackEntry(nil) }
@@ -927,6 +945,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 throw error
             }
         }
+        returnHomeAfterConfirmedEnd()
         if isAppForeground { publishStackEntry(canUseBackend ? foregroundSession.stackEntry() : nil) }
         guard isAppForeground, let current = foregroundSession.current() else {
             profileDJSettings.bind(owner: profileDJSettings.response?.binding, active: false)
@@ -993,30 +1012,50 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 payload: DJConnectWatchSessionAction(snapshot: current, language: language))
             guard !Task.isCancelled, isAppForeground, canUseBackend, stableInstallID == owner,
                   foregroundSession.current()?.settings.binding == binding,
-                  foregroundSession.current()?.session?.id == sessionID, rows.count <= 8 else { return nil }
+                  foregroundSession.current()?.session?.id == sessionID, rows.count <= DJConnectWatchFlowRow.maximumCount else { return nil }
             return rows
         } catch {
             return nil
         }
     }
 
+    func loadWatchFlowArtwork(_ reference: DJConnectSessionEntryReference, binding: String) async -> DJConnectWatchFlowArtwork? {
+        func isCurrent() -> Bool {
+            isAppForeground && canUseBackend && !isDemoMode &&
+                foregroundSession.current()?.settings.binding == binding &&
+                foregroundSession.current()?.session?.id == reference.sessionID
+        }
+        guard isCurrent() else { return nil }
+        let owner = stableInstallID
+        let result: DJConnectWatchFlowArtwork? = try? await sendCompanionHARequest(.sessionFlowArtwork,
+            payload: DJConnectWatchOriginalContext(binding: binding, sessionID: reference.sessionID, originalID: reference.entryID))
+        guard !Task.isCancelled, isCurrent(), stableInstallID == owner,
+              let result, result.expiresAt > Date(), result.jpeg.count <= 24_000 else { return nil }
+        return result
+    }
+
     func acceptCurrentForegroundSession() async {
         guard isAppForeground, canUseBackend, !isDemoMode else { return }
         await foregroundSession.useCurrent { [unowned self] in try await sendCompanionHARequest(.foregroundSession) }
+        returnHomeAfterConfirmedEnd()
+        if !foregroundSession.outcomeUnknown { pendingEndNavigation = nil }
         await refreshForegroundSession(force: true)
     }
 
     func changeForegroundSession(expectedSessionID: String? = nil) async {
         guard isAppForeground, canUseBackend, !isDemoMode,
-              !profileDJSettings.hasUncertainOperation,
+              !profileDJSettings.hasUncertainOperation, !foregroundSession.isRefreshing,
+              !foregroundSession.isChanging, !foregroundSession.outcomeUnknown,
               let expectedSessionID, let current = foregroundSession.current(),
-              current.session?.id == expectedSessionID else { return }
+              current.session?.id == expectedSessionID, !current.settings.requiresSelection else { return }
+        pendingEndNavigation = (current.settings.binding, expectedSessionID)
         sessionSpeech.stop()
         publishStackEntry(nil)
         await foregroundSession.change(language: language, write: { [unowned self] intent in
             let _: Bool = try await sendCompanionHARequest(.endSession,
                                                           payload: intent)
         }, read: { [unowned self] in try await sendCompanionHARequest(.foregroundSession) })
+        returnHomeAfterConfirmedEnd()
         await refreshForegroundSession(force: true)
     }
 
@@ -1617,12 +1656,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         await refreshStatus()
     }
 
-    func sendCommand(_ command: String) async {
+    func sendCommand(_ command: String, value: DJConnectCommandValue? = nil) async {
         if command == "play" || command == "pause" {
             playPlaybackToggleHaptic(isStarting: command == "play")
         }
         if isDemoMode {
-            applyDemoCommand(command, value: nil)
+            applyDemoCommand(command, value: value)
             appendDiagnosticLog("Demo opdracht: \(command)")
             return
         }
@@ -1634,7 +1673,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: command, language: currentRequestLocale, mood: backendMoodHint)
+                payload: DJConnectCommandPayload(identity: identity, command: command, value: value, language: currentRequestLocale, mood: backendMoodHint)
             )
             applyBackendSummary(response.musicBackendSummary)
             if !Self.shouldDeferPlaybackSnapshotUntilRefresh(command) {
@@ -1892,9 +1931,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func selectOutput(_ output: DJConnectOutputDevice) async {
-        guard !Self.isSyntheticOutput(output), output.name != Self.noOutputName else { return }
+        guard loadingOutputID == nil, !Self.isSyntheticOutput(output), output.name != Self.noOutputName else { return }
         appendDiagnosticLog("Uitvoer geselecteerd: \(output.name)")
-        selectedOutput = output.name
         if isDemoMode {
             loadingOutputID = output.id
             applyDemoCommand("set_output", value: .string(output.name))
@@ -1921,14 +1959,27 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
-            applyPlayback(response.playback)
             guard response.success else {
                 statusMessage = cachedSpotifyOutputFailureMessage(for: output)
                 appendDiagnosticLog("Uitvoer instellen mislukt: \(statusMessage)", level: .error)
                 return
             }
-            statusMessage = "Uitvoer ingesteld"
-            appendDiagnosticLog("Uitvoer ingesteld: \(output.name)")
+            if let playback = response.playback,
+               output.matchesPlaybackDevice(id: playback.device?.id, name: playback.device?.name) {
+                applyPlayback(playback)
+            }
+            await refreshStatus()
+            await loadOutputs()
+            if !availableOutputs.contains(where: { $0.id == output.id && $0.active == true }) ||
+                !output.matchesPlaybackDevice(id: playback?.device?.id, name: playback?.device?.name) {
+                do { try await Task.sleep(for: .milliseconds(850)) } catch { return }
+                await refreshStatus()
+                await loadOutputs()
+            }
+            if availableOutputs.contains(where: { $0.id == output.id && $0.active == true }) {
+                statusMessage = "Uitvoer ingesteld"
+                appendDiagnosticLog("Uitvoer ingesteld: \(output.name)")
+            }
         } catch {
             statusMessage = output.isCachedSpotifyOutput ? cachedSpotifyOutputFailureMessage(for: output) : Self.userMessage(for: error)
             appendDiagnosticLog("Uitvoer instellen mislukt: \(statusMessage)", level: .error)
@@ -2073,17 +2124,25 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var watchTextOutcomeUnknown = false
     private var pendingWatchTextID: String?
     private var pendingWatchTextOwner: String?
+    private var pendingWatchTextBinding: String?
+
     func checkWatchTextOutcome() async {
-        guard watchTextOutcomeUnknown, let id = pendingWatchTextID,
-              pendingWatchTextOwner == identity.deviceID else { return }
-        await syncAskDJHistory(showErrors: false) // Read only. Never repeat the POST.
-        guard pendingWatchTextOwner == identity.deviceID,
-              let reply = askDJMessages.first(where: { $0.clientMessageID == id && $0.role == .dj }) else { return }
-        lastWatchTextReply = reply; watchTextOutcomeUnknown = false
+        guard watchTextOutcomeUnknown, let id = pendingWatchTextID, let binding = pendingWatchTextBinding,
+              pendingWatchTextOwner == identity.deviceID,
+              foregroundSession.current()?.settings.binding == binding else { return }
+        do {
+            let reply: String? = try await sendCompanionHARequest(.askDJTextOutcome,
+                payload: DJConnectWatchTextOutcomeRequest(binding: binding, clientMessageID: id))
+            guard !Task.isCancelled, pendingWatchTextID == id, pendingWatchTextOwner == identity.deviceID,
+                  foregroundSession.current()?.settings.binding == binding, let reply, !reply.isEmpty else { return }
+            lastWatchTextReply = DJConnectWatchAskDJMessage(role: .dj, text: reply)
+            watchTextOutcomeUnknown = false
+        } catch { /* Read only; the original send remains unresolved. */ }
     }
+
     func beginNewWatchTextTurn() {
         guard !watchTextPending else { return }
-        pendingWatchTextID = nil; pendingWatchTextOwner = nil
+        pendingWatchTextID = nil; pendingWatchTextOwner = nil; pendingWatchTextBinding = nil
         watchTextOutcomeUnknown = false; lastWatchTextReply = nil
     }
 
@@ -2102,7 +2161,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             inputType: "text", mood: backendMoodHint, djStyle: djStyle, musicDNAKey: musicDNAKey,
             audioResponse: .never, djAnnouncementOutput: .clientDevice, language: currentRequestLocale)
         request.conversationContext = context
-        pendingWatchTextID = operationID; pendingWatchTextOwner = identity.deviceID
+        pendingWatchTextID = operationID; pendingWatchTextOwner = identity.deviceID; pendingWatchTextBinding = binding
         watchTextPending = true
         defer { watchTextPending = false }
         appendAskDJMessage(role: .user, text: text)
@@ -2116,6 +2175,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return true
         } catch {
             watchTextOutcomeUnknown = true
+            await checkWatchTextOutcome()
+            if !watchTextOutcomeUnknown { return true }
             showAskDJToast(Self.askDJToastText(for: error))
             return false
         }
@@ -2132,6 +2193,24 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         watchRecordingContext = context
         watchRecordingOwner = stableInstallID
         toggleRecording()
+    }
+
+    func beginHeldWatchQuestion(context: DJConnectConversationContext) -> UUID? {
+        guard !isDemoMode, isAppForeground, canUseBackend, AVAudioApplication.shared.recordPermission == .granted,
+              voiceState != .recording, voiceState != .processing,
+              let current = foregroundSession.current(), current.session?.id == context.sessionID else { return nil }
+        toggleWatchQuestionRecording(context: context)
+        return watchRecordingGeneration
+    }
+
+    func endHeldWatchQuestion(_ generation: UUID, send: Bool) -> Bool {
+        guard generation == watchRecordingGeneration else { return false }
+        if send, voiceState == .recording {
+            stopRecordingAndSend()
+            return true
+        }
+        cancelWatchQuestionRecording()
+        return false
     }
 
     func cancelWatchQuestionRecording() { cancelRecording(reason: "Watch question cancelled") }
@@ -2235,7 +2314,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func devicesApplyingCurrentPlayback(to devices: [DJConnectOutputDevice]) -> [DJConnectOutputDevice] {
-        guard let playbackDevice = playback?.device else {
+        guard !devices.contains(where: { $0.active == true }), let playbackDevice = playback?.device else {
             return devices
         }
         let playbackID = playbackDevice.id?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2356,6 +2435,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
 
+        if let loadingOutputID, deviceID != loadingOutputID,
+           availableOutputs.first(where: { $0.id == loadingOutputID })?.matchesPlaybackDevice(id: deviceID, name: deviceName) != true {
+            return
+        }
+
         if let deviceName, !deviceName.isEmpty {
             selectedOutput = deviceName
         }
@@ -2402,7 +2486,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private static func shouldRefreshPlaybackAfterCommand(_ command: String) -> Bool {
         switch command {
-        case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy", "play_context_at", "set_current_track_favorite", "save_current_track":
+        case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy", "play_context_at", "set_current_track_favorite", "save_current_track", "seek_relative", "set_shuffle":
             true
         default:
             false
@@ -3421,6 +3505,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         case "previous":
             applyDemoQueueItem(relativeOffset: -1)
             statusMessage = "Vorig demo nummer"
+        case "set_shuffle":
+            if case let .bool(enabled) = value { playback?.shuffle = enabled }
         case "seek_relative":
             if case let .int(delta) = value {
                 let currentProgress = playback?.progressMS ?? 0
@@ -4445,8 +4531,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 return request.matches(current)
             }, start: { [weak self] speech, finished in
                 guard let self, let locale = speech.locale else { return false }
-                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
-                try AVAudioSession.sharedInstance().setActive(true)
                 self.deviceSpeechRenderer.onStateChange = { playing in if !playing { finished() } }
                 return self.deviceSpeechRenderer.speak(speech.segments.map(\.text).joined(), locale: locale,
                     preferences: preferences, completion: finished)
@@ -4459,25 +4543,21 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         let preferences = deviceSpeechPreferences, deadline = Date().addingTimeInterval(30)
         let generation = deviceSpeechPreviewGeneration
         let binding = profileDJSettings.response?.binding
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
-            try AVAudioSession.sharedInstance().setActive(true)
-            deviceSpeechRenderer.onStateChange = { [weak self] value in self?.deviceSpeechPreviewIsPlaying = value }
-            guard deviceSpeechRenderer.speak(DJConnectLocalization.localized(key: "ui.device_speech.sample", language: language),
-                locale: language, preferences: preferences, completion: {}) else { return }
-            audioPlaybackTask = Task { @MainActor [weak self] in
-                guard let self else { return }
-                defer {
-                    if deviceSpeechPreviewGeneration == generation {
-                        deviceSpeechRenderer.stop(); deviceSpeechPreviewIsPlaying = false; audioPlaybackTask = nil
-                    }
-                }
-                while !Task.isCancelled && deviceSpeechPreviewGeneration == generation && deviceSpeechRenderer.isSpeaking && canPreviewDeviceSpeech &&
-                    profileDJSettings.response?.binding == binding && deviceSpeechPreferences == preferences && Date() < deadline {
-                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+        deviceSpeechRenderer.onStateChange = { [weak self] value in self?.deviceSpeechPreviewIsPlaying = value }
+        guard deviceSpeechRenderer.speak(DJConnectLocalization.localized(key: "ui.device_speech.sample", language: language),
+            locale: language, preferences: preferences, completion: {}) else { return }
+        audioPlaybackTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                if deviceSpeechPreviewGeneration == generation {
+                    deviceSpeechRenderer.stop(); deviceSpeechPreviewIsPlaying = false; audioPlaybackTask = nil
                 }
             }
-        } catch { stopDeviceSpeechPreview() }
+            while !Task.isCancelled && deviceSpeechPreviewGeneration == generation && deviceSpeechRenderer.isSpeaking && canPreviewDeviceSpeech &&
+                profileDJSettings.response?.binding == binding && deviceSpeechPreferences == preferences && Date() < deadline {
+                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            }
+        }
     }
 
     private func resolvedAudioURL(_ audioURL: URL?) -> URL? {

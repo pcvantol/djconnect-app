@@ -91,13 +91,23 @@ public struct DeviceSpeechSettingsView: View {
                     #endif
                     .accessibilityLabel(text("pitch"))
             }
-            Button(isSpeaking ? text("stop") : text("preview"), action: isSpeaking ? stop : preview)
-                #if !os(watchOS)
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
+            Button(action: isSpeaking ? stop : preview) {
+                #if os(watchOS)
+                Label(text(isSpeaking ? "stop" : "preview"), systemImage: isSpeaking ? "stop.fill" : "play.fill")
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+                #else
+                Text(text(isSpeaking ? "stop" : "preview"))
                 #endif
-                .disabled(!isSpeaking && (!previewAllowed || matching.isEmpty))
-                .accessibilityIdentifier("device-speech-preview")
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            #if os(watchOS)
+            .buttonStyle(.plain)
+            #else
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            #endif
+            .disabled(!isSpeaking && (!previewAllowed || matching.isEmpty))
+            .accessibilityIdentifier("device-speech-preview")
         }
     }
 

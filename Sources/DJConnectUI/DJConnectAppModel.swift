@@ -15475,10 +15475,10 @@ public final class DJConnectAppModel: ObservableObject {
         }
         do {
             let encoded = try await withWatchProxyHomeAssistantClient(identity: registration.identity, token: token,
-                historyContractVersion: request.operation == .sessionFlow ? sessionHistory.historyContractVersion : 1,
+                historyContractVersion: [.sessionFlow, .sessionFlowArtwork, .askDJMessage, .askDJTextOutcome].contains(request.operation) ? sessionHistory.historyContractVersion : 1,
                 allowsOperationReplay: !request.isAskDJTextSubmission && request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech &&
                     request.operation != .startSession && request.operation != .endSession &&
-                    request.operation != .updateSessionOnlyMood && request.operation != .voice) { client in
+                    request.operation != .updateSessionOnlyMood && request.operation != .sessionFlowArtwork && request.operation != .voice) { client in
                 try await self.performWatchProxyOperation(request, client: client)
             }
             guard encoded.count < 42_000 else { throw DJConnectError.payloadTooLarge(limitBytes: 42_000, actualBytes: encoded.count) }
@@ -15495,6 +15495,27 @@ public final class DJConnectAppModel: ObservableObject {
         } catch {
             return DJConnectWatchProxyResponse(success: false, error: Self.watchProxyErrorCode(for: error), message: Self.watchProxyUserMessage(for: error))
         }
+    }
+
+    private static func watchFlowThumbnail(_ image: CGImage) throws -> Data {
+        let scale = min(1, 160.0 / Double(max(image.width, image.height)))
+        let width = max(1, Int(Double(image.width) * scale))
+        let height = max(1, Int(Double(image.height) * scale))
+        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                                      bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
+            throw DJConnectError.invalidResponse
+        }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let bytes = NSMutableData()
+        guard let thumbnail = context.makeImage(),
+              let destination = CGImageDestinationCreateWithData(bytes, "public.jpeg" as CFString, 1, nil) else {
+            throw DJConnectError.invalidResponse
+        }
+        CGImageDestinationAddImage(destination, thumbnail, [kCGImageDestinationLossyCompressionQuality: 0.8] as CFDictionary)
+        guard CGImageDestinationFinalize(destination), bytes.length <= 24_000 else { throw DJConnectError.invalidResponse }
+        return bytes as Data
     }
 
     private func performWatchProxyOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
@@ -15538,6 +15559,33 @@ public final class DJConnectAppModel: ObservableObject {
                 throw DJConnectError.invalidResponse
             }
             return try encoder.encode(entry)
+        case .sessionFlowArtwork:
+            let intent = try decoder.decode(DJConnectWatchOriginalContext.self, from: request.payload ?? Data())
+            let before = try await client.profileDJSettings()
+            guard before.binding == intent.binding, before.snapshot.session?.session_id == intent.sessionID,
+                  !before.requiresSelection else { throw DJConnectError.invalidResponse }
+            let tail = try await client.sessionTimeline(sessionID: intent.sessionID, window: .tail, limit: 50)
+            guard let entry = tail.entries.first(where: {
+                $0.id == intent.originalID && $0.sessionID == intent.sessionID &&
+                    $0.kind == .playbackObserved && $0.isRetained()
+            }), let retainedUntil = DJConnectHistoryEntry.date(entry.retainedUntil) else {
+                throw DJConnectError.invalidResponse
+            }
+            let target = DJConnectSessionMedia.Target.entry(entry.id)
+            let prepared = try await client.prepareSessionArtwork(sessionID: intent.sessionID, targets: [target])
+            guard let media = prepared.first(where: { $0.target == target }),
+                  ["cover", "playback_thumbnail"].contains(media.artwork.role ?? "") else {
+                throw DJConnectError.invalidResponse
+            }
+            let audience = media.entryAudience
+            let image = try await client.sessionArtwork(media, sessionID: intent.sessionID, target: target, audience: audience)
+            let after = try await client.profileDJSettings()
+            guard after.binding == before.binding, after.snapshot.session?.session_id == intent.sessionID,
+                  !after.requiresSelection, entry.isRetained(),
+                  let grant = media.admittedArtwork(session: intent.sessionID, target: target, audience: audience),
+                  let expiresAt = grant.expiresAt.flatMap(DJConnectHistoryEntry.date) else { throw DJConnectError.invalidResponse }
+            return try encoder.encode(DJConnectWatchFlowArtwork(jpeg: Self.watchFlowThumbnail(image.image),
+                expiresAt: min(retainedUntil, expiresAt)))
         case .sessionFlow:
             let intent = try decoder.decode(DJConnectWatchSessionAction.self, from: request.payload ?? Data())
             guard let sessionID = intent.sessionID else { throw DJConnectError.invalidResponse }
@@ -15550,7 +15598,14 @@ public final class DJConnectAppModel: ObservableObject {
             guard runtime.success, let session = runtime.resolvedSession, session.id == sessionID,
                   after.binding == before.binding, after.snapshot.session?.session_id == sessionID,
                   !after.requiresSelection else { throw DJConnectError.invalidResponse }
-            return try encoder.encode(DJConnectWatchFlowRow.latest(history: tail.entries, session: session, at: Date()))
+            var rows = DJConnectWatchFlowRow.latest(history: tail.entries, session: session, at: Date())
+            var encoded = try encoder.encode(rows)
+            // Keep the newest rows when unusually large source labels fill the proxy envelope.
+            while encoded.count >= 42_000 && !rows.isEmpty {
+                rows.removeLast()
+                encoded = try encoder.encode(rows)
+            }
+            return encoded
         case .foregroundSession:
             // Read with the Watch bearer, and fence Profile/Session changes
             // across the two independent frozen owner contracts.
@@ -15609,6 +15664,18 @@ public final class DJConnectAppModel: ObservableObject {
             }
             let response = try await client.trackInsight(payload)
             return try encoder.encode(response)
+        case .askDJTextOutcome:
+            let intent = try decoder.decode(DJConnectWatchTextOutcomeRequest.self, from: request.payload ?? Data())
+            let before = try await client.profileDJSettings()
+            guard UUID(uuidString: intent.clientMessageID) != nil,
+                  before.binding == intent.binding, !before.requiresSelection else { throw DJConnectError.invalidResponse }
+            let history = try await client.profileConversationHistory()
+            let after = try await client.profileDJSettings()
+            guard after.binding == before.binding, !after.requiresSelection else { throw DJConnectError.invalidResponse }
+            let reply = history.base.messages.last {
+                $0.role != .user && $0.clientMessageID == intent.clientMessageID
+            }
+            return try encoder.encode(reply.map { String($0.text.unicodeScalars.prefix(4_000)) })
         case .askDJHistory:
             let response = try await client.askDJHistory()
             return try encoder.encode(response)
@@ -15621,7 +15688,18 @@ public final class DJConnectAppModel: ObservableObject {
             payload.audioResponse = .never // legacy Watch text has no negotiated deferred speech grant
             if payload.conversationContext != nil {
                 let response = try await client.sendSessionConversation(payload)
-                return try encoder.encode(response.base)
+                let encoded = try encoder.encode(response.base)
+                if encoded.count < 42_000 { return encoded }
+                // The Watch text composer needs the answer, not an entire rich history payload.
+                var compact = response.base
+                compact.text = (compact.assistantMessage?.text ?? compact.djText ?? compact.text)
+                    .map { String($0.unicodeScalars.prefix(4_000)) }
+                compact.djText = nil
+                compact.userMessage = nil; compact.assistantMessage = nil; compact.messages = []
+                compact.resultSet = nil; compact.trackInsight = nil; compact.firstPlay = nil
+                compact.images = nil; compact.links = nil; compact.sources = nil; compact.items = nil
+                compact.playbackActions = nil; compact.confirmationActions = nil
+                return try encoder.encode(compact)
             }
             let response = try await client.sendAskDJMessage(payload)
             return try encoder.encode(response)
