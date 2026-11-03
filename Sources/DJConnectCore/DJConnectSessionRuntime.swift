@@ -524,7 +524,9 @@ public struct DJConnectSessionMoodResponse: Decodable, Equatable, Sendable {
     public let selectedMood: String
     public let moodRevision: Int
     public let changed: Bool
+    public let writeScope: String?
     enum CodingKeys: String, CodingKey {
+        case writeScope = "write_scope"
         case success, changed, contractVersion = "contract_version", sessionID = "session_id", selectedMood = "selected_mood", moodRevision = "mood_revision"
     }
 }

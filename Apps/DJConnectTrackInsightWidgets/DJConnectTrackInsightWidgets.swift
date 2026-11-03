@@ -202,13 +202,6 @@ struct DJConnectSessionActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: DJConnectSessionLiveActivityAttributes.self) { context in
             SessionActivityPresentation(snapshot: context.state, stale: context.isStale)
-                .padding(12)
-                .background {
-                    let theme = activityTheme(context.state, stale: context.isStale)
-                    SessionSurfaceBackground(theme: theme,
-                        trackID: privateSurfaceFieldsSuppressed ? nil : context.state.rich?.currentPlayback(at: Date())?.item_id, artworkOpacity: 0.75,
-                        permitsTransition: !privateSurfaceFieldsSuppressed && !context.isStale && context.state.isCurrent(at: Date()))
-                }
                 .activityBackgroundTint(activityTheme(context.state, stale: context.isStale).darkTint)
                 .activitySystemActionForegroundColor(.white)
                 .widgetURL(sessionURL)
@@ -217,7 +210,7 @@ struct DJConnectSessionActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 8) {
                         SessionSurfaceAvatar(theme: activityTheme(context.state, stale: context.isStale), side: 28)
-                        Text(text("ui.session.title"))
+                        Text("DJConnect")
                             .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
                             .lineLimit(1).minimumScaleFactor(0.8)
                     }
@@ -227,17 +220,17 @@ struct DJConnectSessionActivityWidget: Widget {
                         PassiveActivityBody(snapshot: context.state, stale: context.isStale,
                                             showsSpotifyCredit: false, showsHeader: false)
                             .fixedSize(horizontal: false, vertical: true)
-                        if !privateSurfaceFieldsSuppressed, context.state.playbackObservation == nil {
-                        Button(intent: DJConnectSessionNextTrackIntent(presentationID: context.attributes.presentationID)) {
-                            Image(systemName: "forward.end.fill")
-                                .font(.title3.weight(.semibold)).foregroundStyle(.white)
-                                .frame(width: 44, height: 44)
-                                .background(.white.opacity(0.14), in: Circle())
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(context.isStale || !context.state.isCurrent(at: Date()))
-                        .accessibilityLabel(text("ui.next.track"))
-                        .accessibilityIdentifier("session-island-next-track")
+                        if !privateSurfaceFieldsSuppressed, context.state.playbackObservation == nil,
+                           !context.isStale, context.state.isCurrent(at: Date()) {
+                            Button(intent: DJConnectSessionNextTrackIntent(presentationID: context.attributes.presentationID)) {
+                                Image(systemName: "forward.end.fill")
+                                    .font(.title3.weight(.semibold)).foregroundStyle(.white)
+                                    .frame(width: 44, height: 44)
+                                    .background(.white.opacity(0.14), in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(text("ui.next.track"))
+                            .accessibilityIdentifier("session-island-next-track")
                         }
                     }
                     .padding(.horizontal, 12).padding(.bottom, 8)
@@ -264,42 +257,53 @@ private struct SessionActivityPresentation: View {
     @Environment(\.activityFamily) private var family
     var body: some View {
         let now = Date()
-        if family == .small {
-            if let observation = snapshot.playbackObservation {
-                DJConnectSessionWatchObservationView(observation: observation)
-            } else if !privateSurfaceFieldsSuppressed, !stale, snapshot.isCurrent(at: now),
-                      let rich = snapshot.rich, rich.isCurrent(at: now),
-                      let playback = rich.currentPlayback(at: now) {
-                HStack(spacing: 8) {
-                    VStack(spacing: 4) {
-                        SessionSurfaceAvatar(theme: snapshot.renderingTheme(at: now), side: 28)
-                        if playback.attribution["mark"] == "spotify",
-                           let source = playback.attribution["url"], let url = URL(string: source) {
-                            Link(destination: url) {
-                                Image("SpotifyAttribution").resizable().scaledToFit()
-                                    .frame(width: 42, height: 13)
-                                    .accessibilityLabel("Spotify")
+        let playback = !privateSurfaceFieldsSuppressed && !stale && snapshot.isCurrent(at: now)
+            ? snapshot.rich.flatMap { $0.isCurrent(at: now) ? $0.currentPlayback(at: now) : nil } : nil
+        Group {
+            if family == .small {
+                if let observation = snapshot.playbackObservation {
+                    DJConnectSessionWatchObservationView(observation: observation)
+                } else if let playback {
+                    HStack(spacing: 8) {
+                        VStack(spacing: 4) {
+                            SessionSurfaceAvatar(theme: snapshot.renderingTheme(at: now), side: 28)
+                            if playback.attribution["mark"] == "spotify",
+                               let source = playback.attribution["url"], let url = URL(string: source) {
+                                Link(destination: url) {
+                                    Image("SpotifyAttribution").resizable().scaledToFit()
+                                        .frame(width: 42, height: 13)
+                                        .accessibilityLabel("Spotify")
+                                }
                             }
                         }
+                        PassiveSessionContentView(contribution: nil, playback: playback, cache: nil,
+                            compact: true, showsSpotifyCredit: false, showsHeader: false,
+                            theme: snapshot.renderingTheme(at: now), watchActivity: true, date: now)
                     }
-                    PassiveSessionContentView(contribution: nil, playback: playback, cache: nil,
-                        compact: true, showsSpotifyCredit: false, showsHeader: false,
-                        theme: snapshot.renderingTheme(at: now), watchActivity: true, date: now)
+                } else {
+                    HStack(spacing: 8) {
+                        SessionSurfaceAvatar(theme: .brand, side: 28)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("DJConnect").font(.caption.weight(.semibold))
+                            Text(text("surface.session.open")).font(.caption2).foregroundStyle(.white.opacity(0.8))
+                                .lineLimit(2)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(.white)
                 }
             } else {
-                HStack(spacing: 8) {
-                    SessionSurfaceAvatar(theme: .brand, side: 28)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("DJConnect").font(.caption.weight(.semibold))
-                        Text(text("surface.session.open")).font(.caption2).foregroundStyle(.white.opacity(0.8))
-                            .lineLimit(2)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .foregroundStyle(.white)
+                PassiveActivityBody(snapshot: snapshot, stale: stale)
             }
-        } else {
-            PassiveActivityBody(snapshot: snapshot, stale: stale)
+        }
+        .padding(12)
+        .background {
+            if family != .small || snapshot.playbackObservation != nil || playback != nil {
+                SessionSurfaceBackground(theme: activityTheme(snapshot, stale: stale),
+                    trackID: privateSurfaceFieldsSuppressed ? nil : snapshot.rich?.currentPlayback(at: now)?.item_id,
+                    artworkOpacity: 0.75,
+                    permitsTransition: !privateSurfaceFieldsSuppressed && !stale && snapshot.isCurrent(at: now))
+            }
         }
     }
 }

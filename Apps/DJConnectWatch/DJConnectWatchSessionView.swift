@@ -21,7 +21,7 @@ struct DJConnectWatchSessionView: View {
             // It only schedules invalidation; current wall/monotonic clocks own
             // freshness and the producer's unchanged Moment deadlines.
             let now = Date()
-            VStack(alignment: .leading, spacing: 10) {
+            List {
                 if state.isChanging { ProgressView().accessibilityIdentifier("watch-session-changing") }
                 if state.outcomeUnknown {
                     Text(text("watch.session.check_outcome")).font(.caption)
@@ -33,6 +33,7 @@ struct DJConnectWatchSessionView: View {
                         if let started = DJConnectHistoryEntry.date(session.startedAt) {
                             Text(text("ui.session.started_at") + " " + started.formatted(.dateTime.day().month().hour().minute().locale(Locale(identifier: model.language))))
                                 .font(.caption2).foregroundStyle(.secondary)
+                                .listRowBackground(Color.clear)
                         }
                         NavigationLink {
                             DJConnectWatchCompanionMoodView(state: state, settings: settings)
@@ -103,8 +104,8 @@ struct DJConnectWatchSessionView: View {
                         .font(.callout)
                 }
             }
+            .listStyle(.plain)
             .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("watch-current-session")
         }
         .confirmationDialog(text("ui.session.end.confirm"), isPresented: $confirmsEnd) {
@@ -199,20 +200,16 @@ private struct DJConnectWatchSharedDJSettingsView: View {
                 if output != .textOnly {
                     let voice = review ? draft.voice ?? e.voice : e.voice
                     let gender = review ? draft.gender ?? e.gender : e.gender
-                    Picker(text("ui.dj_settings.voice"), selection: Binding(get: { voiceTag(voice) }, set: { tag in
+                    let availableVoices = r.allowed_values.voice.voices.filter { gender == .default || $0.gender == gender.rawValue }
+                    let voiceChoices = [("default", text("ui.dj_settings.provider_default"))] + availableVoices.map { item in
+                        (voiceTag(.init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: item.voice_id)), item.name)
+                    }
+                    choiceLink(title: text("ui.dj_settings.voice"), values: voiceChoices, selected: voiceTag(voice),
+                               unavailableTitle: text("ui.dj_settings.selection_unavailable"), field: "voice") { tag in
                         if tag == "default" { choose(.init(voice: .init())) }
-                        else if let item = r.allowed_values.voice.voices.first(where: {
+                        else if let item = availableVoices.first(where: {
                             voiceTag(.init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: $0.voice_id)) == tag
                         }) { choose(.init(voice: .init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: item.voice_id))) }
-                    })) {
-                        Text(text("ui.dj_settings.provider_default")).tag("default")
-                        ForEach(r.allowed_values.voice.voices.filter { gender == .default || $0.gender == gender.rawValue }, id: \.voice_id) { item in
-                            Text(item.name).tag(voiceTag(.init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: item.voice_id)))
-                        }
-                        if voice.kind == .providerVoice && (voice.provider_id != r.allowed_values.voice.provider_id ||
-                            !r.allowed_values.voice.voices.contains(where: { $0.voice_id == voice.voice_id && (gender == .default || $0.gender == gender.rawValue) })) {
-                            Text(text("ui.dj_settings.selection_unavailable")).tag(voiceTag(voice)).disabled(true)
-                        }
                     }
                     if r.allowed_values.gender.contains("male") || r.allowed_values.gender.contains("female") {
                         choices("gender", r.allowed_values.gender, selected: gender.rawValue) { raw in
@@ -245,7 +242,6 @@ private struct DJConnectWatchSharedDJSettingsView: View {
         }
         .listStyle(.plain)
         .buttonStyle(.automatic)
-        .pickerStyle(.navigationLink)
         .watchStandardBackground()
         .navigationTitle(text("watch.session.settings"))
         .onChange(of: settings.response?.binding) { draft = .init() }
@@ -256,13 +252,134 @@ private struct DJConnectWatchSharedDJSettingsView: View {
         voice.kind == .providerDefault ? "default" : "voice/\((voice.provider_id ?? "").utf8.count):\(voice.provider_id ?? "")/\(voice.voice_id ?? "")"
     }
     private func choices(_ field: String, _ values: [String], selected: String, change: @escaping (String) -> Void) -> some View {
-        Picker(text("ui.dj_settings." + field), selection: Binding(get: { selected }, set: change)) {
-            if !values.contains(selected) { Text(label(field, selected)).tag(selected).disabled(true) }
-            ForEach(values, id: \.self) { value in
-                Text(label(field, value)).tag(value)
-                    .disabled(field == "output" && settings.response?.announcement_output.outputs.first(where: { $0.value == value })?.available != true)
+        let icons: [String: String] = switch field {
+        case "presence":
+            Dictionary(uniqueKeysWithValues: DJConnectSessionPresenceValue.selectableChoices.map { ($0.rawValue, $0.watchIcon) })
+        case "output":
+            Dictionary(uniqueKeysWithValues: DJAnnouncementOutput.allCases.map { ($0.rawValue, $0.watchIcon) })
+        default:
+            [:]
+        }
+        return choiceLink(title: text("ui.dj_settings." + field), values: values.map { ($0, label(field, $0)) },
+                   selected: selected, unavailableTitle: label(field, selected), field: field,
+                   icons: icons,
+                   disabledValues: Set(values.filter { value in
+                       field == "output" && settings.response?.announcement_output.outputs.first(where: { $0.value == value })?.available != true
+                   }), change: change)
+    }
+
+    private func choiceLink(title: String, values: [(String, String)], selected: String,
+                            unavailableTitle: String, field: String? = nil, icons: [String: String] = [:], disabledValues: Set<String> = [],
+                            change: @escaping (String) -> Void) -> some View {
+        NavigationLink {
+            DJConnectWatchSettingsChoices(title: title, values: values, selected: selected,
+                unavailableTitle: unavailableTitle, icons: icons, disabledValues: disabledValues, change: change)
+        } label: {
+            HStack(spacing: 10) {
+                LabeledContent(title, value: values.first { $0.0 == selected }?.1 ?? unavailableTitle)
+                if let field, ["mood", "presence", "persona", "output", "voice"].contains(field) {
+                    selectedIcon(field: field, value: selected)
+                        .frame(width: 22)
+                        .accessibilityHidden(true)
+                }
             }
         }
+    }
+
+    @ViewBuilder private func selectedIcon(field: String?, value: String) -> some View {
+        switch field {
+        case "mood":
+            if let mood = DJConnectSessionMoodTheme(rawValue: value), mood != .brand {
+                Image(systemName: mood.watchIcon)
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(mood.watchIconGradient)
+            }
+        case "presence":
+            if let presence = DJConnectSessionPresenceValue(rawValue: value) {
+                Image(systemName: presence.watchIcon).foregroundStyle(.purple)
+            }
+        case "persona":
+            if let persona = DJConnectSessionPersonaValue(rawValue: value) {
+                Image(systemName: persona.watchIcon).foregroundStyle(.purple)
+            }
+        case "output":
+            if let output = DJAnnouncementOutput(rawValue: value) {
+                Image(systemName: output.watchIcon).foregroundStyle(.purple)
+            }
+        case "voice":
+            Image(systemName: value == "default" ? "waveform" : "mic.fill")
+                .foregroundStyle(.purple)
+        default:
+            EmptyView()
+        }
+    }
+}
+
+private extension DJAnnouncementOutput {
+    var watchIcon: String {
+        switch self {
+        case .clientDevice: "applewatch"
+        case .both: "speaker.wave.2.fill"
+        case .haSpeaker: "speaker.wave.2"
+        case .textOnly: "text.bubble"
+        }
+    }
+}
+
+private extension DJConnectSessionPersonaValue {
+    var watchIcon: String {
+        switch self {
+        case .homeDJ: "house"
+        case .radioDJ: "radio"
+        case .clubDJ: "opticaldisc"
+        case .festivalDJ: "music.mic"
+        }
+    }
+}
+
+private struct DJConnectWatchSettingsChoices: View {
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let values: [(String, String)]
+    let selected: String
+    let unavailableTitle: String
+    let icons: [String: String]
+    let disabledValues: Set<String>
+    let change: (String) -> Void
+
+    var body: some View {
+        List {
+            if !values.contains(where: { $0.0 == selected }) {
+                Text(unavailableTitle).foregroundStyle(.secondary)
+            }
+            ForEach(values, id: \.0) { value in
+                Button {
+                    if value.0 != selected { change(value.0) }
+                    dismiss()
+                } label: {
+                    HStack(spacing: 10) {
+                        if let icon = icons[value.0] {
+                            Image(systemName: icon)
+                                .foregroundStyle(.purple)
+                                .frame(width: 22)
+                                .accessibilityHidden(true)
+                        }
+                        Text(value.1)
+                        Spacer()
+                        if value.0 == selected {
+                            Image(systemName: "checkmark").accessibilityHidden(true)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .disabled(disabledValues.contains(value.0))
+                .accessibilityAddTraits(value.0 == selected ? .isSelected : [])
+            }
+        }
+        .listStyle(.plain)
+        .buttonStyle(.plain)
+        .watchStandardBackground()
+        .navigationTitle(title)
     }
 }
 
@@ -298,7 +415,7 @@ private struct DJConnectWatchSessionPresenceView: View {
                         }
                     } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: icon(for: choice))
+                            Image(systemName: choice.watchIcon)
                                 .foregroundStyle(.purple)
                                 .frame(width: 22)
                                 .accessibilityHidden(true)
@@ -323,9 +440,11 @@ private struct DJConnectWatchSessionPresenceView: View {
         .watchStandardBackground()
         .navigationTitle(text("ui.session.presence.title"))
     }
+}
 
-    private func icon(for choice: DJConnectSessionPresenceValue) -> String {
-        switch choice {
+private extension DJConnectSessionPresenceValue {
+    var watchIcon: String {
+        switch self {
         case .musicOnly: "music.note"
         case .occasional: "bubble.left"
         case .balanced: "bubble.left.and.bubble.right"
@@ -337,13 +456,9 @@ private struct DJConnectWatchSessionPresenceView: View {
 struct DJConnectWatchSessionSpeechSettingsView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     var body: some View {
-        ScrollView {
-            DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
-                previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
-                preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
-                .padding(8)
-        }
-        .watchStandardBackground()
+        DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
+            previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
+            preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
         .navigationTitle(DJConnectLocalization.localized(key: "watch.session.speech_settings", language: model.language))
     }
 }

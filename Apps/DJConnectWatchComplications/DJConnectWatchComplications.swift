@@ -4,74 +4,79 @@ import WidgetKit
 
 private struct SessionEntry: TimelineEntry {
     let date: Date
-    let snapshot: DJConnectSessionSurfaceSnapshot?
+    let destination: DJConnectWatchStackEntry.Destination?
 }
 private struct SessionProvider: TimelineProvider {
-    func placeholder(in context: Context) -> SessionEntry { .init(date: Date(), snapshot: nil) }
-    func getSnapshot(in context: Context, completion: @escaping (SessionEntry) -> Void) { completion(current()) }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<SessionEntry>) -> Void) {
-        let entry = current()
-        var entries = [entry]
-        if let expiry = entry.snapshot?.expiresAt { entries.append(.init(date: expiry, snapshot: nil)) }
-        completion(Timeline(entries: entries, policy: .after(Date().addingTimeInterval(15 * 60))))
-    }
-    private func current() -> SessionEntry {
+    func placeholder(in context: Context) -> SessionEntry { .init(date: Date(), destination: nil) }
+    func getSnapshot(in context: Context, completion: @escaping (SessionEntry) -> Void) {
         let now = Date()
-        // Watch has a separate App Group container. No phone payload is copied
-        // implicitly. Without an admitted Watch Session producer this is neutral.
-        let snapshot = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
-            .flatMap { DJConnectSessionSurfaceSnapshot.load(from: $0, at: now) }
-        return .init(date: now, snapshot: snapshot)
+        completion(.init(date: now, destination: confirmedEntry(at: now)?.destination))
+    }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<SessionEntry>) -> Void) {
+        let now = Date()
+        let confirmed = confirmedEntry(at: now)
+        var entries = [SessionEntry(date: now, destination: confirmed?.destination)]
+        if let confirmed {
+            entries.append(.init(date: confirmed.expiresAt, destination: nil))
+        }
+        let refresh = confirmed?.expiresAt ?? now.addingTimeInterval(15 * 60)
+        completion(Timeline(entries: entries, policy: .after(refresh)))
+    }
+    private func confirmedEntry(at now: Date) -> DJConnectWatchStackEntry? {
+        UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
+            .flatMap { DJConnectWatchStackEntry.load(from: $0, at: now) }
     }
 }
 private struct SessionComplicationView: View {
     let entry: SessionEntry
     @Environment(\.widgetFamily) private var family
     private var title: String {
-        DJConnectLocalization.localized(key: entry.snapshot?.isCurrent(at: entry.date) == true
-                                        ? "surface.session.active" : "watch.v2.widget.ask_dj")
+        entry.destination == .askDJ ? DJConnectLocalization.localized(key: "watch.v2.widget.ask_dj") : "DJConnect"
     }
-    private var accent: Color {
-        let theme = entry.snapshot?.renderingTheme(at: entry.date) ?? .brand
-        let value = theme.colorValues[1]
-        return Color(red: Double((value >> 16) & 255) / 255,
-                     green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
+    private var subtitle: String {
+        let key = switch entry.destination {
+        case .session: "watch.v2.widget.open_session"
+        case .askDJ: "ui.askdj.help.catalogue.title"
+        case nil: "widget.open.djconnect"
+        }
+        return DJConnectLocalization.localized(key: key)
+    }
+    private var icon: String {
+        switch entry.destination {
+        case .session: "opticaldisc"
+        case .askDJ: "bubble.left"
+        case nil: "waveform"
+        }
     }
     var body: some View {
         Group {
             if family == .accessoryRectangular {
-                if entry.snapshot == nil {
-                    HStack(spacing: 6) {
-                        Image("BrandHeadset")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 26, height: 26)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(title).font(.headline)
-                            Text(DJConnectLocalization.localized(key: "ui.askdj.help.catalogue.title"))
-                                .font(.caption2)
-                        }
-                        .lineLimit(1)
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.right")
-                            .font(.caption2)
-                            .accessibilityHidden(true)
+                HStack(spacing: 6) {
+                    Image("BrandHeadset")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 26, height: 26)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(title).font(.headline)
+                        Text(subtitle).font(.caption2)
                     }
-                    .accessibilityElement(children: .combine)
-                } else {
-                    Label(title, systemImage: "opticaldisc").font(.headline).lineLimit(2)
+                    .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .accessibilityHidden(true)
                 }
+                .accessibilityElement(children: .combine)
             } else if family == .accessoryInline {
-                Label(title, systemImage: entry.snapshot == nil ? "bubble.left" : "opticaldisc")
+                Label(entry.destination == .session ? subtitle : title, systemImage: icon)
             } else {
-                Image(systemName: entry.snapshot == nil ? "bubble.left" : "opticaldisc").accessibilityLabel(title)
+                Image(systemName: icon).accessibilityLabel(entry.destination == .session ? subtitle : title)
             }
         }
-        .tint(accent)
         .containerBackground(.fill.tertiary, for: .widget)
-        // Neutral launch, no fabricated native Watch Session route or mutation.
-        .widgetURL(URL(string: "djconnect://watch/ask-dj"))
+        // The app confirms the current destination again; this URL carries no Session authority.
+        .widgetURL(entry.destination?.url ?? URL(string: "djconnect://"))
     }
 }
 @MainActor

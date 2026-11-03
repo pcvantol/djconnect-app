@@ -68,6 +68,40 @@ public struct DJConnectWatchSessionSnapshot: Codable, Sendable {
     }
 }
 
+/// Watch-local widget projection. It contains no Profile, Session or media identifiers.
+public struct DJConnectWatchStackEntry: Codable, Equatable, Sendable {
+    public enum Destination: String, Codable, Sendable {
+        case session, askDJ
+
+        public var url: URL {
+            switch self {
+            case .session: URL(string: "djconnect://watch/session")!
+            case .askDJ: URL(string: "djconnect://watch/ask-dj")!
+            }
+        }
+    }
+
+    public static let storageKey = "DJConnectWatchStackEntry.v1"
+    public static let lifetime: TimeInterval = 30
+    public let destination: Destination
+    public let observedAt: Date
+
+    public var expiresAt: Date { observedAt.addingTimeInterval(Self.lifetime) }
+
+    init?(snapshot: DJConnectWatchSessionSnapshot, observedAt: Date) {
+        guard snapshot.isValid, !snapshot.settings.requiresSelection else { return nil }
+        destination = snapshot.session == nil ? .askDJ : .session
+        self.observedAt = observedAt
+    }
+
+    public static func load(from defaults: UserDefaults, at now: Date) -> Self? {
+        guard let data = defaults.data(forKey: storageKey),
+              let entry = try? JSONDecoder().decode(Self.self, from: data),
+              entry.observedAt <= now, now < entry.expiresAt else { return nil }
+        return entry
+    }
+}
+
 /// The companion revalidates this owner before issuing a non-replayed write.
 public struct DJConnectWatchSessionAction: Codable, Sendable {
     public let binding: String
@@ -152,6 +186,11 @@ public struct DJConnectWatchSettingsReceipt: Codable, Sendable {
         return snapshot
     }
 
+    public func stackEntry() -> DJConnectWatchStackEntry? {
+        guard !outcomeUnknown, !isChanging, let current = current(), let receivedDate else { return nil }
+        return .init(snapshot: current, observedAt: receivedDate)
+    }
+
     public func refresh(force: Bool = false, read: () async throws -> DJConnectWatchSessionSnapshot) async {
         guard active, !isRefreshing, !isChanging else { return }
         let now = ProcessInfo.processInfo.systemUptime
@@ -214,4 +253,73 @@ public struct DJConnectWatchSettingsReceipt: Codable, Sendable {
         expectedActive = nil; outcomeUnknown = false
     }
 
+}
+
+/// Compact, ephemeral rows from the same retained tail and admitted live Bulletins as iPhone.
+public struct DJConnectWatchFlowRow: Codable, Identifiable, Sendable {
+    public let id: String
+    public let date: Date
+    public let expiresAt: Date
+    public let labelKey: String
+    public let text: String
+    public let momentID: String?
+    public let reference: DJConnectSessionEntryReference?
+    public let spotifyAttribution: Bool
+    public let sources: [DJConnectBulletinSource]
+
+    public static func latest(history: [DJConnectHistoryEntry], session: DJConnectSessionRuntime, at now: Date) -> [Self] {
+        let entries = history.filter { $0.sessionID == session.id && $0.isRetained(at: now) }
+        let withdrawn = Set(entries.filter(\.isPublicationReceipt).compactMap(\.momentID))
+        let broadcast = session.broadcast
+        let current = broadcast.nativeCurrentMoment(at: now)
+        let bulletins = ([current].compactMap { $0 } + broadcast.nativeFlowMoments(at: now)).filter {
+            $0.isBulletinV1 && !withdrawn.contains($0.id)
+        }
+        var seen = Set<String>()
+        let live: [Self] = bulletins.compactMap { moment in
+            guard seen.insert(moment.id).inserted, let date = DJConnectHistoryEntry.date(moment.createdAt),
+                  let admission = broadcast.nativeDelivery?.admissions.first(where: { $0.momentID == moment.id }),
+                  let sourceDeadline = admission.sourceExpiresAt.flatMap(DJConnectHistoryEntry.date) else { return nil }
+            let deadline = current?.id == moment.id
+                ? min(sourceDeadline, admission.displayExpiresAt.flatMap(DJConnectHistoryEntry.date) ?? now)
+                : sourceDeadline
+            guard deadline > now else { return nil }
+            return .init(id: "bulletin:" + moment.id, date: date, expiresAt: deadline,
+                         labelKey: "ui.session.moment.dj_bulletin", text: moment.content, momentID: moment.id,
+                         reference: nil, spotifyAttribution: false, sources: moment.sources)
+        }
+        let liveIDs = Set(live.compactMap(\.momentID))
+        let retained: [Self] = entries.reversed().compactMap { entry in
+            guard let date = DJConnectHistoryEntry.date(entry.occurredAt),
+                  let deadline = DJConnectHistoryEntry.date(entry.retainedUntil),
+                  !liveIDs.contains(entry.momentID ?? "") else { return nil }
+            let label: String
+            let content: String
+            switch entry.kind {
+            case .playbackObserved:
+                label = "ui.session.history.playback"
+                content = [entry.playback?.title, entry.playback?.artist, entry.playback?.album]
+                    .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+            case .djMoment:
+                label = "ui.session.moment.generic"; content = entry.text ?? ""
+            case .conversationUser:
+                label = "watch.v2.flow.question"; content = entry.text ?? ""
+            case .conversationDJ:
+                label = "watch.v2.flow.answer"; content = entry.text ?? ""
+            case .djPublication:
+                label = "ui.session.moment.generic"; content = ""
+            case .djSilence:
+                label = "ui.session.history.silence"; content = ""
+            }
+            let preview = String(content.unicodeScalars.prefix(500)) + (content.unicodeScalars.count > 500 ? "…" : "")
+            return .init(id: entry.id, date: date, expiresAt: deadline, labelKey: label,
+                         text: preview, momentID: entry.momentID,
+                         reference: entry.isPublicationReceipt ? nil : entry.reference,
+                         spotifyAttribution: entry.requiresSpotifyAttribution == true, sources: [])
+        }
+        let ordered = (retained + live).enumerated().sorted {
+            $0.element.date == $1.element.date ? $0.offset < $1.offset : $0.element.date > $1.element.date
+        }
+        return ordered.prefix(8).map(\.element)
+    }
 }

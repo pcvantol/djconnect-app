@@ -1659,6 +1659,7 @@
 "watch.v2.notification.permission" = "Autoriser les notifications";
 
 "watch.v2.widget.ask_dj" = "Ask DJ";
+"watch.v2.widget.open_session" = "Ouvrir la session DJ";
 
 "watch.v2.moments.new" = "Dernières contributions";
 
@@ -1666,3 +1667,6 @@
 
 "watch.v2.track.question" = "Parle-moi de %@ de %@.";
 "watch.v2.recording_interrupted" = "Enregistrement interrompu.";
+
+"watch.v2.flow.question" = "Question Ask DJ";
+"watch.v2.flow.answer" = "Réponse Ask DJ";

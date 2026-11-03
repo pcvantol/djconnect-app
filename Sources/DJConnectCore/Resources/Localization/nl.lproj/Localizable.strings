@@ -1659,6 +1659,7 @@
 "watch.v2.notification.permission" = "Sta meldingen toe";
 
 "watch.v2.widget.ask_dj" = "Ask DJ";
+"watch.v2.widget.open_session" = "Open DJ-sessie";
 
 "watch.v2.moments.new" = "Nieuwste bijdragen";
 
@@ -1666,3 +1667,6 @@
 
 "watch.v2.track.question" = "Vertel me over %@ van %@.";
 "watch.v2.recording_interrupted" = "Opname onderbroken.";
+
+"watch.v2.flow.question" = "Ask DJ-vraag";
+"watch.v2.flow.answer" = "Ask DJ-antwoord";

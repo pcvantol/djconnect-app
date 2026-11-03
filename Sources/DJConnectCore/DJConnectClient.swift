@@ -493,25 +493,27 @@ public final class DJConnectClient: Sendable {
         try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
     }
 
-    public func sessionMoodRequest(sessionID: String, mood: String, expectedRevision: Int) throws -> URLRequest {
+    public func sessionMoodRequest(sessionID: String, mood: String, expectedRevision: Int, sessionOnly: Bool = false) throws -> URLRequest {
         guard !sessionID.isEmpty, expectedRevision >= 0, ["chill", "groove", "energy", "party"].contains(mood) else {
             throw DJConnectError.invalidResponse
         }
-        // This contract requires exactly six fields; the generic identified envelope adds fields.
         var request = try authenticatedRequest(path: Self.apiV1Path("session/mood"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
+        var payload: [String: Any] = [
             "contract_version": 1, "client_type": identity.clientType.rawValue, "device_id": identity.deviceID,
             "session_id": sessionID, "selected_mood": mood, "expected_mood_revision": expectedRevision
-        ])
+        ]
+        if sessionOnly { payload["write_scope"] = "session_only" }
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         return request
     }
 
-    public func updateSessionMood(sessionID: String, mood: String, expectedRevision: Int) async throws -> DJConnectSessionMoodResponse {
+    public func updateSessionMood(sessionID: String, mood: String, expectedRevision: Int, sessionOnly: Bool = false) async throws -> DJConnectSessionMoodResponse {
         let result: DJConnectSessionMoodResponse = try await decodedResponse(
-            for: sessionMoodRequest(sessionID: sessionID, mood: mood, expectedRevision: expectedRevision), using: sessionProjectionSession)
+            for: sessionMoodRequest(sessionID: sessionID, mood: mood, expectedRevision: expectedRevision, sessionOnly: sessionOnly), using: sessionProjectionSession)
+        guard !sessionOnly || result.writeScope == "session_only" else { throw DJConnectError.invalidResponse }
         guard result.success, result.contractVersion == 1, result.sessionID == sessionID, result.moodRevision >= expectedRevision,
               result.selectedMood == mood,
               result.moodRevision - expectedRevision == (result.changed ? 1 : 0) else { throw DJConnectError.invalidResponse }
@@ -1146,6 +1148,31 @@ public final class DJConnectClient: Sendable {
         return response
     }
 
+    public func openRetainedMoment(_ reference: DJConnectSelectedMomentReference) async throws -> DJConnectHistoryEntry {
+        struct Action: Encodable {
+            let kind = "open_session"
+            let sessionID: String
+            let momentID: String
+            let navigationOnly = true
+            enum CodingKeys: String, CodingKey {
+                case kind, sessionID = "session_id", momentID = "moment_id", navigationOnly = "navigation_only"
+            }
+        }
+        guard !reference.sessionID.isEmpty, !reference.momentID.isEmpty else { throw DJConnectError.invalidResponse }
+        let payload = HistoryOpenPayload(deviceID: identity.deviceID, clientType: identity.clientType,
+            action: Action(sessionID: reference.sessionID, momentID: reference.momentID),
+            historyContractVersion: historyContractVersion == 2 ? 2 : nil)
+        let response: DJConnectSessionOpenResponse = try await decodedResponse(
+            for: jsonRequest(path: Self.apiV1Path("session/history/open"), payload: payload), using: sessionProjectionSession)
+        guard response.success, acceptsHistoryVersion(response.schemaVersion, declared: response.historyContractVersion),
+              response.navigationOnly, response.readOnly == response.session.readOnly,
+              response.session.isContractValid, response.session.id == reference.sessionID,
+              response.entry.sessionID == reference.sessionID, response.entry.momentID == reference.momentID,
+              response.entry.kind == .djMoment, response.entry.isContractValid(historyContractVersion: historyContractVersion),
+              response.entry.isRetained() else { throw DJConnectError.invalidResponse }
+        return response.entry
+    }
+
     public func sendSessionConversation(_ payload: DJConnectAskDJRequest) async throws -> DJConnectSessionConversationResponse {
         guard let context = payload.conversationContext, payload.clientMessageID?.isEmpty == false else { throw DJConnectError.invalidResponse }
         let response: DJConnectSessionConversationResponse = try await decodedResponse(
@@ -1239,10 +1266,10 @@ public final class DJConnectClient: Sendable {
         }
     }
 
-    private struct HistoryOpenPayload: Encodable {
+    private struct HistoryOpenPayload<Action: Encodable>: Encodable {
         let deviceID: String
         let clientType: DJConnectClientType
-        let action: DJConnectSessionOpenAction
+        let action: Action
         let historyContractVersion: Int?
         enum CodingKeys: String, CodingKey { case deviceID = "device_id", clientType = "client_type", action, historyContractVersion = "history_contract_version" }
     }

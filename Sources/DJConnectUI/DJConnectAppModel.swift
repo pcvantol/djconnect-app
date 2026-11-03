@@ -15475,8 +15475,10 @@ public final class DJConnectAppModel: ObservableObject {
         }
         do {
             let encoded = try await withWatchProxyHomeAssistantClient(identity: registration.identity, token: token,
+                historyContractVersion: request.operation == .sessionFlow ? sessionHistory.historyContractVersion : 1,
                 allowsOperationReplay: !request.isAskDJTextSubmission && request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech &&
-                    request.operation != .startSession && request.operation != .endSession && request.operation != .voice) { client in
+                    request.operation != .startSession && request.operation != .endSession &&
+                    request.operation != .updateSessionOnlyMood && request.operation != .voice) { client in
                 try await self.performWatchProxyOperation(request, client: client)
             }
             guard encoded.count < 42_000 else { throw DJConnectError.payloadTooLarge(limitBytes: 42_000, actualBytes: encoded.count) }
@@ -15516,6 +15518,39 @@ public final class DJConnectAppModel: ObservableObject {
                   DJConnectNativeSpeechAdmission.admits(prepared.session_speech, reference: intent.reference,
                     text: intent.moment.content, settings: after) else { throw DJConnectError.invalidResponse }
             return try encoder.encode(prepared)
+        case .retainedMoment, .recordingHistoryEntry:
+            let intent = try decoder.decode(DJConnectWatchOriginalContext.self, from: request.payload ?? Data())
+            let before = try await client.profileDJSettings()
+            guard before.binding == intent.binding, !before.requiresSelection else { throw DJConnectError.invalidResponse }
+            let entry: DJConnectHistoryEntry
+            if request.operation == .retainedMoment {
+                entry = try await client.openRetainedMoment(.init(sessionID: intent.sessionID, momentID: intent.originalID))
+            } else {
+                guard DJConnectCurrentInsightSubject.isRecordingURI(intent.originalID) else { throw DJConnectError.invalidResponse }
+                let page = try await client.sessionTimeline(sessionID: intent.sessionID, window: .tail, limit: 50)
+                guard let original = page.entries.last(where: { $0.matchesWatchRecording(intent.originalID) }) else {
+                    throw DJConnectError.invalidResponse
+                }
+                entry = original
+            }
+            let after = try await client.profileDJSettings()
+            guard before.binding == after.binding, !after.requiresSelection, entry.isRetained() else {
+                throw DJConnectError.invalidResponse
+            }
+            return try encoder.encode(entry)
+        case .sessionFlow:
+            let intent = try decoder.decode(DJConnectWatchSessionAction.self, from: request.payload ?? Data())
+            guard let sessionID = intent.sessionID else { throw DJConnectError.invalidResponse }
+            let before = try await client.profileDJSettings()
+            guard before.binding == intent.binding, before.snapshot.session?.session_id == sessionID,
+                  !before.requiresSelection else { throw DJConnectError.invalidResponse }
+            let tail = try await client.sessionTimeline(sessionID: sessionID, window: .tail, limit: 50)
+            let runtime = try await client.activeSession()
+            let after = try await client.profileDJSettings()
+            guard runtime.success, let session = runtime.resolvedSession, session.id == sessionID,
+                  after.binding == before.binding, after.snapshot.session?.session_id == sessionID,
+                  !after.requiresSelection else { throw DJConnectError.invalidResponse }
+            return try encoder.encode(DJConnectWatchFlowRow.latest(history: tail.entries, session: session, at: Date()))
         case .foregroundSession:
             // Read with the Watch bearer, and fence Profile/Session changes
             // across the two independent frozen owner contracts.
@@ -15523,6 +15558,19 @@ public final class DJConnectAppModel: ObservableObject {
                 settings: { try await client.profileDJSettings() },
                 session: { try await client.activeSession() })
             return try encoder.encode(value)
+        case .updateSessionOnlyMood:
+            let intent = try decoder.decode(DJConnectWatchSessionMoodIntent.self, from: request.payload ?? Data())
+            let snapshot = try await DJConnectWatchSessionSnapshot.read(
+                settings: { try await client.profileDJSettings() },
+                session: { try await client.activeSession() })
+            guard snapshot.settings.binding == intent.binding, !snapshot.settings.requiresSelection,
+                  snapshot.session?.id == intent.sessionID,
+                  snapshot.session?.confirmedMoodRevision == intent.expectedRevision else {
+                throw DJConnectError.invalidResponse
+            }
+            let accepted = try await client.updateSessionMood(sessionID: intent.sessionID, mood: intent.mood,
+                expectedRevision: intent.expectedRevision, sessionOnly: true)
+            return try encoder.encode(accepted.success)
         case .startSession:
             // Keep decoding legacy packets, but never let a Watch create a Session.
             throw DJConnectError.invalidResponse
@@ -15718,6 +15766,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func withWatchProxyHomeAssistantClient<T: Sendable>(
         identity: DJConnectIdentity,
         token: String,
+        historyContractVersion: Int,
         allowsOperationReplay: Bool = true,
         _ operation: (DJConnectClient) async throws -> T
     ) async throws -> T {
@@ -15740,7 +15789,8 @@ public final class DJConnectAppModel: ObservableObject {
                         baseURL: baseURL,
                         localURL: localURL,
                         configuration: configuration
-                    )
+                    ),
+                    historyContractVersion: historyContractVersion
                 )
             },
             modeReporter: { [weak self] mode, baseURL in

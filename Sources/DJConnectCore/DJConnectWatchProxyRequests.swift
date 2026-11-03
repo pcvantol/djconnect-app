@@ -146,3 +146,30 @@ public struct DJConnectWatchVoiceOperation {
         return result
     }
 }
+
+public struct DJConnectWatchSessionMoodIntent: Codable, Sendable {
+    public let binding: String
+    public let sessionID: String
+    public let mood: String
+    public let expectedRevision: Int
+
+    public init(binding: String, sessionID: String, mood: String, expectedRevision: Int) {
+        self.binding = binding
+        self.sessionID = sessionID
+        self.mood = mood
+        self.expectedRevision = expectedRevision
+    }
+}
+
+/// A read request bound to the Profile observed by this Watch.
+public struct DJConnectWatchOriginalContext: Codable, Sendable {
+    public let binding: String
+    public let sessionID: String
+    public let originalID: String
+
+    public init(binding: String, sessionID: String, originalID: String) {
+        self.binding = binding
+        self.sessionID = sessionID
+        self.originalID = originalID
+    }
+}
