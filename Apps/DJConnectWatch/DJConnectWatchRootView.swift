@@ -5367,9 +5367,11 @@ private struct DJConnectWatchCompanionTrackView: View {
         }
         .navigationTitle(watchLocalizedKey(model.language, "watch.v2.music"))
         .onReceive(model.$playback) { _ in progressObservedAt = Date() }
-        .task(id: controlsVisit) {
-            guard controlsVisit != nil else { return }
+        .onAppear { setControlsVisible(true) }
+        .task(id: controlsVisit) { [visit = controlsVisit] in
+            guard let visit else { return }
             do { try await Task.sleep(for: .seconds(5)) } catch { return }
+            guard controlsVisit == visit else { return }
             setControlsVisible(false)
         }
         .onDisappear { controlsVisit = nil }
@@ -5458,7 +5460,7 @@ private struct DJConnectWatchCompanionTrackView: View {
     private func trackArtwork(_ artwork: Image?) -> some View {
         GeometryReader { geometry in
             let size = geometry.size
-            Button { setControlsVisible(controlsVisit == nil) } label: {
+            Button { setControlsVisible(true) } label: {
                 Group {
                     if let artwork {
                         artwork.resizable().scaledToFill()
