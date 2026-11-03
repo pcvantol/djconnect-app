@@ -2683,52 +2683,47 @@ private struct DJConnectWatchOutputsView: View {
     @State private var confirmsTransfer = false
 
     var body: some View {
-        ZStack {
-            DJConnectWatchCanvas()
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    if model.isLoadingOutputs && model.availableOutputs.isEmpty {
-                        ProgressView()
-                            .tint(.white)
-                            .padding(.vertical, 18)
-                    } else if model.availableOutputs.isEmpty {
-                        VStack(spacing: 8) {
-                            Image(systemName: "speaker.slash")
-                                .font(.title2)
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [watchAccentPurple, watchAccentPurple],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                            Text(watchLocalizedKey(model.language, "watch.no.output.devices.found"))
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.72))
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(.vertical, 18)
-                    } else {
-                        ForEach(model.availableOutputs) { output in
-                            Button {
-                                if model.playback?.isPlaying == true && output.active != true {
-                                    pendingOutput = output; confirmsTransfer = true
-                                } else { Task { await model.selectOutput(output) } }
-                            } label: {
-                                DJConnectWatchOutputRow(
-                                    output: output,
-                                    isLoading: model.loadingOutputID == output.id
-                                )
-                            }
-                            .buttonStyle(DJConnectWatchStandardButtonStyle())
-                            .disabled(model.isLoadingOutputs || model.loadingOutputID != nil)
-                        }
-                    }
+        List {
+            if model.isLoadingOutputs && model.availableOutputs.isEmpty {
+                ProgressView()
+                    .tint(.white)
+                    .padding(.vertical, 18)
+            } else if model.availableOutputs.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "speaker.slash")
+                        .font(.title2)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [watchAccentPurple, watchAccentPurple],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    Text(watchLocalizedKey(model.language, "watch.no.output.devices.found"))
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.72))
+                        .multilineTextAlignment(.center)
                 }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .padding(.vertical, 18)
+            } else {
+                ForEach(model.availableOutputs) { output in
+                    Button {
+                        if model.playback?.isPlaying == true && output.active != true {
+                            pendingOutput = output; confirmsTransfer = true
+                        } else { Task { await model.selectOutput(output) } }
+                    } label: {
+                        DJConnectWatchOutputRow(
+                            output: output,
+                            isLoading: model.loadingOutputID == output.id
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(model.isLoadingOutputs || model.loadingOutputID != nil)
+                }
             }
         }
+        .listStyle(.plain)
+        .watchStandardBackground()
         .navigationTitle(watchLocalizedKey(model.language, "watch.output"))
         .confirmationDialog(watchLocalizedKey(model.language, "watch.v2.transfer.confirm"), isPresented: $confirmsTransfer) {
             Button(pendingOutput?.name ?? "") {
@@ -2804,10 +2799,7 @@ private struct DJConnectWatchOutputRow: View {
                 .foregroundStyle(isActive ? activeColor : .white.opacity(0.68))
                 .foregroundColor(isActive ? activeColor : .white.opacity(0.68))
                 .frame(width: 30, height: 30)
-                .background(
-                    Circle()
-                        .fill(isActive ? activeColor.opacity(0.18) : Color.white.opacity(0.08))
-                )
+
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(output.name)
