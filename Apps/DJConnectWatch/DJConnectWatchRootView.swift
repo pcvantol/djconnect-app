@@ -5022,7 +5022,13 @@ private struct DJConnectWatchCompanionPages: View {
                 NavigationLink {
                     DJConnectWatchSessionView(state: state, settings: model.profileDJSettings, speech: model.sessionSpeech)
                         .watchStandardBackground()
-                } label: { Label(text("ui.session.title"), systemImage: "slider.horizontal.3") }
+                } label: {
+                    Label {
+                        Text(text("ui.session.title"))
+                    } icon: {
+                        DJPersonaMenuSymbol().accessibilityHidden(true)
+                    }
+                }
             }
             NavigationLink { DJConnectWatchCompanionMusicView() } label: { Label(text("watch.v2.music"), systemImage: "music.note") }
             NavigationLink { DJConnectWatchSessionSpeechSettingsView() } label: { Label(text("watch.v2.voice"), systemImage: "speaker.wave.2") }
