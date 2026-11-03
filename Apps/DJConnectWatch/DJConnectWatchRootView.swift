@@ -5200,12 +5200,12 @@ private struct DJConnectWatchFlowArtworkView: View {
                 Image(decorative: artwork.image, scale: 1)
                     .resizable()
                     .scaledToFit()
-                    .frame(maxHeight: 104)
+                    .frame(width: 104, height: 104)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .padding(8)
                     .background(DJConnectMaterial(.regular), in: card)
                     .overlay { card.strokeBorder(.white.opacity(0.16)) }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
         }
         .task(id: scenePhase) {
