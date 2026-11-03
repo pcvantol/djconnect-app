@@ -3371,16 +3371,6 @@ private struct DJConnectWatchPlaylistRow: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 26, height: 26)
-                    .background(
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [watchAccentPurple, watchAccentPurple],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    )
                     .padding(.top, 4)
             }
         }
