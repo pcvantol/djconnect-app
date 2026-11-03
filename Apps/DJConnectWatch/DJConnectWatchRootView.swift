@@ -5129,9 +5129,11 @@ private struct DJConnectWatchCompanionPages: View {
                         if row.spotifyAttribution { flowSpotifyAttribution }
                         ForEach(row.sources.indices, id: \.self) { index in
                             let source = row.sources[index]
-                            if let url = source.destination {
-                                Link(source.attributionLabel, destination: url)
-                                    .font(.caption2).accessibilityLabel(source.accessibilityLabel)
+                            if source.destination != nil {
+                                Text(source.attributionLabel)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityLabel(source.accessibilityLabel)
                             }
                         }
                         if let reference = row.reference {
@@ -5224,13 +5226,13 @@ private struct DJConnectWatchCompanionMomentView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(moment.content).fixedSize(horizontal: false, vertical: true)
                 if moment.sourceAttribution?["provider"] == "Spotify",
-                   let url = moment.nativeSourceURLs.first(where: { $0.host == "open.spotify.com" }) {
-                    Link(destination: url) {
-                        Image("SpotifyAttribution").resizable().scaledToFit().frame(width: 72, height: 24).accessibilityLabel("Spotify")
-                    }
+                   moment.nativeSourceURLs.contains(where: { $0.host == "open.spotify.com" }) {
+                    Image("SpotifyAttribution").resizable().scaledToFit()
+                        .frame(width: 54, height: 18)
+                        .accessibilityLabel("Spotify")
                 }
                 ForEach(moment.nativeSourceURLs.filter { $0.host != "open.spotify.com" }, id: \.absoluteString) { url in
-                    Link(url.host ?? "", destination: url).font(.caption2)
+                    Text(url.host ?? "").font(.caption2).foregroundStyle(.secondary)
                 }
                 if model.canPlaySessionMoment(moment) {
                     Button { model.playSessionMoment(moment) } label: { Label(watchLocalizedKey(model.language, "watch.v2.listen"), systemImage: "speaker.wave.2") }
