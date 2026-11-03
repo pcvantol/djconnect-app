@@ -341,6 +341,39 @@ private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
     #expect(fixture.requests.allSatisfy { !$0.url!.path.contains("playback") && !$0.url!.path.hasSuffix("/start") })
 }
 
+@Test(.isolatedClientResources) func watchRetainedMomentOpenUsesOriginalPublicationAndRejectsAnotherID() async throws {
+    let receipt = try historyObject()
+    var opened = try #require(receipt["validated_open_target"] as? [String: Any])
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let entries = try #require(timeline["entries"] as? [[String: Any]])
+    var playback = try #require(entries.first { $0["kind"] as? String == "playback_observed" })
+    playback["retained_until"] = "9999-12-31T00:00:00+00:00"
+    let recorded = try JSONDecoder().decode(DJConnectHistoryEntry.self, from: historyData(playback))
+    #expect(recorded.matchesWatchRecording("spotify:track:0123456789abcdefghijkL"))
+    #expect(!recorded.matchesWatchRecording("spotify:track:0123456789abcdefghijkM"))
+    var moment = try #require(entries.first { $0["kind"] as? String == "dj_moment" })
+    moment["retained_until"] = "9999-12-31T00:00:00+00:00"
+    opened["entry"] = moment
+    let body = try historyData(opened)
+    let sessionID = try #require(moment["session_id"] as? String)
+    let momentID = try #require(moment["moment_id"] as? String)
+    let fixture = HistoryWireFixture { _ in (200, body, 0) }; defer { fixture.close() }
+    let client = fixture.client()
+
+    let entry = try await client.openRetainedMoment(.init(sessionID: sessionID, momentID: momentID))
+    #expect(entry.momentID == momentID)
+    let request = try #require(fixture.requests.first)
+    let payload = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+    let action = try #require(payload["action"] as? [String: Any])
+    #expect(action["session_id"] as? String == sessionID)
+    #expect(action["moment_id"] as? String == momentID)
+    #expect(action["entry_id"] == nil)
+    #expect(action["navigation_only"] as? Bool == true)
+    await #expect(throws: DJConnectError.invalidResponse) {
+        try await client.openRetainedMoment(.init(sessionID: sessionID, momentID: "another-moment"))
+    }
+}
+
 @Test(.isolatedClientResources, arguments: ["owner_metadata_narration_v1", "public_artist_narration_v1"])
 func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis: String) async throws {
     let receipt = try historyObject()

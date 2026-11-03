@@ -15517,6 +15517,26 @@ public final class DJConnectAppModel: ObservableObject {
                   DJConnectNativeSpeechAdmission.admits(prepared.session_speech, reference: intent.reference,
                     text: intent.moment.content, settings: after) else { throw DJConnectError.invalidResponse }
             return try encoder.encode(prepared)
+        case .retainedMoment, .recordingHistoryEntry:
+            let intent = try decoder.decode(DJConnectWatchOriginalContext.self, from: request.payload ?? Data())
+            let before = try await client.profileDJSettings()
+            guard before.binding == intent.binding, !before.requiresSelection else { throw DJConnectError.invalidResponse }
+            let entry: DJConnectHistoryEntry
+            if request.operation == .retainedMoment {
+                entry = try await client.openRetainedMoment(.init(sessionID: intent.sessionID, momentID: intent.originalID))
+            } else {
+                guard DJConnectCurrentInsightSubject.isRecordingURI(intent.originalID) else { throw DJConnectError.invalidResponse }
+                let page = try await client.sessionTimeline(sessionID: intent.sessionID, window: .tail, limit: 50)
+                guard let original = page.entries.last(where: { $0.matchesWatchRecording(intent.originalID) }) else {
+                    throw DJConnectError.invalidResponse
+                }
+                entry = original
+            }
+            let after = try await client.profileDJSettings()
+            guard before.binding == after.binding, !after.requiresSelection, entry.isRetained() else {
+                throw DJConnectError.invalidResponse
+            }
+            return try encoder.encode(entry)
         case .foregroundSession:
             // Read with the Watch bearer, and fence Profile/Session changes
             // across the two independent frozen owner contracts.

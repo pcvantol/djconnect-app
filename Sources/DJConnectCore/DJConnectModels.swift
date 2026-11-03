@@ -44,7 +44,12 @@ public enum DJConnectPlatform: String, Codable, Sendable {
 
 public enum DJConnectWatchProxyOperation: String, Codable, Sendable {
     case status
+<<<<<<< HEAD
     case updateSessionOnlyMood = "update_session_only_mood"
+=======
+    case retainedMoment = "retained_moment"
+    case recordingHistoryEntry = "recording_history_entry"
+>>>>>>> 6a10929
     case foregroundSession = "foreground_session"
     case startSession = "start_session"
     case endSession = "end_session"
