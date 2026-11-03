@@ -1665,3 +1665,4 @@
 "watch.v2.question.new" = "New question";
 
 "watch.v2.track.question" = "Tell me about %@ by %@.";
+"watch.v2.recording_interrupted" = "Recording interrupted.";

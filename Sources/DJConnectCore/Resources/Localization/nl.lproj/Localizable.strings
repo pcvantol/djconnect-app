@@ -1665,3 +1665,4 @@
 "watch.v2.question.new" = "Nieuwe vraag";
 
 "watch.v2.track.question" = "Vertel me over %@ van %@.";
+"watch.v2.recording_interrupted" = "Opname onderbroken.";

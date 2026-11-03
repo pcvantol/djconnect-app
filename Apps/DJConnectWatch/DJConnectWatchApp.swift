@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import WatchKit
 import UserNotifications
@@ -14,6 +15,11 @@ struct DJConnectWatchApp: App {
                 .environmentObject(model)
                 .djConnectGlassPreferences()
                 .onOpenURL { model.openWatchHome(from: $0) }
+                .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { notification in
+                    guard let type = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                          type == AVAudioSession.InterruptionType.began.rawValue else { return }
+                    model.interruptWatchQuestionRecording()
+                }
                 .onAppear {
                     applicationDelegate.model = model
                 }
