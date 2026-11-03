@@ -5206,12 +5206,18 @@ private struct DJConnectWatchCompanionTrackView: View {
         ScrollView {
             VStack(spacing: 10) {
                 trackArtwork(artwork)
-                VStack(spacing: 4) {
-                    Text(original?.trackName ?? "").font(.headline)
-                    Text(original?.artistName ?? "").foregroundStyle(.secondary)
-                    trackTiming
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(original?.trackName ?? "").font(.headline)
+                        Text(original?.artistName ?? "").foregroundStyle(.secondary)
+                        trackTiming
+                    }
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    favoriteButton
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
                 VStack(spacing: 6) {
                     if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
                        let binding = originalBinding, let sessionID = context.sessionID {
@@ -5304,22 +5310,18 @@ private struct DJConnectWatchCompanionTrackView: View {
                 .accessibilityHidden(true)
             }
             .overlay(alignment: .bottom) {
-                VStack(spacing: 4) {
-                    favoriteButton
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                    HStack(spacing: 0) {
-                        playbackButton(command: "previous", icon: "backward.fill", label: "watch.previous.track")
-                        playbackButton(command: isPlaying ? "pause" : "play",
-                                       icon: isPlaying ? "pause.fill" : "play.fill",
-                                       label: isPlaying ? "watch.pause" : "watch.play")
-                        playbackButton(command: "next", icon: "forward.fill", label: "watch.next.track")
-                    }
-                    .foregroundStyle(.white)
-                    .frame(width: min(max(0, size.width - 20), 156))
-                    .padding(.vertical, 4)
-                    .background(DJConnectMaterial(.regular), in: Capsule())
-                    .disabled(!model.canUseBackend && !model.isDemoMode)
+                HStack(spacing: 0) {
+                    playbackButton(command: "previous", icon: "backward.fill", label: "watch.previous.track")
+                    playbackButton(command: isPlaying ? "pause" : "play",
+                                   icon: isPlaying ? "pause.fill" : "play.fill",
+                                   label: isPlaying ? "watch.pause" : "watch.play")
+                    playbackButton(command: "next", icon: "forward.fill", label: "watch.next.track")
                 }
+                .foregroundStyle(.white)
+                .frame(width: min(max(0, size.width - 20), 156))
+                .padding(.vertical, 4)
+                .background(DJConnectMaterial(.regular), in: Capsule())
+                .disabled(!model.canUseBackend && !model.isDemoMode)
                 .padding(14)
             }
             .clipShape(RoundedRectangle(cornerRadius: min(size.width, size.height) * 0.20, style: .continuous))
