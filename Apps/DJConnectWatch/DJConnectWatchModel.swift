@@ -2112,17 +2112,25 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var watchTextOutcomeUnknown = false
     private var pendingWatchTextID: String?
     private var pendingWatchTextOwner: String?
+    private var pendingWatchTextBinding: String?
+
     func checkWatchTextOutcome() async {
-        guard watchTextOutcomeUnknown, let id = pendingWatchTextID,
-              pendingWatchTextOwner == identity.deviceID else { return }
-        await syncAskDJHistory(showErrors: false) // Read only. Never repeat the POST.
-        guard pendingWatchTextOwner == identity.deviceID,
-              let reply = askDJMessages.first(where: { $0.clientMessageID == id && $0.role == .dj }) else { return }
-        lastWatchTextReply = reply; watchTextOutcomeUnknown = false
+        guard watchTextOutcomeUnknown, let id = pendingWatchTextID, let binding = pendingWatchTextBinding,
+              pendingWatchTextOwner == identity.deviceID,
+              foregroundSession.current()?.settings.binding == binding else { return }
+        do {
+            let reply: String? = try await sendCompanionHARequest(.askDJTextOutcome,
+                payload: DJConnectWatchTextOutcomeRequest(binding: binding, clientMessageID: id))
+            guard !Task.isCancelled, pendingWatchTextID == id, pendingWatchTextOwner == identity.deviceID,
+                  foregroundSession.current()?.settings.binding == binding, let reply, !reply.isEmpty else { return }
+            lastWatchTextReply = DJConnectWatchAskDJMessage(role: .dj, text: reply)
+            watchTextOutcomeUnknown = false
+        } catch { /* Read only; the original send remains unresolved. */ }
     }
+
     func beginNewWatchTextTurn() {
         guard !watchTextPending else { return }
-        pendingWatchTextID = nil; pendingWatchTextOwner = nil
+        pendingWatchTextID = nil; pendingWatchTextOwner = nil; pendingWatchTextBinding = nil
         watchTextOutcomeUnknown = false; lastWatchTextReply = nil
     }
 
@@ -2141,7 +2149,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             inputType: "text", mood: backendMoodHint, djStyle: djStyle, musicDNAKey: musicDNAKey,
             audioResponse: .never, djAnnouncementOutput: .clientDevice, language: currentRequestLocale)
         request.conversationContext = context
-        pendingWatchTextID = operationID; pendingWatchTextOwner = identity.deviceID
+        pendingWatchTextID = operationID; pendingWatchTextOwner = identity.deviceID; pendingWatchTextBinding = binding
         watchTextPending = true
         defer { watchTextPending = false }
         appendAskDJMessage(role: .user, text: text)
@@ -2155,6 +2163,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return true
         } catch {
             watchTextOutcomeUnknown = true
+            await checkWatchTextOutcome()
+            if !watchTextOutcomeUnknown { return true }
             showAskDJToast(Self.askDJToastText(for: error))
             return false
         }

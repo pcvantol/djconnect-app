@@ -15475,7 +15475,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         do {
             let encoded = try await withWatchProxyHomeAssistantClient(identity: registration.identity, token: token,
-                historyContractVersion: [.sessionFlow, .sessionFlowArtwork].contains(request.operation) ? sessionHistory.historyContractVersion : 1,
+                historyContractVersion: [.sessionFlow, .sessionFlowArtwork, .askDJMessage, .askDJTextOutcome].contains(request.operation) ? sessionHistory.historyContractVersion : 1,
                 allowsOperationReplay: !request.isAskDJTextSubmission && request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech &&
                     request.operation != .startSession && request.operation != .endSession &&
                     request.operation != .updateSessionOnlyMood && request.operation != .sessionFlowArtwork && request.operation != .voice) { client in
@@ -15664,6 +15664,18 @@ public final class DJConnectAppModel: ObservableObject {
             }
             let response = try await client.trackInsight(payload)
             return try encoder.encode(response)
+        case .askDJTextOutcome:
+            let intent = try decoder.decode(DJConnectWatchTextOutcomeRequest.self, from: request.payload ?? Data())
+            let before = try await client.profileDJSettings()
+            guard UUID(uuidString: intent.clientMessageID) != nil,
+                  before.binding == intent.binding, !before.requiresSelection else { throw DJConnectError.invalidResponse }
+            let history = try await client.profileConversationHistory()
+            let after = try await client.profileDJSettings()
+            guard after.binding == before.binding, !after.requiresSelection else { throw DJConnectError.invalidResponse }
+            let reply = history.base.messages.last {
+                $0.role != .user && $0.clientMessageID == intent.clientMessageID
+            }
+            return try encoder.encode(reply.map { String($0.text.unicodeScalars.prefix(4_000)) })
         case .askDJHistory:
             let response = try await client.askDJHistory()
             return try encoder.encode(response)
@@ -15676,7 +15688,18 @@ public final class DJConnectAppModel: ObservableObject {
             payload.audioResponse = .never // legacy Watch text has no negotiated deferred speech grant
             if payload.conversationContext != nil {
                 let response = try await client.sendSessionConversation(payload)
-                return try encoder.encode(response.base)
+                let encoded = try encoder.encode(response.base)
+                if encoded.count < 42_000 { return encoded }
+                // The Watch text composer needs the answer, not an entire rich history payload.
+                var compact = response.base
+                compact.text = (compact.assistantMessage?.text ?? compact.djText ?? compact.text)
+                    .map { String($0.unicodeScalars.prefix(4_000)) }
+                compact.djText = nil
+                compact.userMessage = nil; compact.assistantMessage = nil; compact.messages = []
+                compact.resultSet = nil; compact.trackInsight = nil; compact.firstPlay = nil
+                compact.images = nil; compact.links = nil; compact.sources = nil; compact.items = nil
+                compact.playbackActions = nil; compact.confirmationActions = nil
+                return try encoder.encode(compact)
             }
             let response = try await client.sendAskDJMessage(payload)
             return try encoder.encode(response)

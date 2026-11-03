@@ -183,3 +183,13 @@ public struct DJConnectWatchOriginalContext: Codable, Sendable {
         self.originalID = originalID
     }
 }
+
+public struct DJConnectWatchTextOutcomeRequest: Codable, Sendable {
+    public let binding: String
+    public let clientMessageID: String
+
+    public init(binding: String, clientMessageID: String) {
+        self.binding = binding
+        self.clientMessageID = clientMessageID
+    }
+}
