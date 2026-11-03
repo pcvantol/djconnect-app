@@ -97,9 +97,6 @@ private extension Array {
 struct DJConnectWatchRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var model: DJConnectWatchModel
-    @State private var moodCrownValue = 0.0
-    @State private var isShowingNowPlayingArtwork = false
-    @FocusState private var isMoodControlFocused: Bool
 
     #if DEBUG
     private var screenshotScreen: String? {
@@ -139,13 +136,6 @@ struct DJConnectWatchRootView: View {
         .sheet(isPresented: $model.isShowingMusicDNAOptInPrompt) {
             DJConnectWatchMusicDNAOptInPromptView()
                 .environmentObject(model)
-        }
-        .sheet(isPresented: $isShowingNowPlayingArtwork) {
-            DJConnectWatchArtworkPreviewView(
-                artworkURL: model.isDemoMode ? nil : model.playback?.albumImageURL,
-                usesDemoArtwork: model.isDemoMode,
-                isPlaying: model.playback?.isPlaying == true
-            )
         }
         .onChange(of: scenePhase) { _, phase in
             model.handleAppForegroundChange(phase == .active)
@@ -224,80 +214,12 @@ struct DJConnectWatchRootView: View {
     }
     #endif
 
-    private var canUsePlaybackControls: Bool {
-        model.isDemoMode || model.canUseBackend
-    }
-
-    private var shouldShowHomeStatusMessage: Bool {
-        let statusText = model.statusMessage.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !statusText.isEmpty else {
-            return false
-        }
-        return !model.askDJMessages.contains { message in
-            message.role == .dj && message.text.trimmingCharacters(in: .whitespacesAndNewlines) == statusText
-        }
-    }
-
     private var pairedView: some View {
         DJConnectWatchCompanionPages(model: model, state: model.foregroundSession)
             .task {
                 await model.refreshMainScreenStatusIfNeeded()
                 if !model.isDemoMode { await model.refreshForegroundSession() }
             }
-    }
-
-    private var mainHeader: some View {
-        HStack {
-            Text("DJConnect")
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.92))
-
-            Spacer(minLength: 8)
-
-            if model.isOfflineModeActive {
-                Label {
-                    Text(watchLocalizedKey(model.language, "ui.offline").lowercased())
-                } icon: {
-                    Image(systemName: "wifi.slash")
-                }
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.gray.opacity(0.95))
-                .padding(.horizontal, 7)
-                .padding(.vertical, 4)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(Color.white.opacity(0.08))
-                )
-                .accessibilityElement(children: .combine)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 4)
-    }
-
-    private var refreshStatusButton: some View {
-        Button {
-            if model.isOfflineModeActive {
-                model.refreshNetworkAvailability()
-            } else {
-                Task { await model.refreshStatus() }
-            }
-        } label: {
-            if model.isRefreshingStatus {
-                ProgressView()
-                    .controlSize(.mini)
-                    .tint(.white.opacity(0.82))
-            } else {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.82))
-            }
-        }
-        .buttonStyle(.plain)
-        .frame(width: 28, height: 28)
-        .contentShape(Circle())
-        .disabled((!model.canUseBackend && !model.isOfflineModeActive) || model.isRefreshingStatus)
-        .accessibilityLabel(watchLocalizedKey(model.language, "watch.refresh"))
     }
 
     private var pairingSuccessView: some View {
@@ -322,182 +244,6 @@ struct DJConnectWatchRootView: View {
             }
             .padding(.horizontal, 10)
         }
-    }
-
-    @ViewBuilder
-    private var askDJMoodControl: some View {
-        let content = VStack(spacing: 8) {
-            HStack {
-                Text("Mood")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.72))
-                Spacer()
-                Text(model.askDJMoodLabel)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(watchAccentPurple.opacity(0.92))
-            }
-
-            HStack(spacing: 8) {
-                ForEach(model.askDJMoodSteps.indices, id: \.self) { index in
-                    let step = model.askDJMoodSteps[index]
-                    let isSelected = index == model.askDJMoodStepIndex
-
-                    Button {
-                        setMoodStep(index)
-                    } label: {
-                        ZStack {
-                            Circle()
-                                .fill(isSelected ? watchAccentPurple.opacity(0.46) : Color.white.opacity(0.09))
-                            Circle()
-                                .stroke(isSelected ? watchAccentPurple.opacity(0.82) : Color.white.opacity(0.14), lineWidth: 1)
-                            Image(systemName: moodIcon(for: index))
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(isSelected ? .white : .white.opacity(0.68))
-                        }
-                        .frame(width: 36, height: 36)
-                        .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(step.label)
-                    .accessibilityAddTraits(isSelected ? .isSelected : [])
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 9)
-        .background(DJConnectWatchPanel(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(watchAccentPurple.opacity(0.18), lineWidth: 1)
-        )
-        .focusable(!model.isDemoMode)
-        .focused($isMoodControlFocused)
-        .onAppear {
-            moodCrownValue = Double(model.askDJMoodStepIndex)
-        }
-        .onChange(of: model.askDJMoodStepIndex) {
-            let nextValue = Double(model.askDJMoodStepIndex)
-            guard moodCrownValue != nextValue else {
-                return
-            }
-            moodCrownValue = nextValue
-        }
-        .onChange(of: moodCrownValue) {
-            updateMoodFromCrown()
-        }
-        .accessibilityLabel("Mood")
-        .accessibilityValue(model.askDJMoodLabel)
-
-        content
-            .digitalCrownRotation(
-                $moodCrownValue,
-                from: 0,
-                through: 3,
-                by: 1,
-                sensitivity: .medium,
-                isContinuous: false,
-                isHapticFeedbackEnabled: false
-            )
-    }
-
-    private func updateMoodFromCrown() {
-        let nextIndex = max(0, min(model.askDJMoodSteps.count - 1, Int(moodCrownValue.rounded())))
-        guard nextIndex != model.askDJMoodStepIndex else {
-            return
-        }
-        model.setAskDJMoodStep(nextIndex)
-        moodCrownValue = Double(nextIndex)
-    }
-
-    private func setMoodStep(_ index: Int) {
-        guard index != model.askDJMoodStepIndex else {
-            isMoodControlFocused = false
-            return
-        }
-        model.setAskDJMoodStep(index)
-        moodCrownValue = Double(model.askDJMoodStepIndex)
-        isMoodControlFocused = false
-    }
-
-    private func moodIcon(for index: Int) -> String {
-        switch index {
-        case 0:
-            return "moon.zzz.fill"
-        case 1:
-            return "waveform"
-        case 2:
-            return "bolt.fill"
-        default:
-            return "party.popper.fill"
-        }
-    }
-
-    private var volumeControl: some View {
-        let volumePercent = model.currentPlaybackVolumePercent
-        return VStack(spacing: 5) {
-            HStack(spacing: 6) {
-                Image(systemName: "speaker.wave.2.fill")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(watchAccentPurple.opacity(0.92))
-                Slider(value: $model.volume, in: 0...1, step: 0.01) { editing in
-                    if !editing {
-                        model.commitVolume()
-                    }
-                }
-                .tint(watchAccentPurple)
-                .disabled(!canUsePlaybackControls || model.isRefreshingStatus || volumePercent == nil)
-                Text(volumePercent.map { "\($0)%" } ?? "--")
-                    .font(.caption2.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.72))
-                    .frame(width: 34, alignment: .trailing)
-            }
-        }
-        .padding(.vertical, 7)
-        .padding(.horizontal, 9)
-        .background(DJConnectWatchPanel(cornerRadius: 12))
-        .accessibilityLabel(watchLocalizedKey(model.language, "watch.volume"))
-        .accessibilityValue(volumePercent.map { "\($0)%" } ?? watchLocalizedKey(model.language, "watch.unknown"))
-    }
-
-    private var nowPlaying: some View {
-        HStack(spacing: 9) {
-            DJConnectWatchArtwork(
-                url: model.isDemoMode ? nil : model.playback?.albumImageURL,
-                fallbackSystemImage: "music.note",
-                usesVinylPlaceholder: model.isDemoMode,
-                isPlaying: model.playback?.isPlaying == true
-            )
-            .frame(width: 54, height: 54)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(model.playback?.trackName ?? watchLocalizedKey(model.language, "watch.no.track"))
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.82)
-                Text(model.playback?.artistName ?? "DJConnect")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.68))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.82)
-                if let volume = model.playback?.volumePercent {
-                    Label("\(volume)%", systemImage: "speaker.wave.2.fill")
-                        .font(.caption2)
-                        .foregroundStyle(watchAccentPurple.opacity(0.92))
-                        .lineLimit(1)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(8)
-        .background(DJConnectWatchPanel())
-        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .onTapGesture {
-            isShowingNowPlayingArtwork = true
-        }
-        .accessibilityAddTraits(.isButton)
     }
 
     fileprivate struct DJConnectWatchTrackInsightView: View {
@@ -1663,56 +1409,6 @@ struct DJConnectWatchRootView: View {
         .background(DJConnectWatchPanel(cornerRadius: 12))
         .accessibilityElement(children: .combine)
     }
-
-    private func commandButton(
-        _ icon: String,
-        command: String,
-        accessibilityLabel: String,
-        isPrimary: Bool = false
-    ) -> some View {
-        Button {
-            Task { await model.sendCommand(command) }
-        } label: {
-            Image(systemName: icon)
-                .font(.system(size: isPrimary ? 24 : 19, weight: .semibold))
-                .frame(width: isPrimary ? 54 : 44, height: isPrimary ? 54 : 44)
-        }
-        .buttonStyle(DJConnectWatchRoundButtonStyle())
-        .disabled(!canUsePlaybackControls || model.isRefreshingStatus)
-        .focusable(false)
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    private var favoriteButton: some View {
-        let isFavorite = model.playback?.currentTrackFavoriteStatus == true
-        return Button {
-            Task { await model.saveCurrentTrack() }
-        } label: {
-            Image(systemName: model.isSavingCurrentTrack ? "hourglass" : (isFavorite ? "heart.fill" : "heart"))
-                .font(.system(size: 20, weight: .semibold))
-                .symbolRenderingMode(.monochrome)
-                .foregroundStyle(isFavorite ? watchAccentPurple : .white)
-                .foregroundColor(isFavorite ? watchAccentPurple : .white)
-                .frame(width: 44, height: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(isFavorite ? watchAccentPurple.opacity(0.18) : Color.white.opacity(0.09))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(isFavorite ? watchAccentPurple.opacity(0.46) : Color.white.opacity(0.10), lineWidth: 1)
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(!canUsePlaybackControls || model.isSavingCurrentTrack)
-        .focusable(false)
-        .accessibilityLabel(
-            isFavorite
-                ? watchLocalizedKey(model.language, "watch.remove.from.favorites")
-                : watchLocalizedKey(model.language, "watch.add.to.favorites")
-        )
-    }
-
 }
 
 /// Watch has its own small-screen presentation target; keep its logo treatment
@@ -2514,8 +2210,6 @@ private struct DJConnectWatchSettingsView: View {
 
     private var voiceActivationIcon: String {
         switch model.voiceActivationStatus {
-        case .listening:
-            return "waveform.circle.fill"
         case .paused:
             return "pause.circle"
         case .microphoneRequired:
@@ -2527,8 +2221,6 @@ private struct DJConnectWatchSettingsView: View {
 
     private var voiceActivationColor: Color {
         switch model.voiceActivationStatus {
-        case .listening:
-            return .green
         case .paused:
             return .white.opacity(0.58)
         case .microphoneRequired, .unavailable:
@@ -3418,81 +3110,6 @@ private struct DJConnectWatchArtwork: View {
     }
 }
 
-private struct DJConnectWatchArtworkPreviewView: View {
-    @Environment(\.dismiss) private var dismiss
-    let artworkURL: URL?
-    var usesDemoArtwork = false
-    var isPlaying = false
-
-    var body: some View {
-        ZStack {
-            DJConnectWatchCanvas()
-
-            GeometryReader { geometry in
-                let artworkSize = min(geometry.size.width, geometry.size.height)
-
-                artwork
-                    .frame(width: artworkSize, height: artworkSize)
-                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-                    .shadow(color: watchAccentPurple.opacity(0.32), radius: 18, y: 8)
-            }
-        }
-        .task {
-            try? await Task.sleep(for: .seconds(7))
-            guard !Task.isCancelled else { return }
-            dismiss()
-        }
-    }
-
-    @ViewBuilder
-    private var artwork: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            watchAccentPurple.opacity(0.34),
-                            watchAccentBlue.opacity(0.22),
-                            Color.white.opacity(0.08)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            if let artworkURL {
-                AsyncImage(url: artworkURL) { phase in
-                    switch phase {
-                    case let .success(image):
-                        image
-                            .resizable()
-                            .scaledToFit()
-                    default:
-                        fallbackArtwork
-                    }
-                }
-            } else {
-                fallbackArtwork
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.14), lineWidth: 1)
-        )
-    }
-
-    @ViewBuilder private var fallbackArtwork: some View {
-        if usesDemoArtwork {
-            AlbumArtworkPlaceholder(tint: watchAccentPurple, isPlaying: isPlaying)
-        } else {
-            Image(systemName: "play.fill")
-                .font(.system(size: 44, weight: .bold))
-                .foregroundStyle(watchIconGradient)
-        }
-    }
-}
-
 private struct DJConnectWatchAskDJChatView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     @State private var toast: String?
@@ -3516,14 +3133,9 @@ private struct DJConnectWatchAskDJChatView: View {
                         ProgressView()
                             .tint(.white)
                             .padding(.vertical, 18)
-                    } else if model.askDJMessages.isEmpty && model.transientAskDJMoodMessage == nil {
+                    } else if model.askDJMessages.isEmpty {
                         emptyState
                     } else {
-                        if let transientMessage = model.transientAskDJMoodMessage {
-                            DJConnectWatchAskDJBubble(message: transientMessage)
-                                .id(transientMessage.id)
-                                .transition(.move(edge: .top).combined(with: .opacity))
-                        }
                         ForEach(Array(model.askDJMessages.reversed())) { message in
                             DJConnectWatchAskDJBubble(message: message)
                                 .id(message.id)
@@ -4508,27 +4120,6 @@ private struct DJConnectWatchPanel: View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(Color.white.opacity(0.12), lineWidth: 1)
             )
-    }
-}
-
-private struct DJConnectWatchRoundButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(.white)
-            .background(
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.77, green: 0.18, blue: 1.0).opacity(configuration.isPressed ? 0.72 : 0.96),
-                                Color(red: 0.46, green: 0.24, blue: 1.0).opacity(configuration.isPressed ? 0.70 : 0.94)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            )
-            .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
     }
 }
 
