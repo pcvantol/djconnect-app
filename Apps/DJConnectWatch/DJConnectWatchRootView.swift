@@ -5427,19 +5427,16 @@ private struct DJConnectWatchCompanionTrackView: View {
     }
 
     private func detail(artwork: Image?) -> some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                trackArtwork(artwork)
-                HStack(alignment: .top, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(original?.trackName ?? "").font(.headline)
-                        Text(original?.artistName ?? "").foregroundStyle(.secondary)
-                        trackTiming
-                    }
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
+        TabView {
+            trackArtwork(artwork)
+                .ignoresSafeArea(.container, edges: .vertical)
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(original?.trackName ?? "").font(.headline).lineLimit(2)
+                    Text(original?.artistName ?? "").foregroundStyle(.secondary).lineLimit(2)
+                    trackTiming
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 8)
                 VStack(spacing: 6) {
                     if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
@@ -5468,10 +5465,11 @@ private struct DJConnectWatchCompanionTrackView: View {
                 }
                 .buttonStyle(DJConnectWatchFlatActionRowStyle())
             }
-            .padding(.bottom, 12)
+            .padding(.trailing, 8)
+            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .contentMargins(.top, 0, for: .scrollContent)
-        .ignoresSafeArea(.container, edges: .vertical)
+        .tabViewStyle(.verticalPage)
         .background {
             DJConnectWatchCanvas(theme: theme)
             if let artwork {
@@ -5541,7 +5539,6 @@ private struct DJConnectWatchCompanionTrackView: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: min(size.width, size.height) * 0.20, style: .continuous))
         }
-        .containerRelativeFrame([.horizontal, .vertical])
     }
 
     private func setControlsVisible(_ visible: Bool) {
