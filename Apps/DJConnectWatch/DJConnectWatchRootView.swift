@@ -4832,7 +4832,7 @@ private struct DJConnectWatchCompanionPages: View {
                                 .frame(width: 24, height: 24)
                         }
                         VStack(alignment: .leading, spacing: 1) {
-                            let title = model.playback?.trackName ?? text("watch.session.waiting")
+                            let title = model.playback?.trackName ?? "DJConnect"
                             DJConnectWatchScrollingTitle(title: title)
                                 .font(.caption.weight(.semibold))
                                 .id(title)
