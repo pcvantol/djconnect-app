@@ -13570,7 +13570,8 @@ struct AskDJInputBar: View {
                 #if os(iOS)
                 AskDJPromptTextView(text: editorDraft, isInputFocused: isInputFocused,
                                     isEditing: $isNativeEditorFocused, replacementRevision: model.askDJDraftRevision, replacementText: model.askDJDraft,
-                                    inputSelection: model.askDJCatalogueInputSelection, selectionRequest: model.askDJCatalogueFocusRequest)
+                                    inputSelection: model.askDJCatalogueInputSelection, selectionRequest: model.askDJCatalogueFocusRequest,
+                                    submit: { if canSend { send() } })
                     .frame(minHeight: 44)
                 #else
                 TextField("", text: editorDraft, selection: $promptSelection, axis: .vertical)
@@ -13593,7 +13594,8 @@ struct AskDJInputBar: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
                     .onKeyPress(.return, phases: .down) { key in
-                        if key.modifiers.intersection([.control, .command, .option, .shift]) == .control {
+                        let modifiers = key.modifiers.intersection([.control, .command, .option, .shift])
+                        if modifiers.isEmpty || modifiers == .control {
                             if canSend { send() }
                         } else {
                             insertPromptNewline()
@@ -13947,10 +13949,12 @@ private struct AskDJPromptTextView: UIViewRepresentable {
     let replacementText: String
     let inputSelection: NSRange?
     let selectionRequest: UUID?
+    let submit: () -> Void
 
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
         textView.delegate = context.coordinator
+        textView.returnKeyType = .send
         textView.backgroundColor = .clear
         textView.accessibilityLabel = "Ask DJ"
         textView.textColor = .white
@@ -13965,6 +13969,7 @@ private struct AskDJPromptTextView: UIViewRepresentable {
     }
 
     func updateUIView(_ textView: UITextView, context: Context) {
+        context.coordinator.submit = submit
         // Native typing owns the current text; only an explicit app replacement writes it back.
         if context.coordinator.lastReplacementRevision != replacementRevision {
             if textView.text != replacementText {
@@ -14006,13 +14011,14 @@ private struct AskDJPromptTextView: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, isInputFocused: isInputFocused, isEditing: $isEditing)
+        Coordinator(text: $text, isInputFocused: isInputFocused, isEditing: $isEditing, submit: submit)
     }
 
     final class Coordinator: NSObject, UITextViewDelegate {
         @Binding var text: String
         var isInputFocused: FocusState<Bool>.Binding
         @Binding var isEditing: Bool
+        var submit: () -> Void
         var lastRequestedFocus = false
         var lastReplacementRevision: Int?
         var lastSelectionRequest: UUID?
@@ -14044,10 +14050,18 @@ private struct AskDJPromptTextView: UIViewRepresentable {
             }
         }
 
-        init(text: Binding<String>, isInputFocused: FocusState<Bool>.Binding, isEditing: Binding<Bool>) {
+        init(text: Binding<String>, isInputFocused: FocusState<Bool>.Binding, isEditing: Binding<Bool>,
+             submit: @escaping () -> Void) {
             _text = text
             self.isInputFocused = isInputFocused
             _isEditing = isEditing
+            self.submit = submit
+        }
+
+        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText: String) -> Bool {
+            guard replacementText == "\n", textView.markedTextRange == nil else { return true }
+            submit()
+            return false
         }
 
         func textViewDidChange(_ textView: UITextView) {
