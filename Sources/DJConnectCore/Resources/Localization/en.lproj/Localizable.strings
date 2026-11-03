@@ -1659,6 +1659,7 @@
 "watch.v2.notification.permission" = "Allow notifications";
 
 "watch.v2.widget.ask_dj" = "Ask DJ";
+"watch.v2.widget.open_session" = "Open DJ Session";
 
 "watch.v2.moments.new" = "Newest contributions";
 

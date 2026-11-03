@@ -116,6 +116,7 @@ struct DJConnectWatchRootView: View {
                 .navigationTitle(model.connectionState == .paired ? "" : "DJConnect")
                 .navigationBarTitleDisplayMode(.inline)
         }
+        .id(model.watchHomeOpenSequence)
         .tint(.white)
         .buttonStyle(DJConnectWatchStandardButtonStyle())
         .sheet(isPresented: $model.isShowingMicrophonePermissionExplanation) {
@@ -4727,7 +4728,6 @@ private struct DJConnectWatchCompanionPages: View {
         .scrollContentBackground(.hidden)
         .environment(\.watchSessionTheme, theme)
         .navigationTitle(page == 2 ? text("watch.v2.more") : page == 1 && session != nil ? text("watch.v2.moments") : isLoadingSession || session != nil ? "" : "Ask DJ")
-        .onChange(of: model.watchHomeOpenSequence) { _, _ in page = 0; destination = nil }
         .onChange(of: model.watchMomentOpenIntent, initial: true) { _, intent in
             if let intent { destination = .notification(intent) }
         }

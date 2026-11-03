@@ -12,6 +12,7 @@ import Speech
 import SwiftUI
 @preconcurrency import UserNotifications
 import WatchKit
+import WidgetKit
 #if canImport(WatchConnectivity)
 @preconcurrency import WatchConnectivity
 #endif
@@ -251,6 +252,8 @@ extension DJConnectWatchModel: WCSessionDelegate {
                     Task { await refreshStatus() }
                     Task { await refreshForegroundSession(force: true) }
                 }
+            } else if isAppForeground {
+                publishStackEntry(nil)
             }
         }
     }
@@ -912,7 +915,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         let active = isAppForeground && canUseBackend && !isDemoMode
         if !active { settingsOperationConfirmation = nil }
         foregroundSession.bind(owner: active ? stableInstallID : nil, active: active)
-        guard active else { return }
+        guard active else {
+            if isAppForeground { publishStackEntry(nil) }
+            return
+        }
         await foregroundSession.refresh(force: force) { [unowned self] in
             do { return try await sendCompanionHARequest(.foregroundSession) }
             catch {
@@ -920,6 +926,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 throw error
             }
         }
+        if isAppForeground { publishStackEntry(canUseBackend ? foregroundSession.stackEntry() : nil) }
         guard isAppForeground, let current = foregroundSession.current() else {
             profileDJSettings.bind(owner: profileDJSettings.response?.binding, active: false)
             return
@@ -944,6 +951,19 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    private func publishStackEntry(_ entry: DJConnectWatchStackEntry?) {
+        guard let defaults = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else { return }
+        let previous = DJConnectWatchStackEntry.load(from: defaults, at: Date())
+        if let entry, let data = try? JSONEncoder().encode(entry) {
+            defaults.set(data, forKey: DJConnectWatchStackEntry.storageKey)
+        } else {
+            defaults.removeObject(forKey: DJConnectWatchStackEntry.storageKey)
+        }
+        if previous?.destination != entry?.destination {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+
     func acceptCurrentForegroundSession() async {
         guard isAppForeground, canUseBackend, !isDemoMode else { return }
         await foregroundSession.useCurrent { [unowned self] in try await sendCompanionHARequest(.foregroundSession) }
@@ -956,6 +976,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
               let expectedSessionID, let current = foregroundSession.current(),
               current.session?.id == expectedSessionID else { return }
         sessionSpeech.stop()
+        publishStackEntry(nil)
         await foregroundSession.change(language: language, write: { [unowned self] intent in
             let _: Bool = try await sendCompanionHARequest(.endSession,
                                                           payload: intent)
@@ -1370,6 +1391,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func startDemoMode() {
+        publishStackEntry(nil)
         foregroundSession.bind(owner: nil, active: false)
         profileDJSettings.bind(owner: nil, active: false)
         companionRequests.cancelAll()
@@ -1970,8 +1992,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     @Published private(set) var watchHomeOpenSequence = 0
     func openWatchHome(from url: URL) {
-        guard ["djconnect://", "djconnect://watch/ask-dj"].contains(url.absoluteString) else { return }
+        guard url.absoluteString == "djconnect://" ||
+              url == DJConnectWatchStackEntry.Destination.askDJ.url ||
+              url == DJConnectWatchStackEntry.Destination.session.url else { return }
         watchHomeOpenSequence &+= 1
+        Task { await refreshForegroundSession(force: true) }
     }
     @Published private(set) var watchMomentOpenIntent: DJConnectWatchMomentOpenIntent? = {
         guard let data = UserDefaults.standard.data(forKey: "watch.moment.open.intent.v1"),
@@ -2080,6 +2105,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func resetPairing() {
+        publishStackEntry(nil)
         cancelWatchQuestionRecording()
         foregroundSession.bind(owner: nil, active: false)
         profileDJSettings.bind(owner: nil, active: false)
