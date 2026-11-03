@@ -15231,9 +15231,7 @@ private struct GamesView: View {
                 LocalGameSurface(game: $selectedGame, language: language,
                                  controlsBesideCanvas: DJConnectGameViewport.prefersSideControls(in: proxy.size))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.horizontal, djConnectScreenHorizontalPadding)
-                    .padding(.top, 4)
-                    .padding(.bottom, 6)
+                    .padding(djConnectScreenHorizontalPadding)
                     .frame(maxWidth: contentMaxWidth)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background {
