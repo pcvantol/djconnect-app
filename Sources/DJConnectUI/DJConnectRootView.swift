@@ -17832,7 +17832,6 @@ private struct LogsView: View {
             #if !os(macOS)
             .padding(.vertical, 16)
             #endif
-            .background(DJConnectCanvasBackground())
             .navigationTitle(localizedKey(model.language, "ui.logs"))
             .accessibilityIdentifier("screen-logs")
             #if os(macOS)
