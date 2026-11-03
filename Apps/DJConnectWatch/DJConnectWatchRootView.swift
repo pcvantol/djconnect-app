@@ -5441,6 +5441,7 @@ struct DJConnectWatchCompanionMoodView: View {
                 ForEach(moods, id: \.self) { option in
                     let mood = option.rawValue
                     Button {
+                        guard session.selectedMood != mood else { return }
                         let intent = DJConnectWatchSessionMoodIntent(binding: current.settings.binding,
                             sessionID: session.id, mood: mood, expectedRevision: revision)
                         Task { updateFailed = !(await model.updateSessionMood(intent)) }
@@ -5453,11 +5454,14 @@ struct DJConnectWatchCompanionMoodView: View {
                                 .accessibilityHidden(true)
                             Text(watchLocalizedKey(model.language, "ui.session.mood." + mood))
                             Spacer()
-                            if session.selectedMood == mood { Image(systemName: "checkmark") }
+                            if session.selectedMood == mood { Image(systemName: "checkmark").accessibilityHidden(true) }
                         }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(session.selectedMood == mood ? .isSelected : [])
                     .disabled(model.isUpdatingSessionMood || state.isRefreshing || state.isChanging || state.outcomeUnknown ||
-                              settings.hasUncertainOperation || session.selectedMood == mood)
+                              settings.hasUncertainOperation)
                 }
             } else {
                 Text(watchLocalizedKey(model.language, "ui.dj_settings.unavailable")).font(.caption).foregroundStyle(.secondary)
@@ -5467,6 +5471,7 @@ struct DJConnectWatchCompanionMoodView: View {
                 Text(watchLocalizedKey(model.language, "watch.session.check_outcome")).font(.caption)
             }
         }
+        .listStyle(.plain)
         .watchStandardBackground()
         .navigationTitle(watchLocalizedKey(model.language, "ui.dj_settings.mood"))
     }
