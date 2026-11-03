@@ -5292,7 +5292,7 @@ private struct DJConnectWatchCompanionTextView: View {
         ScrollView {
             VStack(spacing: 10) {
                 TextField(watchLocalizedKey(model.language, "watch.v2.text"), text: $text)
-                Button(watchLocalizedKey(model.language, "watch.v2.send")) {
+                Button {
                     let selectedContext: DJConnectConversationContext
                     if recording != nil {
                         guard let originalEntry, originalEntry.isRetained() else { return }
@@ -5301,7 +5301,10 @@ private struct DJConnectWatchCompanionTextView: View {
                         selectedContext = context
                     }
                     Task { sent = await model.sendWatchText(text, context: selectedContext, expectedBinding: originalBinding); if sent { answer = model.lastWatchTextReply; text = "" } }
-                }.disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.watchTextPending || model.watchTextOutcomeUnknown ||
+                } label: {
+                    Label(watchLocalizedKey(model.language, "watch.v2.send"), systemImage: "paperplane.fill")
+                }
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.watchTextPending || model.watchTextOutcomeUnknown ||
                            (recording != nil && originalEntry?.isRetained() != true))
                 if isResolvingRecording { ProgressView() }
                 if recording != nil && !isResolvingRecording && originalEntry?.isRetained() != true {
