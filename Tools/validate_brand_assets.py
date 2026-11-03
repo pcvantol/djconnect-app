@@ -80,7 +80,10 @@ def validate():
     watch = ROOT / 'Apps/Shared/AppIconWatchAdaptive.icon'
     watch_document = json.loads((watch / 'icon.json').read_text())
     assert watch_document['groups'] == document['groups'], 'Watch must retain the same headset composition'
-    assert all(fill['value'] == {'solid': 'srgb:0,0,0,1'} for fill in watch_document['fill-specializations']), 'Watch backgrounds must stay black'
+    assert {fill.get('appearance', 'default'): fill['value'] for fill in watch_document['fill-specializations']} == {
+        'default': {'solid': 'srgb:0.18,0.08,0.29,1'},
+        'dark': {'solid': 'srgb:0.13,0.05,0.22,1'},
+    }, 'Watch backgrounds must match the approved purple palette'
     assert sha(watch / 'Assets/headphone.png') == provenance['source_sha256'], 'Watch foreground must match pinned producer art'
     project = (ROOT / 'project.yml').read_text()
     assert project.count('ASSETCATALOG_COMPILER_APPICON_NAME: AppIconAdaptive') == 2
