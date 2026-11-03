@@ -105,6 +105,10 @@ jobs:
       - name: Sign on Mac mini and install the same app on both Macs
         env:
           ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          MAC_APP_PROFILE: ${{ vars.DJCONNECT_MAC_APP_PROFILE_PATH }}
+          MAC_WIDGET_PROFILE: ${{ vars.DJCONNECT_MAC_WIDGET_PROFILE_PATH }}
+          MAC_MINI_PROVISIONING_UDID: ${{ secrets.DJCONNECT_MAC_MINI_PROVISIONING_UDID }}
+          MACBOOK_PROVISIONING_UDID: ${{ secrets.DJCONNECT_MACBOOK_PROVISIONING_UDID }}
           RELEASE_VERSION: ${{ steps.manifest.outputs.release_version }}
           SIGNING_IDENTITY: ${{ secrets.DJCONNECT_APPLE_DEVELOPMENT_SIGNING_IDENTITY }}
           EXPECTED_MACBOOK_UUID: ${{ secrets.DJCONNECT_APPLE_MACBOOK_HARDWARE_UUID }}
@@ -120,8 +124,7 @@ jobs:
           xattr -cr "$app_bundle"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_bundle/Contents/Info.plist")" = dev.djconnect.mac
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_bundle/Contents/Info.plist")" = "$RELEASE_VERSION"
-          codesign --force --deep --sign "$SIGNING_IDENTITY" --timestamp=none "$app_bundle"
-          codesign --verify --deep --strict "$app_bundle"
+          bash Tools/release/sign_internal_macos_bundle.sh "$app_bundle" "$SIGNING_IDENTITY"
           signed_archive="$staging/DJConnect-signed.zip"
           ditto -c -k --keepParent "$app_bundle" "$signed_archive"
           signed_sha="$(shasum -a 256 "$signed_archive" | awk '{print $1}')"
