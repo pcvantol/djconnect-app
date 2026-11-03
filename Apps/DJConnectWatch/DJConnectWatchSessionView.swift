@@ -200,20 +200,16 @@ private struct DJConnectWatchSharedDJSettingsView: View {
                 if output != .textOnly {
                     let voice = review ? draft.voice ?? e.voice : e.voice
                     let gender = review ? draft.gender ?? e.gender : e.gender
-                    Picker(text("ui.dj_settings.voice"), selection: Binding(get: { voiceTag(voice) }, set: { tag in
+                    let availableVoices = r.allowed_values.voice.voices.filter { gender == .default || $0.gender == gender.rawValue }
+                    let voiceChoices = [("default", text("ui.dj_settings.provider_default"))] + availableVoices.map { item in
+                        (voiceTag(.init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: item.voice_id)), item.name)
+                    }
+                    choiceLink(title: text("ui.dj_settings.voice"), values: voiceChoices, selected: voiceTag(voice),
+                               unavailableTitle: text("ui.dj_settings.selection_unavailable")) { tag in
                         if tag == "default" { choose(.init(voice: .init())) }
-                        else if let item = r.allowed_values.voice.voices.first(where: {
+                        else if let item = availableVoices.first(where: {
                             voiceTag(.init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: $0.voice_id)) == tag
                         }) { choose(.init(voice: .init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: item.voice_id))) }
-                    })) {
-                        Text(text("ui.dj_settings.provider_default")).tag("default")
-                        ForEach(r.allowed_values.voice.voices.filter { gender == .default || $0.gender == gender.rawValue }, id: \.voice_id) { item in
-                            Text(item.name).tag(voiceTag(.init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: item.voice_id)))
-                        }
-                        if voice.kind == .providerVoice && (voice.provider_id != r.allowed_values.voice.provider_id ||
-                            !r.allowed_values.voice.voices.contains(where: { $0.voice_id == voice.voice_id && (gender == .default || $0.gender == gender.rawValue) })) {
-                            Text(text("ui.dj_settings.selection_unavailable")).tag(voiceTag(voice)).disabled(true)
-                        }
                     }
                     if r.allowed_values.gender.contains("male") || r.allowed_values.gender.contains("female") {
                         choices("gender", r.allowed_values.gender, selected: gender.rawValue) { raw in
@@ -246,7 +242,6 @@ private struct DJConnectWatchSharedDJSettingsView: View {
         }
         .listStyle(.plain)
         .buttonStyle(.automatic)
-        .pickerStyle(.navigationLink)
         .watchStandardBackground()
         .navigationTitle(text("watch.session.settings"))
         .onChange(of: settings.response?.binding) { draft = .init() }
@@ -257,13 +252,61 @@ private struct DJConnectWatchSharedDJSettingsView: View {
         voice.kind == .providerDefault ? "default" : "voice/\((voice.provider_id ?? "").utf8.count):\(voice.provider_id ?? "")/\(voice.voice_id ?? "")"
     }
     private func choices(_ field: String, _ values: [String], selected: String, change: @escaping (String) -> Void) -> some View {
-        Picker(text("ui.dj_settings." + field), selection: Binding(get: { selected }, set: change)) {
-            if !values.contains(selected) { Text(label(field, selected)).tag(selected).disabled(true) }
-            ForEach(values, id: \.self) { value in
-                Text(label(field, value)).tag(value)
-                    .disabled(field == "output" && settings.response?.announcement_output.outputs.first(where: { $0.value == value })?.available != true)
+        choiceLink(title: text("ui.dj_settings." + field), values: values.map { ($0, label(field, $0)) },
+                   selected: selected, unavailableTitle: label(field, selected),
+                   disabledValues: Set(values.filter { value in
+                       field == "output" && settings.response?.announcement_output.outputs.first(where: { $0.value == value })?.available != true
+                   }), change: change)
+    }
+
+    private func choiceLink(title: String, values: [(String, String)], selected: String,
+                            unavailableTitle: String, disabledValues: Set<String> = [],
+                            change: @escaping (String) -> Void) -> some View {
+        NavigationLink {
+            DJConnectWatchSettingsChoices(title: title, values: values, selected: selected,
+                unavailableTitle: unavailableTitle, disabledValues: disabledValues, change: change)
+        } label: {
+            LabeledContent(title, value: values.first { $0.0 == selected }?.1 ?? unavailableTitle)
+        }
+    }
+}
+
+private struct DJConnectWatchSettingsChoices: View {
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let values: [(String, String)]
+    let selected: String
+    let unavailableTitle: String
+    let disabledValues: Set<String>
+    let change: (String) -> Void
+
+    var body: some View {
+        List {
+            if !values.contains(where: { $0.0 == selected }) {
+                Text(unavailableTitle).foregroundStyle(.secondary)
+            }
+            ForEach(values, id: \.0) { value in
+                Button {
+                    if value.0 != selected { change(value.0) }
+                    dismiss()
+                } label: {
+                    HStack {
+                        Text(value.1)
+                        Spacer()
+                        if value.0 == selected {
+                            Image(systemName: "checkmark").accessibilityHidden(true)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .disabled(disabledValues.contains(value.0))
+                .accessibilityAddTraits(value.0 == selected ? .isSelected : [])
             }
         }
+        .listStyle(.plain)
+        .buttonStyle(.plain)
+        .watchStandardBackground()
+        .navigationTitle(title)
     }
 }
 
