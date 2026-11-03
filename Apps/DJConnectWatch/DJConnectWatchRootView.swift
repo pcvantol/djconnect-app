@@ -5139,16 +5139,20 @@ private struct DJConnectWatchCompanionVoiceView: View {
     private var isRecording: Bool { if case .recording = model.voiceState { return true }; return false }
     private var isPending: Bool { if case .processing = model.voiceState { return true }; return false }
     var body: some View {
-        VStack(spacing: 10) {
-            DJConnectWatchGlassBrandIcon(size: 64)
-            Text(model.statusMessage).font(.caption).multilineTextAlignment(.center).lineLimit(3)
-            if isPending { ProgressView() }
-            Button { model.toggleWatchQuestionRecording(context: context) } label: {
-                Label(watchLocalizedKey(model.language, isRecording ? "watch.v2.stop_send" : "watch.v2.speak"),
-                      systemImage: isRecording ? "stop.fill" : "mic.fill")
-            }.disabled(!model.canUseBackend || isPending)
-            if isRecording { Button(watchLocalizedKey(model.language, "ui.cancel")) { model.cancelWatchQuestionRecording() } }
-        }.navigationTitle("Ask DJ")
+        ScrollView {
+            VStack(spacing: 10) {
+                DJConnectWatchGlassBrandIcon(size: 64)
+                Text(model.statusMessage).font(.caption).multilineTextAlignment(.center).lineLimit(3)
+                if isPending { ProgressView() }
+                Button { model.toggleWatchQuestionRecording(context: context) } label: {
+                    Label(watchLocalizedKey(model.language, isRecording ? "watch.v2.stop_send" : "watch.v2.speak"),
+                          systemImage: isRecording ? "stop.fill" : "mic.fill")
+                }.disabled(!model.canUseBackend || isPending)
+                if isRecording { Button(watchLocalizedKey(model.language, "ui.cancel")) { model.cancelWatchQuestionRecording() } }
+            }
+            .padding(.bottom, 8)
+        }
+        .navigationTitle("Ask DJ")
         .onDisappear { model.cancelWatchQuestionRecording() }
     }
 }
