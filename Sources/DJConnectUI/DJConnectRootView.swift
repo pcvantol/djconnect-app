@@ -15552,6 +15552,9 @@ private struct LocalGameSurface: View {
                             .labelStyle(.iconOnly)
                             .foregroundStyle(game == mode ? djConnectAccent : .primary)
                     }
+                    #if os(iOS)
+                    .tint(game == mode ? djConnectAccent : nil)
+                    #endif
                     .help(mode.title)
                     .accessibilityAddTraits(game == mode ? [.isSelected] : [])
                 }
