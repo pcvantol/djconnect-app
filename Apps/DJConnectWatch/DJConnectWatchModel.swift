@@ -2149,6 +2149,24 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         toggleRecording()
     }
 
+    func beginHeldWatchQuestion(context: DJConnectConversationContext) -> UUID? {
+        guard !isDemoMode, isAppForeground, canUseBackend, AVAudioApplication.shared.recordPermission == .granted,
+              voiceState != .recording, voiceState != .processing,
+              let current = foregroundSession.current(), current.session?.id == context.sessionID else { return nil }
+        toggleWatchQuestionRecording(context: context)
+        return watchRecordingGeneration
+    }
+
+    func endHeldWatchQuestion(_ generation: UUID, send: Bool) -> Bool {
+        guard generation == watchRecordingGeneration else { return false }
+        if send, voiceState == .recording {
+            stopRecordingAndSend()
+            return true
+        }
+        cancelWatchQuestionRecording()
+        return false
+    }
+
     func cancelWatchQuestionRecording() { cancelRecording(reason: "Watch question cancelled") }
 
     func interruptWatchQuestionRecording() {

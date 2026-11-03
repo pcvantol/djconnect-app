@@ -4684,6 +4684,8 @@ private struct DJConnectWatchCompanionPages: View {
     @State private var crownPosition = 0.0
     @State private var crownAdvance = true
     @State private var unseenFlowID: String?
+    @GestureState private var holdingVoice = false
+    @State private var heldVoice: (generation: UUID, context: DJConnectConversationContext)?
     // Presented outside the conditional pages, so runtime refreshes never replace
     // a question's original context or pop a reader off its original Moment.
     private enum Destination { case text(DJConnectConversationContext), voice(DJConnectConversationContext), moment(DJConnectMoment), flow(DJConnectWatchFlowRow, String, String), notification(DJConnectWatchMomentOpenIntent) }
@@ -4866,9 +4868,23 @@ private struct DJConnectWatchCompanionPages: View {
             } label: {
                 ZStack(alignment: .bottomTrailing) {
                     DJConnectWatchGlassBrandIcon(size: Self.avatarSize)
-                    Image(systemName: "mic.fill").font(.caption2).padding(3).background(.regularMaterial, in: Circle())
+                    Image(systemName: heldVoice != nil && model.voiceState == .recording ? "stop.fill" : "mic.fill")
+                        .font(.caption2).padding(3).background(.regularMaterial, in: Circle())
                 }.frame(minWidth: 44, minHeight: 44)
-            }.buttonStyle(.plain).accessibilityLabel(text("watch.v2.speak"))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(text("watch.v2.speak"))
+            .highPriorityGesture(holdToSpeak)
+            .onChange(of: holdingVoice) { _, holding in
+                guard !holding, let generation = heldVoice?.generation else { return }
+                // A completed gesture gets first chance to finish. A cancelled
+                // gesture only clears the capture it originally started.
+                Task { @MainActor in
+                    await Task.yield()
+                    if heldVoice?.generation == generation { finishHeldVoice(send: false) }
+                }
+            }
+            .onDisappear { finishHeldVoice(send: false) }
             if session != nil {
                 Button { Task { await model.sendCommand("next") } } label: {
                     Image(systemName: "forward.end.fill")
@@ -4877,6 +4893,41 @@ private struct DJConnectWatchCompanionPages: View {
                         .contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityLabel(text("watch.next.track"))
             }
+        }
+    }
+
+    private var holdToSpeak: some Gesture {
+        LongPressGesture(minimumDuration: 0.45, maximumDistance: 12)
+            .sequenced(before: DragGesture(minimumDistance: 0))
+            .updating($holdingVoice) { value, holding, _ in
+                if case .second(true, _) = value { holding = true }
+            }
+            .onChanged { value in
+                guard case .second(true, _) = value, heldVoice == nil,
+                      page == 0, flowPosition == 0, destination == nil else { return }
+                let original = context
+                if let generation = model.beginHeldWatchQuestion(context: original) {
+                    heldVoice = (generation, original)
+                }
+            }
+            .onEnded { value in
+                guard case .second(true, let drag) = value else {
+                    finishHeldVoice(send: false)
+                    return
+                }
+                let offset = drag?.translation ?? .zero
+                let canSend = abs(offset.width) < 24 && abs(offset.height) < 24 &&
+                    page == 0 && flowPosition == 0 && destination == nil
+                if heldVoice == nil && canSend { destination = .voice(context) }
+                else { finishHeldVoice(send: canSend) }
+            }
+    }
+
+    private func finishHeldVoice(send: Bool) {
+        guard let heldVoice else { return }
+        self.heldVoice = nil
+        if model.endHeldWatchQuestion(heldVoice.generation, send: send) {
+            destination = .voice(heldVoice.context)
         }
     }
 
