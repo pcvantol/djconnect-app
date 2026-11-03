@@ -133,7 +133,7 @@ private struct DJConnectLaunchView: View {
     private func compactLaunch(bannerWidth: CGFloat, availableHeight: CGFloat) -> some View {
         ScrollView {
             VStack(spacing: 24) {
-                DJConnectLaunchBanner(showsCardBackground: false)
+                DJConnectLaunchBanner(showsCardBackground: false, textAboveIcon: true)
                 DJSessionWelcomeArtwork()
                     .frame(height: (bannerWidth - 36) * 0.72)
                     .accessibilityHidden(true)
@@ -200,6 +200,7 @@ private struct DJConnectLaunchCanvasBackground: View {
 struct DJConnectLaunchBanner: View {
     var subtitle: String = DJConnectLocalization.localized(key: "brand.tagline")
     var showsCardBackground = true
+    var textAboveIcon = false
     @ScaledMetric(relativeTo: .title) private var iconSize = 84.0
     @ScaledMetric(relativeTo: .title) private var nameSize = 30.0
     @ScaledMetric(relativeTo: .title3) private var taglineSize = 20.0
@@ -217,12 +218,18 @@ struct DJConnectLaunchBanner: View {
         }
     }
 
-    private var content: some View {
-        // One horizontal lockup at every width. Scale each single text line
-        // inside the icon's height instead of ever stacking it below the icon.
-        brandRow(icon: min(iconSize, 96), name: min(nameSize, 36), slogan: min(taglineSize, 24))
-        .frame(maxWidth: 480, alignment: .leading)
-        .frame(maxWidth: .infinity)
+    @ViewBuilder private var content: some View {
+        if textAboveIcon {
+            VStack(spacing: 12) {
+                brandText(name: min(nameSize, 36), slogan: min(taglineSize, 24))
+                DJConnectGlassBrandIcon()
+                    .frame(width: min(iconSize, 96), height: min(iconSize, 96))
+            }
+        } else {
+            brandRow(icon: min(iconSize, 96), name: min(nameSize, 36), slogan: min(taglineSize, 24))
+                .frame(maxWidth: 480, alignment: .leading)
+                .frame(maxWidth: .infinity)
+        }
     }
 
     private func brandRow(icon: CGFloat, name: CGFloat, slogan: CGFloat) -> some View {
@@ -235,13 +242,13 @@ struct DJConnectLaunchBanner: View {
     }
 
     private func brandText(name: CGFloat, slogan: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: textAboveIcon ? .center : .leading, spacing: 4) {
             Text("DJConnect")
                 .font(.system(size: name, weight: .bold, design: .default))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.2)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: textAboveIcon ? .center : .leading)
             tagline(size: slogan)
         }
     }
@@ -249,10 +256,10 @@ struct DJConnectLaunchBanner: View {
     private func tagline(size: CGFloat) -> some View {
         Text(subtitle)
             .font(.system(size: size, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.72))
+            .foregroundStyle(.white.opacity(textAboveIcon ? 1 : 0.72))
             .lineLimit(1)
             .minimumScaleFactor(0.2)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: textAboveIcon ? .center : .leading)
     }
 }
 

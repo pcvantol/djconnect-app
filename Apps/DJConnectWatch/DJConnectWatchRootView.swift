@@ -4813,13 +4813,18 @@ private struct DJConnectWatchCompanionPages: View {
         if isLoadingSession || (session != nil && !dynamicTypeSize.isAccessibilitySize) {
             ZStack {
                 if isLoadingSession {
-                    DJConnectWatchGlassBrandIcon(size: Self.avatarSize)
-                        .overlay(alignment: .bottom) {
-                            ProgressView()
-                                .tint(.white)
-                                .accessibilityLabel(text(state.failureKey ?? "watch.session.loading"))
-                                .alignmentGuide(.bottom) { $0[.top] - 12 }
-                        }
+                    VStack(spacing: 5) {
+                        Text("DJConnect").font(.headline.weight(.bold))
+                        Text(text("brand.tagline")).font(.caption2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                        DJConnectWatchGlassBrandIcon(size: Self.avatarSize)
+                        ProgressView()
+                            .tint(.white)
+                            .accessibilityLabel(text(state.failureKey ?? "watch.session.loading"))
+                    }
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
                 } else {
                     VStack(spacing: 0) {
                         homeHeading
