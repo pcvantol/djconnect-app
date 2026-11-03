@@ -4680,6 +4680,7 @@ private struct DJConnectWatchCompanionPages: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var crownFocused: Bool
     @State private var flowPosition = 0.0
+    @State private var crownPosition = 0.0
     @State private var crownAdvance = true
     // Presented outside the conditional pages, so runtime refreshes never replace
     // a question's original context or pop a reader off its original Moment.
@@ -4694,7 +4695,11 @@ private struct DJConnectWatchCompanionPages: View {
     private var accent: Color { theme.watchColors[1] }
     var body: some View {
         ZStack {
-            DJConnectWatchCanvas(theme: page == 0 && flowPosition > 0 && !currentFlowRows.isEmpty ? theme : .brand)
+            if page == 0 && (flowPosition == 0 || currentFlowRows.isEmpty) {
+                homeBackground
+            } else {
+                DJConnectWatchCanvas(theme: page == 0 ? theme : .brand)
+            }
             TabView(selection: Binding(get: { page }, set: { next in
                 guard page != 0 || flowPosition == 0 || currentFlowRows.isEmpty else { return }
                 page = next
@@ -4773,7 +4778,7 @@ private struct DJConnectWatchCompanionPages: View {
                     }
                     .id(url)
                 }
-                .ignoresSafeArea(.container, edges: .vertical)
+                .ignoresSafeArea()
             }
         }
         .allowsHitTesting(false)
@@ -4904,16 +4909,11 @@ private struct DJConnectWatchCompanionPages: View {
                 if index == 0 {
                     home
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background { homeBackground }
                         .transition(transition)
                 } else {
                     let row = rows[index - 1]
                     flowCard(row, index: index, count: rows.count)
                         .id(row.id)
-                        .highPriorityGesture(
-                            flowSwipe(index: index, count: rows.count, row: row),
-                            including: canScroll ? .all : .none
-                        )
                         .transition(transition)
                 }
             }
@@ -4921,15 +4921,27 @@ private struct DJConnectWatchCompanionPages: View {
             .focusable(canScroll)
             .focused($crownFocused)
             .digitalCrownRotation(
-                Binding(get: { Double(index) }, set: { moveFlow(to: $0, count: rows.count) }),
-                from: 0, through: Double(max(1, rows.count)), by: 1,
-                sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true
+                $crownPosition, from: 0, through: Double(max(1, rows.count)), by: 1,
+                sensitivity: .medium, isContinuous: false, isHapticFeedbackEnabled: false
+            )
+            .onChange(of: crownPosition) { _, value in
+                if canScroll { moveFlow(to: value, count: rows.count) }
+            }
+            .onChange(of: flowPosition) { _, value in
+                if crownPosition.rounded() != value { crownPosition = value }
+            }
+            .highPriorityGesture(
+                flowSwipe(index: index, count: rows.count, row: index > 0 ? rows[index - 1] : nil),
+                including: canScroll && index > 0 ? .all : .none
             )
             .simultaneousGesture(
                 flowSwipe(index: index, count: rows.count),
                 including: canScroll && index == 0 ? .all : .none
             )
             .onChange(of: canScroll, initial: true) { _, enabled in crownFocused = enabled }
+            .onChange(of: index) { _, _ in
+                if canScroll && !crownFocused { crownFocused = true }
+            }
             .onChange(of: rows.map(\.id)) { old, new in
                 let previous = Int(flowPosition.rounded())
                 guard previous > 0 else { return }
@@ -4971,6 +4983,7 @@ private struct DJConnectWatchCompanionPages: View {
         guard next != flowPosition else { return }
         crownAdvance = next > flowPosition
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { flowPosition = next }
+        if next > 0 { playWatchHaptic(.click, enabled: true) }
     }
 
     private func flowCard(_ row: DJConnectWatchFlowRow, index: Int, count: Int) -> some View {
