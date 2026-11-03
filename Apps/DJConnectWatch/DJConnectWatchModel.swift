@@ -4480,8 +4480,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 return request.matches(current)
             }, start: { [weak self] speech, finished in
                 guard let self, let locale = speech.locale else { return false }
-                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
-                try AVAudioSession.sharedInstance().setActive(true)
                 self.deviceSpeechRenderer.onStateChange = { playing in if !playing { finished() } }
                 return self.deviceSpeechRenderer.speak(speech.segments.map(\.text).joined(), locale: locale,
                     preferences: preferences, completion: finished)
@@ -4494,25 +4492,21 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         let preferences = deviceSpeechPreferences, deadline = Date().addingTimeInterval(30)
         let generation = deviceSpeechPreviewGeneration
         let binding = profileDJSettings.response?.binding
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
-            try AVAudioSession.sharedInstance().setActive(true)
-            deviceSpeechRenderer.onStateChange = { [weak self] value in self?.deviceSpeechPreviewIsPlaying = value }
-            guard deviceSpeechRenderer.speak(DJConnectLocalization.localized(key: "ui.device_speech.sample", language: language),
-                locale: language, preferences: preferences, completion: {}) else { return }
-            audioPlaybackTask = Task { @MainActor [weak self] in
-                guard let self else { return }
-                defer {
-                    if deviceSpeechPreviewGeneration == generation {
-                        deviceSpeechRenderer.stop(); deviceSpeechPreviewIsPlaying = false; audioPlaybackTask = nil
-                    }
-                }
-                while !Task.isCancelled && deviceSpeechPreviewGeneration == generation && deviceSpeechRenderer.isSpeaking && canPreviewDeviceSpeech &&
-                    profileDJSettings.response?.binding == binding && deviceSpeechPreferences == preferences && Date() < deadline {
-                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+        deviceSpeechRenderer.onStateChange = { [weak self] value in self?.deviceSpeechPreviewIsPlaying = value }
+        guard deviceSpeechRenderer.speak(DJConnectLocalization.localized(key: "ui.device_speech.sample", language: language),
+            locale: language, preferences: preferences, completion: {}) else { return }
+        audioPlaybackTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                if deviceSpeechPreviewGeneration == generation {
+                    deviceSpeechRenderer.stop(); deviceSpeechPreviewIsPlaying = false; audioPlaybackTask = nil
                 }
             }
-        } catch { stopDeviceSpeechPreview() }
+            while !Task.isCancelled && deviceSpeechPreviewGeneration == generation && deviceSpeechRenderer.isSpeaking && canPreviewDeviceSpeech &&
+                profileDJSettings.response?.binding == binding && deviceSpeechPreferences == preferences && Date() < deadline {
+                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            }
+        }
     }
 
     private func resolvedAudioURL(_ audioURL: URL?) -> URL? {

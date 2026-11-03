@@ -5244,6 +5244,11 @@ private struct DJConnectWatchCompanionMomentView: View {
                               systemImage: isSpeaking ? "stop.fill" : "speaker.wave.2")
                     }
                 }
+                if speech.momentID == moment.id && speech.state == .unavailable {
+                    Text(watchLocalizedKey(model.language, "watch.session.speech_unavailable"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
                 NavigationLink {
                     DJConnectWatchCompanionTextView(context: .init(sessionID: moment.sessionID,
                         selectedMoment: .init(sessionID: moment.sessionID, momentID: moment.id)))
