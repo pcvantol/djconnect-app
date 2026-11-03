@@ -984,8 +984,13 @@ struct SessionTimelineScreen: View {
                     // Keep preparation and row publication out of the push animation.
                     do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
                 }
-                await history.restoreVisibleTimeline(sessionID, active: activeSession != nil, anchor: nil,
-                    searchQuery: filtersTimeline ? query : nil)
+                if activeSession == nil, filtersTimeline {
+                    // Search results are separate from the regular timeline.
+                    // Load both so closing an inherited filter can reveal the session.
+                    await history.restoreVisibleTimeline(sessionID, active: false, anchor: nil, searchQuery: query)
+                    guard !Task.isCancelled else { return }
+                }
+                await history.restoreVisibleTimeline(sessionID, active: activeSession != nil, anchor: nil)
                 guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
                 if filtersTimeline { return }
                 if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }

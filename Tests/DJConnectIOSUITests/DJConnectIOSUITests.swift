@@ -125,6 +125,10 @@ final class DJConnectIOSUITests: XCTestCase {
             XCTAssertTrue(app.descendants(matching: .any)["session-entry-demo-evening-entry-1"].firstMatch.waitForExistence(timeout: 5))
             XCTAssertFalse(app.descendants(matching: .any)["session-entry-demo-evening-entry-2"].firstMatch.exists)
         }
+        app.buttons["Zoeken sluiten"].firstMatch.tap()
+        XCTAssertTrue(sessionSearch.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["session-entry-demo-evening-entry-2"].firstMatch.waitForExistence(timeout: 5),
+                      "Closing inherited search restores entries outside the filter")
     }
 
     private struct ScreenshotScreen {
