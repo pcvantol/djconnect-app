@@ -4146,11 +4146,18 @@ struct TrackInsightView: View {
         model.confirmedSessionMoodInt == nil ? standaloneMoodStepIndex : model.playbackMoodStepIndex
     }
 
+    #if os(iOS)
+    private func moodPopoverSource(_ kind: SessionControlIntent.Kind) -> CGRect {
+        guard let frame = menuFrames[kind], !frame.isEmpty else { return .zero }
+        return frame.offsetBy(dx: 0, dy: -8)
+    }
+    #endif
+
     @ViewBuilder private var moodToolbarButton: some View {
         if let session = model.activeDJSession {
             #if os(iOS)
             ActiveSessionMoodToolbar(model: model, session: session) {
-                menuIntent = SessionControlIntent(kind: .mood, sessionID: session.id, epoch: model.sessionHistory.responseEpoch, sourceRect: menuFrames[.mood] ?? .zero)
+                menuIntent = SessionControlIntent(kind: .mood, sessionID: session.id, epoch: model.sessionHistory.responseEpoch, sourceRect: moodPopoverSource(.mood))
             }
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.mood] = $0 }
             #else
@@ -4160,7 +4167,7 @@ struct TrackInsightView: View {
             #if os(iOS)
             TrackInsightVisualMoodToolbar(language: model.language, selectedIndex: $standaloneMoodStepIndex,
                                          requestPresentation: {
-                                             menuIntent = SessionControlIntent(kind: .visualMood, sessionID: "", epoch: model.sessionHistory.responseEpoch, sourceRect: menuFrames[.visualMood] ?? .zero)
+                                             menuIntent = SessionControlIntent(kind: .visualMood, sessionID: "", epoch: model.sessionHistory.responseEpoch, sourceRect: moodPopoverSource(.visualMood))
                                          })
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.visualMood] = $0 }
             #else
