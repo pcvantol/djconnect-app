@@ -299,6 +299,9 @@ public struct DJConnectPassiveActivityContent: Codable, Equatable, Hashable, Sen
     public let nowPlaying: DJConnectPassiveSession.NowPlaying?
     /// Optional so an already published activity remains decodable after upgrade.
     public let playbackState: String?
+    /// Local render invalidation only. Artwork still requires a current grant
+    /// and exact matching App Group pixels in the extension.
+    public let hasCachedPlaybackArtwork: Bool?
     /// Absent for every legacy encoding. DATA only: the explicit local-v2
     /// codec and actual native custody are independently required.
     public let directLocalVersion: Int?
@@ -311,6 +314,8 @@ public struct DJConnectPassiveActivityContent: Codable, Equatable, Hashable, Sen
         receivedAt = cache.receivedAt; receivedUptime = cache.receivedUptime
         contribution = p.currentContribution(at: now); nowPlaying = p.currentPlayback(at: now)
         playbackState = nowPlaying == nil ? nil : p.playback_state
+        hasCachedPlaybackArtwork = nowPlaying != nil &&
+            p.currentArtwork(slot: "now_playing", at: now) != nil && cache.pixels["now_playing"] != nil ? true : nil
         directLocalVersion = nil; researchAttribution = nil
         expiresAt = p.deadlines.min() ?? expiry
         guard contribution != nil || nowPlaying != nil,
@@ -325,6 +330,7 @@ public struct DJConnectPassiveActivityContent: Codable, Equatable, Hashable, Sen
         bindingID = binding; self.generation = generation; self.sequence = sequence
         self.receivedAt = receivedAt; self.receivedUptime = receivedUptime; self.expiresAt = expiresAt
         self.contribution = contribution; self.nowPlaying = nowPlaying; self.playbackState = playbackState
+        hasCachedPlaybackArtwork = nil
         directLocalVersion = 2; self.researchAttribution = researchAttribution
     }
     public func isCurrent(at now: Date, uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> Bool {

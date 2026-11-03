@@ -3,6 +3,26 @@ import CryptoKit
 import Testing
 @testable import DJConnectCore
 
+@Test func watchPlaylistReplyFitsCompanionBudgetWithoutDroppingRows() throws {
+    let artwork = try #require(URL(string: "https://example.com/" + String(repeating: "a", count: 1500)))
+    let playlists = (1...39).map {
+        DJConnectPlaylist(name: "Playlist \($0)", uri: "spotify:playlist:\($0)", imageURL: artwork)
+    }
+    let response = DJConnectCommandResponse(success: true, musicBackendAvailable: true, playlists: playlists)
+    #expect(try JSONEncoder().encode(response).count >= 42_000)
+
+    let data = try response.encodedWatchPlaylists()
+    #expect(data.count < 42_000)
+    let decoded = try JSONDecoder().decode(DJConnectCommandResponse.self, from: data)
+    #expect(decoded.playlists?.map(\.commandValue) == playlists.map(\.commandValue))
+    #expect(decoded.playlists?.map(\.name) == playlists.map(\.name))
+    #expect(decoded.musicBackendAvailable == true)
+
+    let small = DJConnectCommandResponse(success: true, playlists: [playlists[0]])
+    let smallData = try small.encodedWatchPlaylists()
+    #expect(try JSONDecoder().decode(DJConnectCommandResponse.self, from: smallData).playlists?.first?.imageURL == artwork)
+}
+
 private func watchSettings() throws -> DJConnectProfileDJSettingsResponse {
     let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/profile-settings3-core-1329ad1.json")
     let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: path)) as? [String: Any])
