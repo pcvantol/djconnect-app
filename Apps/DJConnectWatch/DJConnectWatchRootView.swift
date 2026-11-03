@@ -4853,7 +4853,7 @@ private struct DJConnectWatchCompanionPages: View {
             }.buttonStyle(.plain).accessibilityLabel(text("watch.v2.speak"))
             if session != nil {
                 Button { Task { await model.sendCommand("next") } } label: {
-                    Image(systemName: "forward.fill")
+                    Image(systemName: "forward.end.fill")
                         .font(.system(size: 24, weight: .semibold))
                         .frame(maxWidth: .infinity, minHeight: 48)
                         .contentShape(Rectangle())
@@ -5335,7 +5335,7 @@ private struct DJConnectWatchCompanionTrackView: View {
                     playbackButton(command: isPlaying ? "pause" : "play",
                                    icon: isPlaying ? "pause.fill" : "play.fill",
                                    label: isPlaying ? "watch.pause" : "watch.play")
-                    playbackButton(command: "next", icon: "forward.fill", label: "watch.next.track")
+                    playbackButton(command: "next", icon: "forward.end.fill", label: "watch.next.track")
                 }
                 .foregroundStyle(.white)
                 .frame(width: min(max(0, size.width - 20), 156))
