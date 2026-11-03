@@ -983,6 +983,23 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    func loadWatchSessionFlow(binding: String, sessionID: String) async -> [DJConnectWatchFlowRow]? {
+        guard isAppForeground, canUseBackend, !isDemoMode,
+              let current = foregroundSession.current(), current.settings.binding == binding,
+              current.session?.id == sessionID else { return nil }
+        let owner = stableInstallID
+        do {
+            let rows: [DJConnectWatchFlowRow] = try await sendCompanionHARequest(.sessionFlow,
+                payload: DJConnectWatchSessionAction(snapshot: current, language: language))
+            guard !Task.isCancelled, isAppForeground, canUseBackend, stableInstallID == owner,
+                  foregroundSession.current()?.settings.binding == binding,
+                  foregroundSession.current()?.session?.id == sessionID, rows.count <= 8 else { return nil }
+            return rows
+        } catch {
+            return nil
+        }
+    }
+
     func acceptCurrentForegroundSession() async {
         guard isAppForeground, canUseBackend, !isDemoMode else { return }
         await foregroundSession.useCurrent { [unowned self] in try await sendCompanionHARequest(.foregroundSession) }

@@ -1667,3 +1667,6 @@
 
 "watch.v2.track.question" = "Parle-moi de %@ de %@.";
 "watch.v2.recording_interrupted" = "Enregistrement interrompu.";
+
+"watch.v2.flow.question" = "Question Ask DJ";
+"watch.v2.flow.answer" = "Réponse Ask DJ";
