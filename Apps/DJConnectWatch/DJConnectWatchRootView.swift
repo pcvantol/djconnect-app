@@ -5415,7 +5415,17 @@ private struct DJConnectWatchCompanionTrackView: View {
             detail(artwork: phase.image)
         }
         .navigationTitle(watchLocalizedKey(model.language, "watch.v2.music"))
-        .onReceive(model.$playback) { _ in progressObservedAt = Date() }
+        .onReceive(model.$playback) { playback in
+            guard let playback, playback.hasPlayback != false,
+                  let title = playback.trackName, !title.isEmpty else { return }
+            if !model.isDemoMode {
+                guard let originalBinding, let snapshot = model.foregroundSession.current(),
+                      snapshot.settings.binding == originalBinding,
+                      snapshot.session?.id == context.sessionID else { return }
+            }
+            progressObservedAt = Date()
+            original = playback
+        }
         .onAppear { setControlsVisible(true) }
         .task(id: controlsVisit) { [visit = controlsVisit] in
             guard let visit else { return }
