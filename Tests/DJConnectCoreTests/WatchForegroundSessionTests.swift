@@ -62,6 +62,34 @@ private func watchSettings() throws -> DJConnectProfileDJSettingsResponse {
     #expect(state.current() == nil && state.unavailable)
 }
 
+@Test(.isolatedClientResources) @MainActor func watchStackUsesOnlyConfirmedWatchSessionState() async throws {
+    let active = try nativeWatchSpeechFixture().2
+    let idle = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
+    let state = DJConnectWatchForegroundSession()
+    #expect(state.stackEntry() == nil)
+
+    state.bind(owner: "watch-a", active: true)
+    await state.refresh { active }
+    let entry = try #require(state.stackEntry())
+    #expect(entry.destination == .session)
+    #expect(entry.destination.url.absoluteString == "djconnect://watch/session")
+    let suite = "WatchStackTests." + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let data = try JSONEncoder().encode(entry)
+    let wire = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    #expect(Set(wire.keys) == ["destination", "observedAt"])
+    defaults.set(data, forKey: DJConnectWatchStackEntry.storageKey)
+    #expect(DJConnectWatchStackEntry.load(from: defaults, at: entry.observedAt) == entry)
+    #expect(DJConnectWatchStackEntry.load(from: defaults, at: entry.observedAt.addingTimeInterval(-1)) == nil)
+    #expect(DJConnectWatchStackEntry.load(from: defaults, at: entry.expiresAt) == nil)
+
+    await state.refresh(force: true) { idle }
+    #expect(state.stackEntry()?.destination == .askDJ)
+    await state.refresh(force: true) { throw DJConnectError.authStale(statusCode: 401, message: nil) }
+    #expect(state.stackEntry() == nil)
+}
+
 @Test(.isolatedClientResources) func watchSettingsCompanionRoundTripPreservesCASAndDoesNotCarryBearerOrPassiveGrant() throws {
     let current = try watchSettings()
     let update = DJConnectWatchSettingsUpdate(current: current, patch: .init(mood: "groove"), operationID: UUID().uuidString)

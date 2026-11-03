@@ -3716,6 +3716,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectWatchComplications/DJConnectWatchComplications.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.djconnect.ios.watch.complications;
 				PRODUCT_NAME = DJConnectComplications;
 				SDKROOT = watchos;
@@ -3852,6 +3853,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectWatchComplications/DJConnectWatchComplications.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.djconnect.ios.watch.complications;
 				PRODUCT_NAME = DJConnectComplications;
 				SDKROOT = watchos;

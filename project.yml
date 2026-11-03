@@ -291,6 +291,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.watch.complications
         PRODUCT_NAME: DJConnectComplications
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectWatchComplications/DJConnectWatchComplications.entitlements
         SKIP_INSTALL: YES
   DJConnectTrackInsightWidgetsIOS:
     type: app-extension

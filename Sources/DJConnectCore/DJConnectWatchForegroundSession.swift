@@ -68,6 +68,40 @@ public struct DJConnectWatchSessionSnapshot: Codable, Sendable {
     }
 }
 
+/// Watch-local widget projection. It contains no Profile, Session or media identifiers.
+public struct DJConnectWatchStackEntry: Codable, Equatable, Sendable {
+    public enum Destination: String, Codable, Sendable {
+        case session, askDJ
+
+        public var url: URL {
+            switch self {
+            case .session: URL(string: "djconnect://watch/session")!
+            case .askDJ: URL(string: "djconnect://watch/ask-dj")!
+            }
+        }
+    }
+
+    public static let storageKey = "DJConnectWatchStackEntry.v1"
+    public static let lifetime: TimeInterval = 30
+    public let destination: Destination
+    public let observedAt: Date
+
+    public var expiresAt: Date { observedAt.addingTimeInterval(Self.lifetime) }
+
+    init?(snapshot: DJConnectWatchSessionSnapshot, observedAt: Date) {
+        guard snapshot.isValid, !snapshot.settings.requiresSelection else { return nil }
+        destination = snapshot.session == nil ? .askDJ : .session
+        self.observedAt = observedAt
+    }
+
+    public static func load(from defaults: UserDefaults, at now: Date) -> Self? {
+        guard let data = defaults.data(forKey: storageKey),
+              let entry = try? JSONDecoder().decode(Self.self, from: data),
+              entry.observedAt <= now, now < entry.expiresAt else { return nil }
+        return entry
+    }
+}
+
 /// The companion revalidates this owner before issuing a non-replayed write.
 public struct DJConnectWatchSessionAction: Codable, Sendable {
     public let binding: String
@@ -150,6 +184,11 @@ public struct DJConnectWatchSettingsReceipt: Codable, Sendable {
         guard active, let start = receivedUptime, let receivedDate,
               date >= receivedDate, uptime >= start, uptime - start < 30 else { return nil }
         return snapshot
+    }
+
+    public func stackEntry() -> DJConnectWatchStackEntry? {
+        guard !outcomeUnknown, !isChanging, let current = current(), let receivedDate else { return nil }
+        return .init(snapshot: current, observedAt: receivedDate)
     }
 
     public func refresh(force: Bool = false, read: () async throws -> DJConnectWatchSessionSnapshot) async {
