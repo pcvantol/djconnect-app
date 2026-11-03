@@ -611,7 +611,7 @@ struct SessionTimelineScreen: View {
             VStack(spacing: 0) {
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
                     let preparedEntries = renderCache.snapshot(entries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
-                    ZStack {
+                    GeometryReader { viewport in
                     ScrollView {
                         DJSessionGlassGroup {
                         LazyVStack(alignment: .leading, spacing: 18) {
@@ -718,7 +718,8 @@ struct SessionTimelineScreen: View {
                             }
                         }
                         .modifier(ContentRemovalAnimation(history: history))
-                        .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
+                        .frame(width: min(1000, viewport.size.width), alignment: .leading)
+                        .frame(maxWidth: .infinity)
                         .padding(.top, activeSession != nil ? 0 : archivedTopPadding).padding(.bottom, 20)
                         #if os(iOS)
                         .simultaneousGesture(
@@ -729,9 +730,6 @@ struct SessionTimelineScreen: View {
                         .scrollTargetLayout()
                         // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
-                        // Center the capped column against the scroll viewport even
-                        // when changing modes replaces the rows and scroll target.
-                        .containerRelativeFrame(.horizontal)
                         // Content cards use stable native frost while moving under
                         // the toolbar; reserve live refractive glass for controls.
                         .environment(\.djConnectScrollingSurface, true)
