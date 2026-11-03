@@ -3616,13 +3616,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func sendWatchVoice(_ payload: DJConnectWatchProxyVoicePayload, generation: UUID) async throws -> DJConnectVoiceResponse {
         #if canImport(WatchConnectivity)
-        guard let operationID = payload.clientMessageID, payload.conversationContext != nil,
+        guard let recordingID = payload.clientMessageID, payload.conversationContext != nil,
               !payload.wavData.isEmpty, payload.wavData.count <= DJConnectWatchVoiceAssembly.maximumBytes else { throw DJConnectError.invalidResponse }
-        var metadata = payload; metadata.wavData = Data()
-        let header = try JSONEncoder().encode(metadata)
         guard watchVoiceTransferSequence < Int.max else { throw DJConnectError.invalidResponse }
         watchVoiceTransferSequence += 1
         let sequence = watchVoiceTransferSequence
+        let operationID = "\(sequence):\(recordingID)"
+        var metadata = payload
+        metadata.wavData = Data()
+        metadata.clientMessageID = operationID
+        let header = try JSONEncoder().encode(metadata)
         let size = DJConnectWatchVoiceAssembly.chunkBytes
         let total = (payload.wavData.count + size - 1) / size
         for index in 0..<total {

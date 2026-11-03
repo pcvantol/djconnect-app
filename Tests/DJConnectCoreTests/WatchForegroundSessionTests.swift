@@ -381,24 +381,24 @@ private func watchVoiceWAV(samples: Int = 96_000) -> Data {
 @Test @MainActor func watchVoiceChunksProduceOneOriginalRequestWithoutNestedBase64Limit() throws {
     let source = watchVoiceWAV()
     let context = DJConnectConversationContext(sessionID: "original-session")
-    let metadata = DJConnectWatchProxyVoicePayload(wavData: Data(), language: "nl-NL", conversationContext: context, clientMessageID: "original-turn")
+    let metadata = DJConnectWatchProxyVoicePayload(wavData: Data(), language: "nl-NL", conversationContext: context, clientMessageID: "1:original-turn")
     let header = try JSONEncoder().encode(metadata)
     let assembly = DJConnectWatchVoiceAssembly(); assembly.bind(owner: "original-watch-owner")
     let size = DJConnectWatchVoiceAssembly.chunkBytes, total = (source.count + size - 1) / size
     var completions = 0
     for index in 0..<total {
         let bytes = source.subdata(in: (index * size)..<min((index + 1) * size, source.count))
-        let message: [String: Any] = ["header": header, "bytes": bytes, "index": index, "total": total, "operation_id": "original-turn"]
+        let message: [String: Any] = ["header": header, "bytes": bytes, "index": index, "total": total, "operation_id": "1:original-turn"]
         #expect(try PropertyListSerialization.data(fromPropertyList: message, format: .binary, options: 0).count < 42_000)
-        let result = try assembly.receive(id: "original-turn", sequence: 1, header: header, index: index, total: total, bytes: bytes, uptime: 10 + Double(index) / 10)
+        let result = try assembly.receive(id: "1:original-turn", sequence: 1, header: header, index: index, total: total, bytes: bytes, uptime: 10 + Double(index) / 10)
         if let result {
             completions += 1
             #expect(index == total - 1 && result.wavData == source)
-            #expect(result.conversationContext == context && result.clientMessageID == "original-turn")
+            #expect(result.conversationContext == context && result.clientMessageID == "1:original-turn")
         }
     }
     #expect(completions == 1)
-    #expect(throws: (any Error).self) { try assembly.receive(id: "original-turn", sequence: 1, header: header, index: 0, total: total, bytes: source.prefix(size), uptime: 12) }
+    #expect(throws: (any Error).self) { try assembly.receive(id: "1:original-turn", sequence: 1, header: header, index: 0, total: total, bytes: source.prefix(size), uptime: 12) }
 }
 @Test @MainActor func watchVoiceTransfer257CompletesAndOriginalReplayNeverDispatches() throws {
     let assembly = DJConnectWatchVoiceAssembly()
@@ -407,7 +407,7 @@ private func watchVoiceWAV(samples: Int = 96_000) -> Data {
     var dispatches = 0
 
     func transfer(_ sequence: Int, total: Int, at uptime: TimeInterval) throws {
-        let id = "turn-\(sequence)"
+        let id = "\(sequence):turn"
         let metadata = DJConnectWatchProxyVoicePayload(wavData: Data(),
             conversationContext: .init(sessionID: nil), clientMessageID: id)
         let header = try JSONEncoder().encode(metadata)
@@ -429,20 +429,43 @@ private func watchVoiceWAV(samples: Int = 96_000) -> Data {
     #expect(dispatches == 2)
 }
 
+@Test @MainActor func watchVoiceSameOperationWithHigherSequenceCannotDispatchAgain() throws {
+    let assembly = DJConnectWatchVoiceAssembly()
+    assembly.bind(owner: "same-watch-owner")
+    let id = "1:original-turn"
+    let wav = watchVoiceWAV(samples: 1)
+    let metadata = DJConnectWatchProxyVoicePayload(wavData: Data(),
+        conversationContext: .init(sessionID: nil), clientMessageID: id)
+    let header = try JSONEncoder().encode(metadata)
+    var dispatches = 0
+
+    func transfer(sequence: Int) throws {
+        if try assembly.receive(id: id, sequence: sequence, header: header, index: 0,
+                                total: 1, bytes: wav, uptime: 10) != nil {
+            dispatches += 1
+        }
+    }
+
+    try transfer(sequence: 1)
+    #expect(dispatches == 1)
+    #expect(throws: (any Error).self) { try transfer(sequence: 2) }
+    #expect(dispatches == 1)
+}
+
 @Test @MainActor func watchVoicePartialReorderedExpiredOwnerAndMalformedAudioNeverDispatch() throws {
-    let metadata = DJConnectWatchProxyVoicePayload(wavData: Data(), conversationContext: .init(sessionID: nil), clientMessageID: "original")
+    let metadata = DJConnectWatchProxyVoicePayload(wavData: Data(), conversationContext: .init(sessionID: nil), clientMessageID: "1:original")
     let header = try JSONEncoder().encode(metadata), bytes = Data(repeating: 0, count: 100)
     let assembly = DJConnectWatchVoiceAssembly(); assembly.bind(owner: "A")
-    #expect(try assembly.receive(id: "original", sequence: 1, header: header, index: 0, total: 3, bytes: bytes, uptime: 10) == nil)
-    #expect(throws: (any Error).self) { try assembly.receive(id: "original", sequence: 1, header: header, index: 2, total: 3, bytes: bytes, uptime: 11) }
-    #expect(throws: (any Error).self) { try assembly.receive(id: "original", sequence: 1, header: header, index: 1, total: 3, bytes: bytes, uptime: 31) }
+    #expect(try assembly.receive(id: "1:original", sequence: 1, header: header, index: 0, total: 3, bytes: bytes, uptime: 10) == nil)
+    #expect(throws: (any Error).self) { try assembly.receive(id: "1:original", sequence: 1, header: header, index: 2, total: 3, bytes: bytes, uptime: 11) }
+    #expect(throws: (any Error).self) { try assembly.receive(id: "1:original", sequence: 1, header: header, index: 1, total: 3, bytes: bytes, uptime: 31) }
     assembly.bind(owner: "B")
-    #expect(throws: (any Error).self) { try assembly.receive(id: "original", sequence: 1, header: header, index: 1, total: 3, bytes: bytes, uptime: 12) }
-    #expect(throws: (any Error).self) { try assembly.receive(id: "original", sequence: 1, header: header, index: 0, total: 1, bytes: bytes, uptime: 12) }
+    #expect(throws: (any Error).self) { try assembly.receive(id: "1:original", sequence: 1, header: header, index: 1, total: 3, bytes: bytes, uptime: 12) }
+    #expect(throws: (any Error).self) { try assembly.receive(id: "1:original", sequence: 1, header: header, index: 0, total: 1, bytes: bytes, uptime: 12) }
     // Failed final validation spent this original stream before any await.
-    #expect(throws: (any Error).self) { try assembly.receive(id: "original", sequence: 1, header: header, index: 0, total: 1, bytes: watchVoiceWAV(samples: 1), uptime: 13) }
+    #expect(throws: (any Error).self) { try assembly.receive(id: "1:original", sequence: 1, header: header, index: 0, total: 1, bytes: watchVoiceWAV(samples: 1), uptime: 13) }
     assembly.bind(owner: nil)
-    #expect(throws: (any Error).self) { try assembly.receive(id: "original", sequence: 1, header: header, index: 0, total: 1, bytes: bytes, uptime: 14) }
+    #expect(throws: (any Error).self) { try assembly.receive(id: "1:original", sequence: 1, header: header, index: 0, total: 1, bytes: bytes, uptime: 14) }
 }
 
 @Test func watchMomentOpenConsumesExactPinnedAPIProposalWithoutClaimingLiveAuthority() throws {

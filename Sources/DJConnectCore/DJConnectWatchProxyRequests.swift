@@ -81,7 +81,10 @@ import Foundation
               (1...16).contains(total), (0..<total).contains(index), !bytes.isEmpty,
               bytes.count <= Self.chunkBytes, uptime.isFinite else { throw DJConnectError.invalidResponse }
         if index == 0 {
-            guard sequence > highestStartedSequence,
+            // The operation ID fixes the sequence for the lifetime of the transfer.
+            // A replay cannot move the high-water mark by changing its envelope.
+            let prefix = "\(sequence):"
+            guard sequence > highestStartedSequence, id.hasPrefix(prefix), id.utf8.count > prefix.utf8.count,
                   buffer == nil || uptime - buffer!.began >= 20 else { throw DJConnectError.invalidResponse }
             let metadata = try JSONDecoder().decode(DJConnectWatchProxyVoicePayload.self, from: header)
             guard metadata.wavData.isEmpty, metadata.clientMessageID == id, metadata.conversationContext != nil else { throw DJConnectError.invalidResponse }
