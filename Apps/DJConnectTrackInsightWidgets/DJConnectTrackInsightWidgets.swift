@@ -217,7 +217,7 @@ struct DJConnectSessionActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 8) {
                         SessionSurfaceAvatar(theme: activityTheme(context.state, stale: context.isStale), side: 28)
-                        Text(text("ui.session.title"))
+                        Text("DJConnect")
                             .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
                             .lineLimit(1).minimumScaleFactor(0.8)
                     }
@@ -227,17 +227,17 @@ struct DJConnectSessionActivityWidget: Widget {
                         PassiveActivityBody(snapshot: context.state, stale: context.isStale,
                                             showsSpotifyCredit: false, showsHeader: false)
                             .fixedSize(horizontal: false, vertical: true)
-                        if !privateSurfaceFieldsSuppressed, context.state.playbackObservation == nil {
-                        Button(intent: DJConnectSessionNextTrackIntent(presentationID: context.attributes.presentationID)) {
-                            Image(systemName: "forward.end.fill")
-                                .font(.title3.weight(.semibold)).foregroundStyle(.white)
-                                .frame(width: 44, height: 44)
-                                .background(.white.opacity(0.14), in: Circle())
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(context.isStale || !context.state.isCurrent(at: Date()))
-                        .accessibilityLabel(text("ui.next.track"))
-                        .accessibilityIdentifier("session-island-next-track")
+                        if !privateSurfaceFieldsSuppressed, context.state.playbackObservation == nil,
+                           !context.isStale, context.state.isCurrent(at: Date()) {
+                            Button(intent: DJConnectSessionNextTrackIntent(presentationID: context.attributes.presentationID)) {
+                                Image(systemName: "forward.end.fill")
+                                    .font(.title3.weight(.semibold)).foregroundStyle(.white)
+                                    .frame(width: 44, height: 44)
+                                    .background(.white.opacity(0.14), in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(text("ui.next.track"))
+                            .accessibilityIdentifier("session-island-next-track")
                         }
                     }
                     .padding(.horizontal, 12).padding(.bottom, 8)
