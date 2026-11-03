@@ -221,6 +221,7 @@ targets:
     platform: watchOS
     sources:
       - path: Apps/DJConnectWatch
+      - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
       - path: Sources/DJConnectUI/AlbumArtworkPlaceholder.swift
       - path: Sources/DJConnectUI/DJConnectGlassAppearance.swift
       - path: Sources/DJConnectUI/DeviceSpeechSettingsView.swift

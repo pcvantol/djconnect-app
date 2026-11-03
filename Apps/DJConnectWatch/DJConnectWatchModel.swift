@@ -4410,6 +4410,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         return URL(string: audioURL.absoluteString, relativeTo: URL(string: haBaseURL))?.absoluteURL
     }
 
+    func resolvedDiscoveryArtworkURL(_ value: String?) -> URL? {
+        guard let raw = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let url = URL(string: raw), url.user == nil, url.password == nil else { return nil }
+        if let scheme = url.scheme?.lowercased() {
+            return (scheme == "http" || scheme == "https") && url.host != nil ? url : nil
+        }
+        // Core supplies short-lived, headerless image grants relative to HA.
+        guard url.host == nil, raw.hasPrefix("/api/djconnect/v1/image_proxy/") else { return nil }
+        return resolvedArtworkURL(url)
+    }
+
     private func resolvedArtworkURL(_ artworkURL: URL?) -> URL? {
         guard let artworkURL else {
             return nil

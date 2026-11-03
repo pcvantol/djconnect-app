@@ -15549,6 +15549,7 @@ public final class DJConnectAppModel: ObservableObject {
         case .command:
             let payload = try decoder.decode(DJConnectCommandPayload.self, from: request.payload ?? Data())
             let response = try await client.sendCommandResponse(payload)
+            if payload.command == "playlists" { return try response.encodedWatchPlaylists() }
             return try encoder.encode(response)
         case .trackInsight:
             let payload = try decoder.decode(DJConnectTrackInsightRequest.self, from: request.payload ?? Data())

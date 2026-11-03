@@ -335,7 +335,7 @@ import DJConnectCore
         // Publish text/metadata first; optional image IO cannot block the whole surface.
         let originalCache: DJConnectPassiveSurfaceCache
         if let previous, p.hasSameOriginalObservation(as: previous.projection, at: now) {
-            originalCache = try previous.staging(pixels: [:], at: now)
+            originalCache = try previous.staging(pixels: previous.removingExpiredFields(at: now).pixels, at: now)
         } else {
             originalCache = try DJConnectPassiveSurfaceCache(projection: p.removingExpiredFields(at: now),
                 at: originalClock.wall, uptime: originalClock.uptime)

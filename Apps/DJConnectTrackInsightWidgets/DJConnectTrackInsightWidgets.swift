@@ -271,18 +271,27 @@ private struct SessionActivityPresentation: View {
                       let rich = snapshot.rich, rich.isCurrent(at: now),
                       let playback = rich.currentPlayback(at: now) {
                 HStack(spacing: 8) {
-                    SessionSurfaceAvatar(theme: snapshot.renderingTheme(at: now), side: 28)
-                    // Retain the original provider attribution. A research
-                    // contribution cannot fit here with its complete credits.
+                    VStack(spacing: 4) {
+                        SessionSurfaceAvatar(theme: snapshot.renderingTheme(at: now), side: 28)
+                        if playback.attribution["mark"] == "spotify",
+                           let source = playback.attribution["url"], let url = URL(string: source) {
+                            Link(destination: url) {
+                                Image("SpotifyAttribution").resizable().scaledToFit()
+                                    .frame(width: 42, height: 13)
+                                    .accessibilityLabel("Spotify")
+                            }
+                        }
+                    }
                     PassiveSessionContentView(contribution: nil, playback: playback, cache: nil,
-                        compact: true, showsHeader: false, theme: snapshot.renderingTheme(at: now), date: now)
+                        compact: true, showsSpotifyCredit: false, showsHeader: false,
+                        theme: snapshot.renderingTheme(at: now), watchActivity: true, date: now)
                 }
             } else {
                 HStack(spacing: 8) {
                     SessionSurfaceAvatar(theme: .brand, side: 28)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(text("ui.session.title")).font(.caption.weight(.semibold))
-                        Text(text("surface.session.open.app")).font(.caption2).foregroundStyle(.white.opacity(0.8))
+                        Text("DJConnect").font(.caption.weight(.semibold))
+                        Text(text("surface.session.open")).font(.caption2).foregroundStyle(.white.opacity(0.8))
                             .lineLimit(2)
                     }
                     Spacer(minLength: 0)
@@ -310,6 +319,7 @@ private struct PassiveSessionContentView: View {
     var showsHeader = true
     var theme: DJConnectSessionMoodTheme = .brand
     var researchAttribution: DJConnectDirectResearchAttribution? = nil
+    var watchActivity = false
     let date: Date
     var body: some View {
         Group {
@@ -354,8 +364,8 @@ private struct PassiveSessionContentView: View {
                         if !compact {
                             Text(text(!activity || playbackState == "playing" ? "ui.now.playing" : playbackState == "paused" ? "ui.paused" : "ui.playback")).font(.caption2).foregroundStyle(.white.opacity(0.7))
                         }
-                        Text(playback.track).font((activity ? Font.headline : large ? .title3 : .subheadline).weight(.semibold)).lineLimit(activity ? 1 : large ? 3 : compact ? 1 : 2)
-                        Text(playback.artist).font(activity ? .subheadline : large ? .callout : .caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
+                        Text(playback.track).font((activity ? Font.headline : large ? .title3 : .subheadline).weight(.semibold)).lineLimit(watchActivity ? 2 : activity ? 1 : large ? 3 : compact ? 1 : 2)
+                        Text(playback.artist).font(watchActivity || activity ? .subheadline : large ? .callout : .caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
                         if (large || activity) && !playback.album.isEmpty { Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(activity ? 1 : 2) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

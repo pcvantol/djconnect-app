@@ -616,6 +616,20 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
             "grant_id": response.grant_id, "passive_session": projection]
 }
 
+@Test(.isolatedClientResources) func passiveActivityArtworkArrivalChangesRenderStateWithoutRenewingLease() throws {
+    let now = Date()
+    let response = try passiveCurrent(surface: .liveActivity)
+    let cache = try DJConnectPassiveSurfaceCache(projection: response.passive_session, at: now)
+    let before = try #require(DJConnectPassiveActivityContent(cache: cache, at: now))
+    let completed = try cache.staging(pixels: ["now_playing": passivePNG()], at: now)
+    let after = try #require(DJConnectPassiveActivityContent(cache: completed, at: now))
+    #expect(before != after)
+    #expect(before.hasCachedPlaybackArtwork == nil)
+    #expect(after.hasCachedPlaybackArtwork == true)
+    #expect(after.nowPlaying == before.nowPlaying && after.expiresAt == before.expiresAt)
+    #expect(after.receivedAt == before.receivedAt && after.receivedUptime == before.receivedUptime)
+}
+
 @Test(.isolatedClientResources) @MainActor func passiveArtworkCompletionRetainsTheExactOriginalReceivePair() async throws {
     let response = try passiveCurrent(), model = PassiveSessionSurfaceModel(), png = try passivePNG()
     var waiting: CheckedContinuation<Data, Never>?

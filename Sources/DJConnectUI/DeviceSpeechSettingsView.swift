@@ -8,6 +8,16 @@ struct SpeechPreferenceRow<Control: View>: View {
     @ViewBuilder var control: () -> Control
 
     var body: some View {
+        #if os(watchOS)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .fixedSize(horizontal: false, vertical: true)
+            control()
+                .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        #else
         HStack(alignment: .center, spacing: 16) {
             Text(label)
                 .fixedSize(horizontal: false, vertical: true)
@@ -17,6 +27,7 @@ struct SpeechPreferenceRow<Control: View>: View {
                 .layoutPriority(1)
         }
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        #endif
     }
 }
 
@@ -47,14 +58,14 @@ public struct DeviceSpeechSettingsView: View {
             }
             Text(text("explanation")).font(.caption).foregroundStyle(.secondary)
             if preferences.enabled {
-                SpeechPreferenceRow(label: text("gender")) {
+                choiceRow(label: text("gender")) {
                     Picker(text("gender"), selection: Binding(get: { preferences.gender }, set: { preferences.gender = $0; preferences.voiceID = nil })) {
                         Text(text("system")).tag(DJConnectVoicePreference.default)
                         if voices.contains(where: { $0.gender == .female }) { Text(text("female")).tag(DJConnectVoicePreference.female) }
                         if voices.contains(where: { $0.gender == .male }) { Text(text("male")).tag(DJConnectVoicePreference.male) }
                     }
                 }
-                SpeechPreferenceRow(label: text("voice")) {
+                choiceRow(label: text("voice")) {
                     Picker(text("voice"), selection: Binding(get: { preferences.voiceID ?? "" }, set: { preferences.voiceID = $0.isEmpty ? nil : $0 })) {
                         Text(text("system")).tag("")
                         if let id = preferences.voiceID, !matching.contains(where: { $0.id == id }) { Text(text("unavailable")).tag(id) }
@@ -63,17 +74,20 @@ public struct DeviceSpeechSettingsView: View {
                 }
                 SpeechPreferenceRow(label: text("rate")) {
                     Slider(value: $preferences.rate, in: 0...1)
-                        .frame(minWidth: 60, idealWidth: 160, maxWidth: 160).accessibilityLabel(text("rate"))
+                        #if !os(watchOS)
+                        .frame(minWidth: 60, idealWidth: 160, maxWidth: 160)
+                        #endif
+                        .accessibilityLabel(text("rate"))
                 }
                 SpeechPreferenceRow(label: text("pitch")) {
                     Slider(value: $preferences.pitch, in: 0.5...2)
-                        .frame(minWidth: 60, idealWidth: 160, maxWidth: 160).accessibilityLabel(text("pitch"))
+                        #if !os(watchOS)
+                        .frame(minWidth: 60, idealWidth: 160, maxWidth: 160)
+                        #endif
+                        .accessibilityLabel(text("pitch"))
                 }
                 Button(isSpeaking ? text("stop") : text("preview"), action: isSpeaking ? stop : preview)
-                    #if os(watchOS)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.purple)
-                    #else
+                    #if !os(watchOS)
                     .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
                     #endif
                     .disabled(!isSpeaking && (!previewAllowed || matching.isEmpty))
@@ -86,5 +100,13 @@ public struct DeviceSpeechSettingsView: View {
             stop(); voices = DJConnectAppleSpeechRenderer.voices()
         }
         .onDisappear { stop() }
+    }
+
+    @ViewBuilder private func choiceRow<Control: View>(label: String, @ViewBuilder control: @escaping () -> Control) -> some View {
+        #if os(watchOS)
+        control().pickerStyle(.navigationLink)
+        #else
+        SpeechPreferenceRow(label: label, control: control)
+        #endif
     }
 }

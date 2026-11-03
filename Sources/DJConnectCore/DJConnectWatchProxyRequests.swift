@@ -1,5 +1,30 @@
 import Foundation
 
+public extension DJConnectCommandResponse {
+    /// The Watch list uses only playlist rows and backend availability. HA may
+    /// also return legacy aliases containing the same rows and long artwork URLs.
+    func encodedWatchPlaylists() throws -> Data {
+        var response = DJConnectCommandResponse(
+            success: success, error: error, message: message, backendAvailable: backendAvailable,
+            musicBackend: musicBackend, musicBackendName: musicBackendName,
+            musicBackendAvailable: musicBackendAvailable, musicBackendRevision: musicBackendRevision,
+            musicBackendCapabilities: musicBackendCapabilities, musicTargetPlayer: musicTargetPlayer,
+            musicBackendError: musicBackendError, playlists: playlists
+        )
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(response)
+        guard data.count >= 42_000 else { return data }
+        if let playlists = response.playlists {
+            response.playlists = playlists.map { playlist in
+                var row = playlist
+                row.imageURL = nil
+                return row
+            }
+        }
+        return try encoder.encode(response)
+    }
+}
+
 /// Bounded interactive replies only. A background transition or lost companion
 /// cannot leave a continuation hanging or replay an effectful operation.
 @MainActor public final class DJConnectWatchProxyRequests {
