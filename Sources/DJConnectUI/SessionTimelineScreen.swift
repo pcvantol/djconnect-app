@@ -699,6 +699,12 @@ struct SessionTimelineScreen: View {
                         .modifier(ContentRemovalAnimation(history: history))
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
                         .padding(.top, activeSession != nil ? 0 : archivedTopPadding).padding(.bottom, 20)
+                        #if os(iOS)
+                        .simultaneousGesture(
+                            TapGesture().onEnded { searchFocused = false },
+                            including: activeSession == nil && searchFocused ? .all : .none
+                        )
+                        #endif
                         .scrollTargetLayout()
                         // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
@@ -706,6 +712,9 @@ struct SessionTimelineScreen: View {
                         // the toolbar; reserve live refractive glass for controls.
                         .environment(\.djConnectScrollingSurface, true)
                     }
+                    #if os(iOS)
+                    .scrollDismissesKeyboard(searchFocused ? .interactively : .automatic)
+                    #endif
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
                             if activeSession == nil && history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback {
@@ -1491,7 +1500,12 @@ struct SessionTimelineScreen: View {
                            closeAction: {
                                closeSearch(proxy: proxy)
                            },
-                           submitAction: { moveMatch(1, proxy: proxy) })
+                           submitAction: {
+                               #if os(iOS)
+                               searchFocused = false
+                               #endif
+                               moveMatch(1, proxy: proxy)
+                           })
             }
             if let key = history.searchErrorKey {
                 Text(text(key))
