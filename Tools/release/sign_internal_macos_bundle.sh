@@ -22,7 +22,7 @@ sign_bundle() {
   cp "$profile" "$bundle/Contents/embedded.provisionprofile"
   /usr/bin/codesign --force --sign "$signing_identity" --timestamp=none \
     --entitlements "$scratch/entitlements.plist" --generate-entitlement-der "$bundle"
-  /usr/bin/codesign -d --entitlements - "$bundle" > "$scratch/signed.plist"
+  /usr/bin/codesign -d --entitlements - --xml "$bundle" > "$scratch/signed.plist"
   test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.aps-environment' "$scratch/signed.plist")" = development
 }
 

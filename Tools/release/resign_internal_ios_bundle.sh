@@ -78,7 +78,7 @@ sign_bundle() {
   /usr/bin/codesign --force --sign "$signing_identity" --entitlements "$entitlements" --timestamp=none --generate-entitlement-der "$bundle"
   case "$identifier" in
     dev.djconnect.ios|dev.djconnect.ios.watch)
-      /usr/bin/codesign -d --entitlements - "$bundle" > "$scratch/signed.plist"
+      /usr/bin/codesign -d --entitlements - --xml "$bundle" > "$scratch/signed.plist"
       test "$(/usr/libexec/PlistBuddy -c 'Print :aps-environment' "$scratch/signed.plist")" = development
       ;;
   esac

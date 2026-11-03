@@ -31,7 +31,7 @@ app_bundle="$staging/DJConnect.app"
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_bundle/Contents/Info.plist")" == dev.djconnect.mac ]] || exit 1
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_bundle/Contents/Info.plist")" == "$expected_version" ]] || exit 1
 codesign --verify --deep --strict "$app_bundle"
-codesign -d --entitlements - "$app_bundle" > "$staging/signed-entitlements.plist"
+codesign -d --entitlements - --xml "$app_bundle" > "$staging/signed-entitlements.plist"
 test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.aps-environment' "$staging/signed-entitlements.plist")" = development
 
 install_root="$HOME/Applications"
