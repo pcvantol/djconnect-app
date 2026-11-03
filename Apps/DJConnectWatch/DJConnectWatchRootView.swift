@@ -5573,6 +5573,7 @@ private struct DJConnectWatchCompanionSoundView: View {
                 .onChange(of: model.volume) { _, _ in model.commitVolume() }
                 .disabled(model.playback?.device?.supportsVolume != true)
                 .accessibilityLabel(watchLocalizedKey(model.language, "watch.volume"))
+                .listRowBackground(Color.clear)
             NavigationLink { DJConnectWatchOutputsView() } label: {
                 Text(watchLocalizedKey(model.language, "watch.output"))
             }
