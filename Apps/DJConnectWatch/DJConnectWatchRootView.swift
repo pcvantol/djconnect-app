@@ -5182,11 +5182,15 @@ private struct DJConnectWatchFlowArtworkView: View {
     var body: some View {
         TimelineView(.explicit([Date()] + [artwork?.expiresAt].compactMap { $0 })) { _ in
             if scenePhase == .active, let artwork, artwork.expiresAt > Date() {
+                let card = RoundedRectangle(cornerRadius: 20, style: .continuous)
                 Image(decorative: artwork.image, scale: 1)
                     .resizable()
                     .scaledToFit()
                     .frame(maxHeight: 104)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(8)
+                    .background(DJConnectMaterial(.regular), in: card)
+                    .overlay { card.strokeBorder(.white.opacity(0.16)) }
                     .frame(maxWidth: .infinity)
             }
         }
