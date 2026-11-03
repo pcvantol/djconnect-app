@@ -17828,15 +17828,13 @@ private struct LogsView: View {
             }
             .padding(.vertical, 12)
             .djSessionFrostedSurface()
-            .padding(.horizontal, 20)
-            #if !os(macOS)
-            .padding(.vertical, 16)
+            #if os(macOS)
+            .frame(maxWidth: djConnectMacDetailContentMaxWidth)
             #endif
+            .padding(djConnectScreenHorizontalPadding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .navigationTitle(localizedKey(model.language, "ui.logs"))
             .accessibilityIdentifier("screen-logs")
-            #if os(macOS)
-            .djConnectMacDetailContent()
-            #endif
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
