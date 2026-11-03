@@ -137,6 +137,7 @@ struct SessionForecastContent: View {
     var body: some View {
         TimelineView(SessionEntryRefreshSchedule(deadlines: deadlines)) { clock in
             VStack(alignment: .leading, spacing: 12) {
+                SessionHorizonHero()
                 Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                 Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
                 if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
@@ -168,6 +169,34 @@ struct SessionForecastContent: View {
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
             }
         }
+    }
+}
+
+private struct SessionHorizonHero: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var artwork: some View {
+        Image("HorizonHero")
+            .resizable()
+            .scaledToFill()
+    }
+
+    var body: some View {
+        Color.clear
+            .frame(height: 132)
+            .overlay {
+                if reduceMotion || scenePhase != .active {
+                    artwork
+                } else {
+                    artwork.phaseAnimator([false, true]) { image, illuminated in
+                        image.scaleEffect(illuminated ? 1.025 : 1)
+                            .brightness(illuminated ? 0.035 : 0)
+                    } animation: { _ in .easeInOut(duration: 6) }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .accessibilityHidden(true)
     }
 }
 

@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "horizon-hero.jpg",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
