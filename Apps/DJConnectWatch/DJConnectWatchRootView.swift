@@ -5337,16 +5337,20 @@ private struct DJConnectWatchRecordingInsightView: View {
 private struct DJConnectWatchCompanionSoundView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                Text(model.selectedOutput).font(.headline)
-                Slider(value: Binding(get: { model.volume }, set: { model.volume = $0 }), in: 0...1)
-                    .onChange(of: model.volume) { _, _ in model.commitVolume() }
-                    .disabled(model.playback?.device?.supportsVolume != true)
-                    .accessibilityLabel(watchLocalizedKey(model.language, "watch.volume"))
-                NavigationLink { DJConnectWatchOutputsView() } label: { Text(watchLocalizedKey(model.language, "watch.output")) }
-            }.padding(8)
+        List {
+            Text(model.selectedOutput)
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .listRowBackground(Color.clear)
+            Slider(value: Binding(get: { model.volume }, set: { model.volume = $0 }), in: 0...1)
+                .onChange(of: model.volume) { _, _ in model.commitVolume() }
+                .disabled(model.playback?.device?.supportsVolume != true)
+                .accessibilityLabel(watchLocalizedKey(model.language, "watch.volume"))
+            NavigationLink { DJConnectWatchOutputsView() } label: {
+                Text(watchLocalizedKey(model.language, "watch.output"))
+            }
         }
+        .listStyle(.plain)
         .watchStandardBackground()
         .navigationTitle(watchLocalizedKey(model.language, "watch.v2.sound"))
     }
