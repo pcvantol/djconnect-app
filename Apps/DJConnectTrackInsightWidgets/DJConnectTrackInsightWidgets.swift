@@ -368,8 +368,19 @@ private struct PassiveSessionContentView: View {
                         if !compact {
                             Text(text(!activity || playbackState == "playing" ? "ui.now.playing" : playbackState == "paused" ? "ui.paused" : "ui.playback")).font(.caption2).foregroundStyle(.white.opacity(0.7))
                         }
-                        Text(playback.track).font((activity ? Font.headline : large ? .title3 : .subheadline).weight(.semibold)).lineLimit(watchActivity ? 2 : activity ? 1 : large ? 3 : compact ? 1 : 2)
-                        Text(playback.artist).font(watchActivity || activity ? .subheadline : large ? .callout : .caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
+                        if watchActivity {
+                            ViewThatFits(in: .vertical) {
+                                watchTrackText(playback, titleFont: .subheadline, artistFont: .subheadline, lines: 2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                watchTrackText(playback, titleFont: .caption, artistFont: .caption2, lines: 2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                watchTrackText(playback, titleFont: .caption, artistFont: .caption2, lines: 1)
+                                    .minimumScaleFactor(0.75)
+                            }
+                        } else {
+                            Text(playback.track).font((activity ? Font.headline : large ? .title3 : .subheadline).weight(.semibold)).lineLimit(activity ? 1 : large ? 3 : compact ? 1 : 2)
+                            Text(playback.artist).font(activity ? .subheadline : large ? .callout : .caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
+                        }
                         if (large || activity) && !playback.album.isEmpty { Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(activity ? 1 : 2) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -396,6 +407,15 @@ private struct PassiveSessionContentView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+    private func watchTrackText(_ playback: DJConnectPassiveSession.NowPlaying, titleFont: Font,
+                                artistFont: Font, lines: Int) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(playback.track).font(titleFont.weight(.semibold))
+            Text(playback.artist).font(artistFont).foregroundStyle(.white.opacity(0.85))
+        }
+        .lineLimit(lines)
+    }
+
     private func researchCredit(_ attribution: DJConnectDirectResearchAttribution) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             ForEach(Array(attribution.sources.enumerated()), id: \.offset) { _, source in
