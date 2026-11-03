@@ -4885,18 +4885,21 @@ private struct DJConnectWatchCompanionPages: View {
                         .contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityLabel(text(model.playback?.isPlaying == true ? "watch.pause" : "watch.play"))
             }
-            ZStack(alignment: .bottomTrailing) {
-                DJConnectWatchGlassBrandIcon(size: Self.avatarSize)
-                Image(systemName: heldVoice != nil && model.voiceState == .recording ? "stop.fill" : "mic.fill")
-                    .font(.caption2).padding(3).background(.regularMaterial, in: Circle())
+            Button {
+                guard !holdingVoice, heldVoice == nil else { return }
+                openVoiceComposer()
+            } label: {
+                ZStack(alignment: .bottomTrailing) {
+                    DJConnectWatchGlassBrandIcon(size: Self.avatarSize)
+                    Image(systemName: heldVoice != nil && model.voiceState == .recording ? "stop.fill" : "mic.fill")
+                        .font(.caption2).padding(3).background(.regularMaterial, in: Circle())
+                }
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
             }
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(Rectangle())
-            .gesture(holdToSpeak.exclusively(before: TapGesture().onEnded { openVoiceComposer() }))
-            .accessibilityElement(children: .ignore)
+            .buttonStyle(.plain)
             .accessibilityLabel(text("watch.v2.speak"))
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { openVoiceComposer() }
+            .simultaneousGesture(holdToSpeak)
             .onChange(of: holdingVoice) { _, holding in
                 guard !holding, let generation = heldVoice?.generation else { return }
                 // A completed gesture gets first chance to finish. A cancelled
@@ -4919,7 +4922,7 @@ private struct DJConnectWatchCompanionPages: View {
     }
 
     private func openVoiceComposer() {
-        guard page == 0, flowPosition == 0, destination == nil else { return }
+        guard page == 0, visibleFlowRow == nil, destination == nil else { return }
         destination = .voice(context)
     }
 
@@ -4931,7 +4934,7 @@ private struct DJConnectWatchCompanionPages: View {
             }
             .onChanged { value in
                 guard case .second(true, _) = value, heldVoice == nil,
-                      page == 0, flowPosition == 0, destination == nil else { return }
+                      page == 0, visibleFlowRow == nil, destination == nil else { return }
                 let original = context
                 if let generation = model.beginHeldWatchQuestion(context: original) {
                     heldVoice = (generation, original)
@@ -4944,7 +4947,7 @@ private struct DJConnectWatchCompanionPages: View {
                 }
                 let offset = drag?.translation ?? .zero
                 let canSend = abs(offset.width) < 24 && abs(offset.height) < 24 &&
-                    page == 0 && flowPosition == 0 && destination == nil
+                    page == 0 && visibleFlowRow == nil && destination == nil
                 if heldVoice == nil && canSend { destination = .voice(context) }
                 else { finishHeldVoice(send: canSend) }
             }
