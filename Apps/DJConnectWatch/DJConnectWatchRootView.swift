@@ -4863,7 +4863,6 @@ private struct DJConnectWatchCompanionPages: View {
             }
             Button {
                 destination = .voice(context)
-                model.toggleWatchQuestionRecording(context: context)
             } label: {
                 ZStack(alignment: .bottomTrailing) {
                     DJConnectWatchGlassBrandIcon(size: Self.avatarSize)
