@@ -4681,7 +4681,10 @@ private struct DJConnectWatchCompanionPages: View {
     @State private var flowRows: [DJConnectWatchFlowRow]?
     @State private var flowOwner: String?
     @State private var flowSessionID: String?
-    @State private var flowUnavailable = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var crownFocused: Bool
+    @State private var flowPosition = 0.0
+    @State private var crownAdvance = true
     // Presented outside the conditional pages, so runtime refreshes never replace
     // a question's original context or pop a reader off its original Moment.
     private enum Destination { case text(DJConnectConversationContext), voice(DJConnectConversationContext), moment(DJConnectMoment), flow(DJConnectWatchFlowRow, String, String), notification(DJConnectWatchMomentOpenIntent) }
@@ -4697,15 +4700,7 @@ private struct DJConnectWatchCompanionPages: View {
         ZStack {
             DJConnectWatchCanvas()
             TabView(selection: $page) {
-                home
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background { homeBackground }
-                    .tag(0)
-                if session != nil {
-                    moments
-                        .background { DJConnectWatchCanvas(theme: theme) }
-                        .tag(1)
-                }
+                crownHome.tag(0)
                 more
                     .background { DJConnectWatchCanvas() }
                     .tag(2)
@@ -4731,23 +4726,24 @@ private struct DJConnectWatchCompanionPages: View {
         }
         .scrollContentBackground(.hidden)
         .environment(\.watchSessionTheme, theme)
-        .navigationTitle(page == 2 ? text("watch.v2.more") : page == 1 && session != nil ? text("watch.v2.moments") : isLoadingSession || session != nil ? "" : "Ask DJ")
-        .onChange(of: model.watchHomeOpenSequence) { _, _ in page = 0; destination = nil }
+        .navigationTitle(page == 2 ? text("watch.v2.more") : isLoadingSession || session != nil ? "" : "Ask DJ")
+        .onChange(of: model.watchHomeOpenSequence) { _, _ in page = 0; flowPosition = 0; destination = nil }
         .onChange(of: model.watchMomentOpenIntent, initial: true) { _, intent in
             if let intent { destination = .notification(intent) }
         }
-        .onChange(of: session?.id) { _, _ in if page == 1 { page = 0 } }
-        .task(id: page == 1 ? session.map { (snapshot?.settings.binding ?? "") + ":" + $0.id } : nil) {
-            guard page == 1, let binding = snapshot?.settings.binding, let sessionID = session?.id else { return }
-            flowRows = nil
-            flowUnavailable = false
+        .onChange(of: session?.id) { _, _ in flowPosition = 0 }
+        .task(id: page == 0 ? session.map { (snapshot?.settings.binding ?? "") + ":" + $0.id } : nil) {
+            guard page == 0, let binding = snapshot?.settings.binding, let sessionID = session?.id else { return }
+            if flowOwner != binding || flowSessionID != sessionID {
+                flowRows = nil
+                flowPosition = 0
+            }
             flowOwner = binding
             flowSessionID = sessionID
             while !Task.isCancelled {
                 let incoming = await model.loadWatchSessionFlow(binding: binding, sessionID: sessionID)
                 guard !Task.isCancelled else { return }
                 flowRows = incoming
-                flowUnavailable = incoming == nil
                 let nextExpiry = incoming?.map(\.expiresAt).min()?.timeIntervalSinceNow ?? 15
                 do { try await Task.sleep(for: .seconds(max(1, min(15, nextExpiry)))) } catch { return }
             }
@@ -4905,33 +4901,92 @@ private struct DJConnectWatchCompanionPages: View {
         }.buttonStyle(.plain)
     }
 
-    private var moments: some View {
+    private var crownHome: some View {
         TimelineView(.explicit([Date()] + (flowRows ?? []).map(\.expiresAt).sorted())) { _ in
-            List {
-                if flowOwner == snapshot?.settings.binding, flowSessionID == session?.id, let flowRows {
-                    let visible = flowRows.filter { Date() < $0.expiresAt }
-                    if visible.isEmpty { Text(text("watch.v2.no_moments")).foregroundStyle(.secondary) }
-                    ForEach(visible) { row in
-                        Button { openFlowRow(row) } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(text(row.labelKey)).font(.caption2.weight(.semibold)).foregroundStyle(accent)
-                                Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
-                                    .font(.caption).lineLimit(3)
-                                Text(row.date, style: .time).font(.caption2).foregroundStyle(.secondary)
-                                if row.spotifyAttribution { flowSpotifyAttribution }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                } else if flowUnavailable {
-                    Text(text("ui.session.live_unavailable")).foregroundStyle(.secondary)
+            let rows = currentFlowRows
+            let index = min(Int(flowPosition.rounded()), rows.count)
+            let canScroll = page == 0 && destination == nil && !rows.isEmpty
+            let transition: AnyTransition = reduceMotion ? .identity : .push(from: crownAdvance ? .bottom : .top)
+            ZStack {
+                if index == 0 {
+                    home
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background { homeBackground }
+                        .transition(transition)
                 } else {
-                    ProgressView()
+                    let row = rows[index - 1]
+                    flowCard(row, index: index, count: rows.count)
+                        .background { DJConnectWatchCanvas(theme: theme) }
+                        .id(row.id)
+                        .transition(transition)
                 }
             }
-            .listStyle(.plain)
-            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+            .focusable(canScroll)
+            .focused($crownFocused)
+            .digitalCrownRotation(
+                Binding(get: { Double(index) }, set: { moveCrown(to: $0, count: rows.count) }),
+                from: 0, through: Double(max(1, rows.count)), by: 1,
+                sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true
+            )
+            .onChange(of: canScroll, initial: true) { _, enabled in crownFocused = enabled }
+            .onChange(of: rows.map(\.id)) { old, new in
+                let previous = Int(flowPosition.rounded())
+                guard previous > 0 else { return }
+                if let id = old.indices.contains(previous - 1) ? old[previous - 1] : nil, let current = new.firstIndex(of: id) {
+                    flowPosition = Double(current + 1)
+                } else {
+                    flowPosition = Double(min(previous, new.count))
+                }
+            }
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: moveCrown(to: Double(index + 1), count: rows.count)
+                case .decrement: moveCrown(to: Double(index - 1), count: rows.count)
+                @unknown default: break
+                }
+            }
         }
+    }
+
+    private var currentFlowRows: [DJConnectWatchFlowRow] {
+        guard flowOwner == snapshot?.settings.binding, flowSessionID == session?.id else { return [] }
+        let now = Date()
+        return (flowRows ?? []).filter { now < $0.expiresAt }
+    }
+
+    private func moveCrown(to value: Double, count: Int) {
+        let next = min(max(0, value.rounded()), Double(count))
+        guard next != flowPosition else { return }
+        crownAdvance = next > flowPosition
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { flowPosition = next }
+    }
+
+    private func flowCard(_ row: DJConnectWatchFlowRow, index: Int, count: Int) -> some View {
+        Button { openFlowRow(row) } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(text(row.labelKey)).font(.caption.weight(.semibold)).foregroundStyle(accent)
+                    Spacer(minLength: 4)
+                    Text("\(index)/\(count)").font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
+                    .font(.body).lineLimit(dynamicTypeSize.isAccessibilitySize ? 4 : 7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack {
+                    Text(row.date, style: .time).font(.caption2).foregroundStyle(.secondary)
+                    if row.spotifyAttribution { flowSpotifyAttribution }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func openFlowRow(_ row: DJConnectWatchFlowRow) {
