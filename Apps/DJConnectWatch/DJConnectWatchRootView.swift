@@ -5395,7 +5395,7 @@ private struct DJConnectWatchCompanionTrackView: View {
                     if let artwork {
                         artwork.resizable().scaledToFill()
                     } else {
-                        AlbumArtworkPlaceholder(tint: watchAccentPurple, isPlaying: false)
+                        AlbumArtworkPlaceholder(tint: watchAccentPurple, isPlaying: isPlaying)
                     }
                 }
                 .frame(width: size.width, height: size.height)
