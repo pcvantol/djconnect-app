@@ -4697,6 +4697,13 @@ private struct DJConnectWatchCompanionPages: View {
     private var context: DJConnectConversationContext { .init(sessionID: session?.id) }
     private var theme: DJConnectSessionMoodTheme { .init(sessionMood: session?.selectedMood) }
     private var accent: Color { theme.watchColors[1] }
+    private var visibleFlowRow: DJConnectWatchFlowRow? {
+        guard page == 0, destination == nil, flowPosition > 0 else { return nil }
+        let rows = currentFlowRows
+        let index = min(Int(flowPosition.rounded()), rows.count)
+        return index > 0 ? rows[index - 1] : nil
+    }
+
     var body: some View {
         ZStack {
             if page == 0 && (flowPosition == 0 || currentFlowRows.isEmpty) {
@@ -4714,6 +4721,19 @@ private struct DJConnectWatchCompanionPages: View {
                 crownHome.tag(0)
             }
             .tabViewStyle(.page(indexDisplayMode: isLoadingSession && page == 0 ? .never : .automatic))
+            .scrollDisabled(visibleFlowRow != nil)
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 16).onEnded { drag in
+                    guard let row = visibleFlowRow else { return }
+                    let translation = drag.translation
+                    if abs(translation.height) > abs(translation.width) {
+                        moveFlowFromSwipe(vertical: translation.height)
+                    } else if translation.width >= 16 {
+                        openFlowRow(row)
+                    }
+                },
+                including: visibleFlowRow != nil ? .all : .none
+            )
         }
         .tint(accent)
         .navigationDestination(isPresented: Binding(get: { destination != nil }, set: { if !$0 { destination = nil } })) {
@@ -4974,12 +4994,8 @@ private struct DJConnectWatchCompanionPages: View {
             .onChange(of: flowPosition) { _, value in
                 if crownPosition.rounded() != value { crownPosition = value }
             }
-            .highPriorityGesture(
-                flowSwipe(index: index, count: rows.count, row: index > 0 ? rows[index - 1] : nil),
-                including: canScroll && index > 0 ? .all : .none
-            )
             .simultaneousGesture(
-                flowSwipe(index: index, count: rows.count),
+                flowSwipe,
                 including: canScroll && index == 0 ? .all : .none
             )
             .onChange(of: rows.map(\.id)) { old, new in
@@ -5022,15 +5038,19 @@ private struct DJConnectWatchCompanionPages: View {
         }
     }
 
-    private func flowSwipe(index: Int, count: Int, row: DJConnectWatchFlowRow? = nil) -> some Gesture {
+    private var flowSwipe: some Gesture {
         DragGesture(minimumDistance: 20).onEnded { drag in
             let translation = drag.translation
             if abs(translation.height) > abs(translation.width) {
-                moveFlow(to: Double(index + (translation.height < 0 ? 1 : -1)), count: count)
-            } else if translation.width >= 20, let row {
-                openFlowRow(row)
+                moveFlowFromSwipe(vertical: translation.height)
             }
         }
+    }
+
+    private func moveFlowFromSwipe(vertical: CGFloat) {
+        let count = currentFlowRows.count
+        let index = min(flowPosition.rounded(), Double(count))
+        moveFlow(to: index + (vertical < 0 ? 1 : -1), count: count)
     }
 
     private var currentFlowRows: [DJConnectWatchFlowRow] {
