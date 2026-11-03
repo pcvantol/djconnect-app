@@ -66,20 +66,3 @@ struct SessionTimelineRenderEntry: Equatable, Identifiable {
         sourceSnapshot = nil; preparedSnapshot = []; validFrom = nil; validUntil = nil
     }
 }
-
-/// Fade once on lazy appearance, without a transition driven by every scroll frame.
-struct SessionRowFade: ViewModifier {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var appeared = false
-    var selected: Bool
-    var enabled = true
-    @ViewBuilder func body(content: Content) -> some View {
-        if !enabled { content }
-        else { content.opacity(reduceMotion || selected || appeared ? 1 : 0)
-            .onAppear {
-                guard !appeared else { return }
-                withAnimation(reduceMotion || selected ? nil : .easeOut(duration: 0.12)) { appeared = true }
-            }
-        }
-    }
-}

@@ -8676,7 +8676,6 @@ struct TrackInsightMetricsGrid: View, Equatable {
 
 private struct TrackInsightMetricRing: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var ringGlowIsActive = false
 
     let title: String
     let value: Double?
@@ -8715,7 +8714,7 @@ private struct TrackInsightMetricRing: View {
                         style: StrokeStyle(lineWidth: 12, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: glowColor.opacity(reduceMotion ? 0.18 : (ringGlowIsActive ? 0.52 : 0.22)), radius: reduceMotion ? 4 : (ringGlowIsActive ? 20 : 8), x: 0, y: 0)
+                    .shadow(color: glowColor.opacity(reduceMotion ? 0.18 : 0.22), radius: reduceMotion ? 4 : 8)
                 Circle()
                     .trim(from: 0, to: normalizedValue)
                     .stroke(
@@ -8723,8 +8722,8 @@ private struct TrackInsightMetricRing: View {
                         style: StrokeStyle(lineWidth: 17, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .blur(radius: reduceMotion ? 4 : (ringGlowIsActive ? 13 : 5))
-                    .opacity(reduceMotion ? 0.14 : (ringGlowIsActive ? 0.32 : 0.12))
+                    .blur(radius: reduceMotion ? 4 : 5)
+                    .opacity(reduceMotion ? 0.14 : 0.12)
                 Text(percentText)
                     .font(.title3.weight(.bold))
                     .foregroundStyle(.white)
@@ -8743,13 +8742,7 @@ private struct TrackInsightMetricRing: View {
         }
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, minHeight: 150)
-        .background(.white.opacity(0.09), in: DJConnectCardAppearance.shape)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
-                ringGlowIsActive = true
-            }
-        }
+        .djSessionFrostedSurface()
     }
 }
 
@@ -8781,7 +8774,7 @@ private struct TrackInsightMetricPill: View {
         .padding(.horizontal, 11)
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
-        .background(.white.opacity(0.10), in: DJConnectCardAppearance.shape)
+        .djSessionFrostedSurface()
     }
 }
 
@@ -15130,6 +15123,19 @@ enum LocalGameMode: String, CaseIterable, Identifiable {
         }
     }
 
+    var icon: String {
+        switch self {
+        case .pong:
+            "circle.grid.cross"
+        case .asteroids:
+            "paperplane"
+        case .fly:
+            "airplane"
+        case .pacman:
+            "circle.circle"
+        }
+    }
+
     var mood: DJConnectSessionMoodTheme {
         switch self {
         case .pong: .chill
@@ -15273,21 +15279,16 @@ private struct GamesView: View {
         #endif
     }
 
-    private func pickerMaxWidth(for size: CGSize) -> CGFloat {
-        min(contentMaxWidth(for: size), 760)
-    }
-
     private func gameCanvasMaxHeight(for size: CGSize) -> CGFloat? {
         #if os(iOS)
         guard horizontalSizeClass == .regular else { return nil }
         #endif
-        let pickerHeight = measuredGameHeights["picker"] ?? 60
         let surfaceHeight = measuredGameHeights["surface"] ?? 0
         let canvasHeight = measuredGameHeights["canvas"] ?? 0
         let chromeHeight = surfaceHeight > 0 ? max(0, surfaceHeight - canvasHeight) : 180
         // Measure the controls and localized help rather than estimating from width.
         // Small windows retain scrolling so the game remains usable.
-        return DJConnectGameViewport.canvasHeight(viewportHeight: size.height, pickerHeight: pickerHeight,
+        return DJConnectGameViewport.canvasHeight(viewportHeight: size.height, pickerHeight: 0,
                                                   chromeHeight: chromeHeight, verticalPadding: djConnectScreenVerticalPadding)
     }
 
@@ -15297,13 +15298,8 @@ private struct GamesView: View {
                 let contentMaxWidth = contentMaxWidth(for: proxy.size)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        GameModePicker(selection: $selectedGame)
-                            .frame(maxWidth: pickerMaxWidth(for: proxy.size))
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .background(gameHeightReader("picker"))
-
                         LocalGameSurface(
-                            game: selectedGame,
+                            game: $selectedGame,
                             language: language,
                             maxCanvasHeight: gameCanvasMaxHeight(for: proxy.size)
                         )
@@ -15325,48 +15321,8 @@ private struct GamesView: View {
     }
 }
 
-private struct GameModePicker: View {
-    @Binding var selection: LocalGameMode
-    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
-    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
-    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
-
-    private var columns: [GridItem] {
-        if horizontalSizeClass == .compact {
-            return Array(repeating: GridItem(.flexible(minimum: 120), spacing: 8), count: 2)
-        }
-        return Array(repeating: GridItem(.flexible(minimum: 120), spacing: 8), count: LocalGameMode.allCases.count)
-    }
-
-    var body: some View {
-        LazyVGrid(columns: columns, spacing: 8) {
-            ForEach(LocalGameMode.allCases) { game in
-                Button {
-                    DJConnectHaptics.selection()
-                    selection = game
-                } label: {
-                    Text(game.title)
-                        .font(.system(size: 16, weight: .semibold, design: .default))
-                        .foregroundStyle(selection == game ? .white : .white.opacity(0.70))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.74)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-
-                }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: selection == game ? .selected : .tertiary, shape: .segmented, expands: true, usesLiveGlass: true, selectionTint: game.tint))
-                .contentShape(DJConnectCardAppearance.segmentedItemShape)
-                .accessibilityAddTraits(selection == game ? [.isSelected] : [])
-            }
-        }
-        .padding(DJConnectCardAppearance.segmentedContentInset)
-        .frame(minHeight: 60)
-        .djSessionFrostedSurface(mood: selection.mood.rawValue)
-    }
-}
-
 private struct LocalGameSurface: View {
-    let game: LocalGameMode
+    @Binding var game: LocalGameMode
     let language: String
     var maxCanvasHeight: CGFloat? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -15476,7 +15432,7 @@ private struct LocalGameSurface: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Label(game.title, systemImage: gameIcon)
+                Label(game.title, systemImage: game.icon)
                     .font(.title2.bold())
                     .foregroundStyle(game.tint)
                     .lineLimit(1)
@@ -15579,7 +15535,19 @@ private struct LocalGameSurface: View {
             reset()
         }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                ForEach(LocalGameMode.allCases) { mode in
+                    Button {
+                        DJConnectHaptics.selection()
+                        game = mode
+                    } label: {
+                        Label(mode.title, systemImage: mode.icon)
+                            .labelStyle(.iconOnly)
+                            .foregroundStyle(game == mode ? djConnectAccent : .primary)
+                    }
+                    .help(mode.title)
+                    .accessibilityAddTraits(game == mode ? [.isSelected] : [])
+                }
                 resetButton
             }
         }
@@ -15609,19 +15577,6 @@ private struct LocalGameSurface: View {
                 .focusEffectDisabled()
                 .controlSize(.large)
             }
-        }
-    }
-
-    private var gameIcon: String {
-        switch game {
-        case .pong:
-            "circle.grid.cross"
-        case .asteroids:
-            "paperplane"
-        case .fly:
-            "airplane"
-        case .pacman:
-            "circle.circle"
         }
     }
 
