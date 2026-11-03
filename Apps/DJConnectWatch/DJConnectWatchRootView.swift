@@ -5227,13 +5227,19 @@ private struct DJConnectWatchCompanionTrackView: View {
                         } label: { Label(watchLocalizedKey(model.language, "watch.v2.ask_about"), systemImage: "bubble.left") }
                     }
                     if model.isDemoMode {
-                        NavigationLink("Track Insight") { DJConnectWatchRootView.DJConnectWatchTrackInsightView() }
+                        NavigationLink {
+                            DJConnectWatchRootView.DJConnectWatchTrackInsightView()
+                        } label: {
+                            Label("Track Insight", systemImage: "waveform.path.ecg")
+                        }
                     } else if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
                               let binding = originalBinding {
-                        NavigationLink("Track Insight") {
+                        NavigationLink {
                             DJConnectWatchRecordingInsightView(recording: recording, binding: binding,
                                                               session: model.foregroundSession,
                                                               artworkURL: original?.albumImageURL)
+                        } label: {
+                            Label("Track Insight", systemImage: "waveform.path.ecg")
                         }
                     }
                 }
