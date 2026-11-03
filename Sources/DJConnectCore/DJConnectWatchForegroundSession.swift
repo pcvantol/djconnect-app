@@ -257,6 +257,7 @@ public struct DJConnectWatchSettingsReceipt: Codable, Sendable {
 
 /// Compact, ephemeral rows from the same retained tail and admitted live Bulletins as iPhone.
 public struct DJConnectWatchFlowRow: Codable, Identifiable, Sendable {
+    public static let maximumCount = 20
     public let id: String
     public let date: Date
     public let expiresAt: Date
@@ -320,6 +321,6 @@ public struct DJConnectWatchFlowRow: Codable, Identifiable, Sendable {
         let ordered = (retained + live).enumerated().sorted {
             $0.element.date == $1.element.date ? $0.offset < $1.offset : $0.element.date > $1.element.date
         }
-        return ordered.prefix(8).map(\.element)
+        return ordered.prefix(maximumCount).map(\.element)
     }
 }

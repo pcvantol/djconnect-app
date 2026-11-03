@@ -15598,7 +15598,14 @@ public final class DJConnectAppModel: ObservableObject {
             guard runtime.success, let session = runtime.resolvedSession, session.id == sessionID,
                   after.binding == before.binding, after.snapshot.session?.session_id == sessionID,
                   !after.requiresSelection else { throw DJConnectError.invalidResponse }
-            return try encoder.encode(DJConnectWatchFlowRow.latest(history: tail.entries, session: session, at: Date()))
+            var rows = DJConnectWatchFlowRow.latest(history: tail.entries, session: session, at: Date())
+            var encoded = try encoder.encode(rows)
+            // Keep the newest rows when unusually large source labels fill the proxy envelope.
+            while encoded.count >= 42_000 && !rows.isEmpty {
+                rows.removeLast()
+                encoded = try encoder.encode(rows)
+            }
+            return encoded
         case .foregroundSession:
             // Read with the Watch bearer, and fence Profile/Session changes
             // across the two independent frozen owner contracts.

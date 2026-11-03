@@ -993,7 +993,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 payload: DJConnectWatchSessionAction(snapshot: current, language: language))
             guard !Task.isCancelled, isAppForeground, canUseBackend, stableInstallID == owner,
                   foregroundSession.current()?.settings.binding == binding,
-                  foregroundSession.current()?.session?.id == sessionID, rows.count <= 8 else { return nil }
+                  foregroundSession.current()?.session?.id == sessionID, rows.count <= DJConnectWatchFlowRow.maximumCount else { return nil }
             return rows
         } catch {
             return nil
