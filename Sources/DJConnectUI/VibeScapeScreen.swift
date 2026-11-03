@@ -526,7 +526,7 @@ private struct VibeScapeHelpContent: View {
                         ForEach(help.scopes) { option in
                             if let choice = DJConnectVisualDirectionScope(rawValue: option.id) {
                                 Button { scope = choice } label: {
-                                    HStack(alignment: .top, spacing: 12) {
+                                    HStack(spacing: 12) {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(option.text).font(.body.weight(.semibold))
                                             Text(text(choice == .currentTrack
@@ -535,6 +535,8 @@ private struct VibeScapeHelpContent: View {
                                         }
                                         Spacer(minLength: 0)
                                         Image(systemName: scope == choice ? "checkmark.circle.fill" : "circle")
+                                            .font(.title2)
+                                            .accessibilityHidden(true)
                                     }.frame(maxWidth: .infinity, alignment: .leading)
                                 }
                                 .djConnectButtonStyle(DJConnectButtonStyle(emphasis: scope == choice ? .selected : .secondary))

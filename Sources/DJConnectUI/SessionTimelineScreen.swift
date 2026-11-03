@@ -454,7 +454,6 @@ struct SessionTimelineScreen: View {
     @State private var searching = false
     @State private var flowSearchExpanded = false
     @State private var inlineSearchBounds = CGRect.zero
-    @State private var pendingSearchPosition: String?
     @State private var selectedMatchID: String?
     private var retryRefreshing: Bool { manualRefresh.isRefreshing }
     @State private var pullRefreshing = false
@@ -592,7 +591,8 @@ struct SessionTimelineScreen: View {
     }
 
     var body: some View {
-        let cachedEntries = renderCache.snapshot(displayedEntries, sessionID: sessionID, epoch: history.responseEpoch)
+        let entries = displayedEntries
+        let cachedEntries = renderCache.snapshot(entries, sessionID: sessionID, epoch: history.responseEpoch)
         let retentionDeadlines = SessionTimelineLiveRow.refreshDeadlines(retained: cachedEntries,
             broadcast: activeSession?.broadcast)
         let matchMap = matches.reduce(into: [String: DJConnectHistoryEntry]()) { result, entry in
@@ -601,7 +601,7 @@ struct SessionTimelineScreen: View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
-                    let preparedEntries = renderCache.snapshot(displayedEntries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
+                    let preparedEntries = renderCache.snapshot(entries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
                     ZStack {
                     ScrollView {
                         DJSessionGlassGroup {
@@ -623,7 +623,7 @@ struct SessionTimelineScreen: View {
                                     .id("session-mode-picker")
                                 // The mode picker is the initial top target;
                                 // artwork follows with ordinary content spacing.
-                                if !filtersTimeline { scrollingCurrent(activeSession).id("current") }
+                                if !displayingForecast && !filtersTimeline { scrollingCurrent(activeSession).id("current") }
                                 if history.showsUnconfirmedDeletionNotice && history.contentDeletionNeedsReadback {
                                     ContentDeletionPendingNotice(model: model)
                                         .padding(.horizontal, 20).padding(.vertical, 10)
@@ -633,9 +633,6 @@ struct SessionTimelineScreen: View {
                                 SessionForecastContent(model: model)
                                     .id("forecast-content")
                             } else {
-                                if activeSession != nil && flowSearchExpanded {
-                                    searchBar(proxy: proxy).id("flow-search")
-                                }
                                 if activeSession == nil {
                                     let archivedSession = timeline.session ?? history.sessions.first(where: { $0.id == sessionID })
                                         ?? history.archiveSearchSessions.first(where: { $0.id == sessionID })
@@ -736,7 +733,7 @@ struct SessionTimelineScreen: View {
                                 ContentDeletionPendingNotice(model: model)
                                     .padding(.horizontal, 20).padding(.vertical, 10)
                             }
-                            if searching && activeSession == nil {
+                            if activeSession == nil ? searching : flowSearchExpanded && !displayingForecast {
                                 TimelineView(SessionEntryRefreshSchedule(deadlines: history.searchMatches.compactMap { DJConnectHistoryEntry.date($0.retainedUntil) })) { _ in searchBar(proxy: proxy) }
                             }
                         }
@@ -745,7 +742,6 @@ struct SessionTimelineScreen: View {
                         let visible = Set(visibleIDs)
                         if artworkVisibleIDs != visible {
                             artworkVisibleIDs = visible
-                            history.prefetchArtwork(sessionID: sessionID, visibleIDs: visible)
                         }
                         let headerVisible = visible.contains("current")
                         if currentHeaderVisible != headerVisible { currentHeaderVisible = headerVisible }
@@ -753,19 +749,21 @@ struct SessionTimelineScreen: View {
                         if oldestEntriesVisible != oldestVisible { oldestEntriesVisible = oldestVisible }
                         if oldestVisible { loadEarlierIfNeeded() }
                     }
+                    .task(id: artworkVisibleIDs) { [visible = artworkVisibleIDs] in
+                        // Coalesce successive row changes during a swipe.
+                        do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+                        guard !Task.isCancelled else { return }
+                        history.prefetchArtwork(sessionID: sessionID, visibleIDs: visible)
+                    }
                     .onChange(of: history.artworkAvailable) { _, _ in
                         history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                     }
                     .onChange(of: clock.date) { _, _ in
                         history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                     }
-                    .onScrollPhaseChange { previous, phase in
+                    .onScrollPhaseChange { _, phase in
                         if phase == .tracking || phase == .interacting {
                             submittedQuestion = nil
-                            pendingSearchPosition = nil
-                        }
-                        if previous.isScrolling && !phase.isScrolling {
-                            history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                         }
                     }
                     .defaultScrollAnchor(.top, for: .initialOffset)
@@ -798,7 +796,7 @@ struct SessionTimelineScreen: View {
                         }
                     }
                     .overlay(alignment: .bottomTrailing) {
-                        if !currentHeaderVisible {
+                        if !displayingForecast && !currentHeaderVisible {
                             Button {
                                 jump("current", proxy: proxy)
                             } label: { Image(systemName: "arrow.up") }
@@ -838,7 +836,6 @@ struct SessionTimelineScreen: View {
                 if ended { showsForecast = false }
             }
             .onChange(of: showsForecast) { _, value in
-                pendingSearchPosition = nil
                 flowSearchExpanded = false
                 query = ""; selectedMatchID = nil; searching = false; history.clearSearch()
                 if value { inputFocused = false; searchFocused = false }
@@ -846,7 +843,7 @@ struct SessionTimelineScreen: View {
             }
             .onChange(of: model.isShowingVibeScape) { _, visible in
                 if visible {
-                    pendingSearchPosition = nil; flowSearchExpanded = false
+                    flowSearchExpanded = false
                     searching = false; query = ""; selectedMatchID = nil
                     inputFocused = false; searchFocused = false; history.clearSearch()
                 } else {
@@ -877,15 +874,12 @@ struct SessionTimelineScreen: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             composerKeyboardVisible = false
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
-            positionOpenSearch()
-        }
         #endif
             .background {
                 if activeSession != nil && showsSessionSearch {
                     // Retain Command-F without an additional visible search control.
                     Button {
-                        openCurrentSearch(proxy: proxy)
+                        openCurrentSearch()
                     } label: { EmptyView() }
                     .keyboardShortcut("f", modifiers: .command)
                     .disabled(!history.searchAvailable)
@@ -965,7 +959,7 @@ struct SessionTimelineScreen: View {
             #if os(iOS)
             .overlay(alignment: .topTrailing) {
                 SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation,
-                    searchAction: showsSessionSearch ? { openCurrentSearch(proxy: proxy) } : nil,
+                    searchAction: showsSessionSearch ? { openCurrentSearch() } : nil,
                     searchEnabled: showsSessionSearch && history.searchAvailable)
 
             }
@@ -1214,7 +1208,7 @@ struct SessionTimelineScreen: View {
     @ViewBuilder private func sessionSearchToolbarButton(proxy: ScrollViewProxy) -> some View {
         if showsSessionSearch {
         Button {
-            if activeSession != nil { openCurrentSearch(proxy: proxy) }
+            if activeSession != nil { openCurrentSearch() }
             else { toggleFlowSearch(proxy: proxy) }
         } label: {
             Image(systemName: "magnifyingglass")
@@ -1227,34 +1221,15 @@ struct SessionTimelineScreen: View {
         }
     }
 
-    private func openCurrentSearch(proxy: ScrollViewProxy) {
+    private func openCurrentSearch() {
         guard showsSessionSearch else { return }
         inputFocused = false
         searchFocused = false
         searchFocusRequest = UUID()
         submittedQuestion = nil
         sceneRestoreTask?.cancel(); anchorGeneration = UUID()
-        pendingSearchPosition = "flow-search"
         inlineSearchBounds = .zero
-        flowSearchExpanded = true; searchFocused = true
-        // Use the same bound scroll controller as keyboard/layout changes.
-        // Field layout and keyboard completion settle this same target again;
-        // an actual user scroll releases it immediately.
-        Task { @MainActor in
-            await Task.yield()
-            positionOpenSearch()
-        }
-    }
-
-    private func positionOpenSearch() {
-        guard activeSession != nil, showsSessionSearch, scenePhase == .active,
-              let target = pendingSearchPosition, target == "flow-search", flowSearchExpanded else { return }
-        var transaction = Transaction(animation: nil)
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            scrollAnchor = .top
-            visibleEntry = target
-        }
+        flowSearchExpanded = true
     }
 
     private func clearReadingState() {
@@ -1357,7 +1332,6 @@ struct SessionTimelineScreen: View {
                     } else { inputFocused = true }
                 }
                 .equatable()
-                    .modifier(SessionRowFade(selected: selectedMatchID == entry.id || initialAnchor == entry.id || history.selectedEntry == entry.reference, enabled: activeSession != nil))
                 .padding(.horizontal, 20)
                 .id(entry.id).transition(.opacity).accessibilityElement(children: .contain).accessibilityIdentifier("session-entry-" + entry.id)
                 .onAppear {
@@ -1418,7 +1392,6 @@ struct SessionTimelineScreen: View {
         withTransaction(transaction) {
             submittedQuestion = nil
             scrollAnchor = .top
-            pendingSearchPosition = nil
             visibleEntry = "session-mode-picker"
             forecastPosition = "session-mode-picker"
             currentHeaderVisible = true
@@ -1461,7 +1434,6 @@ struct SessionTimelineScreen: View {
         jump(id, proxy: proxy)
     }
     private func closeSearch(proxy: ScrollViewProxy) {
-        pendingSearchPosition = nil
         flowSearchExpanded = false
         anchorGeneration = UUID(); searching = false; searchFocused = false; query = ""; selectedMatchID = nil; history.clearSearch()
         if activeSession == nil, let priorSearchPosition {
@@ -1506,7 +1478,6 @@ struct SessionTimelineScreen: View {
                                      open: { inputFocused = false; flowSearchExpanded = true; searchFocused = true },
                                      boundsChanged: {
                                          inlineSearchBounds = $0
-                                         positionOpenSearch()
                                      }) {
             AskDJSearchBar(language: model.language, promptKey: "ui.session.history.search",
                            fieldIdentifier: "session-search-field", countIdentifier: "session-search-count",
