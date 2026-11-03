@@ -5133,6 +5133,7 @@ private struct DJConnectWatchCompanionPages: View {
                             DJConnectWatchFlowArtworkView(reference: reference, binding: binding)
                         }
                         Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
+                            .padding(4)
                         if row.spotifyAttribution { flowSpotifyAttribution }
                         ForEach(row.sources.indices, id: \.self) { index in
                             let source = row.sources[index]
