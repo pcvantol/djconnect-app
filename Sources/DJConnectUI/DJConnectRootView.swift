@@ -15087,13 +15087,13 @@ enum LocalGameMode: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .pong:
-            "circle.grid.cross"
+            "tennis.racket"
         case .asteroids:
-            "paperplane"
+            "moon.stars"
         case .fly:
             "airplane"
         case .pacman:
-            "circle.circle"
+            "square.grid.3x3"
         }
     }
 
