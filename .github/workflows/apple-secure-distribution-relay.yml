@@ -46,12 +46,17 @@ jobs:
           test "$PAIRED_WATCH_VALIDATION" = disabled
           printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$MANIFEST_ID" | grep -Eq '^release-[A-Za-z0-9._-]+$'
-          printf '%s' "$ARTIFACT_ID" | grep -Eq '^release-asset:pcvantol/djconnect-app-releases:macos/v[0-9]+\.[0-9]+\.[0-9]+:DJConnect-macOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
+          printf '%s' "$ARTIFACT_ID" | grep -Eq '^[1-9][0-9]*$'
           printf '%s' "$ARTIFACT_SHA256" | grep -Eq '^[0-9a-f]{64}$'
           printf '%s' "$PLATFORM_VERSION" | grep -Eq '^[0-9]+\.[0-9]+$'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+        with:
+          persist-credentials: false
       - id: manifest
         name: Require approved central operational manifest source
         env:
+          DJCONNECT_ARTIFACT_READ_TOKEN: ${{ secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN }}
+          ARTIFACT_REPOSITORY_ID: ${{ vars.DJCONNECT_APPLE_ARTIFACT_REPOSITORY_ID }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           MANIFEST_ID: ${{ inputs.manifest_id }}
           ARTIFACT_ID: ${{ inputs.artifact_id }}
@@ -77,14 +82,8 @@ jobs:
           test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
           release_version="$(jq -r --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-app" and .source_sha == $sha) | .version' "$manifest")"
           printf '%s' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
-          binding="$(jq -cer --arg target "$TARGET" --arg device "$TARGET_DEVICE" --arg artifact "$ARTIFACT_ID" --arg sha "$ARTIFACT_SHA256" '.artifact_bindings[] | select(.target == $target and .target_device == $device and .artifact_id == $artifact and .artifact_sha256 == $sha)' "$manifest")"
-          test "$(jq -r '.signing' <<<"$binding")" = local_developer_provisioning_required
-          test "${PAIRED_WATCH_VALIDATION}" = disabled
-          artifact_url="$(jq -r '.artifact_url' <<<"$binding")"
-          printf '%s' "$artifact_url" | grep -Eq '^https://github\.com/pcvantol/djconnect-app-releases/releases/download/macos/v[0-9]+\.[0-9]+\.[0-9]+/DJConnect-macOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
+          /usr/bin/python3 Tools/release/private_apple_artifact.py "$manifest" macbook
           printf 'release_version=%s\n' "$release_version" >> "$GITHUB_OUTPUT"
-          printf 'artifact_url=%s\n' "$artifact_url" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
       - name: Validate Mac mini signing and exact SSH MacBook target
         env:
           EXPECTED_MACBOOK_UUID: ${{ secrets.DJCONNECT_APPLE_MACBOOK_HARDWARE_UUID }}
@@ -103,12 +102,6 @@ jobs:
           codesign --verify --strict "$signing_probe"
           book_uuid="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 pcvantol@MacBook-Pro-van-Peter.local ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/{print $4; exit}')"
           test "$book_uuid" = "$EXPECTED_MACBOOK_UUID"
-      - name: Download manifest-bound unsigned macOS artifact
-        env:
-          ARTIFACT_URL: ${{ steps.manifest.outputs.artifact_url }}
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --location "$ARTIFACT_URL" --output artifact.zip
       - name: Sign on Mac mini and install the same app on both Macs
         env:
           ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
