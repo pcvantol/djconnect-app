@@ -119,7 +119,7 @@ struct DJConnectWatchRootView: View {
         }
         .id(model.watchHomeOpenSequence)
         .tint(.white)
-        .buttonStyle(DJConnectWatchStandardButtonStyle())
+        .buttonStyle(DJConnectWatchFlatActionRowStyle())
         .sheet(isPresented: $model.isShowingMicrophonePermissionExplanation) {
             DJConnectWatchMicrophonePermissionView(kind: .pushToTalk)
                 .environmentObject(model)
@@ -318,7 +318,7 @@ struct DJConnectWatchRootView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity, minHeight: 34)
                 }
-                .buttonStyle(DJConnectWatchStandardButtonStyle())
+                .buttonStyle(DJConnectWatchFlatActionRowStyle())
             }
             .padding(.horizontal, 10)
         }
@@ -1311,7 +1311,7 @@ struct DJConnectWatchRootView: View {
                         .font(.caption.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 30)
                 }
-                .buttonStyle(DJConnectWatchStandardButtonStyle())
+                .buttonStyle(DJConnectWatchFlatActionRowStyle())
                 .disabled(model.isUpdatingMusicDNA)
             }
         }
@@ -1342,7 +1342,7 @@ struct DJConnectWatchRootView: View {
                         .font(.caption.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 30)
                 }
-                .buttonStyle(DJConnectWatchStandardButtonStyle())
+                .buttonStyle(DJConnectWatchFlatActionRowStyle())
                 .disabled(model.isLoadingMusicDNA)
             }
         }
@@ -1628,7 +1628,7 @@ struct DJConnectWatchRootView: View {
                         Label(watchLocalizedKey(model.language, "watch.demo.mode"), systemImage: "play.circle")
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
-                    .buttonStyle(DJConnectWatchStandardButtonStyle())
+                    .buttonStyle(DJConnectWatchFlatActionRowStyle())
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 4)
@@ -1757,7 +1757,7 @@ private struct DJConnectWatchWelcomeView: View {
                         Text(watchLocalizedKey(model.language, "watch.continue"))
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
-                    .buttonStyle(DJConnectWatchStandardButtonStyle())
+                    .buttonStyle(DJConnectWatchFlatActionRowStyle())
                 }
                 .padding(.vertical, 10)
                 .padding(.horizontal, 8)
@@ -1816,7 +1816,7 @@ private struct DJConnectWatchMicrophonePermissionView: View {
                         Text(watchLocalizedKey(model.language, "watch.continue"))
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
-                    .buttonStyle(DJConnectWatchStandardButtonStyle())
+                    .buttonStyle(DJConnectWatchFlatActionRowStyle())
 
                     Button {
                         switch kind {
@@ -1829,7 +1829,7 @@ private struct DJConnectWatchMicrophonePermissionView: View {
                         Text(watchLocalizedKey(model.language, "watch.not.now"))
                             .frame(maxWidth: .infinity, minHeight: 30)
                     }
-                    .buttonStyle(DJConnectWatchStandardButtonStyle())
+                    .buttonStyle(DJConnectWatchFlatActionRowStyle())
                 }
                 .padding(.vertical, 10)
                 .padding(.horizontal, 8)
@@ -1896,7 +1896,7 @@ private struct DJConnectWatchAskDJNotificationPermissionView: View {
                         Text(watchLocalizedKey(model.language, "watch.continue"))
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
-                    .buttonStyle(DJConnectWatchStandardButtonStyle())
+                    .buttonStyle(DJConnectWatchFlatActionRowStyle())
 
                     Button {
                         model.cancelAskDJNotificationPermissionExplanation()
@@ -1904,7 +1904,7 @@ private struct DJConnectWatchAskDJNotificationPermissionView: View {
                         Text(watchLocalizedKey(model.language, "watch.not.now"))
                             .frame(maxWidth: .infinity, minHeight: 30)
                     }
-                    .buttonStyle(DJConnectWatchStandardButtonStyle())
+                    .buttonStyle(DJConnectWatchFlatActionRowStyle())
                 }
                 .padding(.vertical, 10)
                 .padding(.horizontal, 8)
@@ -2233,7 +2233,7 @@ private struct DJConnectWatchFeedbackView: View {
                             .font(.caption2.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
-                    .buttonStyle(DJConnectWatchStandardButtonStyle())
+                    .buttonStyle(DJConnectWatchFlatActionRowStyle())
 
                     VStack(alignment: .leading, spacing: 5) {
                         Text(watchLocalizedKey(model.language, "watch.does.opening.not.work.on.the.watch"))
@@ -2339,7 +2339,7 @@ private struct DJConnectWatchSettingsView: View {
                                     .font(.caption2.weight(.semibold))
                                     .frame(maxWidth: .infinity, minHeight: 30)
                             }
-                            .buttonStyle(DJConnectWatchStandardButtonStyle())
+                            .buttonStyle(DJConnectWatchFlatActionRowStyle())
                         }
                     }
 
@@ -2356,7 +2356,7 @@ private struct DJConnectWatchSettingsView: View {
                                     .font(.caption2.weight(.semibold))
                                     .frame(maxWidth: .infinity, minHeight: 30)
                             }
-                            .buttonStyle(DJConnectWatchStandardButtonStyle())
+                            .buttonStyle(DJConnectWatchFlatActionRowStyle())
                         }
                     }
 
@@ -2386,7 +2386,7 @@ private struct DJConnectWatchSettingsView: View {
                                     systemImage: "trash"
                                 )
                             }
-                            .buttonStyle(DJConnectWatchStandardButtonStyle())
+                            .buttonStyle(DJConnectWatchFlatActionRowStyle())
                             .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA || (!model.canUseBackend && !model.isDemoMode))
                         }
 
@@ -2404,7 +2404,7 @@ private struct DJConnectWatchSettingsView: View {
                                 systemImage: musicDNAEnabled ? "power" : "sparkles"
                             )
                         }
-                        .buttonStyle(DJConnectWatchStandardButtonStyle())
+                        .buttonStyle(DJConnectWatchFlatActionRowStyle())
                         .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA || (!model.canUseBackend && !model.isDemoMode))
                     }
 
@@ -2971,7 +2971,7 @@ private struct DJConnectWatchDiscoveryView: View {
                         .font(.caption.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 30)
                 }
-                .buttonStyle(DJConnectWatchStandardButtonStyle())
+                .buttonStyle(DJConnectWatchFlatActionRowStyle())
                 .disabled(model.isUpdatingMusicDNA)
                 .padding(.top, 2)
             }
@@ -3042,7 +3042,7 @@ private struct DJConnectWatchDiscoveryDetailView: View {
                                 .frame(maxWidth: .infinity, minHeight: 34)
                         }
                     }
-                    .buttonStyle(DJConnectWatchStandardButtonStyle())
+                    .buttonStyle(DJConnectWatchFlatActionRowStyle())
                     .disabled(model.playingMusicDiscoveryItemID != nil)
 
                     if let message = model.musicDiscoveryErrorMessage {
@@ -3509,7 +3509,7 @@ private struct DJConnectWatchAskDJChatView: View {
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
-                    .buttonStyle(DJConnectWatchStandardButtonStyle())
+                    .buttonStyle(DJConnectWatchFlatActionRowStyle())
                     .disabled(!model.isDemoMode && !model.canUseBackend)
 
                     if model.isCheckingAskDJHistoryState {
@@ -3543,7 +3543,7 @@ private struct DJConnectWatchAskDJChatView: View {
                         .symbolRenderingMode(.monochrome)
                         .frame(maxWidth: .infinity, minHeight: 34)
                     }
-                    .buttonStyle(DJConnectWatchStandardButtonStyle())
+                    .buttonStyle(DJConnectWatchFlatActionRowStyle())
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
                 }
                 .padding(.vertical, 8)
@@ -3998,7 +3998,7 @@ private struct DJConnectWatchMusicDNAOptInPromptView: View {
                             .font(.caption.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 34)
                         }
-                        .buttonStyle(DJConnectWatchStandardButtonStyle())
+                        .buttonStyle(DJConnectWatchFlatActionRowStyle())
                         .disabled(model.isUpdatingMusicDNAConsent)
 
                         Button {
@@ -4008,7 +4008,7 @@ private struct DJConnectWatchMusicDNAOptInPromptView: View {
                                 .font(.caption.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 30)
                         }
-                        .buttonStyle(DJConnectWatchStandardButtonStyle())
+                        .buttonStyle(DJConnectWatchFlatActionRowStyle())
                         .disabled(model.isUpdatingMusicDNAConsent)
                     }
                     .padding(.vertical, 12)
@@ -4508,31 +4508,6 @@ private struct DJConnectWatchPanel: View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(Color.white.opacity(0.12), lineWidth: 1)
             )
-    }
-}
-
-private struct DJConnectWatchStandardButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    func makeBody(configuration: Configuration) -> some View {
-        let tint = Color(red: 0.71, green: 0.61, blue: 0.86)
-        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-        let label = configuration.label
-            .foregroundStyle(configuration.role == .destructive ? Color.red : Color.white)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .padding(.horizontal, 12)
-            .contentShape(shape)
-            .opacity(isEnabled ? 1 : 0.52)
-        if #available(watchOS 26, *), glassEnabled && !reduceTransparency {
-            label.glassEffect(.regular.tint(tint.opacity(configuration.isPressed ? 0.32 : 0.20)).interactive(),
-                              in: shape)
-        } else {
-            label.background(glassEnabled && !reduceTransparency
-                ? tint.opacity(configuration.isPressed ? 0.38 : 0.28)
-                : Color(red: 0.34, green: 0.27, blue: 0.45), in: shape)
-        }
     }
 }
 
@@ -5383,14 +5358,17 @@ private struct DJConnectWatchCompanionMusicView: View {
     }
 }
 private struct DJConnectWatchFlatActionRowStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(.white)
+            .foregroundStyle(configuration.role == .destructive ? Color.red : Color.white)
             .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
             .padding(.horizontal, 12)
             .background(.white.opacity(configuration.isPressed ? 0.20 : 0.12),
                         in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .contentShape(Rectangle())
+            .opacity(isEnabled ? 1 : 0.52)
     }
 }
 
