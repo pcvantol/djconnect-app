@@ -95,7 +95,11 @@ struct DJConnectWatchSessionView: View {
                             endingSessionID = session.id; confirmsEnd = true
                         } label: {
                             Label(text("ui.session.end"), systemImage: "stop.fill")
+                                .foregroundStyle(.red)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                         .disabled(state.isChanging || state.isRefreshing || state.outcomeUnknown || settings.hasUncertainOperation)
                         .accessibilityIdentifier("watch-session-end")
                     }
