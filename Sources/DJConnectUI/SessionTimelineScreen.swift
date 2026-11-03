@@ -730,6 +730,9 @@ struct SessionTimelineScreen: View {
                         .scrollTargetLayout()
                         // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
+                        // Center the capped column against the scroll viewport even
+                        // when changing modes replaces the rows and scroll target.
+                        .containerRelativeFrame(.horizontal)
                         // Content cards use stable native frost while moving under
                         // the toolbar; reserve live refractive glass for controls.
                         .environment(\.djConnectScrollingSurface, true)
