@@ -51,45 +51,57 @@ public struct DeviceSpeechSettingsView: View {
             (preferences.gender == .default || preferences.gender == $0.gender) }
     }
     public var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SpeechPreferenceRow(label: text("enabled")) {
-                Toggle(text("enabled"), isOn: $preferences.enabled)
-                    .accessibilityIdentifier("device-speech-enabled")
-            }
-            Text(text("explanation")).font(.caption).foregroundStyle(.secondary)
-            if preferences.enabled {
-                speechChoiceRows
-                SpeechPreferenceRow(label: text("rate")) {
-                    Slider(value: $preferences.rate, in: 0...1)
-                        #if !os(watchOS)
-                        .frame(minWidth: 60, idealWidth: 160, maxWidth: 160)
-                        #endif
-                        .accessibilityLabel(text("rate"))
-                }
-                SpeechPreferenceRow(label: text("pitch")) {
-                    Slider(value: $preferences.pitch, in: 0.5...2)
-                        #if !os(watchOS)
-                        .frame(minWidth: 60, idealWidth: 160, maxWidth: 160)
-                        #endif
-                        .accessibilityLabel(text("pitch"))
-                }
-                Button(isSpeaking ? text("stop") : text("preview"), action: isSpeaking ? stop : preview)
-                    #if !os(watchOS)
-                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
-                    #endif
-                    .disabled(!isSpeaking && (!previewAllowed || matching.isEmpty))
-                    .accessibilityIdentifier("device-speech-preview")
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
+        Group {
+            #if os(watchOS)
+            List { speechRows }
+                .listStyle(.plain)
+                .watchStandardBackground()
+            #else
+            VStack(alignment: .leading, spacing: 12) { speechRows }
+            #endif
         }
-        .task { voices = DJConnectAppleSpeechRenderer.voices() }
+        .task { refreshVoices() }
         .onReceive(NotificationCenter.default.publisher(for: AVSpeechSynthesizer.availableVoicesDidChangeNotification)) { _ in
-            stop(); voices = DJConnectAppleSpeechRenderer.voices()
+            stop(); refreshVoices()
         }
         .onDisappear { stop() }
     }
 
-    private var speechChoiceRows: some View {
+    private func refreshVoices() { voices = DJConnectAppleSpeechRenderer.voices() }
+
+    @ViewBuilder private var speechRows: some View {
+        SpeechPreferenceRow(label: text("enabled")) {
+            Toggle(text("enabled"), isOn: $preferences.enabled)
+                .accessibilityIdentifier("device-speech-enabled")
+        }
+        Text(text("explanation")).font(.caption).foregroundStyle(.secondary)
+        if preferences.enabled {
+            speechChoiceRows
+            SpeechPreferenceRow(label: text("rate")) {
+                Slider(value: $preferences.rate, in: 0...1)
+                    #if !os(watchOS)
+                    .frame(minWidth: 60, idealWidth: 160, maxWidth: 160)
+                    #endif
+                    .accessibilityLabel(text("rate"))
+            }
+            SpeechPreferenceRow(label: text("pitch")) {
+                Slider(value: $preferences.pitch, in: 0.5...2)
+                    #if !os(watchOS)
+                    .frame(minWidth: 60, idealWidth: 160, maxWidth: 160)
+                    #endif
+                    .accessibilityLabel(text("pitch"))
+            }
+            Button(isSpeaking ? text("stop") : text("preview"), action: isSpeaking ? stop : preview)
+                #if !os(watchOS)
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
+                #endif
+                .disabled(!isSpeaking && (!previewAllowed || matching.isEmpty))
+                .accessibilityIdentifier("device-speech-preview")
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    @ViewBuilder private var speechChoiceRows: some View {
         let gender = Binding(get: { preferences.gender }, set: {
             preferences.gender = $0
             preferences.voiceID = nil
@@ -108,11 +120,9 @@ public struct DeviceSpeechSettingsView: View {
         }
         let voiceOptions = [("", text("system"))] + unavailable + matching.map { ($0.id, "\($0.name) (\($0.language))") }
 
-        return VStack(alignment: .leading, spacing: 12) {
-            choiceRow(label: text("gender"), selection: gender, choices: genders)
-            choiceRow(label: text("voice"), selection: voice, choices: voiceOptions)
-                .accessibilityIdentifier("device-speech-voice")
-        }
+        choiceRow(label: text("gender"), selection: gender, choices: genders)
+        choiceRow(label: text("voice"), selection: voice, choices: voiceOptions)
+            .accessibilityIdentifier("device-speech-voice")
     }
 
     @ViewBuilder private func choiceRow<Value: Hashable>(label: String, selection: Binding<Value>,

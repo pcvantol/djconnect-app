@@ -338,13 +338,9 @@ private struct DJConnectWatchSessionPresenceView: View {
 struct DJConnectWatchSessionSpeechSettingsView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     var body: some View {
-        ScrollView {
-            DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
-                previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
-                preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
-                .padding(8)
-        }
-        .watchStandardBackground()
+        DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
+            previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
+            preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
         .navigationTitle(DJConnectLocalization.localized(key: "watch.session.speech_settings", language: model.language))
     }
 }
