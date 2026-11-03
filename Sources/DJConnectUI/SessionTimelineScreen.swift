@@ -100,6 +100,7 @@ struct SavedSessionsView: View {
     @State private var isSearchVisible = false
     @State private var searchText = ""
     @State private var selectedSearchIndex = 0
+    @State private var usesWideList = false
     @State private var rowTimeZone = TimeZone.current
     @FocusState private var isSearchFocused: Bool
     private let externalOpenedSession: Binding<SavedSessionDestination?>?
@@ -236,6 +237,7 @@ struct SavedSessionsView: View {
                             .id(cursor)
                     }
             }
+            .djConnectObserveWidePadLayout($usesWideList)
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .accessibilityIdentifier("saved-sessions-list")
@@ -371,15 +373,23 @@ struct SavedSessionsView: View {
     }
     @ViewBuilder private func savedSessionsContainer<Rows: View>(@ViewBuilder rows: () -> Rows) -> some View {
         #if os(macOS)
+        savedSessionsScrollContent(rows: rows)
+        #else
+        if usesWideList {
+            savedSessionsScrollContent(rows: rows)
+        } else {
+            List { rows() }
+        }
+        #endif
+    }
+
+    private func savedSessionsScrollContent<Rows: View>(@ViewBuilder rows: () -> Rows) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) { rows() }
                 .padding(.horizontal, 20)
                 .padding(.vertical, djConnectScreenVerticalPadding)
         }
         .scrollIndicators(.visible)
-        #else
-        List { rows() }
-        #endif
     }
 
     private func detailTitle(sessionID: String) -> String {
@@ -3148,5 +3158,21 @@ private struct SavedSessionsDeleteAllButton: View {
     }
     private func resetConfirmation() {
         presentationGeneration = UUID(); confirming = false; pendingAction = nil; failed = false
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func djConnectObserveWidePadLayout(_ usesWideList: Binding<Bool>) -> some View {
+        #if os(iOS)
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        onGeometryChange(for: Bool.self) { geometry in
+            isPad && geometry.size.width > geometry.size.height
+        } action: { isWide in
+            usesWideList.wrappedValue = isWide
+        }
+        #else
+        self
+        #endif
     }
 }

@@ -14234,6 +14234,8 @@ struct QueueView: View {
         return canOpenQueueSearch ? .primary : .secondary
     }
 
+    @State private var usesWideList = false
+
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
@@ -14256,43 +14258,47 @@ struct QueueView: View {
                     }
 
                     #if os(macOS)
-                    queueScrollContent(proxy: proxy)
+                    queueScrollContent(maxWidth: 1000)
                     #else
-                    List {
-                        if shouldShowEmptyQueueState || shouldShowFilteredEmptyQueueState {
-                            DJConnectEmptyState(
-                                title: shouldShowFilteredEmptyQueueState
-                                    ? localizedKey(model.language, "ui.no.search.results")
-                                    : localizedKey(model.language, "ui.no.queue"),
-                                systemImage: shouldShowFilteredEmptyQueueState ? "magnifyingglass" : "music.note.list"
-                            )
-                            .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                        } else {
-                            ForEach(filteredQueueItems, id: \.index) { index, item in
-                                Button {
-                                    showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
-                                    model.startQueueItem(item, at: index)
-                                } label: {
-                                    QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
-                                        .equatable()
-                                        .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
-                                }
-                                .buttonStyle(DJConnectMediaRowButtonStyle())
+                    if usesWideList {
+                        queueScrollContent(maxWidth: .infinity)
+                    } else {
+                        List {
+                            if shouldShowEmptyQueueState || shouldShowFilteredEmptyQueueState {
+                                DJConnectEmptyState(
+                                    title: shouldShowFilteredEmptyQueueState
+                                        ? localizedKey(model.language, "ui.no.search.results")
+                                        : localizedKey(model.language, "ui.no.queue"),
+                                    systemImage: shouldShowFilteredEmptyQueueState ? "magnifyingglass" : "music.note.list"
+                                )
+                                .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
-                                .listRowInsets(djConnectListRowInsets)
-                                .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
-                                .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
-                                .accessibilityLabel(item.displayTitle)
-                                .accessibilityIdentifier("queue-item-row-\(index)")
-                                .id(index)
+                            } else {
+                                ForEach(filteredQueueItems, id: \.index) { index, item in
+                                    Button {
+                                        showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
+                                        model.startQueueItem(item, at: index)
+                                    } label: {
+                                        QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
+                                            .equatable()
+                                            .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
+                                    }
+                                    .buttonStyle(DJConnectMediaRowButtonStyle())
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(djConnectListRowInsets)
+                                    .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
+                                    .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
+                                    .accessibilityLabel(item.displayTitle)
+                                    .accessibilityIdentifier("queue-item-row-\(index)")
+                                    .id(index)
+                                }
                             }
                         }
+                        .listStyle(.plain)
+                        .scrollIndicators(.visible)
                     }
-                    .listStyle(.plain)
-                    .scrollIndicators(.visible)
                     #endif
                 }
                 .onAppear { rebuildQueueRows() }
@@ -14307,6 +14313,7 @@ struct QueueView: View {
                     scrollToActiveQueueSearchResult(proxy)
                 }
             }
+            .djConnectObserveWidePadLayout($usesWideList)
             .djContentRefreshable(enabled: !model.isDemoMode && canUsePlayback) { await refreshQueueWithToast() }
             .navigationTitle(screenTitle(model.language, key: "Queue", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-queue")
@@ -14357,8 +14364,7 @@ struct QueueView: View {
         .background(DJConnectCanvasBackground())
     }
 
-    #if os(macOS)
-    private func queueScrollContent(proxy: ScrollViewProxy) -> some View {
+    private func queueScrollContent(maxWidth: CGFloat) -> some View {
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(spacing: 10) {
                 if shouldShowEmptyQueueState || shouldShowFilteredEmptyQueueState {
@@ -14388,13 +14394,12 @@ struct QueueView: View {
                     }
                 }
             }
-            .frame(maxWidth: 1000, alignment: .leading)
+            .frame(maxWidth: maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .top)
             .padding(.horizontal, djConnectScreenHorizontalPadding)
             .padding(.vertical, djConnectScreenVerticalPadding)
         }
     }
-    #endif
 
     private func queueSearchMatches(_ item: DJConnectQueueItem) -> Bool {
         let searchable = [
@@ -14543,6 +14548,8 @@ struct PlaylistsView: View {
         return canOpenPlaylistSearch ? .primary : .secondary
     }
 
+    @State private var usesWideList = false
+
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
@@ -14565,41 +14572,45 @@ struct PlaylistsView: View {
                     }
 
                     #if os(macOS)
-                    playlistsScrollContent(proxy: proxy)
+                    playlistsScrollContent(maxWidth: 1000)
                     #else
-                    List {
-                        if model.playlistItems.isEmpty || shouldShowFilteredEmptyPlaylistState {
-                            DJConnectEmptyState(
-                                title: shouldShowFilteredEmptyPlaylistState
-                                    ? localizedKey(model.language, "ui.no.search.results")
-                                    : localizedKey(model.language, "ui.no.playlists"),
-                                systemImage: shouldShowFilteredEmptyPlaylistState ? "magnifyingglass" : "rectangle.stack"
-                            )
-                            .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                        } else {
-                            ForEach(filteredPlaylistItems) { playlist in
-                                Button {
-                                    showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"), systemImage: "play.fill")
-                                    model.startPlaylist(playlist)
-                                } label: {
-                                    PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
-                                        .equatable()
-                                        .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
-                                }
-                                .buttonStyle(DJConnectMediaRowButtonStyle())
+                    if usesWideList {
+                        playlistsScrollContent(maxWidth: .infinity)
+                    } else {
+                        List {
+                            if model.playlistItems.isEmpty || shouldShowFilteredEmptyPlaylistState {
+                                DJConnectEmptyState(
+                                    title: shouldShowFilteredEmptyPlaylistState
+                                        ? localizedKey(model.language, "ui.no.search.results")
+                                        : localizedKey(model.language, "ui.no.playlists"),
+                                    systemImage: shouldShowFilteredEmptyPlaylistState ? "magnifyingglass" : "rectangle.stack"
+                                )
+                                .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
-                                .listRowInsets(djConnectListRowInsets)
-                                .disabled(arePlaylistItemsDisabled)
-                                .allowsHitTesting(!arePlaylistItemsDisabled)
-                                .id(playlist.id)
+                            } else {
+                                ForEach(filteredPlaylistItems) { playlist in
+                                    Button {
+                                        showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"), systemImage: "play.fill")
+                                        model.startPlaylist(playlist)
+                                    } label: {
+                                        PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
+                                            .equatable()
+                                            .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
+                                    }
+                                    .buttonStyle(DJConnectMediaRowButtonStyle())
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(djConnectListRowInsets)
+                                    .disabled(arePlaylistItemsDisabled)
+                                    .allowsHitTesting(!arePlaylistItemsDisabled)
+                                    .id(playlist.id)
+                                }
                             }
                         }
+                        .listStyle(.plain)
+                        .scrollIndicators(.visible)
                     }
-                    .listStyle(.plain)
-                    .scrollIndicators(.visible)
                     #endif
                 }
                 .onAppear { rebuildPlaylistRows() }
@@ -14614,6 +14625,7 @@ struct PlaylistsView: View {
                     scrollToActivePlaylistSearchResult(proxy)
                 }
             }
+            .djConnectObserveWidePadLayout($usesWideList)
             .djContentRefreshable(enabled: !model.isDemoMode && canUsePlayback) { await refreshPlaylistsWithToast() }
             .navigationTitle(screenTitle(model.language, key: "ui.playlists", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-playlists")
@@ -14663,8 +14675,7 @@ struct PlaylistsView: View {
         }
     }
 
-    #if os(macOS)
-    private func playlistsScrollContent(proxy: ScrollViewProxy) -> some View {
+    private func playlistsScrollContent(maxWidth: CGFloat) -> some View {
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(spacing: 10) {
                 if model.playlistItems.isEmpty || shouldShowFilteredEmptyPlaylistState {
@@ -14692,13 +14703,12 @@ struct PlaylistsView: View {
                     }
                 }
             }
-            .frame(maxWidth: 1000, alignment: .leading)
+            .frame(maxWidth: maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .top)
             .padding(.horizontal, djConnectScreenHorizontalPadding)
             .padding(.vertical, djConnectScreenVerticalPadding)
         }
     }
-    #endif
 
     private func playlistSearchMatches(_ playlist: DJConnectPlaylist) -> Bool {
         let searchable = [
