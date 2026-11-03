@@ -4712,7 +4712,7 @@ private struct DJConnectWatchCompanionPages: View {
                 DJConnectWatchCanvas(theme: page == 0 ? theme : .brand)
             }
             TabView(selection: Binding(get: { page }, set: { next in
-                guard page != 0 || flowPosition == 0 || currentFlowRows.isEmpty else { return }
+                guard page != 0 || (!isLoadingSession && visibleFlowRow == nil) else { return }
                 page = next
             })) {
                 more
@@ -4721,7 +4721,7 @@ private struct DJConnectWatchCompanionPages: View {
                 crownHome.tag(0)
             }
             .tabViewStyle(.page(indexDisplayMode: isLoadingSession && page == 0 ? .never : .automatic))
-            .scrollDisabled(visibleFlowRow != nil)
+            .scrollDisabled((page == 0 && isLoadingSession) || visibleFlowRow != nil)
             .highPriorityGesture(
                 DragGesture(minimumDistance: 16).onEnded { drag in
                     guard let row = visibleFlowRow else { return }
@@ -5030,7 +5030,7 @@ private struct DJConnectWatchCompanionPages: View {
             }
         }
         // Keep the Crown's focus target outside the timeline and card transitions.
-        .focusable()
+        .focusable(!isLoadingSession)
         .focused($crownFocused)
         .digitalCrownRotation(
             $crownPosition, from: 0, through: Double(max(1, currentFlowRows.count)), by: 1,
