@@ -5038,7 +5038,6 @@ private struct DJConnectWatchCompanionPages: View {
     }
     private var more: some View {
         List {
-            NavigationLink { DJConnectWatchCompanionMusicView() } label: { Label(text("watch.v2.music"), systemImage: "music.note") }
             if session != nil {
                 NavigationLink {
                     ScrollView {
@@ -5047,6 +5046,7 @@ private struct DJConnectWatchCompanionPages: View {
                     .watchStandardBackground()
                 } label: { Label(text("ui.session.title"), systemImage: "slider.horizontal.3") }
             }
+            NavigationLink { DJConnectWatchCompanionMusicView() } label: { Label(text("watch.v2.music"), systemImage: "music.note") }
             NavigationLink { DJConnectWatchSessionSpeechSettingsView() } label: { Label(text("watch.v2.voice"), systemImage: "speaker.wave.2") }
             NavigationLink { DJConnectWatchCompanionNotificationsView() } label: { Label(text("watch.v2.notifications"), systemImage: "bell") }
             NavigationLink { DJConnectWatchAboutView() } label: { Label(text("watch.about"), systemImage: "info.circle") }
