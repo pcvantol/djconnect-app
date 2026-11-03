@@ -90,15 +90,48 @@ struct AskDJComposerHelpPopout: View {
             title: DJConnectLocalization.localized(key: expanded ? "ui.askdj.help.catalogue.title" : "ui.askdj.suggestions.title", language: model.language),
             backLabel: DJConnectLocalization.localized(key: "ui.askdj.suggestions.title", language: model.language),
             closeLabel: DJConnectLocalization.localized(key: "ui.close", language: model.language), close: close) {
-                AskDJSuggestionStrip(model: model, surface: surface, reading: expanded,
-                    more: { expand(); expanded = true }, select: select)
+                if model.isDemoMode {
+                    VStack(alignment: .leading, spacing: 12) {
+                        AskDJSuggestionRows(
+                            suggestions: DJConnectAskDJCatalogue.bundled?.demoSuggestions(surface: surface, language: model.language) ?? [],
+                            surface: surface, disabled: !canSelectDemoExample) { selectDemoExample($0.prompt) }
+                        Button(action: showMore) {
+                            Label(DJConnectLocalization.localized(key: "ui.more", language: model.language), systemImage: "ellipsis.circle")
+                        }
+                        .accessibilityIdentifier("ask-dj-more-" + surface.rawValue)
+                    }
+                } else {
+                    AskDJSuggestionStrip(model: model, surface: surface, reading: expanded, more: showMore, select: select)
+                }
             } catalogue: {
-                AskDJHelpContent(model: model, surface: surface,
-                    presented: Binding(get: { expanded }, set: { if !$0 { close() } }), send: send)
+                if model.isDemoMode {
+                    AskDJFullCatalogueReference(
+                        sections: DJConnectAskDJCatalogue.bundled?.demoCatalogueSections(surface: surface, language: model.language) ?? [],
+                        busy: false, enabled: canSelectDemoExample, language: model.language, showsTitle: false
+                    ) { selectDemoExample($0.prompt) }
+                } else {
+                    AskDJHelpContent(model: model, surface: surface,
+                        presented: Binding(get: { expanded }, set: { if !$0 { close() } }), send: send)
+                }
             }
         .onChange(of: expanded) { _, value in model.askDJHelpIsPresented = value }
         .onDisappear { model.askDJHelpIsPresented = false }
         .accessibilityIdentifier("ask-dj-suggestions-popout-" + surface.rawValue)
+    }
+
+    private var canSelectDemoExample: Bool {
+        model.isDemoMode && model.canUseAskDJFeatures && model.askDJDraft.isEmpty &&
+            !model.isSendingAskDJText && !model.isRecordingVoice
+    }
+
+    private func selectDemoExample(_ prompt: String) {
+        guard canSelectDemoExample else { return }
+        select(prompt)
+    }
+
+    private func showMore() {
+        expand()
+        expanded = true
     }
 }
 

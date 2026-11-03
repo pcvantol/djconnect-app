@@ -199,6 +199,37 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
         }
         return sections
     }
+    /// Fixed, localized examples for the offline demo. These carry no producer admission.
+    public func demoSuggestions(surface: Surface, language: String) -> [Suggestion] {
+        let listening = surface == .session ? "listen.artist" : "listen.queue"
+        return demoExamples(ids: ["play.artist", "discover.artist_tracks", listening],
+                            surface: surface, language: language)
+    }
+
+    public func demoCatalogueSections(surface: Surface, language: String) -> [CatalogueSection] {
+        let listening = surface == .session ? ["listen.current", "listen.artist"] : ["listen.queue", "listen.outputs"]
+        let examples = demoExamples(ids: ["play.artist", "play.cooking", "discover.artist_tracks",
+                                         "discover.artist_albums"] + listening, surface: surface, language: language)
+        let family = locale(language) ?? "en"
+        return groups.compactMap { group in
+            let items = examples.filter { $0.group == group.id }.map {
+                HelpItem(id: $0.id, prompt: $0.prompt, inputRange: nil, isAvailable: true)
+            }
+            guard !items.isEmpty, let title = group.labels[family] else { return nil }
+            return CatalogueSection(id: group.id, title: title, items: items)
+        }
+    }
+
+    private func demoExamples(ids: [String], surface: Surface, language: String) -> [Suggestion] {
+        let family = locale(language) ?? "en"
+        return ids.compactMap { id in
+            guard let entry = entries.first(where: { $0.id == id && $0.surfaces.contains(surface.rawValue) }),
+                  let text = prompt(entry, language: family, slots: ["artist": "M83"]) else { return nil }
+            return Suggestion(id: id, intent: entry.intent, group: entry.group, prompt: text,
+                              ownerEpoch: "", sessionID: nil, trackID: nil)
+        }
+    }
+
     public func unavailableText(language: String) -> String { unavailable[locale(language) ?? "en"] ?? "" }
 
     /// Full reference, without the compact Help's two-example limit. The caller
