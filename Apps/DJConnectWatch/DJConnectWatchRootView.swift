@@ -5144,6 +5144,7 @@ private struct DJConnectWatchCompanionTrackView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     @Environment(\.watchSessionTheme) private var theme
     @State private var original: DJConnectPlayback?
+    @State private var progressObservedAt = Date()
     @State private var context: DJConnectConversationContext
     @State private var originalBinding: String?
     init(playback: DJConnectPlayback?, context: DJConnectConversationContext, binding: String?) {
@@ -5162,6 +5163,7 @@ private struct DJConnectWatchCompanionTrackView: View {
             detail(artwork: phase.image)
         }
         .navigationTitle(watchLocalizedKey(model.language, "watch.v2.music"))
+        .onReceive(model.$playback) { _ in progressObservedAt = Date() }
     }
 
     private func detail(artwork: Image?) -> some View {
@@ -5171,6 +5173,7 @@ private struct DJConnectWatchCompanionTrackView: View {
                 VStack(spacing: 4) {
                     Text(original?.trackName ?? "").font(.headline)
                     Text(original?.artistName ?? "").foregroundStyle(.secondary)
+                    trackTiming
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(spacing: 6) {
@@ -5208,6 +5211,24 @@ private struct DJConnectWatchCompanionTrackView: View {
                 .accessibilityHidden(true)
             }
         }
+    }
+
+    @ViewBuilder private var trackTiming: some View {
+        let live = original?.uri != nil && model.playback?.uri == original?.uri ? model.playback : nil
+        let timing = live ?? original
+        if let progress = timing?.progressMS, let duration = timing?.durationMS, duration > 0 {
+            TimelineView(.animation(minimumInterval: 1, paused: live?.isPlaying != true)) { clock in
+                let sinceObservation = live?.isPlaying == true ? max(0, clock.date.timeIntervalSince(progressObservedAt)) : 0
+                let elapsed = min(Double(duration) / 1000, Double(max(0, progress)) / 1000 + sinceObservation)
+                Text("\(trackTime(Int(elapsed))) / \(trackTime(duration / 1000))")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func trackTime(_ seconds: Int) -> String {
+        "\(seconds / 60):" + String(format: "%02d", seconds % 60)
     }
 
     private struct TrackActionRowStyle: ButtonStyle {
