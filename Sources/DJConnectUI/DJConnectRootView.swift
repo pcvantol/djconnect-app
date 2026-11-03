@@ -7453,9 +7453,6 @@ private struct TrackInsightHero: View {
             )
             .frame(minHeight: 430)
             .frame(maxWidth: .infinity)
-            Text(localizedKey(model.language, "ui.trackInsight.visual.decorative"))
-                .font(.caption).foregroundStyle(.secondary)
-                .accessibilityIdentifier("track-insight-decorative-caption")
         }
         .padding(14)
         .frame(maxWidth: .infinity)

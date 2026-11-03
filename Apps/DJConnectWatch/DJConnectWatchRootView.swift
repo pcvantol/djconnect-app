@@ -832,9 +832,6 @@ struct DJConnectWatchRootView: View {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(.white.opacity(0.14), lineWidth: 1)
                 }
-                Text(watchLocalizedKey(language, "ui.trackInsight.visual.decorative"))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
         }
     }
