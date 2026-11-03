@@ -162,6 +162,16 @@ public struct DJConnectWatchSessionMoodIntent: Codable, Sendable {
 }
 
 /// A read request bound to the Profile observed by this Watch.
+public struct DJConnectWatchFlowArtwork: Codable, Sendable {
+    public let jpeg: Data
+    public let expiresAt: Date
+
+    public init(jpeg: Data, expiresAt: Date) {
+        self.jpeg = jpeg
+        self.expiresAt = expiresAt
+    }
+}
+
 public struct DJConnectWatchOriginalContext: Codable, Sendable {
     public let binding: String
     public let sessionID: String

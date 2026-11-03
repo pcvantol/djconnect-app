@@ -1,4 +1,5 @@
 import DJConnectCore
+import ImageIO
 import SwiftUI
 import WatchKit
 
@@ -5035,6 +5036,9 @@ private struct DJConnectWatchCompanionPages: View {
                 if snapshot?.settings.binding == binding, session?.id == sessionID, Date() < row.expiresAt,
                    flowRows?.contains(where: { $0.id == row.id && $0.text == row.text }) == true {
                     VStack(alignment: .leading, spacing: 8) {
+                        if row.labelKey == "ui.session.history.playback", let reference = row.reference {
+                            DJConnectWatchFlowArtworkView(reference: reference, binding: binding)
+                        }
                         Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
                         if row.spotifyAttribution { flowSpotifyAttribution }
                         ForEach(row.sources.indices, id: \.self) { index in
@@ -5079,6 +5083,37 @@ private struct DJConnectWatchCompanionPages: View {
             NavigationLink { DJConnectWatchCompanionNotificationsView() } label: { Label(text("watch.v2.notifications"), systemImage: "bell") }
             NavigationLink { DJConnectWatchAboutView() } label: { Label(text("watch.about"), systemImage: "info.circle") }
         }.listStyle(.plain)
+    }
+}
+
+private struct DJConnectWatchFlowArtworkView: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+    @Environment(\.scenePhase) private var scenePhase
+    let reference: DJConnectSessionEntryReference
+    let binding: String
+    @State private var artwork: (image: CGImage, expiresAt: Date)?
+
+    var body: some View {
+        TimelineView(.explicit([Date()] + [artwork?.expiresAt].compactMap { $0 })) { _ in
+            if scenePhase == .active, let artwork, artwork.expiresAt > Date() {
+                Image(decorative: artwork.image, scale: 1)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxHeight: 104)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .task(id: scenePhase) {
+            artwork = nil
+            guard scenePhase == .active,
+                  let result = await model.loadWatchFlowArtwork(reference, binding: binding),
+                  !Task.isCancelled,
+                  let source = CGImageSourceCreateWithData(result.jpeg as CFData, nil),
+                  let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return }
+            artwork = (image, result.expiresAt)
+        }
+        .onDisappear { artwork = nil }
     }
 }
 

@@ -1000,6 +1000,21 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    func loadWatchFlowArtwork(_ reference: DJConnectSessionEntryReference, binding: String) async -> DJConnectWatchFlowArtwork? {
+        func isCurrent() -> Bool {
+            isAppForeground && canUseBackend && !isDemoMode &&
+                foregroundSession.current()?.settings.binding == binding &&
+                foregroundSession.current()?.session?.id == reference.sessionID
+        }
+        guard isCurrent() else { return nil }
+        let owner = stableInstallID
+        let result: DJConnectWatchFlowArtwork? = try? await sendCompanionHARequest(.sessionFlowArtwork,
+            payload: DJConnectWatchOriginalContext(binding: binding, sessionID: reference.sessionID, originalID: reference.entryID))
+        guard !Task.isCancelled, isCurrent(), stableInstallID == owner,
+              let result, result.expiresAt > Date(), result.jpeg.count <= 24_000 else { return nil }
+        return result
+    }
+
     func acceptCurrentForegroundSession() async {
         guard isAppForeground, canUseBackend, !isDemoMode else { return }
         await foregroundSession.useCurrent { [unowned self] in try await sendCompanionHARequest(.foregroundSession) }

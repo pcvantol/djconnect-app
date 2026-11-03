@@ -15475,10 +15475,10 @@ public final class DJConnectAppModel: ObservableObject {
         }
         do {
             let encoded = try await withWatchProxyHomeAssistantClient(identity: registration.identity, token: token,
-                historyContractVersion: request.operation == .sessionFlow ? sessionHistory.historyContractVersion : 1,
+                historyContractVersion: [.sessionFlow, .sessionFlowArtwork].contains(request.operation) ? sessionHistory.historyContractVersion : 1,
                 allowsOperationReplay: !request.isAskDJTextSubmission && request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech &&
                     request.operation != .startSession && request.operation != .endSession &&
-                    request.operation != .updateSessionOnlyMood && request.operation != .voice) { client in
+                    request.operation != .updateSessionOnlyMood && request.operation != .sessionFlowArtwork && request.operation != .voice) { client in
                 try await self.performWatchProxyOperation(request, client: client)
             }
             guard encoded.count < 42_000 else { throw DJConnectError.payloadTooLarge(limitBytes: 42_000, actualBytes: encoded.count) }
@@ -15495,6 +15495,27 @@ public final class DJConnectAppModel: ObservableObject {
         } catch {
             return DJConnectWatchProxyResponse(success: false, error: Self.watchProxyErrorCode(for: error), message: Self.watchProxyUserMessage(for: error))
         }
+    }
+
+    private static func watchFlowThumbnail(_ image: CGImage) throws -> Data {
+        let scale = min(1, 160.0 / Double(max(image.width, image.height)))
+        let width = max(1, Int(Double(image.width) * scale))
+        let height = max(1, Int(Double(image.height) * scale))
+        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                                      bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
+            throw DJConnectError.invalidResponse
+        }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let bytes = NSMutableData()
+        guard let thumbnail = context.makeImage(),
+              let destination = CGImageDestinationCreateWithData(bytes, "public.jpeg" as CFString, 1, nil) else {
+            throw DJConnectError.invalidResponse
+        }
+        CGImageDestinationAddImage(destination, thumbnail, [kCGImageDestinationLossyCompressionQuality: 0.8] as CFDictionary)
+        guard CGImageDestinationFinalize(destination), bytes.length <= 24_000 else { throw DJConnectError.invalidResponse }
+        return bytes as Data
     }
 
     private func performWatchProxyOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
@@ -15538,6 +15559,33 @@ public final class DJConnectAppModel: ObservableObject {
                 throw DJConnectError.invalidResponse
             }
             return try encoder.encode(entry)
+        case .sessionFlowArtwork:
+            let intent = try decoder.decode(DJConnectWatchOriginalContext.self, from: request.payload ?? Data())
+            let before = try await client.profileDJSettings()
+            guard before.binding == intent.binding, before.snapshot.session?.session_id == intent.sessionID,
+                  !before.requiresSelection else { throw DJConnectError.invalidResponse }
+            let tail = try await client.sessionTimeline(sessionID: intent.sessionID, window: .tail, limit: 50)
+            guard let entry = tail.entries.first(where: {
+                $0.id == intent.originalID && $0.sessionID == intent.sessionID &&
+                    $0.kind == .playbackObserved && $0.isRetained()
+            }), let retainedUntil = DJConnectHistoryEntry.date(entry.retainedUntil) else {
+                throw DJConnectError.invalidResponse
+            }
+            let target = DJConnectSessionMedia.Target.entry(entry.id)
+            let prepared = try await client.prepareSessionArtwork(sessionID: intent.sessionID, targets: [target])
+            guard let media = prepared.first(where: { $0.target == target }),
+                  ["cover", "playback_thumbnail"].contains(media.artwork.role ?? "") else {
+                throw DJConnectError.invalidResponse
+            }
+            let audience = media.entryAudience
+            let image = try await client.sessionArtwork(media, sessionID: intent.sessionID, target: target, audience: audience)
+            let after = try await client.profileDJSettings()
+            guard after.binding == before.binding, after.snapshot.session?.session_id == intent.sessionID,
+                  !after.requiresSelection, entry.isRetained(),
+                  let grant = media.admittedArtwork(session: intent.sessionID, target: target, audience: audience),
+                  let expiresAt = grant.expiresAt.flatMap(DJConnectHistoryEntry.date) else { throw DJConnectError.invalidResponse }
+            return try encoder.encode(DJConnectWatchFlowArtwork(jpeg: Self.watchFlowThumbnail(image.image),
+                expiresAt: min(retainedUntil, expiresAt)))
         case .sessionFlow:
             let intent = try decoder.decode(DJConnectWatchSessionAction.self, from: request.payload ?? Data())
             guard let sessionID = intent.sessionID else { throw DJConnectError.invalidResponse }
