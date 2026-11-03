@@ -4733,11 +4733,15 @@ private struct DJConnectWatchCompanionPages: View {
                 Text(text(state.failureKey ?? "watch.session.loading")).multilineTextAlignment(.center)
                 Button(text("ui.refresh")) { Task { await model.refreshForegroundSession(force: true) } }
             }.padding(8)
+        } else if dynamicTypeSize.isAccessibilitySize {
+            ScrollView {
+                homeContent.padding(.horizontal, 4)
+            }
         } else {
-            homeContent(metadata: !dynamicTypeSize.isAccessibilitySize).padding(.horizontal, 4)
+            homeContent.padding(.horizontal, 4)
         }
     }
-    private func homeContent(metadata: Bool) -> some View {
+    private var homeContent: some View {
         VStack(spacing: 2) {
             if let session {
                 Button { destination = .mood } label: {
@@ -4749,17 +4753,24 @@ private struct DJConnectWatchCompanionPages: View {
                 }.buttonStyle(.plain)
                 NavigationLink { DJConnectWatchCompanionTrackView(playback: model.playback, context: context) } label: {
                         HStack(spacing: 5) {
-                            if metadata {
+                            if !dynamicTypeSize.isAccessibilitySize {
                                 DJConnectWatchArtwork(url: model.playback?.albumImageURL, fallbackSystemImage: "music.note")
                                     .frame(width: 24, height: 24)
                             }
                             VStack(alignment: .leading, spacing: 1) {
-                                Text(model.playback?.trackName ?? text("watch.session.waiting")).font(.caption.weight(.semibold)).lineLimit(1)
-                                if metadata, let artist = model.playback?.artistName { Text(artist).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
+                                Text(model.playback?.trackName ?? text("watch.session.waiting"))
+                                    .font(.caption.weight(.semibold))
+                                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                                if let artist = model.playback?.artistName {
+                                    Text(artist)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                                }
                             }
                         }
                     }.buttonStyle(.plain)
-            } else if metadata {
+            } else {
                 Text(text("watch.v2.ask.prompt")).font(.caption).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: 6) {
