@@ -13237,44 +13237,21 @@ private struct AskDJImageStrip: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let spacing: CGFloat = 10
-            let visibleCount = min(max(images.count, 1), 3)
-            let availableWidth = max(1, geometry.size.width)
-            let cardWidth = min(
-                maxCardWidth,
-                floor((availableWidth - spacing * CGFloat(visibleCount - 1)) / CGFloat(visibleCount))
-            )
-            let stripHeight = imageStripHeight(for: cardWidth)
-
+        let cardWidth: CGFloat = isCompact ? 96 : 132
+        if images.count == 1, let image = images.first {
+            AskDJImageCard(image: image, width: cardWidth)
+        } else {
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: spacing) {
+                HStack(alignment: .top, spacing: 10) {
                     ForEach(images) { image in
                         AskDJImageCard(image: image, width: cardWidth)
                     }
                 }
                 .padding(.vertical, 1)
             }
-            .scrollClipDisabled()
-            .frame(height: stripHeight)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: 520, alignment: .leading)
         }
-        .frame(maxWidth: 520, alignment: .leading)
-        .frame(height: reservedStripHeight)
-    }
-
-    private var reservedStripHeight: CGFloat {
-        imageStripHeight(for: maxCardWidth)
-    }
-
-    private var maxCardWidth: CGFloat {
-        isCompact ? 112 : 190
-    }
-
-    private func imageStripHeight(for cardWidth: CGFloat) -> CGFloat {
-        let textHeight: CGFloat = images.contains { image in
-            image.title?.isEmpty == false || image.subtitle?.isEmpty == false
-        } ? 58 : 0
-        return cardWidth + textHeight + 4
     }
 }
 
@@ -13287,43 +13264,38 @@ private struct AskDJImageCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            if image.isProtectedReplyArtwork {
-                ResponseArtworkImageView(image: image, width: width)
-            } else {
-            CachedArtworkImage(url: displayURL, mode: .fill) {
-                Image(systemName: "photo")
-                    .font(.title2)
-                    .foregroundStyle(.white.opacity(0.78))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .frame(width: width, height: width)
-            .clipped()
-            .clipShape(DJConnectCardAppearance.shape)
-            .overlay {
-                DJConnectCardAppearance.shape
-                    .stroke(.white.opacity(0.18), lineWidth: 1)
-            }
-
-            }
-
-            if image.title?.isEmpty == false || image.subtitle?.isEmpty == false {
-                VStack(alignment: .leading, spacing: 2) {
-                    if let title = image.title, !title.isEmpty {
-                        Text(title)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
-                    }
-                    if let subtitle = image.subtitle, !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.70))
-                            .lineLimit(2)
-                    }
+        if image.isProtectedReplyArtwork {
+            ResponseArtworkImageView(image: image, width: width) { caption }
+        } else {
+            VStack(alignment: .leading, spacing: 7) {
+                CachedArtworkImage(url: displayURL, mode: .fill) {
+                    Image(systemName: "photo")
+                        .font(.title2)
+                        .foregroundStyle(.white.opacity(0.78))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(width: width, alignment: .leading)
+                .frame(width: width, height: width)
+                .clipped()
+                .clipShape(DJConnectCardAppearance.shape)
+                .overlay {
+                    DJConnectCardAppearance.shape.stroke(.white.opacity(0.18), lineWidth: 1)
+                }
+                caption
             }
+        }
+    }
+
+    @ViewBuilder private var caption: some View {
+        if image.title?.isEmpty == false || image.subtitle?.isEmpty == false {
+            VStack(alignment: .leading, spacing: 2) {
+                if let title = image.title, !title.isEmpty {
+                    Text(title).font(.caption.weight(.semibold)).foregroundStyle(.white).lineLimit(2)
+                }
+                if let subtitle = image.subtitle, !subtitle.isEmpty {
+                    Text(subtitle).font(.caption2).foregroundStyle(.white.opacity(0.70)).lineLimit(2)
+                }
+            }
+            .frame(width: width, alignment: .leading)
         }
     }
 }

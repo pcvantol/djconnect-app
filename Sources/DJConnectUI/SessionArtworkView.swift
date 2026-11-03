@@ -162,9 +162,10 @@ extension EnvironmentValues {
 }
 
 /// Only original authenticated reply pixels; never the generic shared URL cache.
-struct ResponseArtworkImageView: View {
+struct ResponseArtworkImageView<Caption: View>: View {
     let image: DJConnectResponseImage
     let width: CGFloat
+    @ViewBuilder let caption: () -> Caption
     @Environment(\.responseArtworkLoader) private var loader
     @Environment(\.responseArtworkEpoch) private var epoch
     @Environment(\.scenePhase) private var phase
@@ -176,8 +177,11 @@ struct ResponseArtworkImageView: View {
     var body: some View {
         Group {
             if let pixels, loadedKey == key {
-                Image(decorative: pixels.image, scale: 1).resizable().scaledToFit()
-                    .frame(width: width, height: width)
+                VStack(alignment: .leading, spacing: 7) {
+                    Image(decorative: pixels.image, scale: 1).resizable().scaledToFit()
+                        .frame(width: width, height: width)
+                    caption()
+                }
             }
         }
         .task(id: key) {
