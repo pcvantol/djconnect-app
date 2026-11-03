@@ -5361,7 +5361,11 @@ struct DJConnectWatchCompanionMoodView: View {
                     let mood = option.theme.rawValue
                     HStack(spacing: 10) {
                         Image(systemName: option.icon)
-                            .foregroundStyle(option.theme.watchColors[1])
+                            .symbolRenderingMode(.monochrome)
+                            .foregroundStyle(
+                                LinearGradient(colors: option.theme.watchColors,
+                                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                            )
                             .frame(width: 22)
                             .accessibilityHidden(true)
                         Text(watchLocalizedKey(model.language, "ui.session.mood." + mood))
