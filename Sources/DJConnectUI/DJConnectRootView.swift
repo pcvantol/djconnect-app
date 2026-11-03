@@ -298,6 +298,11 @@ private extension View {
         djSessionFrostedSurface()
     }
 
+    func djConnectStandardHeroWidth() -> some View {
+        frame(maxWidth: djConnectContentMaxWidth - 2 * djConnectScreenHorizontalPadding)
+            .frame(maxWidth: .infinity)
+    }
+
     func djConnectGradientCard() -> some View {
         modifier(DJConnectGradientCardStyle())
     }
@@ -4211,6 +4216,7 @@ struct TrackInsightView: View {
                                     }.padding(24).frame(maxWidth: .infinity, alignment: .leading).djSessionFrostedSurface()
                                 } else {
                                     TrackInsightEmptyState(model: model)
+                                        .djConnectStandardHeroWidth()
                                 }
                             }
                             .accessibilityElement(children: .contain)
@@ -4493,6 +4499,7 @@ private struct MusicDNAView: View {
                         let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
                         VStack(alignment: .leading, spacing: 16) {
                             MusicDNAHeroView(model: model, moodStepIndex: model.askDJMoodStepIndex)
+                                .djConnectStandardHeroWidth()
                                 .frame(maxWidth: .infinity, alignment: .top)
                             MusicDNAContentView(model: model, refreshAction: { Task { await refreshMusicDNAWithToast() } })
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -6462,6 +6469,7 @@ private struct MusicDiscoveryView: View {
                         let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
                         VStack(alignment: .leading, spacing: 18) {
                             header
+                                .djConnectStandardHeroWidth()
                             content
                         }
                         .padding(.horizontal, djConnectScreenHorizontalPadding)
@@ -11745,6 +11753,7 @@ private struct AskDJEmptyState: View {
         DJConnectIntroductionCard(systemImage: "bubble.left.and.bubble.right",
             title: localizedKey(language, "ui.ask.dj"),
             message: localizedKey(language, "ui.ask.about.the.music.or.give.your.dj.a.request"))
+        .djConnectStandardHeroWidth()
     }
 
 }
