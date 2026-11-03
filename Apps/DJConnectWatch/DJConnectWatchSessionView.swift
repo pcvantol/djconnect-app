@@ -86,8 +86,12 @@ struct DJConnectWatchSessionView: View {
                         NavigationLink {
                             DJConnectWatchSessionSpeechSettingsView()
                         } label: {
-                            Label(text("watch.session.speech_settings"), systemImage: "speaker.wave.2")
-                                .font(.footnote)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Label(text("watch.session.speech_settings"), systemImage: "speaker.wave.2")
+                                Text(text(model.deviceSpeechPreferences.enabled ? "ui.on" : "ui.off"))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     if let session = snapshot.session, !snapshot.settings.requiresSelection {
