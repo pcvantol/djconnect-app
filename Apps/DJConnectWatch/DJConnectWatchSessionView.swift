@@ -252,10 +252,17 @@ private struct DJConnectWatchSharedDJSettingsView: View {
         voice.kind == .providerDefault ? "default" : "voice/\((voice.provider_id ?? "").utf8.count):\(voice.provider_id ?? "")/\(voice.voice_id ?? "")"
     }
     private func choices(_ field: String, _ values: [String], selected: String, change: @escaping (String) -> Void) -> some View {
-        choiceLink(title: text("ui.dj_settings." + field), values: values.map { ($0, label(field, $0)) },
+        let icons: [String: String] = switch field {
+        case "presence":
+            Dictionary(uniqueKeysWithValues: DJConnectSessionPresenceValue.selectableChoices.map { ($0.rawValue, $0.watchIcon) })
+        case "output":
+            Dictionary(uniqueKeysWithValues: DJAnnouncementOutput.allCases.map { ($0.rawValue, $0.watchIcon) })
+        default:
+            [:]
+        }
+        return choiceLink(title: text("ui.dj_settings." + field), values: values.map { ($0, label(field, $0)) },
                    selected: selected, unavailableTitle: label(field, selected), field: field,
-                   icons: field == "presence" ? Dictionary(uniqueKeysWithValues:
-                       DJConnectSessionPresenceValue.selectableChoices.map { ($0.rawValue, $0.watchIcon) }) : [:],
+                   icons: icons,
                    disabledValues: Set(values.filter { value in
                        field == "output" && settings.response?.announcement_output.outputs.first(where: { $0.value == value })?.available != true
                    }), change: change)
@@ -270,7 +277,7 @@ private struct DJConnectWatchSharedDJSettingsView: View {
         } label: {
             HStack(spacing: 10) {
                 LabeledContent(title, value: values.first { $0.0 == selected }?.1 ?? unavailableTitle)
-                if let field, ["mood", "presence", "persona"].contains(field) {
+                if let field, ["mood", "presence", "persona", "output"].contains(field) {
                     selectedIcon(field: field, value: selected)
                         .frame(width: 22)
                         .accessibilityHidden(true)
@@ -295,8 +302,23 @@ private struct DJConnectWatchSharedDJSettingsView: View {
             if let persona = DJConnectSessionPersonaValue(rawValue: value) {
                 Image(systemName: persona.watchIcon).foregroundStyle(.purple)
             }
+        case "output":
+            if let output = DJAnnouncementOutput(rawValue: value) {
+                Image(systemName: output.watchIcon).foregroundStyle(.purple)
+            }
         default:
             EmptyView()
+        }
+    }
+}
+
+private extension DJAnnouncementOutput {
+    var watchIcon: String {
+        switch self {
+        case .clientDevice: "applewatch"
+        case .both: "speaker.wave.2.fill"
+        case .haSpeaker: "speaker.wave.2"
+        case .textOnly: "text.bubble"
         }
     }
 }
