@@ -5173,19 +5173,22 @@ private struct DJConnectWatchCompanionTrackView: View {
                     Text(original?.artistName ?? "").foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                NavigationLink {
-                    DJConnectWatchCompanionTextView(context: context, initialText: originalQuestion)
-                } label: { Label(watchLocalizedKey(model.language, "watch.v2.ask_about"), systemImage: "bubble.left") }
-                if model.isDemoMode {
-                    NavigationLink("Track Insight") { DJConnectWatchRootView.DJConnectWatchTrackInsightView() }
-                } else if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
-                          let binding = originalBinding {
-                    NavigationLink("Track Insight") {
-                        DJConnectWatchRecordingInsightView(recording: recording, binding: binding,
-                                                          session: model.foregroundSession,
-                                                          artworkURL: original?.albumImageURL)
+                VStack(spacing: 6) {
+                    NavigationLink {
+                        DJConnectWatchCompanionTextView(context: context, initialText: originalQuestion)
+                    } label: { Label(watchLocalizedKey(model.language, "watch.v2.ask_about"), systemImage: "bubble.left") }
+                    if model.isDemoMode {
+                        NavigationLink("Track Insight") { DJConnectWatchRootView.DJConnectWatchTrackInsightView() }
+                    } else if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
+                              let binding = originalBinding {
+                        NavigationLink("Track Insight") {
+                            DJConnectWatchRecordingInsightView(recording: recording, binding: binding,
+                                                              session: model.foregroundSession,
+                                                              artworkURL: original?.albumImageURL)
+                        }
                     }
                 }
+                .buttonStyle(TrackActionRowStyle())
             }
             .padding(.bottom, 12)
         }
@@ -5204,6 +5207,18 @@ private struct DJConnectWatchCompanionTrackView: View {
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
             }
+        }
+    }
+
+    private struct TrackActionRowStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+                .padding(.horizontal, 12)
+                .background(.white.opacity(configuration.isPressed ? 0.20 : 0.12),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .contentShape(Rectangle())
         }
     }
 
