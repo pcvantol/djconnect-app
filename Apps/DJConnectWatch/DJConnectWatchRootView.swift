@@ -1981,6 +1981,15 @@ private struct DJConnectWatchAboutView: View {
 
                     DJConnectWatchSettingsSection(title: watchLocalizedKey(model.language, "ui.notices")) {
                         aboutRow("Copyright", "2026 Peter van Tol")
+                        Link(destination: URL(string: "https://github.com/pcvantol/djconnect")!) {
+                            Label("GitHub", systemImage: "arrow.up.right.square")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("about-djconnect-github")
                     }
                 }
                 .padding(.vertical, 10)
