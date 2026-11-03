@@ -254,17 +254,19 @@ private struct DJConnectWatchSharedDJSettingsView: View {
     private func choices(_ field: String, _ values: [String], selected: String, change: @escaping (String) -> Void) -> some View {
         choiceLink(title: text("ui.dj_settings." + field), values: values.map { ($0, label(field, $0)) },
                    selected: selected, unavailableTitle: label(field, selected),
+                   icons: field == "presence" ? Dictionary(uniqueKeysWithValues:
+                       DJConnectSessionPresenceValue.selectableChoices.map { ($0.rawValue, $0.watchIcon) }) : [:],
                    disabledValues: Set(values.filter { value in
                        field == "output" && settings.response?.announcement_output.outputs.first(where: { $0.value == value })?.available != true
                    }), change: change)
     }
 
     private func choiceLink(title: String, values: [(String, String)], selected: String,
-                            unavailableTitle: String, disabledValues: Set<String> = [],
+                            unavailableTitle: String, icons: [String: String] = [:], disabledValues: Set<String> = [],
                             change: @escaping (String) -> Void) -> some View {
         NavigationLink {
             DJConnectWatchSettingsChoices(title: title, values: values, selected: selected,
-                unavailableTitle: unavailableTitle, disabledValues: disabledValues, change: change)
+                unavailableTitle: unavailableTitle, icons: icons, disabledValues: disabledValues, change: change)
         } label: {
             LabeledContent(title, value: values.first { $0.0 == selected }?.1 ?? unavailableTitle)
         }
@@ -277,6 +279,7 @@ private struct DJConnectWatchSettingsChoices: View {
     let values: [(String, String)]
     let selected: String
     let unavailableTitle: String
+    let icons: [String: String]
     let disabledValues: Set<String>
     let change: (String) -> Void
 
@@ -290,7 +293,13 @@ private struct DJConnectWatchSettingsChoices: View {
                     if value.0 != selected { change(value.0) }
                     dismiss()
                 } label: {
-                    HStack {
+                    HStack(spacing: 10) {
+                        if let icon = icons[value.0] {
+                            Image(systemName: icon)
+                                .foregroundStyle(.purple)
+                                .frame(width: 22)
+                                .accessibilityHidden(true)
+                        }
                         Text(value.1)
                         Spacer()
                         if value.0 == selected {
@@ -342,7 +351,7 @@ private struct DJConnectWatchSessionPresenceView: View {
                         }
                     } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: icon(for: choice))
+                            Image(systemName: choice.watchIcon)
                                 .foregroundStyle(.purple)
                                 .frame(width: 22)
                                 .accessibilityHidden(true)
@@ -367,9 +376,11 @@ private struct DJConnectWatchSessionPresenceView: View {
         .watchStandardBackground()
         .navigationTitle(text("ui.session.presence.title"))
     }
+}
 
-    private func icon(for choice: DJConnectSessionPresenceValue) -> String {
-        switch choice {
+private extension DJConnectSessionPresenceValue {
+    var watchIcon: String {
+        switch self {
         case .musicOnly: "music.note"
         case .occasional: "bubble.left"
         case .balanced: "bubble.left.and.bubble.right"
