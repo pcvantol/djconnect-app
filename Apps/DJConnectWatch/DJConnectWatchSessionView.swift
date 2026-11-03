@@ -253,7 +253,7 @@ private struct DJConnectWatchSharedDJSettingsView: View {
     }
     private func choices(_ field: String, _ values: [String], selected: String, change: @escaping (String) -> Void) -> some View {
         choiceLink(title: text("ui.dj_settings." + field), values: values.map { ($0, label(field, $0)) },
-                   selected: selected, unavailableTitle: label(field, selected),
+                   selected: selected, unavailableTitle: label(field, selected), field: field,
                    icons: field == "presence" ? Dictionary(uniqueKeysWithValues:
                        DJConnectSessionPresenceValue.selectableChoices.map { ($0.rawValue, $0.watchIcon) }) : [:],
                    disabledValues: Set(values.filter { value in
@@ -262,13 +262,52 @@ private struct DJConnectWatchSharedDJSettingsView: View {
     }
 
     private func choiceLink(title: String, values: [(String, String)], selected: String,
-                            unavailableTitle: String, icons: [String: String] = [:], disabledValues: Set<String> = [],
+                            unavailableTitle: String, field: String? = nil, icons: [String: String] = [:], disabledValues: Set<String> = [],
                             change: @escaping (String) -> Void) -> some View {
         NavigationLink {
             DJConnectWatchSettingsChoices(title: title, values: values, selected: selected,
                 unavailableTitle: unavailableTitle, icons: icons, disabledValues: disabledValues, change: change)
         } label: {
-            LabeledContent(title, value: values.first { $0.0 == selected }?.1 ?? unavailableTitle)
+            HStack(spacing: 10) {
+                LabeledContent(title, value: values.first { $0.0 == selected }?.1 ?? unavailableTitle)
+                if let field, ["mood", "presence", "persona"].contains(field) {
+                    selectedIcon(field: field, value: selected)
+                        .frame(width: 22)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func selectedIcon(field: String?, value: String) -> some View {
+        switch field {
+        case "mood":
+            if let mood = DJConnectSessionMoodTheme(rawValue: value), mood != .brand {
+                Image(systemName: mood.watchIcon)
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(mood.watchIconGradient)
+            }
+        case "presence":
+            if let presence = DJConnectSessionPresenceValue(rawValue: value) {
+                Image(systemName: presence.watchIcon).foregroundStyle(.purple)
+            }
+        case "persona":
+            if let persona = DJConnectSessionPersonaValue(rawValue: value) {
+                Image(systemName: persona.watchIcon).foregroundStyle(.purple)
+            }
+        default:
+            EmptyView()
+        }
+    }
+}
+
+private extension DJConnectSessionPersonaValue {
+    var watchIcon: String {
+        switch self {
+        case .homeDJ: "house"
+        case .radioDJ: "radio"
+        case .clubDJ: "opticaldisc"
+        case .festivalDJ: "music.mic"
         }
     }
 }

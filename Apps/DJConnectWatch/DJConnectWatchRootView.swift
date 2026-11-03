@@ -4435,7 +4435,21 @@ private extension EnvironmentValues {
     @Entry var watchSessionTheme: DJConnectSessionMoodTheme = .brand
 }
 
-private extension DJConnectSessionMoodTheme {
+extension DJConnectSessionMoodTheme {
+    var watchIcon: String {
+        switch self {
+        case .brand: "waveform"
+        case .chill: "moon.zzz.fill"
+        case .groove: "waveform"
+        case .energy: "bolt.fill"
+        case .party: "party.popper.fill"
+        }
+    }
+
+    var watchIconGradient: LinearGradient {
+        LinearGradient(colors: watchColors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
     var watchColors: [Color] {
         colorValues.map { value in
             Color(red: Double(value >> 16 & 255) / 255, green: Double(value >> 8 & 255) / 255,
@@ -5346,26 +5360,18 @@ struct DJConnectWatchCompanionMoodView: View {
     @ObservedObject var state: DJConnectWatchForegroundSession
     @ObservedObject var settings: ProfileDJSettingsModel
 
-    private let moods: [(theme: DJConnectSessionMoodTheme, icon: String)] = [
-        (.chill, "moon.zzz.fill"),
-        (.groove, "waveform"),
-        (.energy, "bolt.fill"),
-        (.party, "party.popper.fill")
-    ]
+    private let moods: [DJConnectSessionMoodTheme] = [.chill, .groove, .energy, .party]
 
     var body: some View {
         List {
             if let current = state.current(), let session = current.session,
                settings.response?.binding == current.settings.binding, !current.settings.requiresSelection {
-                ForEach(moods, id: \.theme) { option in
-                    let mood = option.theme.rawValue
+                ForEach(moods, id: \.self) { option in
+                    let mood = option.rawValue
                     HStack(spacing: 10) {
-                        Image(systemName: option.icon)
+                        Image(systemName: option.watchIcon)
                             .symbolRenderingMode(.monochrome)
-                            .foregroundStyle(
-                                LinearGradient(colors: option.theme.watchColors,
-                                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                            )
+                            .foregroundStyle(option.watchIconGradient)
                             .frame(width: 22)
                             .accessibilityHidden(true)
                         Text(watchLocalizedKey(model.language, "ui.session.mood." + mood))
