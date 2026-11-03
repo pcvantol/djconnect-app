@@ -4683,7 +4683,6 @@ private struct DJConnectWatchCompanionPages: View {
     @FocusState private var crownFocused: Bool
     @State private var flowPosition = 0.0
     @State private var crownPosition = 0.0
-    @State private var crownAdvance = true
     @State private var unseenFlowID: String?
     @GestureState private var holdingVoice = false
     @State private var heldVoice: (generation: UUID, context: DJConnectConversationContext)?
@@ -4958,7 +4957,7 @@ private struct DJConnectWatchCompanionPages: View {
             let rows = currentFlowRows
             let index = min(Int(flowPosition.rounded()), rows.count)
             let canScroll = page == 0 && destination == nil && !rows.isEmpty
-            let transition: AnyTransition = reduceMotion ? .identity : .push(from: crownAdvance ? .bottom : .top)
+            let transition: AnyTransition = reduceMotion ? .identity : .asymmetric(insertion: .opacity, removal: .identity)
             ZStack {
                 if index == 0 {
                     home
@@ -5044,7 +5043,6 @@ private struct DJConnectWatchCompanionPages: View {
         let next = min(max(0, value.rounded()), Double(count))
         guard next != flowPosition else { return }
         if next <= 1 { unseenFlowID = nil }
-        crownAdvance = next > flowPosition
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { flowPosition = next }
         if next > 0 { playWatchHaptic(.click, enabled: true) }
     }
