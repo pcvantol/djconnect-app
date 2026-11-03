@@ -911,10 +911,28 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             })
     }
 
+    private var pendingEndNavigation: (binding: String, sessionID: String)?
+
+    private func returnHomeAfterConfirmedEnd() {
+        guard let pending = pendingEndNavigation, let current = foregroundSession.current() else { return }
+        guard current.settings.binding == pending.binding else {
+            pendingEndNavigation = nil
+            return
+        }
+        if let session = current.session {
+            if session.id != pending.sessionID { pendingEndNavigation = nil }
+            return
+        }
+        guard !foregroundSession.outcomeUnknown, !foregroundSession.isChanging else { return }
+        pendingEndNavigation = nil
+        watchHomeOpenSequence &+= 1
+    }
+
     func refreshForegroundSession(force: Bool = false) async {
         guard force || !isUpdatingSessionMood else { return }
         let active = isAppForeground && canUseBackend && !isDemoMode
         if !active { settingsOperationConfirmation = nil }
+        if !canUseBackend || isDemoMode { pendingEndNavigation = nil }
         foregroundSession.bind(owner: active ? stableInstallID : nil, active: active)
         guard active else {
             if isAppForeground { publishStackEntry(nil) }
@@ -927,6 +945,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 throw error
             }
         }
+        returnHomeAfterConfirmedEnd()
         if isAppForeground { publishStackEntry(canUseBackend ? foregroundSession.stackEntry() : nil) }
         guard isAppForeground, let current = foregroundSession.current() else {
             profileDJSettings.bind(owner: profileDJSettings.response?.binding, active: false)
@@ -1018,20 +1037,25 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     func acceptCurrentForegroundSession() async {
         guard isAppForeground, canUseBackend, !isDemoMode else { return }
         await foregroundSession.useCurrent { [unowned self] in try await sendCompanionHARequest(.foregroundSession) }
+        returnHomeAfterConfirmedEnd()
+        if !foregroundSession.outcomeUnknown { pendingEndNavigation = nil }
         await refreshForegroundSession(force: true)
     }
 
     func changeForegroundSession(expectedSessionID: String? = nil) async {
         guard isAppForeground, canUseBackend, !isDemoMode,
-              !profileDJSettings.hasUncertainOperation,
+              !profileDJSettings.hasUncertainOperation, !foregroundSession.isRefreshing,
+              !foregroundSession.isChanging, !foregroundSession.outcomeUnknown,
               let expectedSessionID, let current = foregroundSession.current(),
-              current.session?.id == expectedSessionID else { return }
+              current.session?.id == expectedSessionID, !current.settings.requiresSelection else { return }
+        pendingEndNavigation = (current.settings.binding, expectedSessionID)
         sessionSpeech.stop()
         publishStackEntry(nil)
         await foregroundSession.change(language: language, write: { [unowned self] intent in
             let _: Bool = try await sendCompanionHARequest(.endSession,
                                                           payload: intent)
         }, read: { [unowned self] in try await sendCompanionHARequest(.foregroundSession) })
+        returnHomeAfterConfirmedEnd()
         await refreshForegroundSession(force: true)
     }
 
