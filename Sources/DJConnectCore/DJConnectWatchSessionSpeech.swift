@@ -46,10 +46,11 @@ public struct DJConnectWatchMomentSpeechRequest: Codable, Sendable {
               settings.binding == snapshot.settings.binding, settings.speechFence == snapshot.settings.speechFence,
               settings.snapshot.effective == snapshot.settings.snapshot.effective,
               settings.voice_revision == snapshot.settings.voice_revision,
-              moment.type != "dj_bulletin", !moment.content.isEmpty, moment.content.unicodeScalars.count <= 4000,
+              !moment.content.isEmpty, moment.content.unicodeScalars.count <= 4000,
               source.reference == reference, snapshot.speechSources.contains(source),
               let expiry = DJConnectHistoryEntry.date(source.expiresAt), expiry > now,
-              let session = snapshot.session, session.id == moment.sessionID else { return false }
+              let session = snapshot.session, session.id == moment.sessionID,
+              session.broadcast.nativeMomentSpeechIsAdmitted(reference, at: now, automatic: false) else { return false }
         let current = session.broadcast.nativeCurrentMoment(at: now, spotifyAttributionAvailable: true)
         let flow = session.broadcast.nativeFlowMoments(at: now)
         return ([current].compactMap { $0 } + flow).contains { $0 == moment }

@@ -18,16 +18,16 @@ public struct DJConnectWatchSessionSnapshot: Codable, Sendable {
     public init(settings: DJConnectProfileDJSettingsResponse, session: DJConnectSessionRuntime?, at date: Date = Date()) {
         self.settings = settings
         if var value = session {
-            let projectedCurrent = value.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: true)
-            let current = projectedCurrent?.type == "dj_bulletin" ? nil : projectedCurrent
-            let flow = value.broadcast.nativeFlowMoments(at: date).filter { $0.id != current?.id && $0.type != "dj_bulletin" }
+            let current = value.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: true)
+            let flow = value.broadcast.nativeFlowMoments(at: date).filter { $0.id != current?.id }
             let ids = Set(([current].compactMap { $0 } + Array(flow.prefix(8))).map(\.id))
             // Only compact original speech revisions accompany visible cards;
             // no speech segments, hidden history, future labels, media or actions.
             speechSources = value.broadcast.djMoments.filter { ids.contains($0.id) }.compactMap { moment in
-                guard settings.allowsSpeech(.local), let original = value.broadcast.sessionSpeech.first(where: {
-                    $0.reference == .moment(sessionID: value.id, momentID: moment.id)
-                }) else { return nil }
+                let reference = DJConnectSpeechReference.moment(sessionID: value.id, momentID: moment.id)
+                guard settings.allowsSpeech(.local),
+                      value.broadcast.nativeMomentSpeechIsAdmitted(reference, at: date, automatic: false),
+                      let original = value.broadcast.sessionSpeech.first(where: { $0.reference == reference }) else { return nil }
                 return DJConnectWatchSpeechSource(original, text: moment.content, at: date)
             }
             value.broadcast.sessionSpeech = []
