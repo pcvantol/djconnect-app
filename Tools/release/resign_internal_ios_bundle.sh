@@ -76,6 +76,12 @@ sign_bundle() {
   plutil -extract Entitlements xml1 -o "$entitlements" "$decoded"
   cp "$profile" "$bundle/embedded.mobileprovision"
   /usr/bin/codesign --force --sign "$signing_identity" --entitlements "$entitlements" --timestamp=none --generate-entitlement-der "$bundle"
+  case "$identifier" in
+    dev.djconnect.ios|dev.djconnect.ios.watch)
+      /usr/bin/codesign -d --entitlements - --xml "$bundle" > "$scratch/signed.plist"
+      test "$(/usr/libexec/PlistBuddy -c 'Print :aps-environment' "$scratch/signed.plist")" = development
+      ;;
+  esac
 }
 
 find "$app_bundle" -name '._*' -type f -delete

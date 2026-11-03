@@ -22,9 +22,14 @@ jobs:
       IPAD_UDID: ${{ secrets.DJCONNECT_APPLE_IPAD_UDID }}
       SIGNING_IDENTITY: ${{ secrets.DJCONNECT_APPLE_DEVELOPMENT_SIGNING_IDENTITY }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+        with:
+          persist-credentials: false
       - id: validate
         name: Validate immutable iPad request and approved manifest binding
         env:
+          DJCONNECT_ARTIFACT_READ_TOKEN: ${{ secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN }}
+          ARTIFACT_REPOSITORY_ID: ${{ vars.DJCONNECT_APPLE_ARTIFACT_REPOSITORY_ID }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           MANIFEST_ID: ${{ inputs.manifest_id }}
           ARTIFACT_ID: ${{ inputs.artifact_id }}
@@ -35,7 +40,7 @@ jobs:
           set -euo pipefail
           test "$RELEASE_PROFILE" = INTERNAL_RELEASE
           printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
-          printf '%s' "$ARTIFACT_ID" | grep -Eq '^release-asset:pcvantol/djconnect-app-releases:ios/v[0-9]+\.[0-9]+\.[0-9]+:DJConnect-iOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
+          printf '%s' "$ARTIFACT_ID" | grep -Eq '^[1-9][0-9]*$'
           printf '%s' "$ARTIFACT_SHA256" | grep -Eq '^[0-9a-f]{64}$'
           printf '%s' "$PLATFORM_VERSION" | grep -Eq '^[0-9]+\.[0-9]+$'
           manifest="$(mktemp)"
@@ -51,11 +56,7 @@ jobs:
           test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
           release_version="$(jq -r --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-app" and .source_sha == $sha and .version == "4.0.0") | .version' "$manifest")"
           printf '%s' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
-          test "$ARTIFACT_ID" = "release-asset:pcvantol/djconnect-app-releases:ios/v${release_version}:DJConnect-iOS-${release_version}-unsigned.zip"
-          binding="$(jq -cer --arg artifact "$ARTIFACT_ID" --arg checksum "$ARTIFACT_SHA256" '.artifact_bindings[] | select(.target == "apple_private_device" and .target_device == "ipad" and .artifact_id == $artifact and .artifact_sha256 == $checksum and .signing == "local_developer_provisioning_required" and (has("paired_watch_validation") | not))' "$manifest")"
-          artifact_url="$(jq -r '.artifact_url' <<<"$binding")"
-          printf '%s' "$artifact_url" | grep -Eq '^https://github\.com/pcvantol/djconnect-app-releases/releases/download/ios/v[0-9]+\.[0-9]+\.[0-9]+/DJConnect-iOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
-          printf 'artifact_url=%s\n' "$artifact_url" >> "$GITHUB_OUTPUT"
+          /usr/bin/python3 Tools/release/private_apple_artifact.py "$manifest" ipad
           printf 'release_version=%s\n' "$release_version" >> "$GITHUB_OUTPUT"
       - name: Verify exact physical iPad and local signing scope
         run: |
@@ -64,17 +65,12 @@ jobs:
           security find-identity -v -p codesigning | grep -F -- "$SIGNING_IDENTITY" >/dev/null
           xcrun devicectl list devices --json-output devices.json >/dev/null
           jq -e --arg udid "$IPAD_UDID" '[.result.devices[] | select(.hardwareProperties.udid == $udid and .hardwareProperties.deviceType == "iPad" and .hardwareProperties.reality == "physical" and .deviceProperties.developerModeStatus == "enabled")] | length == 1' devices.json >/dev/null
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
       - name: Verify, locally sign and install the approved iPad artifact
         env:
-          ARTIFACT_URL: ${{ steps.validate.outputs.artifact_url }}
           ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
           RELEASE_VERSION: ${{ steps.validate.outputs.release_version }}
         run: |
           set -euo pipefail
-          test "${ARTIFACT_URL##*/}" = "DJConnect-iOS-${RELEASE_VERSION}-unsigned.zip"
-          curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
-            --output artifact.zip "$ARTIFACT_URL"
           actual_sha256="$(shasum -a 256 artifact.zip | awk '{print $1}')"
           if test "$actual_sha256" != "$ARTIFACT_SHA256"; then
             echo 'Downloaded artifact checksum does not match the approved manifest binding.' >&2

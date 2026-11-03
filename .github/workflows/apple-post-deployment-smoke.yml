@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$MANIFEST_ID" | grep -Eq '^release-[A-Za-z0-9._-]+$'
-          printf '%s' "$ARTIFACT_ID" | grep -Eq '^release-asset:pcvantol/djconnect-app-releases:macos/v[0-9]+\.[0-9]+\.[0-9]+:DJConnect-macOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
+          printf '%s' "$ARTIFACT_ID" | grep -Eq '^[1-9][0-9]*$'
           printf '%s' "$ARTIFACT_SHA256" | grep -Eq '^[0-9a-f]{64}$'
           test "$TARGET" = apple_private_device
           test "$TARGET_DEVICE" = macbook
