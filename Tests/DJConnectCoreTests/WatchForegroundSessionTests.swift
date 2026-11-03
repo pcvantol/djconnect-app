@@ -429,27 +429,29 @@ private func watchVoiceWAV(samples: Int = 96_000) -> Data {
     #expect(dispatches == 2)
 }
 
-@Test @MainActor func watchVoiceSameOperationWithHigherSequenceCannotDispatchAgain() throws {
+@Test @MainActor func watchVoiceTwoSendAttemptsForOneRecordingAssembleOnce() throws {
     let assembly = DJConnectWatchVoiceAssembly()
     assembly.bind(owner: "same-watch-owner")
-    let id = "1:original-turn"
-    let wav = watchVoiceWAV(samples: 1)
-    let metadata = DJConnectWatchProxyVoicePayload(wavData: Data(),
-        conversationContext: .init(sessionID: nil), clientMessageID: id)
-    let header = try JSONEncoder().encode(metadata)
-    var dispatches = 0
+    let recording = DJConnectWatchVoiceOperation(sequence: 1)
+    let payload = DJConnectWatchProxyVoicePayload(wavData: watchVoiceWAV(samples: 1),
+        conversationContext: .init(sessionID: nil))
+    var completions = 0
 
-    func transfer(sequence: Int) throws {
-        if try assembly.receive(id: id, sequence: sequence, header: header, index: 0,
-                                total: 1, bytes: wav, uptime: 10) != nil {
-            dispatches += 1
+    func send(_ recording: DJConnectWatchVoiceOperation, sequence: Int) throws {
+        let header = try recording.header(for: payload)
+        if try assembly.receive(id: recording.id, sequence: sequence, header: header,
+                                index: 0, total: 1, bytes: payload.wavData, uptime: 10) != nil {
+            completions += 1
         }
     }
 
-    try transfer(sequence: 1)
-    #expect(dispatches == 1)
-    #expect(throws: (any Error).self) { try transfer(sequence: 2) }
-    #expect(dispatches == 1)
+    try send(recording, sequence: recording.sequence)
+    #expect(throws: (any Error).self) { try send(recording, sequence: recording.sequence) }
+    #expect(throws: (any Error).self) { try send(recording, sequence: recording.sequence + 1) }
+    #expect(completions == 1)
+    let nextRecording = DJConnectWatchVoiceOperation(sequence: 2)
+    try send(nextRecording, sequence: nextRecording.sequence)
+    #expect(completions == 2)
 }
 
 @Test @MainActor func watchVoicePartialReorderedExpiredOwnerAndMalformedAudioNeverDispatch() throws {

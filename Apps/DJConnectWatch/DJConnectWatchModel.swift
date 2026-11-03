@@ -2045,14 +2045,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var watchRecordingGeneration = UUID()
     private var watchRecordingContext: DJConnectConversationContext?
     private var watchRecordingOwner: String?
-    private var watchRecordingOperationID: String?
+    private var watchRecordingOperation: DJConnectWatchVoiceOperation?
     func toggleWatchQuestionRecording(context: DJConnectConversationContext) {
         if voiceState == .recording { stopRecordingAndSend(); return }
         guard voiceState != .processing, foregroundSession.current() != nil else { return }
         watchRecordingGeneration = UUID()
         watchRecordingContext = context
         watchRecordingOwner = stableInstallID
-        watchRecordingOperationID = UUID().uuidString
         toggleRecording()
     }
 
@@ -2073,7 +2072,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 watchRecordingGeneration = UUID()
                 watchRecordingContext = .init(sessionID: current.session?.id)
                 watchRecordingOwner = stableInstallID
-                watchRecordingOperationID = UUID().uuidString
             }
             startRecording()
         case .processing:
@@ -3496,6 +3494,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     AVLinearPCMIsBigEndianKey: false
                 ]
                 let recorder = try AVAudioRecorder(url: url, settings: settings)
+                guard watchVoiceTransferSequence < Int.max else { throw DJConnectError.invalidResponse }
+                watchVoiceTransferSequence += 1
+                watchRecordingOperation = DJConnectWatchVoiceOperation(sequence: watchVoiceTransferSequence)
                 recorder.record(forDuration: maxWatchVoiceRecordingDuration)
                 self.recorder = recorder
                 self.recordingURL = url
@@ -3544,9 +3545,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         recordingURL = nil
         let originalContext = watchRecordingContext
         let originalOwner = watchRecordingOwner
-        let originalOperationID = watchRecordingOperationID
+        let originalOperation = watchRecordingOperation
         let originalGeneration = watchRecordingGeneration
-        watchRecordingContext = nil; watchRecordingOwner = nil; watchRecordingOperationID = nil
+        watchRecordingContext = nil; watchRecordingOwner = nil; watchRecordingOperation = nil
         playVoiceHaptic(.stopListening)
         #if !targetEnvironment(simulator)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -3570,6 +3571,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     maxBytes: maxWatchVoiceWAVBytes
                 )
                 guard originalGeneration == watchRecordingGeneration, isAppForeground, canUseBackend else { return }
+                guard let originalOperation else { throw DJConnectError.invalidResponse }
                 appendAskDJMessage(role: .user, text: "Stemverzoek")
                 let response = try await sendWatchVoice(
                     DJConnectWatchProxyVoicePayload(
@@ -3578,9 +3580,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                         djStyle: djStyle,
                         musicDNAKey: musicDNAKey,
                         language: currentRequestLocale,
-                        conversationContext: originalContext,
-                        clientMessageID: originalOperationID
+                        conversationContext: originalContext
                     ),
+                    operation: originalOperation,
                     generation: originalGeneration
                 )
                 guard originalGeneration == watchRecordingGeneration,
@@ -3614,18 +3616,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     @AppStorage("watchVoiceTransferSequence") private var watchVoiceTransferSequence = 0
 
-    private func sendWatchVoice(_ payload: DJConnectWatchProxyVoicePayload, generation: UUID) async throws -> DJConnectVoiceResponse {
+    private func sendWatchVoice(
+        _ payload: DJConnectWatchProxyVoicePayload,
+        operation: DJConnectWatchVoiceOperation,
+        generation: UUID
+    ) async throws -> DJConnectVoiceResponse {
         #if canImport(WatchConnectivity)
-        guard let recordingID = payload.clientMessageID, payload.conversationContext != nil,
-              !payload.wavData.isEmpty, payload.wavData.count <= DJConnectWatchVoiceAssembly.maximumBytes else { throw DJConnectError.invalidResponse }
-        guard watchVoiceTransferSequence < Int.max else { throw DJConnectError.invalidResponse }
-        watchVoiceTransferSequence += 1
-        let sequence = watchVoiceTransferSequence
-        let operationID = "\(sequence):\(recordingID)"
-        var metadata = payload
-        metadata.wavData = Data()
-        metadata.clientMessageID = operationID
-        let header = try JSONEncoder().encode(metadata)
+        guard payload.conversationContext != nil, !payload.wavData.isEmpty,
+              payload.wavData.count <= DJConnectWatchVoiceAssembly.maximumBytes else { throw DJConnectError.invalidResponse }
+        let header = try operation.header(for: payload)
         let size = DJConnectWatchVoiceAssembly.chunkBytes
         let total = (payload.wavData.count + size - 1) / size
         for index in 0..<total {
@@ -3635,7 +3634,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             let final = index == total - 1
             let response = await companionRequests.request(timeout: final ? .seconds(300) : .seconds(20)) { correlationID in
                 WCSession.default.sendMessage(["type": "watch_proxy_voice_chunk", "correlation_id": correlationID,
-                    "operation_id": operationID, "sequence": sequence, "header": header, "index": index, "total": total, "bytes": bytes], replyHandler: nil) { [weak self] _ in
+                    "operation_id": operation.id, "sequence": operation.sequence, "header": header, "index": index, "total": total, "bytes": bytes], replyHandler: nil) { [weak self] _ in
                     Task { @MainActor [weak self] in self?.companionRequests.complete(id: correlationID,
                         response: .init(success: false, error: "outcome_unknown")) }
                 }
@@ -3652,7 +3651,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         watchRecordingGeneration = UUID()
         isShowingMicrophonePermissionExplanation = false
         shouldBypassMicrophonePermissionExplanationOnce = false
-        watchRecordingContext = nil; watchRecordingOwner = nil; watchRecordingOperationID = nil
+        watchRecordingContext = nil; watchRecordingOwner = nil; watchRecordingOperation = nil
         voiceActivationCaptureTask?.cancel()
         voiceActivationCaptureTask = nil
         recorder?.stop()

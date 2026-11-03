@@ -54,6 +54,24 @@ import Foundation
     }
 }
 
+/// Identity allocated once when the Watch starts recording.
+public struct DJConnectWatchVoiceOperation {
+    public let sequence: Int
+    public let id: String
+
+    public init(sequence: Int) {
+        self.sequence = sequence
+        self.id = "\(sequence):\(UUID().uuidString)"
+    }
+
+    public func header(for payload: DJConnectWatchProxyVoicePayload) throws -> Data {
+        var metadata = payload
+        metadata.wavData = Data()
+        metadata.clientMessageID = id
+        return try JSONEncoder().encode(metadata)
+    }
+}
+
 /// One bounded foreground recording over the existing companion connection.
 /// Individual WC messages contain raw bytes, not nested base64 WAV envelopes.
 /// No backend request is produced before the complete ordered original stream.
