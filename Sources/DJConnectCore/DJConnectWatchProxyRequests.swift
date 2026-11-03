@@ -146,3 +146,17 @@ public struct DJConnectWatchVoiceOperation {
         return result
     }
 }
+
+public struct DJConnectWatchSessionMoodIntent: Codable, Sendable {
+    public let binding: String
+    public let sessionID: String
+    public let mood: String
+    public let expectedRevision: Int
+
+    public init(binding: String, sessionID: String, mood: String, expectedRevision: Int) {
+        self.binding = binding
+        self.sessionID = sessionID
+        self.mood = mood
+        self.expectedRevision = expectedRevision
+    }
+}

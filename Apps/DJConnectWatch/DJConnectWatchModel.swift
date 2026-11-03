@@ -909,6 +909,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func refreshForegroundSession(force: Bool = false) async {
+        guard force || !isUpdatingSessionMood else { return }
         let active = isAppForeground && canUseBackend && !isDemoMode
         if !active { settingsOperationConfirmation = nil }
         foregroundSession.bind(owner: active ? stableInstallID : nil, active: active)
@@ -942,6 +943,24 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 })
             await profileDJSettings.refresh(services)
         }
+    }
+
+    @Published private(set) var isUpdatingSessionMood = false
+
+    func updateSessionMood(_ intent: DJConnectWatchSessionMoodIntent) async -> Bool {
+        guard isAppForeground, canUseBackend, !isDemoMode, !isUpdatingSessionMood,
+              !foregroundSession.isRefreshing, !foregroundSession.isChanging,
+              !foregroundSession.outcomeUnknown, !profileDJSettings.hasUncertainOperation,
+              let current = foregroundSession.current(), current.settings.binding == intent.binding,
+              current.session?.id == intent.sessionID,
+              current.session?.confirmedMoodRevision == intent.expectedRevision else { return false }
+        isUpdatingSessionMood = true
+        defer { isUpdatingSessionMood = false }
+        let accepted = try? await sendCompanionHARequest(.updateSessionOnlyMood, payload: intent, responseType: Bool.self)
+        await refreshForegroundSession(force: true)
+        guard accepted == true, let confirmed = foregroundSession.current(),
+              confirmed.settings.binding == intent.binding, confirmed.session?.id == intent.sessionID else { return false }
+        return confirmed.session?.selectedMood == intent.mood
     }
 
     func acceptCurrentForegroundSession() async {

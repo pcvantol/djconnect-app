@@ -5252,6 +5252,8 @@ struct DJConnectWatchCompanionMoodView: View {
     @ObservedObject var state: DJConnectWatchForegroundSession
     @ObservedObject var settings: ProfileDJSettingsModel
 
+    @State private var updateFailed = false
+
     private let moods: [(theme: DJConnectSessionMoodTheme, icon: String)] = [
         (.chill, "moon.zzz.fill"),
         (.groove, "waveform"),
@@ -5262,21 +5264,35 @@ struct DJConnectWatchCompanionMoodView: View {
     var body: some View {
         List {
             if let current = state.current(), let session = current.session,
-               settings.response?.binding == current.settings.binding, !current.settings.requiresSelection {
+               settings.response?.binding == current.settings.binding, !current.settings.requiresSelection,
+               let revision = session.confirmedMoodRevision {
                 ForEach(moods, id: \.theme) { option in
                     let mood = option.theme.rawValue
-                    HStack(spacing: 10) {
-                        Image(systemName: option.icon)
-                            .foregroundStyle(option.theme.watchColors[1])
-                            .frame(width: 22)
-                            .accessibilityHidden(true)
-                        Text(watchLocalizedKey(model.language, "ui.session.mood." + mood))
-                        Spacer()
-                        if session.selectedMood == mood { Image(systemName: "checkmark") }
+                    Button {
+                        let intent = DJConnectWatchSessionMoodIntent(binding: current.settings.binding,
+                            sessionID: session.id, mood: mood, expectedRevision: revision)
+                        Task { updateFailed = !(await model.updateSessionMood(intent)) }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: option.icon)
+                                .foregroundStyle(option.theme.watchColors[1])
+                                .frame(width: 22)
+                                .accessibilityHidden(true)
+                            Text(watchLocalizedKey(model.language, "ui.session.mood." + mood))
+                            Spacer()
+                            if session.selectedMood == mood { Image(systemName: "checkmark") }
+                        }
                     }
+                    .disabled(model.isUpdatingSessionMood || state.isRefreshing || state.isChanging || state.outcomeUnknown ||
+                              settings.hasUncertainOperation || session.selectedMood == mood)
                 }
+            } else {
+                Text(watchLocalizedKey(model.language, "ui.dj_settings.unavailable")).font(.caption).foregroundStyle(.secondary)
             }
-            Text(watchLocalizedKey(model.language, "ui.dj_settings.unavailable")).font(.caption).foregroundStyle(.secondary)
+            if model.isUpdatingSessionMood { ProgressView() }
+            if updateFailed {
+                Text(watchLocalizedKey(model.language, "watch.session.check_outcome")).font(.caption)
+            }
         }
         .watchStandardBackground()
         .navigationTitle(watchLocalizedKey(model.language, "ui.dj_settings.mood"))

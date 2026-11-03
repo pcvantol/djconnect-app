@@ -1904,6 +1904,12 @@ private func activeMoodRuntimeWire() throws -> Data {
     let requestData = try #require(request.httpBody)
     let body = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
     #expect(Set(body.keys) == ["contract_version","client_type","device_id","session_id","selected_mood","expected_mood_revision"])
+    let scoped = try client.sessionMoodRequest(sessionID: "current", mood: "energy",
+                                               expectedRevision: 3, sessionOnly: true)
+    let scopedData = try #require(scoped.httpBody)
+    let scopedBody = try #require(JSONSerialization.jsonObject(with: scopedData) as? [String: Any])
+    #expect(Set(scopedBody.keys) == Set(body.keys).union(["write_scope"]))
+    #expect(scopedBody["write_scope"] as? String == "session_only")
     #expect(request.url?.path == "/api/djconnect/v1/session/mood" && request.httpMethod == "POST")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-fixture-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-ios-ABCDEF123456")

@@ -15476,7 +15476,8 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             let encoded = try await withWatchProxyHomeAssistantClient(identity: registration.identity, token: token,
                 allowsOperationReplay: !request.isAskDJTextSubmission && request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech &&
-                    request.operation != .startSession && request.operation != .endSession && request.operation != .voice) { client in
+                    request.operation != .startSession && request.operation != .endSession &&
+                    request.operation != .updateSessionOnlyMood && request.operation != .voice) { client in
                 try await self.performWatchProxyOperation(request, client: client)
             }
             guard encoded.count < 42_000 else { throw DJConnectError.payloadTooLarge(limitBytes: 42_000, actualBytes: encoded.count) }
@@ -15523,6 +15524,19 @@ public final class DJConnectAppModel: ObservableObject {
                 settings: { try await client.profileDJSettings() },
                 session: { try await client.activeSession() })
             return try encoder.encode(value)
+        case .updateSessionOnlyMood:
+            let intent = try decoder.decode(DJConnectWatchSessionMoodIntent.self, from: request.payload ?? Data())
+            let snapshot = try await DJConnectWatchSessionSnapshot.read(
+                settings: { try await client.profileDJSettings() },
+                session: { try await client.activeSession() })
+            guard snapshot.settings.binding == intent.binding, !snapshot.settings.requiresSelection,
+                  snapshot.session?.id == intent.sessionID,
+                  snapshot.session?.confirmedMoodRevision == intent.expectedRevision else {
+                throw DJConnectError.invalidResponse
+            }
+            let accepted = try await client.updateSessionMood(sessionID: intent.sessionID, mood: intent.mood,
+                expectedRevision: intent.expectedRevision, sessionOnly: true)
+            return try encoder.encode(accepted.success)
         case .startSession:
             // Keep decoding legacy packets, but never let a Watch create a Session.
             throw DJConnectError.invalidResponse
