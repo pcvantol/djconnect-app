@@ -58,20 +58,7 @@ public struct DeviceSpeechSettingsView: View {
             }
             Text(text("explanation")).font(.caption).foregroundStyle(.secondary)
             if preferences.enabled {
-                choiceRow(label: text("gender")) {
-                    Picker(text("gender"), selection: Binding(get: { preferences.gender }, set: { preferences.gender = $0; preferences.voiceID = nil })) {
-                        Text(text("system")).tag(DJConnectVoicePreference.default)
-                        if voices.contains(where: { $0.gender == .female }) { Text(text("female")).tag(DJConnectVoicePreference.female) }
-                        if voices.contains(where: { $0.gender == .male }) { Text(text("male")).tag(DJConnectVoicePreference.male) }
-                    }
-                }
-                choiceRow(label: text("voice")) {
-                    Picker(text("voice"), selection: Binding(get: { preferences.voiceID ?? "" }, set: { preferences.voiceID = $0.isEmpty ? nil : $0 })) {
-                        Text(text("system")).tag("")
-                        if let id = preferences.voiceID, !matching.contains(where: { $0.id == id }) { Text(text("unavailable")).tag(id) }
-                        ForEach(matching) { voice in Text("\(voice.name) (\(voice.language))").tag(voice.id) }
-                    }.accessibilityIdentifier("device-speech-voice")
-                }
+                speechChoiceRows
                 SpeechPreferenceRow(label: text("rate")) {
                     Slider(value: $preferences.rate, in: 0...1)
                         #if !os(watchOS)
@@ -102,11 +89,63 @@ public struct DeviceSpeechSettingsView: View {
         .onDisappear { stop() }
     }
 
-    @ViewBuilder private func choiceRow<Control: View>(label: String, @ViewBuilder control: @escaping () -> Control) -> some View {
+    private var speechChoiceRows: some View {
+        let gender = Binding(get: { preferences.gender }, set: {
+            preferences.gender = $0
+            preferences.voiceID = nil
+        })
+        let voice = Binding(get: { preferences.voiceID ?? "" }, set: {
+            preferences.voiceID = $0.isEmpty ? nil : $0
+        })
+        let genders: [(DJConnectVoicePreference, String)] = [(.default, text("system"))] +
+            [(DJConnectVoicePreference.female, text("female")), (.male, text("male"))].filter { choice in
+                voices.contains { $0.gender == choice.0 }
+            }
+        let unavailable: [(String, String)] = if let id = preferences.voiceID, !matching.contains(where: { $0.id == id }) {
+            [(id, text("unavailable"))]
+        } else {
+            []
+        }
+        let voiceOptions = [("", text("system"))] + unavailable + matching.map { ($0.id, "\($0.name) (\($0.language))") }
+
+        return VStack(alignment: .leading, spacing: 12) {
+            choiceRow(label: text("gender"), selection: gender, choices: genders)
+            choiceRow(label: text("voice"), selection: voice, choices: voiceOptions)
+                .accessibilityIdentifier("device-speech-voice")
+        }
+    }
+
+    @ViewBuilder private func choiceRow<Value: Hashable>(label: String, selection: Binding<Value>,
+                                                         choices: [(Value, String)]) -> some View {
         #if os(watchOS)
-        control().pickerStyle(.navigationLink)
+        NavigationLink {
+            List {
+                ForEach(choices, id: \.0) { choice in
+                    Button { selection.wrappedValue = choice.0 } label: {
+                        HStack {
+                            Text(choice.1)
+                            Spacer()
+                            if selection.wrappedValue == choice.0 {
+                                Image(systemName: "checkmark").accessibilityHidden(true)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selection.wrappedValue == choice.0 ? .isSelected : [])
+                }
+            }
+            .watchStandardBackground()
+            .navigationTitle(label)
+        } label: {
+            LabeledContent(label, value: choices.first { $0.0 == selection.wrappedValue }?.1 ?? "")
+        }
         #else
-        SpeechPreferenceRow(label: label, control: control)
+        SpeechPreferenceRow(label: label) {
+            Picker(label, selection: selection) {
+                ForEach(choices, id: \.0) { choice in Text(choice.1).tag(choice.0) }
+            }
+        }
         #endif
     }
 }
