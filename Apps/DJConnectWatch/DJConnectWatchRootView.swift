@@ -599,7 +599,7 @@ struct DJConnectWatchRootView: View {
         }
     }
 
-    private struct DJConnectWatchTrackInsightAnalysisCard: View {
+    fileprivate struct DJConnectWatchTrackInsightAnalysisCard: View {
         let insight: TrackInsight
         let language: String
 
@@ -4751,7 +4751,7 @@ private struct DJConnectWatchCompanionPages: View {
                         Image(systemName: "chevron.down").font(.caption2)
                     }
                 }.buttonStyle(.plain)
-                NavigationLink { DJConnectWatchCompanionTrackView(playback: model.playback, context: context) } label: {
+                NavigationLink { DJConnectWatchCompanionTrackView(playback: model.playback, context: context, binding: snapshot?.settings.binding) } label: {
                         HStack(spacing: 5) {
                             if !dynamicTypeSize.isAccessibilitySize {
                                 DJConnectWatchArtwork(url: model.playback?.albumImageURL, fallbackSystemImage: "music.note")
@@ -4960,8 +4960,11 @@ private struct DJConnectWatchCompanionTrackView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     @State private var original: DJConnectPlayback?
     @State private var context: DJConnectConversationContext
-    init(playback: DJConnectPlayback?, context: DJConnectConversationContext) {
-        _original = State(initialValue: playback); _context = State(initialValue: context)
+    @State private var originalBinding: String?
+    init(playback: DJConnectPlayback?, context: DJConnectConversationContext, binding: String?) {
+        _original = State(initialValue: playback)
+        _context = State(initialValue: context)
+        _originalBinding = State(initialValue: binding)
     }
     private var originalQuestion: String {
         watchLocalizedKey(model.language, "watch.v2.track.question", arguments: original?.trackName ?? "", original?.artistName ?? "")
@@ -4978,7 +4981,15 @@ private struct DJConnectWatchCompanionTrackView: View {
                 NavigationLink {
                     DJConnectWatchCompanionTextView(context: context, initialText: originalQuestion)
                 } label: { Label(watchLocalizedKey(model.language, "watch.v2.ask_about"), systemImage: "bubble.left") }
-                NavigationLink("Track Insight") { DJConnectWatchRootView.DJConnectWatchTrackInsightView() }
+                if model.isDemoMode {
+                    NavigationLink("Track Insight") { DJConnectWatchRootView.DJConnectWatchTrackInsightView() }
+                } else if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
+                          let binding = originalBinding {
+                    NavigationLink("Track Insight") {
+                        DJConnectWatchRecordingInsightView(recording: recording, binding: binding,
+                                                          session: model.foregroundSession)
+                    }
+                }
                 HStack {
                     Button { Task { await model.sendCommand("previous") } } label: { Image(systemName: "backward.fill") }
                     Button { Task { await model.sendCommand("next") } } label: { Image(systemName: "forward.fill") }
@@ -4987,6 +4998,40 @@ private struct DJConnectWatchCompanionTrackView: View {
         }.navigationTitle(watchLocalizedKey(model.language, "watch.v2.music"))
     }
 }
+private struct DJConnectWatchRecordingInsightView: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+    let recording: String
+    let binding: String
+    @ObservedObject var session: DJConnectWatchForegroundSession
+    @State private var insight: TrackInsight?
+    @State private var isLoading = true
+
+    var body: some View {
+        ScrollView {
+            if isLoading {
+                ProgressView()
+            } else if let insight, session.current()?.settings.binding == binding {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(insight.title).font(.headline)
+                    Text(insight.artist).font(.caption).foregroundStyle(.secondary)
+                    DJConnectWatchRootView.DJConnectWatchTrackInsightAnalysisCard(insight: insight, language: model.language)
+                }
+            } else {
+                Text(watchLocalizedKey(model.language, "appModel.track.insight.is.unavailable.for.this.track"))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Track Insight")
+        .task {
+            insight = await model.loadRecordingInsight(recording, binding: binding)
+            isLoading = false
+        }
+        .onChange(of: session.current()?.settings.binding) { _, current in
+            if current != binding { insight = nil }
+        }
+    }
+}
+
 private struct DJConnectWatchCompanionSoundView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     var body: some View {

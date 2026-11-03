@@ -1454,6 +1454,26 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    func loadRecordingInsight(_ recording: String, binding: String) async -> TrackInsight? {
+        guard DJConnectCurrentInsightSubject.isRecordingURI(recording), playback?.uri == recording,
+              canUseBackend, isAppForeground, !isDemoMode,
+              foregroundSession.current()?.settings.binding == binding else { return nil }
+        let owner = stableInstallID
+        let requestedAt = Date()
+        var request = DJConnectTrackInsightRequest(clientType: identity.clientType.rawValue,
+                                                  locale: language, mood: backendMoodHint)
+        request.trackInsightSubject = .init()
+        do {
+            let detail: DJConnectCurrentInsightDetail = try await sendCompanionHARequest(.trackInsight, payload: request)
+            guard !Task.isCancelled, canUseBackend, isAppForeground, stableInstallID == owner,
+                  foregroundSession.current()?.settings.binding == binding,
+                  detail.subject.deadline(recording: recording, requestedAt: requestedAt, at: Date()) != nil else { return nil }
+            return detail.insight
+        } catch {
+            return nil
+        }
+    }
+
     func refreshTrackInsight() async {
         guard !isRefreshingTrackInsight else {
             return

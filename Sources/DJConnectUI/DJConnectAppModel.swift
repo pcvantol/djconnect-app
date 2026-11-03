@@ -15551,6 +15551,12 @@ public final class DJConnectAppModel: ObservableObject {
             return try encoder.encode(response)
         case .trackInsight:
             let payload = try decoder.decode(DJConnectTrackInsightRequest.self, from: request.payload ?? Data())
+            if let selection = payload.trackInsightSubject {
+                guard selection.isValid, let detail = try await client.currentTrackInsight(payload) else {
+                    throw DJConnectError.trackInsightUnavailable(code: nil, message: nil)
+                }
+                return try encoder.encode(detail)
+            }
             let response = try await client.trackInsight(payload)
             return try encoder.encode(response)
         case .askDJHistory:
