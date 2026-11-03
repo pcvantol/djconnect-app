@@ -219,8 +219,9 @@ private let djConnectIconGradient = LinearGradient(
     startPoint: .topLeading,
     endPoint: .bottomTrailing
 )
-private let djConnectScreenHorizontalPadding: CGFloat = 16
-let djConnectScreenVerticalPadding: CGFloat = 12
+let djConnectCardSpacing: CGFloat = 16
+private let djConnectScreenHorizontalPadding = djConnectCardSpacing
+let djConnectScreenVerticalPadding = djConnectCardSpacing
 private let djConnectContentMaxWidth: CGFloat = 760
 private let djConnectCompactContentMaxWidth: CGFloat = 640
 private let djConnectMacDetailContentMaxWidth: CGFloat = 1_680
@@ -4181,7 +4182,7 @@ struct TrackInsightView: View {
                     let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
                     ZStack(alignment: .top) {
                         ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 16) {
+                            LazyVStack(alignment: .leading, spacing: djConnectCardSpacing) {
                                 if let insight {
                                     TrackInsightHero(
                                         model: model,
@@ -4221,8 +4222,7 @@ struct TrackInsightView: View {
                             }
                             .accessibilityElement(children: .contain)
                             .accessibilityIdentifier("track-insight-content")
-                            .padding(.horizontal, djConnectScreenHorizontalPadding)
-                            .padding(.vertical, djConnectScreenVerticalPadding)
+                            .djConnectScreenPadding()
                             .frame(width: contentWidth, alignment: .topLeading)
                             .frame(maxWidth: .infinity, alignment: .top)
                         }
@@ -4497,7 +4497,7 @@ private struct MusicDNAView: View {
                 GeometryReader { proxy in
                     ScrollView {
                         let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                             MusicDNAHeroView(model: model, moodStepIndex: model.askDJMoodStepIndex)
                                 .djConnectStandardHeroWidth()
                                 .frame(maxWidth: .infinity, alignment: .top)
@@ -4508,9 +4508,7 @@ private struct MusicDNAView: View {
                                     .frame(maxWidth: .infinity, alignment: .center)
                             }
                         }
-                        .padding(.horizontal, djConnectScreenHorizontalPadding)
-                        .padding(.top, djConnectScreenVerticalPadding)
-                        .padding(.bottom, djConnectScreenVerticalPadding + 28)
+                        .djConnectScreenPadding()
                         .frame(maxWidth: contentWidth, alignment: .topLeading)
                         .frame(maxWidth: .infinity, alignment: .top)
                         #if os(macOS)
@@ -4823,7 +4821,7 @@ private struct MusicDNASectionGrid: View {
     var body: some View {
         if usesHorizontalRows {
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 12) {
+                LazyHStack(alignment: .top, spacing: djConnectCardSpacing) {
                     panels
                 }
                 .padding(.vertical, 2)
@@ -6263,7 +6261,7 @@ private struct MusicDNAChipRow: View {
 /// Keep source/accessibility order stable while filling the shortest visible column.
 private struct MusicDNAAdaptiveCardLayout: Layout {
     var minimumColumnWidth: CGFloat = 280
-    var spacing: CGFloat = 12
+    var spacing: CGFloat = djConnectCardSpacing
 
     struct Cache {
         var width: CGFloat?
@@ -6467,13 +6465,12 @@ private struct MusicDiscoveryView: View {
                 GeometryReader { proxy in
                     ScrollView {
                         let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
-                        VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                             header
                                 .djConnectStandardHeroWidth()
                             content
                         }
-                        .padding(.horizontal, djConnectScreenHorizontalPadding)
-                        .padding(.vertical, djConnectScreenVerticalPadding)
+                        .djConnectScreenPadding()
                         .frame(width: contentWidth, alignment: .topLeading)
                         .frame(maxWidth: .infinity, alignment: .top)
                     }
@@ -6543,7 +6540,7 @@ private struct MusicDiscoveryView: View {
         } else if model.musicDiscoveryResponse == nil || visibleSections.isEmpty {
             MusicDiscoveryEmptyState(model: model)
         } else {
-            LazyVStack(alignment: .leading, spacing: 22) {
+            LazyVStack(alignment: .leading, spacing: djConnectCardSpacing) {
                 ForEach(visibleSections) { section in
                     MusicDiscoverySectionView(
                         model: model,
@@ -8583,16 +8580,16 @@ struct TrackInsightMetricsGrid: View, Equatable {
 
     var body: some View {
         if !metrics.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                 if usesHorizontalRows {
                     if metrics.numericCount > 0 { horizontalMetricRow { numericMetrics } }
                     if metrics.hasLabels { horizontalMetricRow { metricPills } }
                 } else {
                     if metrics.numericCount > 0 {
-                        LazyVGrid(columns: metricColumns, spacing: 10) { numericMetrics }
+                        LazyVGrid(columns: metricColumns, spacing: djConnectCardSpacing) { numericMetrics }
                     }
                     if metrics.hasLabels {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) { metricPills }
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: djConnectCardSpacing, alignment: .top)], spacing: djConnectCardSpacing) { metricPills }
                     }
                 }
             }
@@ -8634,7 +8631,7 @@ struct TrackInsightMetricsGrid: View, Equatable {
 
     private func horizontalMetricRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(alignment: .top, spacing: 10) {
+            LazyHStack(alignment: .top, spacing: djConnectCardSpacing) {
                 content()
             }
             .padding(.vertical, 2)
@@ -8643,7 +8640,7 @@ struct TrackInsightMetricsGrid: View, Equatable {
     }
 
     private var metricColumns: [GridItem] {
-        Array(repeating: GridItem(.flexible(minimum: 132), spacing: 10, alignment: .top), count: min(3, metrics.numericCount))
+        Array(repeating: GridItem(.flexible(minimum: 132), spacing: djConnectCardSpacing, alignment: .top), count: min(3, metrics.numericCount))
     }
 }
 
@@ -11045,7 +11042,7 @@ private struct AskDJView: View {
                     ScrollViewReader { proxy in
                         ZStack(alignment: .top) {
                             ScrollView {
-                                LazyVStack(spacing: 12) {
+                                LazyVStack(spacing: djConnectCardSpacing) {
                                     #if !os(macOS)
                                     Color.clear.frame(height: 1).id("ask-dj-top")
                                     #endif
@@ -11156,7 +11153,7 @@ private struct AskDJView: View {
                                 #endif
                                 .padding(.horizontal, djConnectScreenHorizontalPadding)
                                 .padding(.top, chatTopPadding)
-                                .padding(.bottom, 16)
+                                .padding(.bottom, djConnectCardSpacing)
                                 .frame(width: contentWidth, alignment: .top)
                                 .frame(maxWidth: .infinity, alignment: .top)
                                 .contentShape(Rectangle())
@@ -16534,7 +16531,7 @@ private struct MoreView: View {
     private var moreList: some View {
         NavigationStack {
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: djConnectCardSpacing)], spacing: djConnectCardSpacing) {
                     MoreNavigationRow(title: "Ask DJ", systemImage: "bubble.left.and.bubble.right") { destinationSelection = .askDJ }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "headphones") { destinationSelection = .savedSessions }
                     MoreNavigationRow(title: "Music DNA", systemImage: "heart") { destinationSelection = .musicDNA }
@@ -18061,7 +18058,7 @@ private struct AboutView: View {
         ZStack {
             DJConnectCanvasBackground()
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                     AboutBanner()
 
                     SettingsSection(title: localizedKey(model.language, "ui.app"), showsDivider: false) {
@@ -18177,8 +18174,7 @@ private struct AboutView: View {
                 .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
                 #else
                 .frame(maxWidth: contentMaxWidth, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 28)
+                .djConnectScreenPadding()
                 #endif
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -18296,7 +18292,7 @@ private struct LegalNoticesView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                         AboutBanner()
 
                         SettingsSection(title: localizedKey(language, "ui.legal"), showsDivider: false) {
@@ -18320,7 +18316,7 @@ private struct LegalNoticesView: View {
                     #if os(macOS)
                     .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
                     #else
-                    .padding(24)
+                    .djConnectScreenPadding()
                     .frame(maxWidth: contentMaxWidth, alignment: .leading)
                     #endif
                 }
@@ -18347,7 +18343,7 @@ private struct PrivacyView: View {
         ZStack {
             DJConnectCanvasBackground()
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                     AboutBanner()
                     SettingsSection(title: localizedKey(language, "ui.privacy"), showsDivider: false) {
                         SelectableValue(localizedKey(language, "ui.djconnect.does.not.collect.sell.or.process.personal.data.in"))
@@ -18364,8 +18360,7 @@ private struct PrivacyView: View {
                 .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
                 #else
                 .frame(maxWidth: contentMaxWidth, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 28)
+                .djConnectScreenPadding()
                 #endif
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

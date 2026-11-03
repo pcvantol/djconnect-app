@@ -385,9 +385,8 @@ struct SavedSessionsView: View {
 
     private func savedSessionsScrollContent<Rows: View>(@ViewBuilder rows: () -> Rows) -> some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) { rows() }
-                .padding(.horizontal, 20)
-                .padding(.vertical, djConnectScreenVerticalPadding)
+            LazyVStack(alignment: .leading, spacing: djConnectCardSpacing) { rows() }
+                .padding(djConnectCardSpacing)
         }
         .scrollIndicators(.visible)
     }
