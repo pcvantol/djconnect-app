@@ -196,7 +196,8 @@ private struct DJConnectWatchSharedDJSettingsView: View {
                 let e = r.snapshot.effective
                 let review = r.requiresSelection
                 if review { Text(text("ui.dj_settings.review_choices")).font(.caption) }
-                choices("persona", r.allowed_values.persona, selected: (review ? draft.persona ?? e.persona : e.persona).rawValue) {
+                let personas = DJConnectSessionPersonaValue.allCases.map(\.rawValue).filter { r.allowed_values.persona.contains($0) }
+                choices("persona", personas, selected: (review ? draft.persona ?? e.persona : e.persona).rawValue) {
                     choose(.init(persona: DJConnectSessionPersonaValue(rawValue: $0)))
                 }
                 choices("mood", r.allowed_values.mood, selected: review ? draft.mood ?? e.mood : e.mood) { choose(.init(mood: $0)) }
