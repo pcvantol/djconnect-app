@@ -1919,7 +1919,7 @@ private struct DJConnectWatchAboutView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
 
     private var appVersion: String {
-        DJConnectApplicationVersion.releaseVersion
+        "\(DJConnectApplicationVersion.releaseVersion) (\(DJConnectApplicationVersion.buildVersion))"
     }
 
     var body: some View {
