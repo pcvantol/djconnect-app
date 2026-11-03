@@ -12,7 +12,7 @@ WATCH_REQUIREMENTS = {"macbook": "disabled", "iphone": "required", "ipad": None}
 
 
 def verified_asset(manifest, *, manifest_id, source_sha, device, repository_id,
-                   repository, asset, archive):
+                   repository, asset_id, checksum, asset, archive):
     """Return the verified asset ID using metadata from a trusted API reader.
 
     The repository ID must come from relay configuration, independently of
@@ -44,10 +44,10 @@ def verified_asset(manifest, *, manifest_id, source_sha, device, repository_id,
             or (watch_requirement is None and "paired_watch_validation" in binding)):
         raise ValueError("Signing or Watch validation scope does not match the device")
 
-    asset_id = binding.get("github_release_asset_id")
-    checksum = binding.get("artifact_sha256")
     if (binding.get("github_repository_id") != repository_id
             or type(asset_id) is not int or asset_id <= 0
+            or binding.get("github_release_asset_id") != asset_id
+            or binding.get("artifact_sha256") != checksum
             or sum(entry.get("github_release_asset_id") == asset_id for entry in bindings) != 1
             or not isinstance(checksum, str) or not re.fullmatch(r"[0-9a-f]{64}", checksum)):
         raise ValueError("Expected a unique asset ID and SHA-256 in the configured repository")

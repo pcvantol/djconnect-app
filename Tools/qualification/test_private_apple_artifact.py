@@ -35,6 +35,8 @@ class PrivateAppleArtifactTests(unittest.TestCase):
             "source_sha": "a" * 40,
             "device": device,
             "repository_id": 123,
+            "asset_id": 456,
+            "checksum": digest,
             "repository": {"id": 123, "private": True},
             "asset": {"id": 456, "state": "uploaded", "digest": f"sha256:{digest}"},
             "archive": io.BytesIO(archive),
@@ -49,6 +51,8 @@ class PrivateAppleArtifactTests(unittest.TestCase):
         for field, value in (
             ("repository", {"id": 123, "private": False}),
             ("repository_id", 124),
+            ("asset_id", 457),
+            ("checksum", "0" * 64),
             ("asset", {"id": 999, "state": "uploaded"}),
             ("source_sha", "b" * 40),
             ("archive", io.BytesIO(b"tampered")),
@@ -57,7 +61,7 @@ class PrivateAppleArtifactTests(unittest.TestCase):
                 verified_asset(**(self.fixture("iphone") | {field: value}))
 
     def test_rejects_wrong_approval_route_and_reused_asset(self):
-        for case in ("approval", "watch", "reused"):
+        for case in ("approval", "watch", "reused", "duplicate_route"):
             fixture = self.fixture("ipad")
             manifest = fixture["manifest"]
             binding = manifest["artifact_bindings"][0]
@@ -65,7 +69,9 @@ class PrivateAppleArtifactTests(unittest.TestCase):
                 manifest["approval"]["state"] = "PENDING"
             elif case == "watch":
                 binding["paired_watch_validation"] = "disabled"
-            else:
+            elif case == "reused":
                 manifest["artifact_bindings"].append(binding | {"target_device": "iphone"})
+            else:
+                manifest["artifact_bindings"].append(binding | {"github_release_asset_id": 457})
             with self.subTest(case=case), self.assertRaises(ValueError):
                 verified_asset(**fixture)
