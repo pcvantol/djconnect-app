@@ -4685,7 +4685,7 @@ private struct DJConnectWatchCompanionPages: View {
     private var accent: Color { theme.watchColors[1] }
     var body: some View {
         ZStack {
-            DJConnectWatchCanvas()
+            DJConnectWatchCanvas(theme: page == 0 && flowPosition > 0 && !currentFlowRows.isEmpty ? theme : .brand)
             TabView(selection: $page) {
                 crownHome.tag(0)
                 more
@@ -4897,7 +4897,6 @@ private struct DJConnectWatchCompanionPages: View {
                 } else {
                     let row = rows[index - 1]
                     flowCard(row, index: index, count: rows.count)
-                        .background { DJConnectWatchCanvas(theme: theme) }
                         .id(row.id)
                         .transition(transition)
                 }
