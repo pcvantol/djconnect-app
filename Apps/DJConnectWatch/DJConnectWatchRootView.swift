@@ -4678,11 +4678,13 @@ private struct DJConnectWatchCompanionPages: View {
     @ObservedObject var state: DJConnectWatchForegroundSession
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var page = 0
-    @State private var windowSessionID: String?
-    @State private var windowIDs: [String] = []
+    @State private var flowRows: [DJConnectWatchFlowRow]?
+    @State private var flowOwner: String?
+    @State private var flowSessionID: String?
+    @State private var flowUnavailable = false
     // Presented outside the conditional pages, so runtime refreshes never replace
     // a question's original context or pop a reader off its original Moment.
-    private enum Destination { case text(DJConnectConversationContext), voice(DJConnectConversationContext), moment(DJConnectMoment), notification(DJConnectWatchMomentOpenIntent) }
+    private enum Destination { case text(DJConnectConversationContext), voice(DJConnectConversationContext), moment(DJConnectMoment), flow(DJConnectWatchFlowRow, String, String), notification(DJConnectWatchMomentOpenIntent) }
     @State private var destination: Destination?
     private func text(_ key: String) -> String { watchLocalizedKey(model.language, key) }
     private var snapshot: DJConnectWatchSessionSnapshot? { state.current() }
@@ -4719,6 +4721,9 @@ private struct DJConnectWatchCompanionPages: View {
                 DJConnectWatchCompanionVoiceView(context: context).watchStandardBackground()
             case .moment(let moment):
                 DJConnectWatchCompanionMomentView(moment: moment, state: state).watchStandardBackground()
+            case .flow(let row, let binding, let sessionID):
+                flowDetail(row, binding: binding, sessionID: sessionID)
+                    .watchStandardBackground()
             case .notification(let intent):
                 DJConnectWatchMomentNotificationView(intent: intent, state: state).watchStandardBackground()
             case nil: EmptyView()
@@ -4731,7 +4736,22 @@ private struct DJConnectWatchCompanionPages: View {
         .onChange(of: model.watchMomentOpenIntent, initial: true) { _, intent in
             if let intent { destination = .notification(intent) }
         }
-        .onChange(of: session?.id) { _, _ in if page == 1 { page = 0 }; windowIDs = []; windowSessionID = nil }
+        .onChange(of: session?.id) { _, _ in if page == 1 { page = 0 } }
+        .task(id: page == 1 ? session.map { (snapshot?.settings.binding ?? "") + ":" + $0.id } : nil) {
+            guard page == 1, let binding = snapshot?.settings.binding, let sessionID = session?.id else { return }
+            flowRows = nil
+            flowUnavailable = false
+            flowOwner = binding
+            flowSessionID = sessionID
+            while !Task.isCancelled {
+                let incoming = await model.loadWatchSessionFlow(binding: binding, sessionID: sessionID)
+                guard !Task.isCancelled else { return }
+                flowRows = incoming
+                flowUnavailable = incoming == nil
+                let nextExpiry = incoming?.map(\.expiresAt).min()?.timeIntervalSinceNow ?? 15
+                do { try await Task.sleep(for: .seconds(max(1, min(15, nextExpiry)))) } catch { return }
+            }
+        }
         .task {
             guard !model.isDemoMode else { return }
             while !Task.isCancelled {
@@ -4885,38 +4905,81 @@ private struct DJConnectWatchCompanionPages: View {
         }.buttonStyle(.plain)
     }
 
-    private var recentMoments: [DJConnectMoment] {
-        guard let session else { return [] }
-        let current = session.broadcast.nativeCurrentMoment(at: Date(), spotifyAttributionAvailable: true)
-        return [current].compactMap { $0 } + session.broadcast.nativeFlowMoments(at: Date()).filter { $0.id != current?.id }
-    }
-    private func revealNewestMoments() {
-        windowSessionID = session?.id
-        windowIDs = Array(recentMoments.prefix(8).map(\.id))
-    }
     private var moments: some View {
-        List {
-            let incoming = recentMoments
-            let hasNew = incoming.first.map { !windowIDs.contains($0.id) } == true
-            if hasNew && !windowIDs.isEmpty {
-                Button { revealNewestMoments() } label: {
-                    Label(text("watch.v2.moments.new"), systemImage: "arrow.up")
+        TimelineView(.explicit([Date()] + (flowRows ?? []).map(\.expiresAt).sorted())) { _ in
+            List {
+                if flowOwner == snapshot?.settings.binding, flowSessionID == session?.id, let flowRows {
+                    let visible = flowRows.filter { Date() < $0.expiresAt }
+                    if visible.isEmpty { Text(text("watch.v2.no_moments")).foregroundStyle(.secondary) }
+                    ForEach(visible) { row in
+                        Button { openFlowRow(row) } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(text(row.labelKey)).font(.caption2.weight(.semibold)).foregroundStyle(accent)
+                                Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
+                                    .font(.caption).lineLimit(3)
+                                Text(row.date, style: .time).font(.caption2).foregroundStyle(.secondary)
+                                if row.spotifyAttribution { flowSpotifyAttribution }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                } else if flowUnavailable {
+                    Text(text("ui.session.live_unavailable")).foregroundStyle(.secondary)
+                } else {
+                    ProgressView()
                 }
             }
-            let visible = windowIDs.compactMap { id in incoming.first { $0.id == id } }
-            if visible.isEmpty { Text(text("watch.v2.no_moments")).foregroundStyle(.secondary) }
-            ForEach(visible) { moment in
-                Button { destination = .moment(moment) } label: {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(moment.content).font(.caption).lineLimit(3)
-                        if let date = DJConnectHistoryEntry.date(moment.createdAt) { Text(date, style: .time).font(.caption2).foregroundStyle(.secondary) }
+            .listStyle(.plain)
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func openFlowRow(_ row: DJConnectWatchFlowRow) {
+        guard let binding = snapshot?.settings.binding, let session, Date() < row.expiresAt else { return }
+        let now = Date()
+        let current = session.broadcast.nativeCurrentMoment(at: now, spotifyAttributionAvailable: true)
+        let live = [current].compactMap { $0 } + session.broadcast.nativeFlowMoments(at: now)
+        if let moment = live.first(where: { $0.id == row.momentID }) {
+            destination = .moment(moment)
+        } else {
+            destination = .flow(row, binding, session.id)
+        }
+    }
+
+    private var flowSpotifyAttribution: some View {
+        Image("SpotifyAttribution").resizable().scaledToFit()
+            .frame(width: 54, height: 18).accessibilityLabel("Spotify")
+    }
+
+    private func flowDetail(_ row: DJConnectWatchFlowRow, binding: String, sessionID: String) -> some View {
+        TimelineView(.explicit([Date(), row.expiresAt])) { _ in
+            ScrollView {
+                if snapshot?.settings.binding == binding, session?.id == sessionID, Date() < row.expiresAt,
+                   flowRows?.contains(where: { $0.id == row.id && $0.text == row.text }) == true {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
+                        if row.spotifyAttribution { flowSpotifyAttribution }
+                        ForEach(row.sources.indices, id: \.self) { index in
+                            let source = row.sources[index]
+                            if let url = source.destination {
+                                Link(source.attributionLabel, destination: url)
+                                    .font(.caption2).accessibilityLabel(source.accessibilityLabel)
+                            }
+                        }
+                        if let reference = row.reference {
+                            NavigationLink {
+                                DJConnectWatchCompanionTextView(context: .init(sessionID: sessionID, selectedEntry: reference))
+                            } label: {
+                                Label(text("watch.v2.ask_about"), systemImage: "bubble.left")
+                            }
+                        }
                     }
+                } else {
+                    Text(text("ui.session.history.contribution_unavailable")).foregroundStyle(.secondary)
                 }
             }
         }
-        .listStyle(.plain)
-        .buttonStyle(.plain)
-        .onAppear { if windowSessionID != session?.id || windowIDs.isEmpty { revealNewestMoments() } }
+        .navigationTitle(text(row.labelKey))
     }
     private var more: some View {
         List {

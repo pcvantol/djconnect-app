@@ -139,6 +139,37 @@ private func bulletinDate(_ raw: String) throws -> Date { try #require(DJConnect
     #expect(SessionTimelineLiveRow.merge(retained: [], bulletins: [], at: try bulletinDate(first.createdAt)).isEmpty)
 }
 
+@Test func watchSessionFlowKeepsLatestEightMixedRowsAndOriginalBulletinExpiry() throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let old = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/moment-contract-receipt.json"))) as? [String: Any])
+    var runtime: DJConnectSessionRuntime = try bulletinDecode(old["runtime"]!)
+    let broadcast = try bulletinBroadcast()
+    let bulletin = try #require(broadcast.djMoments.first)
+    let now = try bulletinDate(bulletin.createdAt)
+    runtime.sessionID = bulletin.sessionID
+    runtime.broadcast = broadcast
+    let formatter = ISO8601DateFormatter()
+    let kinds = ["playback_observed", "dj_moment", "conversation_user", "conversation_dj"]
+    let history: [DJConnectHistoryEntry] = try (0..<9).map { index in
+        let entry: [String: Any] = [
+            "entry_id": "row-\(index)", "session_id": runtime.id, "order": index + 1,
+            "kind": kinds[index % kinds.count], "text": "Row \(index)",
+            "occurred_at": formatter.string(from: now.addingTimeInterval(Double(index - 10))),
+            "retained_until": formatter.string(from: now.addingTimeInterval(300)),
+        ]
+        return try bulletinDecode(entry)
+    }
+    let rows = DJConnectWatchFlowRow.latest(history: history, session: runtime, at: now)
+    #expect(rows.count == 8)
+    #expect(rows.map(\.id) == ["bulletin:" + bulletin.id] + (2...8).reversed().map { "row-\($0)" })
+    #expect(Set(rows.map(\.labelKey)).count == 5)
+    let bulletinRow = try #require(rows.first)
+    #expect(bulletinRow.sources == bulletin.sources)
+    #expect(bulletinRow.reference == nil)
+    let sourceEnd = try bulletinDate(try #require(broadcast.nativeDelivery?.admissions.first?.sourceExpiresAt))
+    #expect(!DJConnectWatchFlowRow.latest(history: history, session: runtime, at: sourceEnd).contains { $0.id == bulletinRow.id })
+}
+
 @Test func bulletinStaticTypeLabelsExistInAllFiveLocales() {
     for language in ["nl", "en", "de", "fr", "es"] {
         let label = DJConnectLocalization.localized(key: "ui.session.moment.dj_bulletin", language: language)

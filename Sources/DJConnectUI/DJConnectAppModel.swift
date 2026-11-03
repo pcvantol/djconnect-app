@@ -15475,6 +15475,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         do {
             let encoded = try await withWatchProxyHomeAssistantClient(identity: registration.identity, token: token,
+                historyContractVersion: request.operation == .sessionFlow ? sessionHistory.historyContractVersion : 1,
                 allowsOperationReplay: !request.isAskDJTextSubmission && request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech &&
                     request.operation != .startSession && request.operation != .endSession && request.operation != .voice) { client in
                 try await self.performWatchProxyOperation(request, client: client)
@@ -15516,6 +15517,19 @@ public final class DJConnectAppModel: ObservableObject {
                   DJConnectNativeSpeechAdmission.admits(prepared.session_speech, reference: intent.reference,
                     text: intent.moment.content, settings: after) else { throw DJConnectError.invalidResponse }
             return try encoder.encode(prepared)
+        case .sessionFlow:
+            let intent = try decoder.decode(DJConnectWatchSessionAction.self, from: request.payload ?? Data())
+            guard let sessionID = intent.sessionID else { throw DJConnectError.invalidResponse }
+            let before = try await client.profileDJSettings()
+            guard before.binding == intent.binding, before.snapshot.session?.session_id == sessionID,
+                  !before.requiresSelection else { throw DJConnectError.invalidResponse }
+            let tail = try await client.sessionTimeline(sessionID: sessionID, window: .tail, limit: 50)
+            let runtime = try await client.activeSession()
+            let after = try await client.profileDJSettings()
+            guard runtime.success, let session = runtime.resolvedSession, session.id == sessionID,
+                  after.binding == before.binding, after.snapshot.session?.session_id == sessionID,
+                  !after.requiresSelection else { throw DJConnectError.invalidResponse }
+            return try encoder.encode(DJConnectWatchFlowRow.latest(history: tail.entries, session: session, at: Date()))
         case .foregroundSession:
             // Read with the Watch bearer, and fence Profile/Session changes
             // across the two independent frozen owner contracts.
@@ -15718,6 +15732,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func withWatchProxyHomeAssistantClient<T: Sendable>(
         identity: DJConnectIdentity,
         token: String,
+        historyContractVersion: Int,
         allowsOperationReplay: Bool = true,
         _ operation: (DJConnectClient) async throws -> T
     ) async throws -> T {
@@ -15740,7 +15755,8 @@ public final class DJConnectAppModel: ObservableObject {
                         baseURL: baseURL,
                         localURL: localURL,
                         configuration: configuration
-                    )
+                    ),
+                    historyContractVersion: historyContractVersion
                 )
             },
             modeReporter: { [weak self] mode, baseURL in

@@ -1666,3 +1666,6 @@
 
 "watch.v2.track.question" = "Vertel me over %@ van %@.";
 "watch.v2.recording_interrupted" = "Opname onderbroken.";
+
+"watch.v2.flow.question" = "Ask DJ-vraag";
+"watch.v2.flow.answer" = "Ask DJ-antwoord";
