@@ -10980,12 +10980,15 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(secondLaunch.isShowingWelcome == false)
 }
 
-@Test(.isolatedClientResources) func onboardingTourPromotesDiscoverInsteadOfMiniGames() throws {
+@Test(.isolatedClientResources) func onboardingTourStartsWithDJSessionAndIncludesDiscover() throws {
     let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
     let stepsStart = try #require(source.range(of: "static func steps(language: String) -> [WelcomeTourStep]"))
     let stepsEnd = try #require(source[stepsStart.lowerBound...].range(of: "private struct WelcomeTourPreview"))
     let stepsSource = String(source[stepsStart.lowerBound..<stepsEnd.lowerBound])
 
+    let session = try #require(stepsSource.range(of: "id: .djSession"))
+    let queue = try #require(stepsSource.range(of: "id: .queue"))
+    #expect(session.lowerBound < queue.lowerBound)
     #expect(stepsSource.contains("id: .discovery"))
     #expect(stepsSource.contains("id: .games") == false)
     #expect(stepsSource.contains("ui.mini.games") == false)

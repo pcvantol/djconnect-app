@@ -1620,6 +1620,7 @@
 "ui.vibescape.voice.starting" = "Préparation du microphone…";
 "ui.vibescape.voice.start_failed" = "L’enregistrement n’a pas pu démarrer. Réessayez.";
 
+"ui.welcome.session.description" = "Choisis une ambiance, pose des questions à ton DJ sur la musique et suis le fil de ta session.";
 "ui.welcome.queue.description" = "Consultez les prochains titres et choisissez quoi écouter.";
 
 "ui.askdj.help.item.unavailable" = "Indisponible pour le moment";

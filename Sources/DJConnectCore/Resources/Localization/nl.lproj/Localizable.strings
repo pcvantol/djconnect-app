@@ -1620,6 +1620,7 @@
 "ui.vibescape.voice.starting" = "Microfoon wordt klaargemaakt…";
 "ui.vibescape.voice.start_failed" = "De opname kon niet starten. Probeer opnieuw.";
 
+"ui.welcome.session.description" = "Kies een stemming, vraag je DJ om muziekcontext en volg wat er in je sessie gebeurt.";
 "ui.welcome.queue.description" = "Bekijk welke nummers hierna komen en kies wat je wilt afspelen.";
 
 "ui.askdj.help.item.unavailable" = "Nu niet beschikbaar";

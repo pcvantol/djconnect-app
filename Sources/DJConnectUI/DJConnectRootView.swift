@@ -3028,24 +3028,8 @@ private struct WelcomeView: View {
                     WelcomeTourPreview(
                         steps: steps,
                         selectedStep: selectedStep,
-                        language: model.language,
                         selectStep: selectWelcomeTourStep
                     )
-
-                    VStack(spacing: 10) {
-                        Label(selectedStep.title, systemImage: selectedStep.systemImage)
-                            .font(.title2.bold())
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.center)
-                        Text(selectedStep.body)
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minHeight: 52)
-                    }
-
-                    WelcomeTourProgress(count: steps.count, selectedIndex: selectedStepIndex)
 
                     VStack(spacing: 8) {
                         Text(localizedKey(model.language, "ui.setup.runs.through.home.assistant.spotify.playback.requires.spotify.premium"))
@@ -3139,6 +3123,12 @@ private struct WelcomeTourStep: Identifiable, Equatable {
     static func steps(language: String) -> [WelcomeTourStep] {
         [
             WelcomeTourStep(
+                id: .djSession,
+                title: localizedKey(language, "ui.session.title"),
+                body: localizedKey(language, "ui.welcome.session.description"),
+                systemImage: "headphones"
+            ),
+            WelcomeTourStep(
                 id: .queue,
                 title: localizedKey(language, "ui.queue"),
                 body: localizedKey(language, "ui.welcome.queue.description"),
@@ -3175,7 +3165,6 @@ private struct WelcomeTourStep: Identifiable, Equatable {
 private struct WelcomeTourPreview: View {
     let steps: [WelcomeTourStep]
     let selectedStep: WelcomeTourStep
-    let language: String
     let selectStep: (WelcomeTourStep) -> Void
     @State private var isPulsing = false
 
@@ -3195,11 +3184,11 @@ private struct WelcomeTourPreview: View {
                 }
                 .frame(width: 190)
 
-                WelcomeTourPanel(step: selectedStep, language: language)
+                WelcomeTourPanel(step: selectedStep)
                     .frame(maxWidth: .infinity)
             }
             #else
-            WelcomeTourPanel(step: selectedStep, language: language)
+            WelcomeTourPanel(step: selectedStep)
             HStack(spacing: 8) {
                 ForEach(steps) { step in
                     WelcomeTourButton(
@@ -3228,21 +3217,9 @@ private struct WelcomeTourPreview: View {
 
 private struct WelcomeTourPanel: View {
     let step: WelcomeTourStep
-    let language: String
 
     var body: some View {
         VStack(spacing: 12) {
-            HStack {
-                Circle()
-                    .fill(djConnectAccent.opacity(0.88))
-                    .frame(width: 10, height: 10)
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Color.white.opacity(0.18))
-                    .frame(width: 90, height: 8)
-                Spacer()
-            }
-            .padding(.horizontal, 6)
-
             Image(systemName: step.systemImage)
                 .font(.system(size: 48, weight: .semibold))
                 .foregroundStyle(
@@ -3255,17 +3232,18 @@ private struct WelcomeTourPanel: View {
                 .frame(height: 58)
 
             Text(step.title)
-                .font(.headline.weight(.bold))
-                .lineLimit(1)
+                .font(.title2.bold())
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
 
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(djConnectAccent.opacity(0.32))
-                .frame(width: 64, height: 6)
+            Text(step.body)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(18)
-        .frame(minHeight: 184)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
-        .background(Color.black.opacity(0.20), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -3281,7 +3259,7 @@ private struct WelcomeTourButton: View {
                 .labelStyle(.iconOnly)
                 .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(isSelected ? .white : .secondary)
-                .frame(width: 48, height: 42)
+                .frame(minWidth: 32, maxWidth: 48, minHeight: 44)
                 .background {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(isSelected ? djConnectAccent.opacity(0.28) : Color.white.opacity(0.06))
@@ -3297,23 +3275,6 @@ private struct WelcomeTourButton: View {
         .djConnectPlainButtonStyle()
         .accessibilityLabel(step.title)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-    }
-}
-
-private struct WelcomeTourProgress: View {
-    let count: Int
-    let selectedIndex: Int
-
-    var body: some View {
-        HStack(spacing: 7) {
-            ForEach(0..<count, id: \.self) { index in
-                Capsule()
-                    .fill(index == selectedIndex ? djConnectAccent : Color.white.opacity(0.22))
-                    .frame(width: index == selectedIndex ? 26 : 8, height: 8)
-            }
-        }
-        .animation(.easeOut(duration: 0.18), value: selectedIndex)
-        .accessibilityLabel("\(selectedIndex + 1) / \(count)")
     }
 }
 
