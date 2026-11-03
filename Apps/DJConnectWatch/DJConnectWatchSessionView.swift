@@ -57,7 +57,7 @@ struct DJConnectWatchSessionView: View {
                             }
                         }
                         NavigationLink {
-                            DJConnectWatchSharedDJSettingsView(settings: settings)
+                            personaChoices(sessionID: session.id, binding: snapshot.settings.binding)
                         } label: {
                             VStack(alignment: .leading, spacing: 2) {
                                 Label(text("ui.dj_settings.persona"), systemImage: "person.crop.circle")
@@ -78,6 +78,11 @@ struct DJConnectWatchSessionView: View {
                         if let confirmation = model.settingsOperationConfirmation {
                             Label(confirmation, systemImage: "sparkles").font(.callout)
                         }
+                    }
+                    NavigationLink {
+                        DJConnectWatchSharedDJSettingsView(settings: settings)
+                    } label: {
+                        Label(text("watch.session.settings"), systemImage: "slider.horizontal.3")
                     }
                     if snapshot.settings.allowsSpeech(.local) {
                         if !model.deviceSpeechPreferences.enabled {
@@ -122,6 +127,30 @@ struct DJConnectWatchSessionView: View {
         }
         .task { await model.refreshForegroundSession() }
         .onDisappear { speech.stop() }
+    }
+
+    private func personaChoices(sessionID: String, binding: String) -> some View {
+        let response = settings.response
+        let personas = DJConnectSessionPersonaValue.allCases.filter {
+            response?.binding == binding && response?.allowed_values.persona.contains($0.rawValue) == true
+        }
+        let selected = response?.snapshot.effective.persona.rawValue ?? ""
+        return DJConnectWatchSettingsChoices(title: text("ui.dj_settings.persona"),
+            values: personas.map { ($0.rawValue, text($0.localizationKey)) },
+            selected: selected, unavailableTitle: text("ui.dj_settings.unavailable"),
+            icons: Dictionary(uniqueKeysWithValues: personas.map { ($0.rawValue, $0.watchIcon) }),
+            disabledValues: settings.canEdit && response?.requiresSelection == false ? [] : Set(personas.map(\.rawValue))) { value in
+                Task {
+                    guard let snapshot = state.current(), snapshot.session?.id == sessionID,
+                          snapshot.settings.binding == binding, let latest = settings.response,
+                          latest.binding == binding, latest.snapshot.session?.session_id == sessionID,
+                          !latest.requiresSelection, settings.canEdit,
+                          latest.allowed_values.persona.contains(value),
+                          let persona = DJConnectSessionPersonaValue(rawValue: value),
+                          latest.snapshot.effective.persona != persona else { return }
+                    await model.changeSharedDJSettings(.init(persona: persona))
+                }
+            }
     }
 
     private func momentCard(_ moment: DJConnectMoment) -> some View {
@@ -196,13 +225,15 @@ private struct DJConnectWatchSharedDJSettingsView: View {
                 let e = r.snapshot.effective
                 let review = r.requiresSelection
                 if review { Text(text("ui.dj_settings.review_choices")).font(.caption) }
-                let personas = DJConnectSessionPersonaValue.allCases.map(\.rawValue).filter { r.allowed_values.persona.contains($0) }
-                choices("persona", personas, selected: (review ? draft.persona ?? e.persona : e.persona).rawValue) {
-                    choose(.init(persona: DJConnectSessionPersonaValue(rawValue: $0)))
-                }
-                choices("mood", r.allowed_values.mood, selected: review ? draft.mood ?? e.mood : e.mood) { choose(.init(mood: $0)) }
-                choices("presence", r.allowed_values.presence.filter { raw in DJConnectSessionPresenceValue.selectableChoices.contains { $0.rawValue == raw } }, selected: (review ? draft.presence ?? e.presence : e.presence).rawValue) {
-                    choose(.init(presence: DJConnectSessionPresenceValue(rawValue: $0)))
+                if review {
+                    let personas = DJConnectSessionPersonaValue.allCases.map(\.rawValue).filter { r.allowed_values.persona.contains($0) }
+                    choices("persona", personas, selected: (draft.persona ?? e.persona).rawValue) {
+                        choose(.init(persona: DJConnectSessionPersonaValue(rawValue: $0)))
+                    }
+                    choices("mood", r.allowed_values.mood, selected: draft.mood ?? e.mood) { choose(.init(mood: $0)) }
+                    choices("presence", r.allowed_values.presence.filter { raw in DJConnectSessionPresenceValue.selectableChoices.contains { $0.rawValue == raw } }, selected: (draft.presence ?? e.presence).rawValue) {
+                        choose(.init(presence: DJConnectSessionPresenceValue(rawValue: $0)))
+                    }
                 }
                 let output = review ? draft.announcement_output ?? e.announcement_output : e.announcement_output
                 choices("output", r.allowed_values.announcement_output, selected: output.rawValue) { choose(.init(output: DJAnnouncementOutput(rawValue: $0))) }
