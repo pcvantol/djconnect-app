@@ -5156,10 +5156,18 @@ private struct DJConnectWatchCompanionMusicView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     var body: some View {
         List {
-            NavigationLink(watchLocalizedKey(model.language, "watch.queue")) { DJConnectWatchQueueView() }
-            NavigationLink(watchLocalizedKey(model.language, "watch.playlists")) { DJConnectWatchPlaylistsView() }
-            NavigationLink(watchLocalizedKey(model.language, "ui.discover")) { DJConnectWatchDiscoveryView() }
-            NavigationLink(watchLocalizedKey(model.language, "watch.v2.sound")) { DJConnectWatchCompanionSoundView() }
+            NavigationLink { DJConnectWatchQueueView() } label: {
+                Label(watchLocalizedKey(model.language, "watch.queue"), systemImage: "list.number")
+            }
+            NavigationLink { DJConnectWatchPlaylistsView() } label: {
+                Label(watchLocalizedKey(model.language, "watch.playlists"), systemImage: "music.note.list")
+            }
+            NavigationLink { DJConnectWatchDiscoveryView() } label: {
+                Label(watchLocalizedKey(model.language, "ui.discover"), systemImage: "sparkles")
+            }
+            NavigationLink { DJConnectWatchCompanionSoundView() } label: {
+                Label(watchLocalizedKey(model.language, "watch.v2.sound"), systemImage: "speaker.wave.2")
+            }
         }
         .watchStandardBackground()
         .navigationTitle(watchLocalizedKey(model.language, "watch.v2.music"))
