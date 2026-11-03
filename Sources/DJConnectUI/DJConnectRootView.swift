@@ -17571,14 +17571,8 @@ struct SettingsView: View {
                 .accentColor(.white)
                 .scrollContentBackgroundIfAvailable(.hidden)
                 .background(.clear)
-                .safeAreaInset(edge: .bottom) {
-                    Color.clear
-                        .frame(height: 28)
-                        .allowsHitTesting(false)
-                }
                 .djTransparentMacListBackground()
             }
-            .ignoresSafeArea(edges: .bottom)
             .navigationTitle(localizedKey(model.language, "ui.settings"))
             .accessibilityIdentifier("screen-settings")
             .alert(
@@ -18636,22 +18630,17 @@ private struct SettingsContentContainer<Content: View>: View {
     var body: some View {
         ScrollView {
             #if os(macOS)
-            VStack(alignment: .leading, spacing: 28) { content }
+            VStack(alignment: .leading, spacing: djConnectScreenHorizontalPadding) { content }
                 .labeledContentStyle(SettingsTrailingContentStyle())
                 .toggleStyle(SwitchToggleStyle(tint: DJConnectGlassAppearance.toggleTint))
-                .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+                .padding(djConnectScreenHorizontalPadding)
             #else
             DJSessionGlassGroup {
-                VStack(alignment: .leading, spacing: 20) { content }
+                VStack(alignment: .leading, spacing: djConnectScreenHorizontalPadding) { content }
             }
             .pickerStyle(.menu)
             .frame(maxWidth: maximumContentWidth)
-            .padding(.horizontal, djConnectScreenHorizontalPadding)
-            .padding(.vertical, djConnectScreenVerticalPadding)
-            #if os(iOS)
-            // Keep the final permissions card scrollable above the floating tab bar.
-            .padding(.bottom, 96)
-            #endif
+            .padding(djConnectScreenHorizontalPadding)
             .frame(maxWidth: .infinity, alignment: .top)
             #endif
         }
@@ -18663,15 +18652,15 @@ private struct SettingsGlassSection<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: djConnectScreenHorizontalPadding) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .accessibilityAddTraits(.isHeader)
-            VStack(alignment: .leading, spacing: 18) { content }
+            VStack(alignment: .leading, spacing: djConnectScreenHorizontalPadding) { content }
         }
-        .padding(24)
+        .padding(djConnectScreenHorizontalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .djSessionFrostedSurface()
     }
