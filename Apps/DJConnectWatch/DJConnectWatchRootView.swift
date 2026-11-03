@@ -5557,8 +5557,6 @@ private struct DJConnectWatchCompanionTrackView: View {
             Image(systemName: isFavorite ? "heart.fill" : "heart")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(isFavorite ? watchAccentPurple : .white)
-                .frame(width: 36, height: 36)
-                .background(DJConnectMaterial(.regular), in: Circle())
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
