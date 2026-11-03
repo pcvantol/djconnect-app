@@ -1671,3 +1671,6 @@
 
 "watch.v2.flow.question" = "Ask DJ question";
 "watch.v2.flow.answer" = "Ask DJ answer";
+
+"watch.playback.controls" = "Playback controls";
+"watch.playback.replay" = "Restart track";

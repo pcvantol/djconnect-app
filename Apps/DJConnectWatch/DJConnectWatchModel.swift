@@ -1617,12 +1617,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         await refreshStatus()
     }
 
-    func sendCommand(_ command: String) async {
+    func sendCommand(_ command: String, value: DJConnectCommandValue? = nil) async {
         if command == "play" || command == "pause" {
             playPlaybackToggleHaptic(isStarting: command == "play")
         }
         if isDemoMode {
-            applyDemoCommand(command, value: nil)
+            applyDemoCommand(command, value: value)
             appendDiagnosticLog("Demo opdracht: \(command)")
             return
         }
@@ -1634,7 +1634,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: command, language: currentRequestLocale, mood: backendMoodHint)
+                payload: DJConnectCommandPayload(identity: identity, command: command, value: value, language: currentRequestLocale, mood: backendMoodHint)
             )
             applyBackendSummary(response.musicBackendSummary)
             if !Self.shouldDeferPlaybackSnapshotUntilRefresh(command) {
@@ -2402,7 +2402,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private static func shouldRefreshPlaybackAfterCommand(_ command: String) -> Bool {
         switch command {
-        case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy", "play_context_at", "set_current_track_favorite", "save_current_track":
+        case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy", "play_context_at", "set_current_track_favorite", "save_current_track", "seek_relative", "set_shuffle":
             true
         default:
             false
@@ -3421,6 +3421,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         case "previous":
             applyDemoQueueItem(relativeOffset: -1)
             statusMessage = "Vorig demo nummer"
+        case "set_shuffle":
+            if case let .bool(enabled) = value { playback?.shuffle = enabled }
         case "seek_relative":
             if case let .int(delta) = value {
                 let currentProgress = playback?.progressMS ?? 0

@@ -1671,3 +1671,6 @@
 
 "watch.v2.flow.question" = "Ask DJ-vraag";
 "watch.v2.flow.answer" = "Ask DJ-antwoord";
+
+"watch.playback.controls" = "Afspeelbediening";
+"watch.playback.replay" = "Nummer opnieuw afspelen";

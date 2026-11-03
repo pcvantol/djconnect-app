@@ -5208,6 +5208,8 @@ private struct DJConnectWatchCompanionTrackView: View {
     @Environment(\.watchSessionTheme) private var theme
     @State private var original: DJConnectPlayback?
     @State private var progressObservedAt = Date()
+    @State private var controlsVisit: UUID?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var context: DJConnectConversationContext
     @State private var originalBinding: String?
     init(playback: DJConnectPlayback?, context: DJConnectConversationContext, binding: String?) {
@@ -5226,6 +5228,12 @@ private struct DJConnectWatchCompanionTrackView: View {
         }
         .navigationTitle(watchLocalizedKey(model.language, "watch.v2.music"))
         .onReceive(model.$playback) { _ in progressObservedAt = Date() }
+        .task(id: controlsVisit) {
+            guard controlsVisit != nil else { return }
+            do { try await Task.sleep(for: .seconds(5)) } catch { return }
+            setControlsVisible(false)
+        }
+        .onDisappear { controlsVisit = nil }
     }
 
     private func detail(artwork: Image?) -> some View {
@@ -5241,7 +5249,6 @@ private struct DJConnectWatchCompanionTrackView: View {
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    favoriteButton
                 }
                 .padding(.horizontal, 8)
                 VStack(spacing: 6) {
@@ -5312,7 +5319,7 @@ private struct DJConnectWatchCompanionTrackView: View {
     private func trackArtwork(_ artwork: Image?) -> some View {
         GeometryReader { geometry in
             let size = geometry.size
-            ZStack {
+            Button { setControlsVisible(controlsVisit == nil) } label: {
                 Group {
                     if let artwork {
                         artwork.resizable().scaledToFill()
@@ -5327,33 +5334,85 @@ private struct DJConnectWatchCompanionTrackView: View {
                                            .init(color: .clear, location: 0.32)],
                                    startPoint: .top, endPoint: .bottom)
                 }
-                .accessibilityHidden(true)
+                .contentShape(Rectangle())
             }
-            .overlay(alignment: .bottom) {
-                HStack(spacing: 0) {
-                    playbackButton(command: "previous", icon: "backward.fill", label: "watch.previous.track")
-                    playbackButton(command: isPlaying ? "pause" : "play",
-                                   icon: isPlaying ? "pause.fill" : "play.fill",
-                                   label: isPlaying ? "watch.pause" : "watch.play")
-                    playbackButton(command: "next", icon: "forward.end.fill", label: "watch.next.track")
+            .buttonStyle(.plain)
+            .accessibilityLabel(watchLocalizedKey(model.language, "watch.playback.controls"))
+            .accessibilityAddTraits(controlsVisit != nil ? [.isSelected] : [])
+            .overlay {
+                if controlsVisit != nil {
+                    Color.black.opacity(0.52).allowsHitTesting(false)
+                    artworkControls
+                        .padding(.top, 44)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 8)
+                        .transition(.opacity)
                 }
-                .foregroundStyle(.white)
-                .frame(width: min(max(0, size.width - 20), 156))
-                .padding(.vertical, 4)
-                .background(DJConnectMaterial(.regular), in: Capsule())
-                .disabled(!model.canUseBackend && !model.isDemoMode)
-                .padding(14)
             }
             .clipShape(RoundedRectangle(cornerRadius: min(size.width, size.height) * 0.20, style: .continuous))
         }
         .containerRelativeFrame([.horizontal, .vertical])
     }
 
+    private func setControlsVisible(_ visible: Bool) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
+            controlsVisit = visible ? UUID() : nil
+        }
+    }
+
+    private var artworkControls: some View {
+        let playback = model.playback
+        let canSeek = playback?.hasPlayback == true
+        let shuffle = playback?.shuffle == true
+        return VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                playbackButton(icon: "arrow.counterclockwise", label: "watch.playback.replay") {
+                    guard let progress = model.playback?.progressMS else { return }
+                    let elapsed = isPlaying ? Int(max(0, Date().timeIntervalSince(progressObservedAt)) * 1_000) : 0
+                    await model.sendCommand("seek_relative", value: .int(-max(0, progress + elapsed)))
+                }
+                .disabled(!canSeek || playback?.progressMS == nil)
+                playbackButton(icon: "shuffle", label: "ui.shuffle", selected: shuffle) {
+                    await model.sendCommand("set_shuffle", value: .bool(model.playback?.shuffle != true))
+                }
+                .disabled(!canSeek)
+                favoriteButton
+                    .frame(maxWidth: .infinity)
+            }
+            Spacer(minLength: 0)
+            HStack(spacing: 0) {
+                playbackButton(icon: "backward.end.fill", label: "watch.previous.track") {
+                    await model.sendCommand("previous")
+                }
+                playbackButton(icon: isPlaying ? "pause.fill" : "play.fill", label: isPlaying ? "watch.pause" : "watch.play") {
+                    await model.sendCommand(isPlaying ? "pause" : "play")
+                }
+                playbackButton(icon: "forward.end.fill", label: "watch.next.track") {
+                    await model.sendCommand("next")
+                }
+            }
+            Spacer(minLength: 0)
+            HStack(spacing: 0) {
+                playbackButton(icon: "gobackward.15", label: "ui.back.15.seconds") {
+                    await model.sendCommand("seek_relative", value: .int(-15_000))
+                }
+                playbackButton(icon: "goforward.15", label: "ui.forward.15.seconds") {
+                    await model.sendCommand("seek_relative", value: .int(15_000))
+                }
+            }
+            .disabled(!canSeek)
+        }
+        .disabled(!model.canUseBackend && !model.isDemoMode)
+    }
+
     private var favoriteButton: some View {
         let isCurrentTrack = original?.uri != nil && model.playback?.uri == original?.uri
         let isFavorite = isCurrentTrack && model.playback?.currentTrackFavoriteStatus == true
 
-        return Button { Task { await model.saveCurrentTrack() } } label: {
+        return Button {
+            setControlsVisible(true)
+            Task { await model.saveCurrentTrack() }
+        } label: {
             Image(systemName: isFavorite ? "heart.fill" : "heart")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(isFavorite ? watchAccentPurple : .white)
@@ -5370,15 +5429,21 @@ private struct DJConnectWatchCompanionTrackView: View {
         ))
     }
 
-    private func playbackButton(command: String, icon: String, label: String) -> some View {
-        Button { Task { await model.sendCommand(command) } } label: {
+    private func playbackButton(icon: String, label: String, selected: Bool = false,
+                                action: @escaping @MainActor () async -> Void) -> some View {
+        Button {
+            setControlsVisible(true)
+            Task { await action() }
+        } label: {
             Image(systemName: icon)
                 .font(.title3.weight(.semibold))
+                .foregroundStyle(selected ? watchAccentPurple : .white)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(watchLocalizedKey(model.language, label))
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
 private struct DJConnectWatchRecordingInsightView: View {
