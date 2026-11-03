@@ -40,7 +40,28 @@ private struct SessionComplicationView: View {
     var body: some View {
         Group {
             if family == .accessoryRectangular {
-                Label(title, systemImage: entry.snapshot == nil ? "bubble.left" : "opticaldisc").font(.headline).lineLimit(2)
+                if entry.snapshot == nil {
+                    HStack(spacing: 6) {
+                        Image("BrandHeadset")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 26, height: 26)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(title).font(.headline)
+                            Text(DJConnectLocalization.localized(key: "ui.askdj.help.catalogue.title"))
+                                .font(.caption2)
+                        }
+                        .lineLimit(1)
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .accessibilityHidden(true)
+                    }
+                    .accessibilityElement(children: .combine)
+                } else {
+                    Label(title, systemImage: "opticaldisc").font(.headline).lineLimit(2)
+                }
             } else if family == .accessoryInline {
                 Label(title, systemImage: entry.snapshot == nil ? "bubble.left" : "opticaldisc")
             } else {

@@ -275,6 +275,7 @@ targets:
     sources:
       - path: Apps/DJConnectWatchComplications
       - path: Sources/DJConnectCore/Resources
+      - path: Apps/Shared/Assets.xcassets
     dependencies:
       - target: DJConnectCoreWatch
     info:
