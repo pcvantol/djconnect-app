@@ -176,27 +176,33 @@ private struct SessionHorizonHero: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
-    private var artwork: some View {
-        Image("HorizonHero")
-            .resizable()
-            .scaledToFill()
+    private var animates: Bool {
+        #if os(macOS)
+        false
+        #else
+        !reduceMotion && scenePhase == .active
+        #endif
     }
 
     var body: some View {
-        Color.clear
-            .frame(height: 132)
-            .overlay {
-                if reduceMotion || scenePhase != .active {
-                    artwork
-                } else {
-                    artwork.phaseAnimator([false, true]) { image, illuminated in
-                        image.scaleEffect(illuminated ? 1.025 : 1)
-                            .brightness(illuminated ? 0.035 : 0)
-                    } animation: { _ in .easeInOut(duration: 6) }
-                }
+        GeometryReader { geometry in
+            let artwork = Image("HorizonHero")
+                .resizable()
+                .scaledToFill()
+                .frame(width: geometry.size.width, height: geometry.size.height)
+            if animates {
+                artwork.phaseAnimator([false, true]) { image, illuminated in
+                    image.scaleEffect(illuminated ? 1.025 : 1)
+                        .brightness(illuminated ? 0.035 : 0)
+                } animation: { _ in .easeInOut(duration: 6) }
+            } else {
+                artwork
             }
-            .clipShape(RoundedRectangle(cornerRadius: 22))
-            .accessibilityHidden(true)
+        }
+        .frame(height: 132)
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
