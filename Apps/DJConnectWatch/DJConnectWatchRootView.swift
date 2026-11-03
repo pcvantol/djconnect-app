@@ -4683,6 +4683,7 @@ private struct DJConnectWatchCompanionPages: View {
     @State private var flowPosition = 0.0
     @State private var crownPosition = 0.0
     @State private var crownAdvance = true
+    @State private var unseenFlowID: String?
     // Presented outside the conditional pages, so runtime refreshes never replace
     // a question's original context or pop a reader off its original Moment.
     private enum Destination { case text(DJConnectConversationContext), voice(DJConnectConversationContext), moment(DJConnectMoment), flow(DJConnectWatchFlowRow, String, String), notification(DJConnectWatchMomentOpenIntent) }
@@ -4736,7 +4737,7 @@ private struct DJConnectWatchCompanionPages: View {
         .onChange(of: model.watchMomentOpenIntent, initial: true) { _, intent in
             if let intent { destination = .notification(intent) }
         }
-        .onChange(of: session?.id) { _, _ in flowPosition = 0 }
+        .onChange(of: session?.id) { _, _ in flowPosition = 0; unseenFlowID = nil }
         .task(id: page == 0 ? session.map { (snapshot?.settings.binding ?? "") + ":" + $0.id } : nil) {
             guard page == 0, let binding = snapshot?.settings.binding, let sessionID = session?.id else { return }
             if flowOwner != binding || flowSessionID != sessionID {
@@ -4944,8 +4945,12 @@ private struct DJConnectWatchCompanionPages: View {
                 if canScroll && !crownFocused { crownFocused = true }
             }
             .onChange(of: rows.map(\.id)) { old, new in
+                if let unseenFlowID, !new.contains(unseenFlowID) { self.unseenFlowID = nil }
                 let previous = Int(flowPosition.rounded())
                 guard previous > 0 else { return }
+                if !old.isEmpty, let newest = new.first, !old.contains(newest) {
+                    unseenFlowID = newest
+                }
                 if let id = old.indices.contains(previous - 1) ? old[previous - 1] : nil, let current = new.firstIndex(of: id) {
                     flowPosition = Double(current + 1)
                 } else {
@@ -4982,6 +4987,7 @@ private struct DJConnectWatchCompanionPages: View {
     private func moveFlow(to value: Double, count: Int) {
         let next = min(max(0, value.rounded()), Double(count))
         guard next != flowPosition else { return }
+        if next <= 1 { unseenFlowID = nil }
         crownAdvance = next > flowPosition
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { flowPosition = next }
         if next > 0 { playWatchHaptic(.click, enabled: true) }
@@ -4993,6 +4999,12 @@ private struct DJConnectWatchCompanionPages: View {
                 HStack {
                     Text(text(row.labelKey)).font(.caption.weight(.semibold)).foregroundStyle(accent)
                     Spacer(minLength: 4)
+                    if index > 1, unseenFlowID != nil {
+                        Image(systemName: "sparkle")
+                            .font(.caption2)
+                            .foregroundStyle(accent)
+                            .accessibilityLabel(text("ui.session.history.new_entries"))
+                    }
                     Text("\(index)/\(count)").font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
                 }
                 Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
