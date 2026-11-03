@@ -4743,7 +4743,7 @@ private struct DJConnectWatchCompanionPages: View {
             case .voice(let context):
                 DJConnectWatchCompanionVoiceView(context: context).watchStandardBackground()
             case .moment(let moment):
-                DJConnectWatchCompanionMomentView(moment: moment, state: state).watchStandardBackground()
+                DJConnectWatchCompanionMomentView(moment: moment, state: state, speech: model.sessionSpeech).watchStandardBackground()
             case .flow(let row, let binding, let sessionID):
                 flowDetail(row, binding: binding, sessionID: sessionID)
                     .watchStandardBackground()
@@ -5213,6 +5213,7 @@ private struct DJConnectWatchCompanionMomentView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     let moment: DJConnectMoment
     @ObservedObject var state: DJConnectWatchForegroundSession
+    @ObservedObject var speech: DJConnectWatchSessionSpeech
     private var available: Bool {
         guard let session = state.current()?.session, session.id == moment.sessionID else { return false }
         let original = session.broadcast.nativeCurrentMoment(at: Date(), spotifyAttributionAvailable: true)
@@ -5234,9 +5235,14 @@ private struct DJConnectWatchCompanionMomentView: View {
                 ForEach(moment.nativeSourceURLs.filter { $0.host != "open.spotify.com" }, id: \.absoluteString) { url in
                     Text(url.host ?? "").font(.caption2).foregroundStyle(.secondary)
                 }
-                if model.canPlaySessionMoment(moment) {
-                    Button { model.playSessionMoment(moment) } label: { Label(watchLocalizedKey(model.language, "watch.v2.listen"), systemImage: "speaker.wave.2") }
-                    Button(watchLocalizedKey(model.language, "watch.session.stop_speech")) { model.sessionSpeech.stop() }
+                let isSpeaking = speech.momentID == moment.id && (speech.state == .preparing || speech.state == .playing)
+                if isSpeaking || model.canPlaySessionMoment(moment) {
+                    Button {
+                        if isSpeaking { speech.stop() } else { model.playSessionMoment(moment) }
+                    } label: {
+                        Label(watchLocalizedKey(model.language, isSpeaking ? "watch.session.stop_speech" : "watch.v2.listen"),
+                              systemImage: isSpeaking ? "stop.fill" : "speaker.wave.2")
+                    }
                 }
                 NavigationLink {
                     DJConnectWatchCompanionTextView(context: .init(sessionID: moment.sessionID,
@@ -5751,7 +5757,7 @@ private struct DJConnectWatchMomentNotificationView: View {
         TimelineView(.explicit([Date()] + [retained.flatMap { DJConnectHistoryEntry.date($0.retainedUntil) }].compactMap { $0 })) { _ in
             Group {
                 if let original {
-                    DJConnectWatchCompanionMomentView(moment: original, state: state)
+                    DJConnectWatchCompanionMomentView(moment: original, state: state, speech: model.sessionSpeech)
                 } else if isLoading || state.isRefreshing {
                     ProgressView()
                 } else if let retained, retained.isRetained(),
