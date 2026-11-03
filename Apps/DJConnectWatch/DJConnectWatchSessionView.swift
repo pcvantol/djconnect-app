@@ -24,7 +24,6 @@ struct DJConnectWatchSessionView: View {
             List {
                 if state.isChanging { ProgressView().accessibilityIdentifier("watch-session-changing") }
                 if state.outcomeUnknown {
-                    Text(text("watch.session.check_outcome")).font(.caption)
                     Button(text("ui.refresh")) { Task { await model.refreshForegroundSession(force: true) } }
                     Button(text("ui.dj_settings.use_current")) { Task { await model.acceptCurrentForegroundSession() } }
                 }

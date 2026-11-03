@@ -5303,7 +5303,6 @@ private struct DJConnectWatchCompanionTextView: View {
                 if model.watchTextPending { ProgressView() }
                 if sent, let answer { Text(answer.text) }
                 if model.watchTextOutcomeUnknown {
-                    Text(watchLocalizedKey(model.language, "watch.session.check_outcome"))
                     Button(watchLocalizedKey(model.language, "ui.refresh")) {
                         Task { await model.checkWatchTextOutcome(); if !model.watchTextOutcomeUnknown { answer = model.lastWatchTextReply; sent = true; text = "" } }
                     }
@@ -5700,8 +5699,6 @@ struct DJConnectWatchCompanionMoodView: View {
     @ObservedObject var state: DJConnectWatchForegroundSession
     @ObservedObject var settings: ProfileDJSettingsModel
 
-    @State private var updateFailed = false
-
     private let moods: [DJConnectSessionMoodTheme] = [.chill, .groove, .energy, .party]
 
     var body: some View {
@@ -5715,7 +5712,7 @@ struct DJConnectWatchCompanionMoodView: View {
                         guard session.selectedMood != mood else { return }
                         let intent = DJConnectWatchSessionMoodIntent(binding: current.settings.binding,
                             sessionID: session.id, mood: mood, expectedRevision: revision)
-                        Task { updateFailed = !(await model.updateSessionMood(intent)) }
+                        Task { _ = await model.updateSessionMood(intent) }
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: option.watchIcon)
@@ -5738,9 +5735,6 @@ struct DJConnectWatchCompanionMoodView: View {
                 Text(watchLocalizedKey(model.language, "ui.dj_settings.unavailable")).font(.caption).foregroundStyle(.secondary)
             }
             if model.isUpdatingSessionMood { ProgressView() }
-            if updateFailed {
-                Text(watchLocalizedKey(model.language, "watch.session.check_outcome")).font(.caption)
-            }
         }
         .listStyle(.plain)
         .watchStandardBackground()

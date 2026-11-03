@@ -1563,7 +1563,6 @@
 "watch.session.retry" = "No se pudo cargar la sesión. Pulsa Actualizar para volver a intentarlo.";
 "watch.session.pair_again" = "Vuelve a enlazar el Watch mediante DJConnect en el iPhone.";
 "watch.session.expired" = "Es necesario actualizar la sesión. Pulsa Actualizar.";
-"watch.session.check_outcome" = "Comprobando la sesión. Pulsa Actualizar para comprobar si se aplicó el cambio.";
 
 "ui.askdj.help.global.entry" = "Cómo funciona Ask DJ";
 

@@ -1563,7 +1563,6 @@
 "watch.session.retry" = "De sessie kon niet worden opgehaald. Tik op vernieuwen om opnieuw te proberen.";
 "watch.session.pair_again" = "Koppel je Watch opnieuw via DJConnect op je iPhone.";
 "watch.session.expired" = "Je sessie moet worden vernieuwd. Tik op vernieuwen.";
-"watch.session.check_outcome" = "Je sessie wordt gecontroleerd. Tik op vernieuwen om te zien of de wijziging is verwerkt.";
 
 "ui.askdj.help.global.entry" = "Zo werkt Ask DJ";
 
