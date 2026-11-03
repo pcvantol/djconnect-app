@@ -92,7 +92,9 @@ public struct DeviceSpeechSettingsView: View {
                     .accessibilityLabel(text("pitch"))
             }
             Button(isSpeaking ? text("stop") : text("preview"), action: isSpeaking ? stop : preview)
-                #if !os(watchOS)
+                #if os(watchOS)
+                .listRowBackground(Color.clear)
+                #else
                 .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
                 #endif
                 .disabled(!isSpeaking && (!previewAllowed || matching.isEmpty))
