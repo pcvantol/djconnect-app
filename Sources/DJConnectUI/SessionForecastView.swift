@@ -207,7 +207,10 @@ private struct SessionHorizonHero: View {
         .frame(height: 132)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(8)
-        .djSessionFrostedSurface(cornerRadius: 22)
+        .djSessionFrostedSurface(
+            cornerRadius: 22,
+            surfaceTint: Color(red: 0.52, green: 0.26, blue: 0.72)
+        )
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
