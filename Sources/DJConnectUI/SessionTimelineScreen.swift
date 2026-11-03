@@ -115,6 +115,11 @@ struct SavedSessionsView: View {
         guard !searchQuery.isEmpty else { return history.sessions }
         return history.archiveSearchQuery == searchQuery ? history.archiveSearchSessions : []
     }
+    private var selectedSearchSessionID: String? {
+        let sessions = filteredSessions
+        guard isSearchVisible, !searchQuery.isEmpty, sessions.indices.contains(selectedSearchIndex) else { return nil }
+        return sessions[selectedSearchIndex].id
+    }
     private func closeSearch() {
         isSearchFocused = false
         searchText = ""
@@ -184,7 +189,9 @@ struct SavedSessionsView: View {
                         .listRowBackground(Color.clear).listRowSeparator(.hidden)
                         .accessibilityIdentifier("saved-sessions-refresh-error")
                     }
+                    let selectedSessionID = selectedSearchSessionID
                     ForEach(filteredSessions) { session in
+                        let isSelectedMatch = session.id == selectedSessionID
                         Button {
                             isSearchFocused = false
                             openedSession.wrappedValue = SavedSessionDestination(
@@ -195,6 +202,14 @@ struct SavedSessionsView: View {
                                 .equatable()
                         }
                         .buttonStyle(DJConnectMediaRowButtonStyle())
+                        .overlay {
+                            if isSelectedMatch {
+                                RoundedRectangle(cornerRadius: DJConnectMediaRowSurface.cornerRadius, style: .continuous)
+                                    .stroke(DJConnectCardAppearance.searchFocusGradient, lineWidth: DJConnectCardAppearance.searchFocusWidth)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                        .accessibilityAddTraits(isSelectedMatch ? [.isSelected] : [])
                         .accessibilityIdentifier("saved-session-" + session.id)
                         .id(session.id)
                         .frame(maxWidth: rowMaxWidth, alignment: .leading).frame(maxWidth: .infinity)
