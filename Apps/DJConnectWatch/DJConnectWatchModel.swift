@@ -3612,12 +3612,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    @AppStorage("watchVoiceTransferSequence") private var watchVoiceTransferSequence = 0
+
     private func sendWatchVoice(_ payload: DJConnectWatchProxyVoicePayload, generation: UUID) async throws -> DJConnectVoiceResponse {
         #if canImport(WatchConnectivity)
         guard let operationID = payload.clientMessageID, payload.conversationContext != nil,
               !payload.wavData.isEmpty, payload.wavData.count <= DJConnectWatchVoiceAssembly.maximumBytes else { throw DJConnectError.invalidResponse }
         var metadata = payload; metadata.wavData = Data()
         let header = try JSONEncoder().encode(metadata)
+        guard watchVoiceTransferSequence < Int.max else { throw DJConnectError.invalidResponse }
+        watchVoiceTransferSequence += 1
+        let sequence = watchVoiceTransferSequence
         let size = DJConnectWatchVoiceAssembly.chunkBytes
         let total = (payload.wavData.count + size - 1) / size
         for index in 0..<total {
@@ -3627,7 +3632,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             let final = index == total - 1
             let response = await companionRequests.request(timeout: final ? .seconds(300) : .seconds(20)) { correlationID in
                 WCSession.default.sendMessage(["type": "watch_proxy_voice_chunk", "correlation_id": correlationID,
-                    "operation_id": operationID, "header": header, "index": index, "total": total, "bytes": bytes], replyHandler: nil) { [weak self] _ in
+                    "operation_id": operationID, "sequence": sequence, "header": header, "index": index, "total": total, "bytes": bytes], replyHandler: nil) { [weak self] _ in
                     Task { @MainActor [weak self] in self?.companionRequests.complete(id: correlationID,
                         response: .init(success: false, error: "outcome_unknown")) }
                 }

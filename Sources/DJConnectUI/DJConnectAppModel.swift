@@ -15431,8 +15431,9 @@ public final class DJConnectAppModel: ObservableObject {
             watchVoiceAssembly.bind(owner: owner)
             guard owner != nil, let id = message["operation_id"] as? String,
                   let header = message["header"] as? Data, let bytes = message["bytes"] as? Data,
+                  let sequence = message["sequence"] as? Int,
                   let index = message["index"] as? Int, let total = message["total"] as? Int else { throw DJConnectError.invalidResponse }
-            guard let payload = try watchVoiceAssembly.receive(id: id, header: header, index: index, total: total, bytes: bytes) else {
+            guard let payload = try watchVoiceAssembly.receive(id: id, sequence: sequence, header: header, index: index, total: total, bytes: bytes) else {
                 sendWatchProxyHAResponse(.init(success: true, payload: try JSONEncoder().encode(true)), correlationID: correlationID)
                 return
             }

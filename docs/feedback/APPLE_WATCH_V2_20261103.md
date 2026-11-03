@@ -21,7 +21,8 @@ This is an incomplete source candidate, not a release, installation or closure.
   four-second recordings exceed its42KB bound. Bounded ordered16KB raw companion
   chunks admit at most200KB/six seconds; one original request after completion.
   No automatic operation replay, partial dispatch or duplicate final dispatch.
-  One partial stream/20 seconds and256 spent identities per owner are bounded.
+  One partial stream is allowed for 20 seconds. A persistent Watch transfer sequence and
+  a single in-memory high-water mark per iPhone pairing reject repeated transfers.
 - Explicit original Moment reader, existing admitted native Listen/Stop and text
   question; no generated summaries. Visible eight-item window has a newest
   indicator rather than automatically jumping the reader to incoming content.
