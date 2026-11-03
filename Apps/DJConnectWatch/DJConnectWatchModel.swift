@@ -1931,9 +1931,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func selectOutput(_ output: DJConnectOutputDevice) async {
-        guard !Self.isSyntheticOutput(output), output.name != Self.noOutputName else { return }
+        guard loadingOutputID == nil, !Self.isSyntheticOutput(output), output.name != Self.noOutputName else { return }
         appendDiagnosticLog("Uitvoer geselecteerd: \(output.name)")
-        selectedOutput = output.name
         if isDemoMode {
             loadingOutputID = output.id
             applyDemoCommand("set_output", value: .string(output.name))
@@ -1960,14 +1959,27 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
-            applyPlayback(response.playback)
             guard response.success else {
                 statusMessage = cachedSpotifyOutputFailureMessage(for: output)
                 appendDiagnosticLog("Uitvoer instellen mislukt: \(statusMessage)", level: .error)
                 return
             }
-            statusMessage = "Uitvoer ingesteld"
-            appendDiagnosticLog("Uitvoer ingesteld: \(output.name)")
+            if let playback = response.playback,
+               output.matchesPlaybackDevice(id: playback.device?.id, name: playback.device?.name) {
+                applyPlayback(playback)
+            }
+            await refreshStatus()
+            await loadOutputs()
+            if !availableOutputs.contains(where: { $0.id == output.id && $0.active == true }) ||
+                !output.matchesPlaybackDevice(id: playback?.device?.id, name: playback?.device?.name) {
+                do { try await Task.sleep(for: .milliseconds(850)) } catch { return }
+                await refreshStatus()
+                await loadOutputs()
+            }
+            if availableOutputs.contains(where: { $0.id == output.id && $0.active == true }) {
+                statusMessage = "Uitvoer ingesteld"
+                appendDiagnosticLog("Uitvoer ingesteld: \(output.name)")
+            }
         } catch {
             statusMessage = output.isCachedSpotifyOutput ? cachedSpotifyOutputFailureMessage(for: output) : Self.userMessage(for: error)
             appendDiagnosticLog("Uitvoer instellen mislukt: \(statusMessage)", level: .error)
@@ -2302,7 +2314,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func devicesApplyingCurrentPlayback(to devices: [DJConnectOutputDevice]) -> [DJConnectOutputDevice] {
-        guard let playbackDevice = playback?.device else {
+        guard !devices.contains(where: { $0.active == true }), let playbackDevice = playback?.device else {
             return devices
         }
         let playbackID = playbackDevice.id?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2420,6 +2432,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         let deviceName = device.name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let deviceID = device.id?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard deviceName?.isEmpty == false || deviceID?.isEmpty == false else {
+            return
+        }
+
+        if let loadingOutputID, deviceID != loadingOutputID,
+           availableOutputs.first(where: { $0.id == loadingOutputID })?.matchesPlaybackDevice(id: deviceID, name: deviceName) != true {
             return
         }
 
