@@ -5030,10 +5030,8 @@ private struct DJConnectWatchCompanionPages: View {
         List {
             if session != nil {
                 NavigationLink {
-                    ScrollView {
-                        DJConnectWatchSessionView(state: state, settings: model.profileDJSettings, speech: model.sessionSpeech)
-                    }
-                    .watchStandardBackground()
+                    DJConnectWatchSessionView(state: state, settings: model.profileDJSettings, speech: model.sessionSpeech)
+                        .watchStandardBackground()
                 } label: { Label(text("ui.session.title"), systemImage: "slider.horizontal.3") }
             }
             NavigationLink { DJConnectWatchCompanionMusicView() } label: { Label(text("watch.v2.music"), systemImage: "music.note") }

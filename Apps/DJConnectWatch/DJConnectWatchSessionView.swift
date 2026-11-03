@@ -21,7 +21,7 @@ struct DJConnectWatchSessionView: View {
             // It only schedules invalidation; current wall/monotonic clocks own
             // freshness and the producer's unchanged Moment deadlines.
             let now = Date()
-            VStack(alignment: .leading, spacing: 10) {
+            List {
                 if state.isChanging { ProgressView().accessibilityIdentifier("watch-session-changing") }
                 if state.outcomeUnknown {
                     Text(text("watch.session.check_outcome")).font(.caption)
@@ -33,6 +33,7 @@ struct DJConnectWatchSessionView: View {
                         if let started = DJConnectHistoryEntry.date(session.startedAt) {
                             Text(text("ui.session.started_at") + " " + started.formatted(.dateTime.day().month().hour().minute().locale(Locale(identifier: model.language))))
                                 .font(.caption2).foregroundStyle(.secondary)
+                                .listRowBackground(Color.clear)
                         }
                         NavigationLink {
                             DJConnectWatchCompanionMoodView(state: state, settings: settings)
@@ -103,8 +104,8 @@ struct DJConnectWatchSessionView: View {
                         .font(.callout)
                 }
             }
+            .listStyle(.plain)
             .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("watch-current-session")
         }
         .confirmationDialog(text("ui.session.end.confirm"), isPresented: $confirmsEnd) {
