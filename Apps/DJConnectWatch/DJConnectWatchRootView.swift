@@ -5401,7 +5401,8 @@ private struct DJConnectWatchCompanionNotificationsView: View {
     var body: some View {
         List {
             Toggle(watchLocalizedKey(model.language, "watch.v2.moments"), isOn: $model.watchMomentNotificationsEnabled)
-            Text(watchLocalizedKey(model.language, model.watchMomentNotificationPreferenceConfirmed ? "watch.v2.notification.confirmed" : "watch.v2.notification.pending"))
+            // Ordinary push registration does not acknowledge the Moment preference.
+            Text(watchLocalizedKey(model.language, "watch.v2.notification.pending"))
                 .font(.caption).foregroundStyle(.secondary)
             Button(watchLocalizedKey(model.language, "watch.v2.notification.permission")) { model.requestWatchNotificationPermission() }
                 .buttonStyle(.plain)
