@@ -4094,6 +4094,25 @@ struct TrackInsightView: View {
         }
     }
 
+    @State private var visualPlaybackID: String?
+
+    private var playbackVisual: TrackInsight? {
+        guard !explicitMoment, let visualPlaybackID,
+              visualPlaybackID == model.visibleTrackInsightPlaybackID,
+              let playback = model.playback, let title = playback.trackName else { return nil }
+        return TrackInsight(
+            title: title,
+            artist: playback.artistName ?? "",
+            artwork: playback.albumImageURL,
+            duration: playback.durationMS.map { Double($0) / 1_000 },
+            progress: playback.progressMS.map { Double($0) / 1_000 },
+            isPlaying: playback.isPlaying,
+            summary: "",
+            rawAnalysisText: "",
+            measuredAudio: false
+        )
+    }
+
     private var insight: TrackInsight? {
         explicitMoment ? model.momentTrackInsight : model.currentTrackInsight
     }
@@ -4134,18 +4153,20 @@ struct TrackInsightView: View {
                     ZStack(alignment: .top) {
                         ScrollView {
                             LazyVStack(alignment: .leading, spacing: djConnectCardSpacing) {
-                                if let insight {
+                                if let visual = insight ?? playbackVisual {
                                     TrackInsightHero(
                                         model: model,
-                                        insight: insight,
+                                        insight: visual,
                                         moodStepIndex: moodStepIndex,
                                         isAnimationActive: isAnimationActive && isHeroVisible,
                                         isPinnedSubject: explicitMoment
                                     )
-                                    .id(trackInsightHeroRenderID(for: insight))
+                                    .id(explicitMoment ? trackInsightHeroRenderID(for: visual) : model.visibleTrackInsightPlaybackID ?? visual.id)
                                     .onAppear { isHeroVisible = true }
                                     .onDisappear { isHeroVisible = false }
                                     .frame(maxWidth: .infinity, alignment: .topLeading)
+                                }
+                                if let insight {
                                     TrackInsightAnalysisCard(insight: insight, language: model.language)
                                         .equatable()
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -4166,7 +4187,7 @@ struct TrackInsightView: View {
                                             }
                                         }
                                     }.padding(24).frame(maxWidth: .infinity, alignment: .leading).djSessionFrostedSurface()
-                                } else {
+                                } else if playbackVisual == nil {
                                     TrackInsightEmptyState(model: model)
                                         .djConnectStandardHeroWidth()
                                 }
@@ -4279,10 +4300,14 @@ struct TrackInsightView: View {
         }
         .onAppear {
             isAnimationActive = true
+            if insight != nil { visualPlaybackID = model.visibleTrackInsightPlaybackID }
         }
-        .task(id: !explicitMoment && model.isPlaying && model.canStartTrackInsightAnalysis) {
+        .onChange(of: insight != nil) { _, hasInsight in
+            if hasInsight { visualPlaybackID = model.visibleTrackInsightPlaybackID }
+        }
+        .task(id: explicitMoment ? nil : model.visibleTrackInsightPlaybackID) {
             guard !explicitMoment else { return }
-            await model.loadTrackInsightOnOpen()
+            await model.maintainVisibleTrackInsight()
         }
         .onDisappear {
             isAnimationActive = false
@@ -6399,7 +6424,7 @@ private struct MusicDiscoveryView: View {
 
     private func maxContentWidth(for size: CGSize) -> CGFloat {
         #if os(iOS)
-        if horizontalSizeClass == .regular && size.height >= size.width {
+        if horizontalSizeClass == .regular {
             return size.width
         }
         #endif
@@ -6564,7 +6589,7 @@ private struct MusicDiscoverySectionView: View {
                 .font(.headline.weight(.bold))
                 .foregroundStyle(.white)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: 12) {
                     ForEach(section.visibleItems) { item in
                         MusicDiscoveryCard(
@@ -15083,7 +15108,7 @@ enum MazeChaseBoard {
     static let spacing: CGFloat = 28
     static let origin = CGPoint(x: (320 - CGFloat(columns - 1) * spacing) / 2,
                                 y: (170 - CGFloat(rows - 1) * spacing) / 2)
-    static func center(_ index: Int) -> CGPoint {
+    static func center(_ index: Int, columns: Int = Self.columns) -> CGPoint {
         CGPoint(x: origin.x + CGFloat(index % columns) * spacing,
                 y: origin.y + CGFloat(index / columns) * spacing)
     }
@@ -15102,14 +15127,14 @@ enum MazeChaseBoard {
         }
     }
 
-    static func step(position: CGPoint, direction: Direction, requested: Direction) -> (position: CGPoint, direction: Direction) {
+    static func step(position: CGPoint, direction: Direction, requested: Direction, columns: Int = Self.columns) -> (position: CGPoint, direction: Direction) {
         let column = (position.x - origin.x) / spacing
         let row = (position.y - origin.y) / spacing
         let atIntersection = abs(column - column.rounded()) < 0.001 && abs(row - row.rounded()) < 0.001
         let reverse = direction.vector.x == -requested.vector.x && direction.vector.y == -requested.vector.y
         let nextDirection = atIntersection || reverse ? requested : direction
         let delta = nextDirection.vector
-        let last = center(columns * rows - 1)
+        let last = center(columns * rows - 1, columns: columns)
         return (CGPoint(x: min(last.x, max(origin.x, position.x + delta.x * 4)),
                         y: min(last.y, max(origin.y, position.y + delta.y * 4))), nextDirection)
     }
@@ -15123,9 +15148,9 @@ enum MeteorRunStarfield {
         let trail: CGFloat
     }
 
-    static func stars(time: TimeInterval, height: CGFloat, reducedMotion: Bool) -> [Star] {
+    static func stars(time: TimeInterval, height: CGFloat, reducedMotion: Bool, width: CGFloat = 320) -> [Star] {
         let time = reducedMotion ? 0 : max(0, time)
-        return (0..<36).map { index in
+        return (0..<Int(36 * width / 320)).map { index in
             let layer = index % 3
             let speed = CGFloat([5.0, 11.0, 20.0][layer])
             let initialY = CGFloat((index * 97 + 31) % 349) / 349 * (height + 24)
@@ -15134,7 +15159,7 @@ enum MeteorRunStarfield {
             let drift = reducedMotion ? 0 : sin(time * 0.35 + phase) * Double(layer + 1) * 0.7
             let fade = max(0, min(1, min((y + 12) / 12, (height + 12 - y) / 12)))
             let twinkle = reducedMotion ? 0.85 : 0.85 + 0.15 * sin(time * (0.6 + Double(layer) * 0.2) + phase)
-            return Star(center: CGPoint(x: CGFloat(10 + (index * 73) % 300) + drift, y: y),
+            return Star(center: CGPoint(x: 10 + CGFloat(index * 73).truncatingRemainder(dividingBy: width - 20) + drift, y: y),
                         radius: CGFloat([0.5, 0.8, 1.15][layer]),
                         opacity: [0.32, 0.50, 0.76][layer] * twinkle * Double(fade),
                         trail: reducedMotion ? 0 : CGFloat([0.0, 2.0, 5.5][layer]))
@@ -15172,7 +15197,7 @@ private struct GamesView: View {
 
     private func contentMaxWidth(for size: CGSize) -> CGFloat {
         #if os(macOS)
-        size.width >= 1_000 ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
+        size.width
         #else
         horizontalSizeClass == .regular ? size.width : djConnectContentMaxWidth
         #endif
@@ -15269,7 +15294,17 @@ private struct LocalGameSurface: View {
     @State private var isPlaying = false
     @FocusState private var isGameFocused: Bool
     private let tick = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
-    private var logicalCanvasSize: CGSize { CGSize(width: 320, height: game == .asteroids ? 340 : 170) }
+    private var logicalCanvasSize: CGSize { boardSize(for: canvasSize) }
+
+    private func boardSize(for viewport: CGSize) -> CGSize {
+        let height: CGFloat = game == .asteroids ? 340 : 170
+        guard viewport.height > 0, viewport.width.isFinite, viewport.height.isFinite else {
+            return CGSize(width: 320, height: height)
+        }
+        let extraWidth = min(784, max(0, height * viewport.width / viewport.height - 320))
+        let columns = (extraWidth / MazeChaseBoard.spacing).rounded(.down)
+        return CGSize(width: 320 + columns * MazeChaseBoard.spacing, height: height)
+    }
     private var highScore: Int {
         switch game {
         case .pong:
@@ -15323,7 +15358,14 @@ private struct LocalGameSurface: View {
             gameLayout {
                 gameCanvas
                 .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
-                .onGeometryChange(for: CGSize.self) { $0.size } action: { canvasSize = $0 }
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
+                    let boardChanged = boardSize(for: size) != logicalCanvasSize
+                    canvasSize = size
+                    if boardChanged {
+                        isPlaying = false
+                        reset()
+                    }
+                }
                 .accessibilityIdentifier("games-surface")
                 .accessibilityLabel(game.title)
                 .accessibilityValue(gameAccessibilityValue)
@@ -15487,7 +15529,9 @@ private struct LocalGameSurface: View {
         .accessibilityIdentifier("games-restart")
     }
 
-    private var pacmanColumnCount: Int { MazeChaseBoard.columns }
+    private var pacmanColumnCount: Int {
+        MazeChaseBoard.columns + Int((logicalCanvasSize.width - 320) / MazeChaseBoard.spacing)
+    }
     private var pacmanRowCount: Int { MazeChaseBoard.rows }
     private var pacmanPelletCount: Int { pacmanColumnCount * pacmanRowCount }
     private var pacmanPowerPellets: Set<Int> {
@@ -15523,8 +15567,8 @@ private struct LocalGameSurface: View {
         switch game {
         case .pong:
             var centerLine = Path()
-            centerLine.move(to: point(160, 22))
-            centerLine.addLine(to: point(160, 148))
+            centerLine.move(to: point(logicalCanvasSize.width / 2, 22))
+            centerLine.addLine(to: point(logicalCanvasSize.width / 2, 148))
             context.stroke(centerLine, with: .color(.white.opacity(0.22)), style: StrokeStyle(lineWidth: 1.5, dash: [5, 7]))
             context.fill(Path(roundedRect: rect(18, paddleY - 17, 8, 34), cornerRadius: 3), with: .color(game.highlightTint))
             if isPlaying {
@@ -15550,7 +15594,7 @@ private struct LocalGameSurface: View {
             }
         case .pacman:
             for pellet in pellets {
-                let center = MazeChaseBoard.center(pellet)
+                let center = MazeChaseBoard.center(pellet, columns: pacmanColumnCount)
                 let isPowerPellet = pacmanPowerPellets.contains(pellet)
                 let pelletSize: CGFloat = isPowerPellet ? 8 : 4
                 context.fill(
@@ -15630,8 +15674,8 @@ private struct LocalGameSurface: View {
 
     private func drawMeteorRunBackground(in parentContext: GraphicsContext, scaleX: CGFloat, scaleY: CGFloat) {
         var context = parentContext
-        context.clip(to: Path(CGRect(x: 0, y: 0, width: 320 * scaleX, height: logicalCanvasSize.height * scaleY)))
-        for star in MeteorRunStarfield.stars(time: meteorStarTime, height: logicalCanvasSize.height, reducedMotion: reduceMotion) {
+        context.clip(to: Path(CGRect(x: 0, y: 0, width: logicalCanvasSize.width * scaleX, height: logicalCanvasSize.height * scaleY)))
+        for star in MeteorRunStarfield.stars(time: meteorStarTime, height: logicalCanvasSize.height, reducedMotion: reduceMotion, width: logicalCanvasSize.width) {
             let center = CGPoint(x: star.center.x * scaleX, y: star.center.y * scaleY)
             if star.trail > 0 {
                 var trail = Path()
@@ -15719,9 +15763,13 @@ private struct LocalGameSurface: View {
             (72, 38, 0.40, 9, 0.38),
             (42, 148, 0.92, 20, 0.76)
         ]
-        for star in stars {
-            let wrappedX = 18 + (star.x - spaceScroll * star.speed).truncatingRemainder(dividingBy: 302)
-            let x = wrappedX < 18 ? wrappedX + 302 : wrappedX
+        let span = logicalCanvasSize.width - 18
+        let count = Int(CGFloat(stars.count) * logicalCanvasSize.width / 320)
+        for index in 0..<count {
+            let star = stars[index % stars.count]
+            let start = star.x - 18 + CGFloat(index / stars.count) * 320
+            let wrappedX = (start - (reduceMotion ? 0 : spaceScroll) * star.speed).truncatingRemainder(dividingBy: span)
+            let x = 18 + (wrappedX < 0 ? wrappedX + span : wrappedX)
             let y = star.y
             context.fill(
                 Path(roundedRect: CGRect(x: (x - star.length) * scaleX, y: y * scaleY, width: star.length * scaleX, height: 1.6 * scaleY), cornerRadius: 1),
@@ -16037,7 +16085,7 @@ private struct LocalGameSurface: View {
         case .pong:
             paddleY = min(max(paddleY + direction * 12, 42), 126)
         case .asteroids:
-            shipX = min(max(shipX + direction * 14, 24), 296)
+            shipX = min(max(shipX + direction * 14, 24), logicalCanvasSize.width - 24)
         case .fly:
             planeY = min(max(planeY + direction * 12, 52), 138)
         case .pacman:
@@ -16070,7 +16118,7 @@ private struct LocalGameSurface: View {
         case .pong:
             paddleY = min(max(location.y, 42), 126)
         case .asteroids:
-            shipX = min(max(location.x, 24), 296)
+            shipX = min(max(location.x, 24), logicalCanvasSize.width - 24)
         case .fly:
             planeY = min(max(location.y, 52), 138)
         case .pacman:
@@ -16140,7 +16188,7 @@ private struct LocalGameSurface: View {
         ballX += ballVX
         ballY += ballVY
         if ballY <= 42 || ballY >= 156 { bouncePongBallVertically() }
-        if ballX >= 306 { bouncePongBallFromRightWall() }
+        if ballX >= logicalCanvasSize.width - 14 { bouncePongBallFromRightWall() }
         if ballX <= 30 { resolvePongPaddleContact() }
     }
 
@@ -16209,7 +16257,7 @@ private struct LocalGameSurface: View {
     private func updateFly() {
         if advanceSkyCrash() { return }
         if skyObstacleExplosionTicks > 0 { skyObstacleExplosionTicks -= 1 }
-        spaceScroll = (spaceScroll + 4 + CGFloat(min(score / 8, 4))).truncatingRemainder(dividingBy: 302)
+        spaceScroll += 4 + CGFloat(min(score / 8, 4))
         obstacleX -= 4 + CGFloat(min(score / 6, 4))
         updateFlyShot()
         if obstacleX < 24 {
@@ -16229,7 +16277,7 @@ private struct LocalGameSurface: View {
     private func updateFlyShot() {
         guard flyShotActive else { return }
         flyShotX += 9
-        if flyShotX > 310 {
+        if flyShotX > logicalCanvasSize.width - 10 {
             flyShotActive = false
         } else if abs(flyShotX - obstacleX) < 22 && abs(planeY - obstacleY) < 26 {
             flyShotActive = false
@@ -16267,7 +16315,7 @@ private struct LocalGameSurface: View {
     private func movePacmanAndGhost() {
         let direction: MazeChaseBoard.Direction = pacmanDX < 0 ? .left : pacmanDX > 0 ? .right : pacmanDY < 0 ? .up : .down
         let next = MazeChaseBoard.step(position: CGPoint(x: pacmanX, y: pacmanY), direction: direction,
-                                      requested: pacmanRequestedDirection)
+                                      requested: pacmanRequestedDirection, columns: pacmanColumnCount)
         pacmanX = next.position.x; pacmanY = next.position.y
         pacmanDX = next.direction.vector.x; pacmanDY = next.direction.vector.y
         if ghostVulnerableTicks > 0 { ghostVulnerableTicks -= 1 }
@@ -16278,7 +16326,7 @@ private struct LocalGameSurface: View {
 
     private func collectPacmanPellet() {
         for pellet in pellets {
-            let center = MazeChaseBoard.center(pellet)
+            let center = MazeChaseBoard.center(pellet, columns: pacmanColumnCount)
             guard hypot(center.x - pacmanX, center.y - pacmanY) <= 4 else { continue }
             pellets.remove(pellet)
             setScore(score + 1)
@@ -16297,8 +16345,9 @@ private struct LocalGameSurface: View {
     private func resetPacmanRoundIfNeeded() {
         guard pellets.isEmpty else { return }
         pellets = Set(0..<pacmanPelletCount)
-        ghostX = MazeChaseBoard.ghostStart.x
-        ghostY = MazeChaseBoard.ghostStart.y
+        let ghostStart = MazeChaseBoard.center(pacmanColumnCount * 2 - 2, columns: pacmanColumnCount)
+        ghostX = ghostStart.x
+        ghostY = ghostStart.y
         ghostVulnerableTicks = 0
     }
 
@@ -16309,7 +16358,7 @@ private struct LocalGameSurface: View {
             DJConnectGameHaptics.success()
             DJConnectGameSounds.play(.explosion)
             setScore(score + 5)
-            ghostX = 250
+            ghostX = logicalCanvasSize.width - 70
             ghostY = 86
         } else {
             flash()
@@ -16323,13 +16372,13 @@ private struct LocalGameSurface: View {
     private func reset() {
         score = 0
         paddleY = 86
-        ballX = 160
+        ballX = logicalCanvasSize.width / 2
         ballY = 86
         ballVX = 3
         ballVY = 2
         ballWallBounceTicks = 0
         paddleMissTicks = 0
-        shipX = 160
+        shipX = logicalCanvasSize.width / 2
         asteroidBulletActive = false
         cannonRecoilTicks = 0
         asteroidExplosionTicks = 0
@@ -16350,15 +16399,16 @@ private struct LocalGameSurface: View {
         pacmanRequestedDirection = .right
         pacmanDX = 1
         pacmanDY = 0
-        ghostX = MazeChaseBoard.ghostStart.x
-        ghostY = MazeChaseBoard.ghostStart.y
+        let ghostStart = MazeChaseBoard.center(pacmanColumnCount * 2 - 2, columns: pacmanColumnCount)
+        ghostX = ghostStart.x
+        ghostY = ghostStart.y
         ghostVulnerableTicks = 0
         pacmanDeathTicks = 0
         pellets = Set(0..<pacmanPelletCount)
     }
 
     private func resetPaddleBall() {
-        ballX = 160
+        ballX = logicalCanvasSize.width / 2
         ballY = 86
         ballVX = 3
         ballVY = Bool.random() ? 2 : -2
@@ -16373,7 +16423,7 @@ private struct LocalGameSurface: View {
     }
 
     private func resetAsteroid() {
-        asteroidX = CGFloat.random(in: 40...280)
+        asteroidX = CGFloat.random(in: 40...(logicalCanvasSize.width - 40))
         asteroidY = 42
         asteroidKind = Int.random(in: 0...3)
         asteroidSize = CGFloat.random(in: 10...18)
@@ -16401,7 +16451,7 @@ private struct LocalGameSurface: View {
     }
 
     private func resetObstacle() {
-        obstacleX = 310
+        obstacleX = logicalCanvasSize.width - 10
         obstacleY = CGFloat.random(in: 52...138)
         obstacleKind = Int.random(in: 0...4)
     }

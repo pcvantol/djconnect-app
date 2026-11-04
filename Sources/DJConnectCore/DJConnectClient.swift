@@ -1304,7 +1304,23 @@ public final class DJConnectClient: Sendable {
 
     public func registerPushNotifications(_ payload: DJConnectPushRegistrationRequest) async throws -> DJConnectCommandResponse {
         let request = try pushRegisterRequest(payload)
-        return try await decodedResponse(for: request)
+        let (data, status) = try await dataAndStatusCodeResponse(for: request, acceptingStatuses: [400])
+        if status == 400 {
+            // The registration endpoint uses this typed rejection to request one bootstrap recovery.
+            if let response = try? decoder.decode(DJConnectCommandResponse.self, from: data),
+               !response.success, response.error == "missing_bootstrap_proof" {
+                return response
+            }
+            let error = classify(statusCode: status, body: data) ?? .server(statusCode: status, message: nil)
+            logAPIFailure(request: request, statusCode: status, body: data, error: error)
+            throw error
+        }
+        do {
+            return try decoder.decode(DJConnectCommandResponse.self, from: data)
+        } catch {
+            throw DJConnectError.decodingFailed(statusCode: status, endpoint: Self.requestSummary(request),
+                                                message: Self.decodingFailureMessage(error: error, body: data))
+        }
     }
 
     public func unregisterPushNotifications(_ payload: DJConnectPushUnregistrationRequest) async throws -> DJConnectCommandResponse {

@@ -4844,6 +4844,33 @@ private struct DJConnectWatchHorizonView: View {
         watchLocalizedKey(model.language, key)
     }
 
+    private func forecastCard(_ section: DJConnectSessionForecast.Section) -> some View {
+        let symbol = ["current": "play.fill", "guidance": "clock", "aim": "target"][section.id]
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                if let symbol {
+                    Image(systemName: symbol)
+                        .accessibilityHidden(true)
+                }
+                Text(section.title)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            .font(.headline)
+            Text(text("ui.session.forecast.claim." + section.claim_type))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(section.text)
+                .font(.caption)
+                .lineSpacing(3)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(DJConnectWatchPanel(cornerRadius: 12))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("watch-horizon-" + section.id)
+    }
+
     var body: some View {
         let currentScope = scope
         let readScope = isVisible && scenePhase == .active ? currentScope : nil
@@ -4861,19 +4888,21 @@ private struct DJConnectWatchHorizonView: View {
                 Text(text("ui.session.forecast.title"))
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)
+                Text(text("ui.session.forecast.notice"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 TimelineView(.explicit([Date()] + [cursor?.projection?.valid_until]
                     .compactMap { DJConnectSessionForecast.timestamp($0) })) { clock in
                     if readScope == loadedScope, readScope != nil,
                        let forecast = cursor?.visible(playbackItemID: currentScope.item, playbackSource: currentScope.source, at: clock.date),
                        forecast.current_anchor == nil || currentScope.playbackState == "playing" {
-                        ForEach(forecast.sections) { section in
-                            DJConnectWatchSettingsSection(title: section.title) {
-                                Text(text("ui.session.forecast.claim." + section.claim_type))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(section.text)
-                                    .font(.caption)
-                                    .lineSpacing(3)
+                        let sectionOrder = ["current", "guidance", "aim"]
+                        VStack(spacing: 8) {
+                            ForEach(sectionOrder, id: \.self) { id in
+                                if let section = forecast.sections.first(where: { $0.id == id }) {
+                                    forecastCard(section)
+                                }
                             }
                         }
                     } else if readScope != nil && readScope != loadedScope {

@@ -178,7 +178,7 @@ struct SessionForecastContent: View {
     var body: some View {
         TimelineView(SessionEntryRefreshSchedule(deadlines: deadlines)) { clock in
             VStack(alignment: .leading, spacing: 12) {
-                SessionHorizonHero()
+                SessionHorizonHero(theme: .init(sessionMood: model.sessionForecastRefreshScope?.mood))
                 Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                 Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
                 if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
@@ -214,6 +214,8 @@ struct SessionForecastContent: View {
 }
 
 private struct SessionHorizonHero: View {
+    let theme: DJConnectSessionMoodTheme
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -227,12 +229,36 @@ private struct SessionHorizonHero: View {
         #endif
     }()
 
+    private var palette: [Color] {
+        theme.colorValues.map { value in
+            Color(red: Double((value >> 16) & 255) / 255,
+                  green: Double((value >> 8) & 255) / 255,
+                  blue: Double(value & 255) / 255)
+        }
+    }
+
+    @ViewBuilder private func artwork(size: CGSize, colors: [Color]) -> some View {
+        let image = Image("HorizonHero")
+            .resizable()
+            .scaledToFill()
+            .frame(width: size.width, height: size.height)
+            .clipped()
+        if theme == .brand {
+            image
+        } else {
+            ZStack {
+                LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing)
+                image.blendMode(.luminosity)
+            }
+            .frame(width: size.width, height: size.height)
+            .compositingGroup()
+        }
+    }
+
     var body: some View {
+        let colors = palette
         GeometryReader { geometry in
-            let artwork = Image("HorizonHero")
-                .resizable()
-                .scaledToFill()
-                .frame(width: geometry.size.width, height: geometry.size.height)
+            let artwork = artwork(size: geometry.size, colors: colors)
             if !reduceMotion && scenePhase == .active {
                 TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { clock in
                     let seconds = clock.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 12)
@@ -250,7 +276,7 @@ private struct SessionHorizonHero: View {
         .padding(8)
         .djSessionFrostedSurface(
             cornerRadius: 22,
-            surfaceTint: Color(red: 0.52, green: 0.26, blue: 0.72)
+            surfaceTint: theme == .brand ? Color(red: 0.52, green: 0.26, blue: 0.72) : colors.last
         )
         .allowsHitTesting(false)
         .accessibilityHidden(true)
