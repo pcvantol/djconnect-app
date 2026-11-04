@@ -5627,7 +5627,11 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     /// Screen entry can load an analysis. Renewal requires a qualified current observation.
-    private func loadTrackInsightOnOpen(renewing: Bool = false) async {
+    public func loadTrackInsightOnOpen() async {
+        await loadTrackInsightOnOpen(renewing: false)
+    }
+
+    private func loadTrackInsightOnOpen(renewing: Bool) async {
         guard !Task.isCancelled, isAppInForeground, hasPlayingNow, canStartTrackInsightAnalysis,
               momentTrackInsightTarget == nil,
               currentTrackInsight == nil || !currentTrackInsightMatchesPlayback(),
