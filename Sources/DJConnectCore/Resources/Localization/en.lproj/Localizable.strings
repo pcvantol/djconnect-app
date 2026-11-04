@@ -1637,7 +1637,7 @@
 "ui.vibescape.world.festival" = "Cosmic bloom";
 
 // Watch companion V2
-"watch.v2.moments" = "Moments";
+"watch.v2.moments" = "DJ Moments";
 "watch.v2.more" = "More";
 "watch.v2.ask.prompt" = "Ask your DJ about music, artists and more.";
 "watch.v2.text" = "Type a question";
@@ -1666,6 +1666,7 @@
 "watch.v2.question.new" = "New question";
 
 "watch.v2.track.question" = "Tell me about %@ by %@.";
+"watch.v2.recording_cancelled" = "Recording cancelled.";
 "watch.v2.recording_interrupted" = "Recording interrupted.";
 
 "watch.v2.flow.question" = "Ask DJ question";

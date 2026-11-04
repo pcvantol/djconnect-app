@@ -28,7 +28,13 @@ public extension DJConnectCommandResponse {
 /// Bounded interactive replies only. A background transition or lost companion
 /// cannot leave a continuation hanging or replay an effectful operation.
 @MainActor public final class DJConnectWatchProxyRequests {
+    public static let replayChunkBytes = 32_000
+    public static let maximumReplayBytes = 3_000_000
+
     private struct Pending {
+        let allowsReplayChunks: Bool
+        var chunkCount: Int?
+        var chunks: [Int: Data] = [:]
         let continuation: CheckedContinuation<DJConnectWatchProxyResponse, Never>
         let timeout: Task<Void, Never>
     }
@@ -37,7 +43,7 @@ public extension DJConnectCommandResponse {
     public init(timeout: Duration = .seconds(20)) { self.timeout = timeout }
     public var count: Int { pending.count }
 
-    public func request(timeout override: Duration? = nil, send: (String) -> Void) async -> DJConnectWatchProxyResponse {
+    public func request(timeout override: Duration? = nil, allowsReplayChunks: Bool = false, send: (String) -> Void) async -> DJConnectWatchProxyResponse {
         guard pending.count < 8, !Task.isCancelled else {
             return .init(success: false, error: "outcome_unknown")
         }
@@ -50,7 +56,7 @@ public extension DJConnectCommandResponse {
                     guard !Task.isCancelled else { return }
                     self?.complete(id: id, response: .init(success: false, error: "outcome_unknown"))
                 }
-                pending[id] = Pending(continuation: continuation, timeout: task)
+                pending[id] = Pending(allowsReplayChunks: allowsReplayChunks, continuation: continuation, timeout: task)
                 send(id)
             }
         } onCancel: {
@@ -68,6 +74,28 @@ public extension DJConnectCommandResponse {
         }
         complete(id: id, response: response)
     }
+    public func receiveReplayChunk(id: String, index: Int, count: Int, bytes: Data) {
+        guard var value = pending[id], value.allowsReplayChunks else { return }
+        guard (1...((Self.maximumReplayBytes + Self.replayChunkBytes - 1) / Self.replayChunkBytes)).contains(count),
+              (0..<count).contains(index), !bytes.isEmpty, bytes.count <= Self.replayChunkBytes,
+              index == count - 1 || bytes.count == Self.replayChunkBytes,
+              value.chunkCount == nil || value.chunkCount == count,
+              value.chunks[index] == nil || value.chunks[index] == bytes else {
+            complete(id: id, response: .init(success: false, error: "invalid_response")); return
+        }
+        value.chunkCount = count
+        value.chunks[index] = bytes
+        guard value.chunks.count == count else { pending[id] = value; return }
+        var payload = Data()
+        for index in 0..<count {
+            if let chunk = value.chunks[index] { payload.append(chunk) }
+        }
+        guard payload.count <= Self.maximumReplayBytes else {
+            complete(id: id, response: .init(success: false, error: "invalid_response")); return
+        }
+        complete(id: id, response: .init(success: true, payload: payload))
+    }
+
     public func complete(id: String, response: DJConnectWatchProxyResponse) {
         guard let value = pending.removeValue(forKey: id) else { return }
         value.timeout.cancel(); value.continuation.resume(returning: response)

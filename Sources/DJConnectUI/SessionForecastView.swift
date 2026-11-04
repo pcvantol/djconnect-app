@@ -39,7 +39,10 @@ struct SessionForecastTextView: View {
                     .foregroundStyle(.white)
                     Text(text("ui.session.forecast.claim." + section.claim_type))
                         .font(.caption).foregroundStyle(.white.opacity(0.78))
-                    Text(section.text).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                    sectionText(section)
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                     if section.id != "current", let source = section.source_url.flatMap(URL.init(string:)) {
                         Link(destination: source) {
                             Text(text("ui.session.forecast.source")).underline().foregroundStyle(.white)
@@ -52,6 +55,44 @@ struct SessionForecastTextView: View {
         }
         .scrollTargetLayout()
         .accessibilityIdentifier("session-forecast-text")
+    }
+
+    @ViewBuilder private func sectionText(_ section: DJConnectSessionForecast.Section) -> some View {
+        if section.id == "guidance", let guidance = queueGuidance(section.text) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(guidance.intro)
+                VStack(alignment: .leading, spacing: 7) {
+                    ForEach(guidance.tracks.indices, id: \.self) { index in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text("•").accessibilityHidden(true)
+                            Text(guidance.tracks[index])
+                        }
+                    }
+                }
+                Text(guidance.note)
+            }
+        } else {
+            Text(section.text).lineSpacing(3)
+        }
+    }
+
+    // Queue guidance v1 is authored as prose. Recognize only its quoted-track
+    // format and keep unrecognized producer text intact.
+    private func queueGuidance(_ value: String) -> (intro: String, tracks: [String], note: String)? {
+        guard let firstTrack = value.range(of: ": “"),
+              let noteStart = value.range(
+                of: #"\. (?=(?:De rode draad zoek ik|Zo ziet de wachtrij|I’ll look for a musical thread|That is the queue|Den musikalischen Faden|So sieht die Warteschlange|Je chercherai le fil musical|Voilà la file actuelle|Buscaré el hilo musical|Así está la cola))"#,
+                options: .regularExpression, range: firstTrack.upperBound..<value.endIndex
+              ) else { return nil }
+        let start = value.index(before: firstTrack.upperBound)
+        let tracks = value[start..<noteStart.lowerBound]
+            .replacingOccurrences(of: #"(?:, | (?:and|en|und|et|y) )(?=“[^”]+” — )"#,
+                                  with: "\n", options: .regularExpression)
+            .components(separatedBy: "\n")
+        guard (1...5).contains(tracks.count),
+              tracks.allSatisfy({ $0.range(of: #"^“[^”]+” — .+$"#, options: .regularExpression) != nil }) else { return nil }
+        return (String(value[..<start]).trimmingCharacters(in: .whitespaces),
+                tracks, String(value[noteStart.upperBound...]))
     }
 }
 

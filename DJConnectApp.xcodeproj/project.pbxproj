@@ -203,6 +203,7 @@
 		4B1B80BEBCFEA0042E0C5C86 /* DJConnectSurfacePushV3Data.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ED30158F8F13306FCCB4B00 /* DJConnectSurfacePushV3Data.swift */; };
 		4B6DBAE66E5C9E48B7FB8AB8 /* DJConnectSurfacePushRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 867C9713227BC225B064A6DC /* DJConnectSurfacePushRegistration.swift */; };
 		4B9464CC2D7F2741CD6EBF35 /* SurfacePushV3DataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 464EBDE3D5CCF54AC5A997D3 /* SurfacePushV3DataTests.swift */; };
+		4BCD515ECC7720A809A4B89B /* VibeScapeScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F057D1F9650B5365C2511F2 /* VibeScapeScene.swift */; };
 		4C634AB85D21C3BF78D1ECDD /* RecentHistoryPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B16930C6D484ABAC6A06ADD /* RecentHistoryPresentationTests.swift */; };
 		4C76F7FA789215AC9668CFDE /* VibeScapeVisitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98562CF011DA3B26DAB71BC /* VibeScapeVisitTests.swift */; };
 		4C93A55AD71CB265F07416F9 /* SessionWidgetVibeScapeArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372502AD0310AD119714064D /* SessionWidgetVibeScapeArtwork.swift */; };
@@ -290,6 +291,7 @@
 		6D387DFC1FDA30AD10E7027F /* DJConnectSessionHistorySummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE6EA4325E589B23D9C7E7A /* DJConnectSessionHistorySummary.swift */; };
 		6DCF47014023BCBAADCC6ADC /* BulletinAdoptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44E1E9D8EB82B2E5418B1005 /* BulletinAdoptionTests.swift */; };
 		6DF3EF65BEB8308F3FB36B4F /* DJConnectDisplayClaim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 763B87402E37F98FDE09C614 /* DJConnectDisplayClaim.swift */; };
+		6E34944645EE7C76D7D51E4F /* VibeScapeFamilies.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B792348D5BEA5F7E379F317 /* VibeScapeFamilies.swift */; };
 		6E50906E0BACE2E083EBB841 /* PassiveSessionSurfaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 577C4037AB3F267E0398CA6C /* PassiveSessionSurfaceModel.swift */; };
 		6E7E131105922A3C4B57E293 /* DeviceSpeechTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E589EC38CCC2605DEFEAE00 /* DeviceSpeechTests.swift */; };
 		6E8605A1404E92DE294969F2 /* SessionSpeechAutoplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA23D1657E9EA15E93D34D13 /* SessionSpeechAutoplayTests.swift */; };
@@ -328,6 +330,7 @@
 		790E330A65D4D503D040EE5B /* ConnectionResumeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D6012649914E5EBC29F1C20 /* ConnectionResumeTests.swift */; };
 		7922077B76AEA0AD36F7A658 /* DJConnectRichSurfaceFieldGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E23D4090ED48F6A942AA4A1 /* DJConnectRichSurfaceFieldGuard.swift */; };
 		7948D5FC371B079DAAF41410 /* SessionVoiceAutoplayControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18D59D1FBADA4F59C3BF7A0 /* SessionVoiceAutoplayControl.swift */; };
+		79588F1F6415C96E7A24055B /* DJConnectWatchVibeScapeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCA3155D6A0F6BE090F3212 /* DJConnectWatchVibeScapeView.swift */; };
 		7989F5436601D19D82E96F0B /* DJConnectRichSurfaceFieldGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E23D4090ED48F6A942AA4A1 /* DJConnectRichSurfaceFieldGuard.swift */; };
 		799F59E6B70FA462B363C933 /* RendezvousRecoveryJournalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CBC8254222E102FA76BC624 /* RendezvousRecoveryJournalTests.swift */; };
 		79C6F8CCD45ED1D44C5531D1 /* BrandPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41597551001C848B2A5A1AC /* BrandPresentationTests.swift */; };
@@ -929,6 +932,7 @@
 		1DFC8884D473895FD28BE17D /* DJConnectLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectLocalization.swift; sourceTree = "<group>"; };
 		1EAA52913F3E1ACC121936C0 /* ActiveSessionPersonaToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSessionPersonaToolbar.swift; sourceTree = "<group>"; };
 		1F6C23702E00B6CACF90CDB0 /* RendezvousRepairWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousRepairWindowTests.swift; sourceTree = "<group>"; };
+		1FCA3155D6A0F6BE090F3212 /* DJConnectWatchVibeScapeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchVibeScapeView.swift; sourceTree = "<group>"; };
 		2004AD02B4716DA9189F6A2A /* AutomaticSurfaceDiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomaticSurfaceDiscoveryTests.swift; sourceTree = "<group>"; };
 		20304A8B277BB00E7EB41610 /* VibeScapeFamilyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VibeScapeFamilyTests.swift; sourceTree = "<group>"; };
 		208104B8926CAEA4266B64D3 /* DJConnectRendezvousEnrollmentChallenge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectRendezvousEnrollmentChallenge.swift; sourceTree = "<group>"; };
@@ -1834,6 +1838,7 @@
 				B7E1C5F0578AC3B08A73377D /* DJConnectWatchModel.swift */,
 				8F0251944CAC3B0BAF17E08B /* DJConnectWatchRootView.swift */,
 				AB18D6EC6A2FED5E85FCF77B /* DJConnectWatchSessionView.swift */,
+				1FCA3155D6A0F6BE090F3212 /* DJConnectWatchVibeScapeView.swift */,
 				E1372E7133BB3581B0031DBA /* Info.plist */,
 				C1969523B9A957E4B7A7D53C /* InfoPlist.strings */,
 			);
@@ -3058,8 +3063,11 @@
 				D90767C18105D1A76C9FDED8 /* DJConnectWatchModel.swift in Sources */,
 				96E767533FE9B51F0EC1A379 /* DJConnectWatchRootView.swift in Sources */,
 				13881662F93DE9D712B6D84C /* DJConnectWatchSessionView.swift in Sources */,
+				79588F1F6415C96E7A24055B /* DJConnectWatchVibeScapeView.swift in Sources */,
 				2F9A55DD0D510F1D67FB8D65 /* DJPersonaAvatarView.swift in Sources */,
 				FCBC17D008E35BE43E43F4A9 /* DeviceSpeechSettingsView.swift in Sources */,
+				6E34944645EE7C76D7D51E4F /* VibeScapeFamilies.swift in Sources */,
+				4BCD515ECC7720A809A4B89B /* VibeScapeScene.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3463,7 +3471,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 40470;
+				CURRENT_PROJECT_VERSION = 40472;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -3613,7 +3621,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 40470;
+				CURRENT_PROJECT_VERSION = 40472;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;

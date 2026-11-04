@@ -11,7 +11,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-    CURRENT_PROJECT_VERSION: "40470"
+    CURRENT_PROJECT_VERSION: "40472"
     MARKETING_VERSION: "4.0.0"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
@@ -221,6 +221,8 @@ targets:
     platform: watchOS
     sources:
       - path: Apps/DJConnectWatch
+      - path: Sources/DJConnectUI/VibeScapeFamilies.swift
+      - path: Sources/DJConnectUI/VibeScapeScene.swift
       - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
       - path: Sources/DJConnectUI/AlbumArtworkPlaceholder.swift
       - path: Sources/DJConnectUI/DJConnectGlassAppearance.swift

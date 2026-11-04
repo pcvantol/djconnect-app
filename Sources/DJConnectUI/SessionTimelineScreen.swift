@@ -617,11 +617,11 @@ struct SessionTimelineScreen: View {
                         LazyVStack(alignment: .leading, spacing: 18) {
                             if let activeSession {
                                 SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language,
-                                    openVibeScape: VibeScapeAvailability.previewEnabled ? {
+                                    openVibeScape: {
                                         inputFocused = false; searchFocused = false
                                         model.vibeScapeReturnToForecast = showsForecast
                                         model.isShowingVibeScape = true
-                                    } : nil, mood: activeSession.selectedMood)
+                                    }, mood: activeSession.selectedMood)
                                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
                                         if !model.isShowingVibeScape { model.vibeScapeModePickerFrame = $0 }
                                     }

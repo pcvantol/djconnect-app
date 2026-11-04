@@ -15475,13 +15475,14 @@ public final class DJConnectAppModel: ObservableObject {
         }
         do {
             let encoded = try await withWatchProxyHomeAssistantClient(identity: registration.identity, token: token,
-                historyContractVersion: [.sessionFlow, .sessionFlowArtwork, .askDJMessage, .askDJTextOutcome].contains(request.operation) ? sessionHistory.historyContractVersion : 1,
-                allowsOperationReplay: !request.isAskDJTextSubmission && request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech &&
+                historyContractVersion: [.sessionFlow, .sessionFlowArtwork, .askDJMessage, .askDJTextOutcome, .replaySessionSpeech].contains(request.operation) ? sessionHistory.historyContractVersion : 1,
+                allowsOperationReplay: !request.isAskDJTextSubmission && request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech && request.operation != .replaySessionSpeech &&
                     request.operation != .startSession && request.operation != .endSession &&
                     request.operation != .updateSessionOnlyMood && request.operation != .sessionFlowArtwork && request.operation != .voice) { client in
                 try await self.performWatchProxyOperation(request, client: client)
             }
-            guard encoded.count < 42_000 else { throw DJConnectError.payloadTooLarge(limitBytes: 42_000, actualBytes: encoded.count) }
+            let limit = request.operation == .replaySessionSpeech ? DJConnectWatchProxyRequests.maximumReplayBytes : 42_000
+            guard encoded.count < limit else { throw DJConnectError.payloadTooLarge(limitBytes: limit, actualBytes: encoded.count) }
             return DJConnectWatchProxyResponse(success: true, payload: encoded)
         } catch let rejection as DJConnectProfileDJSettingsFailure {
             return DJConnectWatchProxyResponse(success: false, payload: try? JSONEncoder().encode(rejection), error: "settings_rejected")
@@ -15522,6 +15523,56 @@ public final class DJConnectAppModel: ObservableObject {
         let decoder = JSONDecoder()
         let encoder = JSONEncoder()
         switch request.operation {
+        case .replaySessionSpeech:
+            let intent = try decoder.decode(DJConnectWatchSpeechReplayRequest.self, from: request.payload ?? Data())
+            let epoch = sessionHistory.responseEpoch
+            let token = defaults.string(forKey: watchProxyDeviceTokenKey)
+            let watchID = client.identity.deviceID
+            let settings = try await client.profileDJSettings()
+            guard settings.binding == intent.binding, settings.allowsSpeech(.local) else { throw DJConnectError.invalidResponse }
+            func source() async throws -> (text: String, deadline: Date?) {
+                switch intent.reference {
+                case .entry(let sessionID, let entryID):
+                    let entry = try await client.openSavedSession(.init(reference: .init(sessionID: sessionID, entryID: entryID))).entry
+                    guard [.djMoment, .conversationDJ].contains(entry.kind), entry.isRetained(),
+                          let text = entry.text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                          let deadline = DJConnectHistoryEntry.date(entry.retainedUntil) else { throw DJConnectError.invalidResponse }
+                    return (text, deadline)
+                case .moment(let sessionID, let momentID):
+                    let runtime = try await client.activeSession()
+                    let now = Date()
+                    guard runtime.success, let session = runtime.resolvedSession, session.id == sessionID,
+                          session.broadcast.nativeMomentSpeechIsAdmitted(intent.reference, at: now, automatic: false)
+                    else { throw DJConnectError.invalidResponse }
+                    let current = session.broadcast.nativeCurrentMoment(at: now, spotifyAttributionAvailable: true)
+                    let flow = session.broadcast.nativeFlowMoments(at: now)
+                    guard let moment = ([current].compactMap { $0 } + flow).first(where: { $0.id == momentID })
+                    else { throw DJConnectError.invalidResponse }
+                    return (moment.content, nil)
+                case .turn:
+                    throw DJConnectError.invalidResponse
+                }
+            }
+            let original = try await source()
+            let result = try await client.prepareSharedDJSpeech(reference: intent.reference, acceptedText: original.text,
+                                                                settings: settings, processor: intent.processor)
+            let speech = result.session_speech
+            guard speech.admits(reference: intent.reference, text: original.text),
+                  let deadline = speech.playbackDeadline() else {
+                throw DJConnectError.invalidResponse
+            }
+            let audio = intent.processor == .haConfigured
+                ? try await client.speechAudio(speech, acceptedText: original.text) : nil
+            let latest = try await source()
+            let after = try await client.profileDJSettings()
+            guard !Task.isCancelled, deadline > Date(), latest.text == original.text, latest.deadline == original.deadline,
+                  watchProxyRegistration?.identity.deviceID == watchID, token?.isEmpty == false,
+                  defaults.string(forKey: watchProxyDeviceTokenKey) == token, sessionHistory.responseEpoch == epoch,
+                  after.binding == settings.binding, after.speechFence == settings.speechFence,
+                  after.voice_revision == settings.voice_revision, after.snapshot.effective == settings.snapshot.effective,
+                  after.allowsSpeech(.local) else { throw DJConnectError.invalidResponse }
+            return try encoder.encode(DJConnectWatchSpeechReplay(speech: speech, text: original.text, audio: audio,
+                                                                expiresAt: min(deadline, original.deadline ?? deadline)))
         case .prepareSessionSpeech:
             let intent = try decoder.decode(DJConnectWatchMomentSpeechRequest.self, from: request.payload ?? Data())
             let before = try await client.profileDJSettings()
@@ -15559,6 +15610,16 @@ public final class DJConnectAppModel: ObservableObject {
                 throw DJConnectError.invalidResponse
             }
             return try encoder.encode(entry)
+        case .sessionForecast:
+            let intent = try decoder.decode(DJConnectWatchSessionAction.self, from: request.payload ?? Data())
+            let before = try await client.profileDJSettings()
+            guard before.binding == intent.binding, before.snapshot.session?.session_id == intent.sessionID,
+                  !before.requiresSelection, let sessionID = intent.sessionID else { throw DJConnectError.invalidResponse }
+            let forecast = try await client.sessionForecast(sessionID: sessionID)
+            let after = try await client.profileDJSettings()
+            guard !Task.isCancelled, before.binding == after.binding, before.snapshot == after.snapshot,
+                  !after.requiresSelection else { throw DJConnectError.invalidResponse }
+            return try encoder.encode(forecast)
         case .sessionFlowArtwork:
             let intent = try decoder.decode(DJConnectWatchOriginalContext.self, from: request.payload ?? Data())
             let before = try await client.profileDJSettings()
@@ -15885,8 +15946,20 @@ public final class DJConnectAppModel: ObservableObject {
     private func sendWatchProxyHAResponse(_ response: DJConnectWatchProxyResponse, correlationID: String?) {
         // HA responses can contain owner-only content. Never put them in the
         // durable application context or transferUserInfo background queue.
-        guard let correlationID, WCSession.default.isReachable,
-              let data = try? JSONEncoder().encode(response), data.count <= 60_000 else { return }
+        guard let correlationID, WCSession.default.isReachable else { return }
+        if response.success, let payload = response.payload, payload.count >= 42_000 {
+            let chunkSize = DJConnectWatchProxyRequests.replayChunkBytes
+            let count = (payload.count + chunkSize - 1) / chunkSize
+            for index in 0..<count {
+                let start = index * chunkSize
+                WCSession.default.sendMessage([
+                    "type": "watch_proxy_speech_chunk", "correlation_id": correlationID,
+                    "index": index, "count": count, "bytes": payload.subdata(in: start..<min(start + chunkSize, payload.count))
+                ], replyHandler: nil, errorHandler: { _ in })
+            }
+            return
+        }
+        guard let data = try? JSONEncoder().encode(response), data.count <= 60_000 else { return }
         WCSession.default.sendMessage([
             "type": "watch_proxy_ha_response", "correlation_id": correlationID, "response": data
         ], replyHandler: nil, errorHandler: { _ in })
