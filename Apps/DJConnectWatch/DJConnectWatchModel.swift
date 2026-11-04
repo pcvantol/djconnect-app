@@ -2003,12 +2003,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         didSet {
             guard oldValue != watchMomentNotificationsEnabled else { return }
             UserDefaults.standard.set(watchMomentNotificationsEnabled, forKey: "watch.moment.notifications.v1")
-            watchMomentNotificationPreferenceConfirmed = false
             UserDefaults.standard.removeObject(forKey: registeredPushSignatureKey)
             registerStoredPushTokenIfPossible()
         }
     }
-    @Published private(set) var watchMomentNotificationPreferenceConfirmed = false
     private var pushRegistrationTask: Task<Void, Never>?
     private var watchNotificationCategories: [String] {
         DJConnectPushRegistrationRequest.defaultNotificationCategories + (watchMomentNotificationsEnabled ? ["dj_moments_v1"] : [])
@@ -3981,7 +3979,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
            UserDefaults.standard.string(forKey: registeredPushEnvironmentKey) == environment.rawValue,
            UserDefaults.standard.string(forKey: registeredPushSignatureKey) == registrationSignature,
            UserDefaults.standard.bool(forKey: pushRegisteredKey) {
-            watchMomentNotificationPreferenceConfirmed = true
             return
         }
         let previous = pushRegistrationTask
@@ -4037,7 +4034,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 UserDefaults.standard.set(environment.rawValue, forKey: registeredPushEnvironmentKey)
                 UserDefaults.standard.set(registrationSignature, forKey: registeredPushSignatureKey)
                 UserDefaults.standard.set(true, forKey: pushRegisteredKey)
-                watchMomentNotificationPreferenceConfirmed = true
                 UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
                 refreshPushNotificationStatus()
                 logPush("registered with Home Assistant client_type=\(identity.clientType.rawValue) env=\(canonicalEnvironment.rawValue) push_registered=true", level: .info)
