@@ -3691,6 +3691,30 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(json["push_token"] as? String == "abcdef123456")
 }
 
+@Test(.isolatedClientResources, arguments: [400, 401, 403])
+func watchPushRegisterPreservesOtherHTTPFailures(status: Int) async throws {
+    let host = "watch-push-rejected-\(status).local"
+    let session = mockSession(host: host) { request in
+        let code = status == 400 ? "invalid_request" : "missing_bootstrap_proof"
+        return (try httpResponse(for: request, statusCode: status),
+                Data("{\"success\":false,\"error\":\"\(code)\"}".utf8))
+    }
+    let identity = DJConnectIdentity(deviceID: "djconnect-watchos-8F3A2C91B45D",
+        deviceName: "DJConnect Watch", clientType: .watchos, firmware: "4.0.0",
+        appVersion: "4.0.0", platform: .watchos)
+    let client = DJConnectClient(baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity, tokenStore: DJConnectInMemoryTokenStore(token: "test-token"), session: session)
+    do {
+        _ = try await client.registerPushNotifications(.init(identity: identity, pushToken: "abcdef123456",
+                                                              pushEnvironment: .sandbox, appBundleID: "dev.djconnect.ios.watch"))
+        Issue.record("Expected HTTP rejection")
+    } catch DJConnectError.server(let code, _) {
+        #expect(status == 400 && code == status)
+    } catch DJConnectError.authStale(let code, _) {
+        #expect(status != 400 && code == status)
+    }
+}
+
 @Test(.isolatedClientResources) func commandResponseDecodesPushRegistrationStatusFields() throws {
     let json = """
     {
@@ -3883,7 +3907,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
             registerAttempts.increment()
         }
         if request.url?.path == "/api/djconnect/v1/push/register", registerAttempts.count == 1 {
-            return (try httpResponse(for: request, statusCode: 200), Data("""
+            return (try httpResponse(for: request, statusCode: 400), Data("""
             {
               "success": false,
               "error": "missing_bootstrap_proof",

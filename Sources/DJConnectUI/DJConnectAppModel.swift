@@ -2116,6 +2116,8 @@ public final class DJConnectAppModel: ObservableObject {
     private var watchProxySetupReadbackInFlight: UUID?
     private var watchProxyPairingGeneration = UUID()
     private let watchProxyHomeAssistantURLKey = "DJConnectWatchProxyHomeAssistantURL"
+    private let watchProxyBootstrapInstallIDKey = "DJConnectWatchProxyBootstrapInstallID"
+    private let watchProxyBootstrapPairingSessionKey = "DJConnectWatchProxyBootstrapPairingSession"
     private var watchProxySessionDelegate: DJConnectWatchProxySessionDelegate?
     private var pendingWatchProxyPairingPayload: DJConnectPairingDeepLink?
     #endif
@@ -5597,8 +5599,39 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    /// Screen entry is an explicit request; redraws and existing results do not regenerate.
+    var visibleTrackInsightPlaybackID: String? {
+        guard isAppInForeground, hasPlayingNow, isPlaying, canStartTrackInsightAnalysis else { return nil }
+        return Self.nonBlank(playback?.uri) ?? Self.playbackAutoInsightIdentity(playback)
+    }
+
+    func maintainVisibleTrackInsight() async {
+        await loadTrackInsightOnOpen()
+        guard let playbackID = visibleTrackInsightPlaybackID else { return }
+        let clock = ContinuousClock()
+        var observedQualifiedInsight = false
+        var retrySeconds = 3
+        while !Task.isCancelled, visibleTrackInsightPlaybackID == playbackID {
+            if let proof = currentInsightProof {
+                observedQualifiedInsight = true
+                retrySeconds = 3
+                // The server keeps the deadline for repeated reads of this frame.
+                do { try await clock.sleep(until: proof.deadline) } catch { return }
+            }
+            guard !Task.isCancelled, visibleTrackInsightPlaybackID == playbackID else { return }
+            if observedQualifiedInsight {
+                await loadTrackInsightOnOpen(renewing: true)
+            }
+            do { try await clock.sleep(for: .seconds(observedQualifiedInsight ? retrySeconds : 1)) } catch { return }
+            if observedQualifiedInsight { retrySeconds = min(retrySeconds * 2, 30) }
+        }
+    }
+
+    /// Screen entry can load an analysis. Renewal requires a qualified current observation.
     public func loadTrackInsightOnOpen() async {
+        await loadTrackInsightOnOpen(renewing: false)
+    }
+
+    private func loadTrackInsightOnOpen(renewing: Bool) async {
         guard !Task.isCancelled, isAppInForeground, hasPlayingNow, canStartTrackInsightAnalysis,
               momentTrackInsightTarget == nil,
               currentTrackInsight == nil || !currentTrackInsightMatchesPlayback(),
@@ -5611,7 +5644,8 @@ public final class DJConnectAppModel: ObservableObject {
                 && self.sessionHistory.responseEpoch == epoch && self.musicDiscoveryPushCoalescingKey() == source
                 && Self.playbackAutoInsightIdentity(self.playback) == playbackID && self.language == requestedLanguage
                 && self.momentTrackInsightTarget == nil
-        })
+                && (!renewing || self.isPlaying)
+        }, renewingObservation: renewing)
     }
 
     @discardableResult
@@ -5636,7 +5670,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     @discardableResult
-    private func performTrackInsightRefresh(open: Bool, forceRefresh: Bool, canAccept: @escaping () -> Bool = { true }) async -> Bool {
+    private func performTrackInsightRefresh(open: Bool, forceRefresh: Bool, canAccept: @escaping () -> Bool = { true }, renewingObservation: Bool = false) async -> Bool {
         let owner = sessionHistory.responseEpoch, connection = sessionBroadcastGeneration
         let source = musicDiscoveryPushCoalescingKey()
         let observation = currentInsightObservation.generation, selectedLanguage = language
@@ -5687,7 +5721,7 @@ public final class DJConnectAppModel: ObservableObject {
                 )
                 let result = try await withHomeAssistantClient { client in
                     if let detail = try await client.currentTrackInsight(payload, isCurrent: originalContext) { return (detail.insight, Optional(detail.subject)) }
-                    guard originalContext() else { throw CancellationError() }
+                    guard originalContext(), !renewingObservation else { throw CancellationError() }
                     return (try await client.trackInsight(payload), Optional<DJConnectCurrentInsightSubject>.none)
                 }
                 insight = result.0
@@ -5713,7 +5747,8 @@ public final class DJConnectAppModel: ObservableObject {
                 currentInsightExpiryTask = Task { [weak self] in
                     do { try await ContinuousClock().sleep(until: deadline) } catch { return }
                     guard let self, self.currentInsightProof?.subject == subject,
-                          self.currentInsightProof?.generation == observation else { return }
+                          self.currentInsightProof?.generation == observation,
+                          self.currentInsightProof?.deadline == deadline else { return }
                     self.clearCurrentInsightProof(); self.currentTrackInsight = nil
                     self.clearTrackInsightWidgetSnapshot(reason: "Current observation expired")
                 }
@@ -5721,12 +5756,12 @@ public final class DJConnectAppModel: ObservableObject {
             return true
         } catch let error as DJConnectError {
             guard originalContext(), !Self.isCancellation(error) else { return false }
-            trackInsightErrorMessage = trackInsightErrorMessage(for: error)
+            if !renewingObservation { trackInsightErrorMessage = trackInsightErrorMessage(for: error) }
             log(.warning, "Track Insight failed: \(trackInsightFailureLogDetails(for: error))")
             return false
         } catch {
             guard originalContext(), !Self.isCancellation(error) else { return false }
-            trackInsightErrorMessage = trackInsightErrorMessage(for: error)
+            if !renewingObservation { trackInsightErrorMessage = trackInsightErrorMessage(for: error) }
             log(.warning, "Track Insight failed: \(trackInsightFailureLogDetails(for: error))")
             return false
         }
@@ -12579,6 +12614,9 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             bootstrapProof = try await fetchBootstrapProofForPushRegistration(
                 identity: identity,
+                haInstallID: defaults.string(forKey: haInstallIDKey),
+                integrationVersion: defaults.string(forKey: integrationVersionKey),
+                pairingSessionID: defaults.string(forKey: pairingSessionIDKey),
                 pushEnvironment: pushEnvironment,
                 appBundleID: appBundleID,
                 isStillCurrent: { self.isCurrentPushRegistration(registrationSignature) }
@@ -12666,6 +12704,9 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func fetchBootstrapProofForPushRegistration(
         identity: DJConnectIdentity,
+        haInstallID: String?,
+        integrationVersion: String?,
+        pairingSessionID: String?,
         pushEnvironment: DJConnectPushEnvironment,
         appBundleID: String,
         isStillCurrent: () -> Bool
@@ -12681,10 +12722,10 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         let payload = DJConnectPairingBootstrapProofRequest(
-            haInstallID: defaults.string(forKey: haInstallIDKey),
-            integrationVersion: defaults.string(forKey: integrationVersionKey),
+            haInstallID: haInstallID,
+            integrationVersion: integrationVersion,
             identity: identity,
-            pairingSessionID: defaults.string(forKey: pairingSessionIDKey),
+            pairingSessionID: pairingSessionID,
             appBundleID: appBundleID,
             pushEnvironment: pushEnvironment
         )
@@ -15353,6 +15394,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func persistWatchPairingContract(_ response: DJConnectPairingResponse) {
+        defaults.set(response.haInstallID, forKey: watchProxyBootstrapInstallIDKey)
+        defaults.set(response.pairingSessionID, forKey: watchProxyBootstrapPairingSessionKey)
         if let value = response.apiBase {
             defaults.set(value, forKey: watchProxyAPIBaseKey)
         }
@@ -15384,6 +15427,8 @@ public final class DJConnectAppModel: ObservableObject {
     private func clearWatchProxyPairingState() {
         invalidateWatchProxyPairingWork()
         defaults.removeObject(forKey: watchProxyDeviceTokenKey)
+        defaults.removeObject(forKey: watchProxyBootstrapInstallIDKey)
+        defaults.removeObject(forKey: watchProxyBootstrapPairingSessionKey)
         defaults.removeObject(forKey: watchProxyAPIBaseKey)
         defaults.removeObject(forKey: watchProxyVoicePathKey)
         defaults.removeObject(forKey: watchProxyStatusPathKey)
@@ -15855,9 +15900,19 @@ public final class DJConnectAppModel: ObservableObject {
     ) async throws -> Data {
         let encoder = JSONEncoder()
         let epoch = sessionHistory.responseEpoch
-        let route = localHomeAssistantURL()
-        let isStillCurrent = { !Task.isCancelled && self.pairingStatus == .paired
-            && self.sessionHistory.responseEpoch == epoch && self.localHomeAssistantURL() == route }
+        let generation = watchProxyPairingGeneration
+        let localRoute = localHomeAssistantURL()
+        let remoteRoute = haRemoteURL
+        guard payload.clientType == .watchos, client.identity.clientType == .watchos,
+              payload.deviceID == client.identity.deviceID,
+              let token = try client.tokenStore.loadToken(), !token.isEmpty else { throw DJConnectError.invalidResponse }
+        let isStillCurrent = { [self] in
+            !Task.isCancelled && pairingStatus == .paired && sessionHistory.responseEpoch == epoch &&
+                watchProxyPairingGeneration == generation && localHomeAssistantURL() == localRoute && haRemoteURL == remoteRoute &&
+                watchProxyRegistration?.paired == true && watchProxyRegistration?.identity.deviceID == payload.deviceID &&
+                defaults.string(forKey: watchProxyDeviceTokenKey) == token
+        }
+        guard isStillCurrent() else { throw CancellationError() }
         let response = try await client.registerPushNotifications(payload)
         guard isStillCurrent() else { throw CancellationError() }
         let responseEnvironment = response.pushEnvironment
@@ -15869,21 +15924,20 @@ public final class DJConnectAppModel: ObservableObject {
         guard Self.isMissingBootstrapProof(reason), payload.bootstrapProof?.isEmpty != false else {
             return try encoder.encode(response)
         }
-        let watchIdentity = DJConnectIdentity(
-            deviceID: payload.deviceID,
-            deviceName: "DJConnect Watch",
-            clientType: payload.clientType,
-            firmware: DJConnectProtocolVersion.current,
-            appVersion: payload.appVersion,
-            protocolVersion: DJConnectProtocolVersion.current,
-            platform: .watchos
-        )
-        guard let bootstrapProof = try await fetchBootstrapProofForPushRegistration(
-            identity: watchIdentity,
-            pushEnvironment: payload.pushEnvironment,
-            appBundleID: payload.appBundleID,
-            isStillCurrent: isStillCurrent
-        ) else {
+        let status = try await client.postPairingCompletionStatus(.init(identity: client.identity))
+        guard isStillCurrent() else { throw CancellationError() }
+        guard let installID = status.haInstallID, !installID.isEmpty,
+              installID == defaults.string(forKey: watchProxyBootstrapInstallIDKey),
+              let pairingSession = defaults.string(forKey: watchProxyBootstrapPairingSessionKey), !pairingSession.isEmpty,
+              let bootstrapProof = try await fetchBootstrapProofForPushRegistration(
+                identity: client.identity,
+                haInstallID: installID,
+                integrationVersion: status.integrationVersion,
+                pairingSessionID: pairingSession,
+                pushEnvironment: payload.pushEnvironment,
+                appBundleID: payload.appBundleID,
+                isStillCurrent: isStillCurrent
+              ) else {
             return try encoder.encode(DJConnectCommandResponse(
                 success: false,
                 error: "bootstrap_proof_unavailable",
@@ -15894,6 +15948,7 @@ public final class DJConnectAppModel: ObservableObject {
                 lastPushError: "bootstrap_proof_unavailable"
             ))
         }
+        guard isStillCurrent() else { throw CancellationError() }
         var retryPayload = payload
         retryPayload.bootstrapProof = bootstrapProof
         logPush("watch_proxy registration retry_with_bootstrap_proof=true device_id_present=\(!payload.deviceID.isEmpty) client_type=\(payload.clientType.rawValue) env=\(payload.pushEnvironment.rawValue)")

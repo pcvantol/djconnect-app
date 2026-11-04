@@ -385,7 +385,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     let foregroundSession = DJConnectWatchForegroundSession()
     lazy var sessionSpeech = DJConnectWatchSessionSpeech { [weak self] in self?.clearAskDJAudioOutput() }
     let profileDJSettings = ProfileDJSettingsModel()
-    @Published private(set) var currentTrackInsight: TrackInsight?
+    @Published private(set) var currentTrackInsight: TrackInsight? {
+        didSet {
+            if currentTrackInsight == nil { analyzedPlaybackIdentity = nil }
+        }
+    }
+    private var analyzedPlaybackIdentity: String?
     @Published private(set) var isRefreshingStatus = false
     @Published private(set) var isRefreshingTrackInsight = false
     @Published private(set) var queueItems: [DJConnectQueueItem] = []
@@ -1562,6 +1567,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             appendDiagnosticLog("Track Insight vernieuwen overgeslagen: niet gekoppeld", level: .warning)
             return
         }
+        guard let recording = Self.trackInsightPlaybackIdentity(playback) else { return }
         isRefreshingTrackInsight = true
         defer { isRefreshingTrackInsight = false }
         appendDiagnosticLog("Track Insight vernieuwen")
@@ -1582,7 +1588,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 includeVisualProfile: true,
                 includeRawResponse: true
             )
-            currentTrackInsight = try await sendCompanionHARequest(.trackInsight, payload: request)
+            let insight: TrackInsight = try await sendCompanionHARequest(.trackInsight, payload: request)
+            guard recording == Self.trackInsightPlaybackIdentity(playback) else { return }
+            analyzedPlaybackIdentity = recording
+            currentTrackInsight = insight
             statusMessage = "Track Insight bijgewerkt"
             appendDiagnosticLog("Track Insight vernieuwd")
         } catch {
@@ -2374,7 +2383,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard let insight = currentTrackInsight else {
             return true
         }
+        if let analyzedPlaybackIdentity {
+            return analyzedPlaybackIdentity == Self.trackInsightPlaybackIdentity(playback)
+        }
         return trackInsightMatchesPlayback(insight)
+    }
+
+    private static func trackInsightPlaybackIdentity(_ playback: DJConnectPlayback?) -> String? {
+        if let uri = playback?.uri, !uri.isEmpty { return uri }
+        let title = normalizedTrackIdentity(playback?.trackName)
+        guard !title.isEmpty else { return nil }
+        return "\(title)|\(normalizedTrackIdentity(playback?.artistName))"
     }
 
     private func trackInsightMatchesPlayback(_ insight: TrackInsight) -> Bool {
@@ -3324,6 +3343,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard trackInsightMatchesPlayback(insight) else {
             return
         }
+        analyzedPlaybackIdentity = Self.trackInsightPlaybackIdentity(playback)
         currentTrackInsight = insight
     }
 
