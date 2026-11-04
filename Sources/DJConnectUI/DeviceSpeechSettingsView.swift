@@ -53,7 +53,7 @@ public struct DeviceSpeechSettingsView: View {
     public var body: some View {
         Group {
             #if os(watchOS)
-            List { speechRows }
+            DJConnectWatchList { speechRows }
                 .listStyle(.plain)
                 .watchStandardBackground()
             #else
@@ -93,9 +93,13 @@ public struct DeviceSpeechSettingsView: View {
             }
             Button(action: isSpeaking ? stop : preview) {
                 #if os(watchOS)
-                Label(text(isSpeaking ? "stop" : "preview"), systemImage: isSpeaking ? "stop.fill" : "play.fill")
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    .contentShape(Rectangle())
+                HStack(alignment: .center) {
+                    Image(systemName: isSpeaking ? "stop.fill" : "play.fill")
+                        .accessibilityHidden(true)
+                    Text(text(isSpeaking ? "stop" : "preview"))
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
                 #else
                 Text(text(isSpeaking ? "stop" : "preview"))
                 #endif
@@ -139,7 +143,7 @@ public struct DeviceSpeechSettingsView: View {
                                                          choices: [(Value, String)]) -> some View {
         #if os(watchOS)
         NavigationLink {
-            List {
+            DJConnectWatchList {
                 ForEach(choices, id: \.0) { choice in
                     Button { selection.wrappedValue = choice.0 } label: {
                         HStack {

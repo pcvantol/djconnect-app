@@ -126,15 +126,11 @@ struct DJConnectSessionSurfaceView: View {
             HStack(spacing: 10) {
                 SessionSurfaceAvatar(theme: theme, side: compact ? 40 : 64)
                 if !compact {
-                    Text(text("ui.session.title")).font(.headline)
+                    Text("DJConnect").font(.headline)
                 }
             }
             Text(text(isActive ? "surface.session.active" : "surface.session.open"))
                 .font(.headline).lineLimit(3).minimumScaleFactor(0.8)
-            if !compact {
-                Text(text("surface.session.open.app"))
-                    .font(.subheadline).foregroundStyle(.white.opacity(0.8)).lineLimit(2)
-            }
         }
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)

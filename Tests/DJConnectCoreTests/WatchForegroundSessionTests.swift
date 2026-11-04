@@ -123,6 +123,28 @@ private func watchSettings() throws -> DJConnectProfileDJSettingsResponse {
     #expect(pending.count == 0)
 }
 
+@Test(.isolatedClientResources) @MainActor func watchSpeechReplayAssemblesBoundedForegroundChunks() async {
+    let pending = DJConnectWatchProxyRequests(timeout: .milliseconds(20))
+    let first = Data(repeating: 17, count: DJConnectWatchProxyRequests.replayChunkBytes)
+    let last = Data([18, 19])
+
+    let assembled = await pending.request(allowsReplayChunks: true) { id in
+        pending.receiveReplayChunk(id: id, index: 1, count: 2, bytes: last)
+        pending.receiveReplayChunk(id: id, index: 0, count: 2, bytes: first)
+    }
+    #expect(assembled.payload == first + last && pending.count == 0)
+
+    let invalid = await pending.request(allowsReplayChunks: true) { id in
+        pending.receiveReplayChunk(id: id, index: 0, count: 2, bytes: last)
+    }
+    #expect(invalid.error == "invalid_response" && pending.count == 0)
+
+    let unrelated = await pending.request { id in
+        pending.receiveReplayChunk(id: id, index: 0, count: 1, bytes: last)
+    }
+    #expect(unrelated.error == "outcome_unknown" && pending.count == 0)
+}
+
 @Test(.isolatedClientResources) @MainActor func watchCompanionBoundsConcurrentWorkAndDoesNotReplayTimedOutWrites() async {
     let pending = DJConnectWatchProxyRequests(timeout: .seconds(2))
     var sends = 0

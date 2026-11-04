@@ -273,6 +273,7 @@ struct DJConnectWatchRootView: View {
         }
 
         var body: some View {
+            let fillsPage = model.currentTrackInsight != nil || model.isDemoMode
             ZStack {
                 DJConnectWatchCanvas()
                 ScrollView {
@@ -282,28 +283,34 @@ struct DJConnectWatchRootView: View {
                             language: model.language,
                             moodStepIndex: model.askDJMoodStepIndex,
                             isPlaying: model.playback?.isPlaying == true,
-                            usesDemoArtwork: model.isDemoMode
+                            usesDemoArtwork: model.isDemoMode,
+                            fillsPage: fillsPage
                         )
                         .id(trackInsightVisualizerRenderID(for: insight))
 
-                        DJConnectWatchTrackInsightAnalysisCard(insight: insight, language: model.language)
-                        if !insight.displayMetrics.isEmpty {
-                            DJConnectWatchTrackInsightMetricsGrid(insight: insight, language: model.language)
-                        }
+                        VStack(alignment: .leading, spacing: 10) {
+                            DJConnectWatchTrackInsightAnalysisCard(insight: insight, language: model.language)
+                            if !insight.displayMetrics.isEmpty {
+                                DJConnectWatchTrackInsightMetricsGrid(insight: insight, language: model.language)
+                            }
 
-                        Label(
-                            watchLocalizedKey(model.language, "watch.rendered.privately.on.your.device"),
-                            systemImage: "lock.fill"
-                        )
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.54))
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 2)
+                            Label(
+                                watchLocalizedKey(model.language, "watch.rendered.privately.on.your.device"),
+                                systemImage: "lock.fill"
+                            )
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.54))
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 2)
+                        }
+                        .padding(.horizontal, fillsPage ? watchRowInset : 0)
+                        .padding(.bottom, 8)
                     }
-                    .padding(.vertical, 8)
+                    .padding(.top, fillsPage ? 0 : 8)
                 }
+                .ignoresSafeArea(.container, edges: fillsPage ? .all : [])
             }
-            .navigationTitle(model.isDemoMode ? "Track Insight (Demo)" : "Track Insight")
+            .navigationTitle(fillsPage ? "" : "Track Insight")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -562,23 +569,33 @@ struct DJConnectWatchRootView: View {
         var usesDemoArtwork = false
         var fallbackArtworkURL: URL?
 
+        var fillsPage = false
+
         var body: some View {
-            VStack(alignment: .leading, spacing: 5) {
-                DJConnectWatchTrackInsightVisualizer(
-                    insight: insight,
-                    profile: TrackVibeProfile.make(for: insight)
-                        .applyingWatchTrackInsightMoodRenderOverride(stepIndex: moodStepIndex),
-                    isPlaying: isPlaying,
-                    usesDemoArtwork: usesDemoArtwork,
-                    fallbackArtworkURL: fallbackArtworkURL
-                )
-                .frame(height: 190)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(.white.opacity(0.14), lineWidth: 1)
-                }
+            if fillsPage {
+                visualizer
+                    .containerRelativeFrame([.horizontal, .vertical])
+                    .clipped()
+            } else {
+                visualizer
+                    .frame(height: 190)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(.white.opacity(0.14), lineWidth: 1)
+                    }
             }
+        }
+
+        private var visualizer: some View {
+            DJConnectWatchTrackInsightVisualizer(
+                insight: insight,
+                profile: TrackVibeProfile.make(for: insight)
+                    .applyingWatchTrackInsightMoodRenderOverride(stepIndex: moodStepIndex),
+                isPlaying: isPlaying,
+                usesDemoArtwork: usesDemoArtwork,
+                fallbackArtworkURL: fallbackArtworkURL
+            )
         }
     }
 
@@ -762,8 +779,9 @@ struct DJConnectWatchRootView: View {
         private func spectrum(phase: TimeInterval) -> some View {
             GeometryReader { geometry in
                 let count = 30
-                let spacing: CGFloat = 3
-                let barWidth = max(2.2, (geometry.size.width - CGFloat(count - 1) * spacing) / CGFloat(count))
+                let width = geometry.size.width
+                let spacing = min(3, width / CGFloat(2 * count - 1))
+                let barWidth = (width - CGFloat(count - 1) * spacing) / CGFloat(count)
                 HStack(alignment: .bottom, spacing: spacing) {
                     ForEach(Array(0..<count), id: \.self) { index in
                         let normalized = spectrumValue(index: index, count: count, phase: phase)
@@ -904,7 +922,7 @@ struct DJConnectWatchRootView: View {
                         content
                     }
                     .padding(.vertical, 8)
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, watchRowInset)
                 }
             }
             .navigationTitle(model.isDemoMode ? "Music DNA (Demo)" : "Music DNA")
@@ -1377,7 +1395,7 @@ struct DJConnectWatchRootView: View {
                     .buttonStyle(DJConnectWatchFlatActionRowStyle())
                 }
                 .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, watchRowInset)
             }
         }
     }
@@ -1621,20 +1639,22 @@ private struct DJConnectWatchAboutView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    DJConnectWatchGlassBrandIcon(size: 44)
-                        .frame(maxWidth: .infinity)
+                    VStack(spacing: 10) {
+                        DJConnectWatchGlassBrandIcon(size: 44)
 
-                    Text("DJConnect")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
+                        Text("DJConnect")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
 
-                    Text(watchLocalizedKey(model.language, "brand.tagline"))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.68))
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
+                        Text(watchLocalizedKey(model.language, "brand.tagline"))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.68))
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(10)
+                    .background(DJConnectWatchPanel(cornerRadius: 12))
 
                     DJConnectWatchSettingsSection(title: "App") {
                         aboutRow(watchLocalizedKey(model.language, "watch.version"), appVersion)
@@ -1826,7 +1846,7 @@ private struct DJConnectWatchLegalView: View {
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.76))
                 .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, watchRowInset)
             }
         }
         .navigationTitle(watchLocalizedKey(model.language, "watch.legal"))
@@ -1873,7 +1893,7 @@ private struct DJConnectWatchPrivacyView: View {
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.76))
                 .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, watchRowInset)
             }
         }
         .navigationTitle(watchLocalizedKey(model.language, "watch.privacy"))
@@ -2162,7 +2182,7 @@ private struct DJConnectWatchSettingsView: View {
                     }
                 }
                 .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, watchRowInset)
             }
         }
         .navigationTitle(watchLocalizedKey(model.language, "watch.settings"))
@@ -2321,7 +2341,7 @@ private struct DJConnectWatchLogsView: View {
                             }
                             .padding(.top, 2)
                             .padding(.bottom, 6)
-                            .padding(.horizontal, 4)
+                            .padding(.horizontal, watchRowInset)
                         }
                         .frame(maxHeight: .infinity)
                         .onAppear {
@@ -2383,7 +2403,7 @@ private struct DJConnectWatchOutputsView: View {
     @State private var confirmsTransfer = false
 
     var body: some View {
-        List {
+        DJConnectWatchList {
             if model.isLoadingOutputs && model.availableOutputs.isEmpty {
                 ProgressView()
                     .tint(.white)
@@ -2605,7 +2625,7 @@ private struct DJConnectWatchDiscoveryView: View {
                     }
                 }
                 .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, watchRowInset)
             }
         }
         .navigationTitle(watchLocalizedKey(model.language, "ui.discover"))
@@ -2730,7 +2750,6 @@ private struct DJConnectWatchDiscoveryDetailView: View {
                                 .frame(maxWidth: .infinity, minHeight: 34)
                         } else {
                             Label(watchLocalizedKey(model.language, "ui.play.now"), systemImage: "play.fill")
-                                .font(.footnote.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 34)
                         }
                     }
@@ -2745,7 +2764,7 @@ private struct DJConnectWatchDiscoveryDetailView: View {
                     }
                 }
                 .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, watchRowInset)
             }
         }
         .navigationTitle(watchLocalizedKey(model.language, "ui.discover"))
@@ -2793,7 +2812,7 @@ private struct DJConnectWatchDiscoveryRow: View {
                     .padding(.top, 12)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, watchListItemPadding)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, minHeight: 66, alignment: .topLeading)
         .background(DJConnectWatchPanel(cornerRadius: 12))
@@ -2844,7 +2863,7 @@ private struct DJConnectWatchPlaylistsView: View {
                     }
                 }
                 .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, watchRowInset)
             }
         }
         .navigationTitle(watchLocalizedKey(model.language, "watch.playlists"))
@@ -2922,7 +2941,7 @@ private struct DJConnectWatchQueueView: View {
                     }
                 }
                 .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, watchRowInset)
             }
         }
         .navigationTitle(watchLocalizedKey(model.language, "watch.queue"))
@@ -3001,7 +3020,7 @@ private struct DJConnectWatchQueueRow: View {
                     .padding(.top, 4)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, watchListItemPadding)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, minHeight: 66, alignment: .topLeading)
         .background(DJConnectWatchPanel(cornerRadius: 12))
@@ -3056,7 +3075,7 @@ private struct DJConnectWatchPlaylistRow: View {
                     .padding(.top, 4)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, watchListItemPadding)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, minHeight: 66, alignment: .topLeading)
         .background(DJConnectWatchPanel(cornerRadius: 12))
@@ -3159,7 +3178,7 @@ private struct DJConnectWatchAskDJChatView: View {
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
                 }
                 .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, watchRowInset)
             }
             if let toast {
                 VStack {
@@ -4092,11 +4111,26 @@ private struct DJConnectWatchCanvas: View {
     }
 }
 
+let watchRowInset: CGFloat = 4
+private let watchListItemPadding: CGFloat = 8
+
+struct DJConnectWatchList<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        List {
+            Group(content: content)
+                .listRowInsets(.horizontal, watchListItemPadding)
+        }
+        .padding(.horizontal, watchRowInset)
+    }
+}
+
 extension View {
-    func watchStandardBackground() -> some View {
+    func watchStandardBackground(theme: DJConnectSessionMoodTheme = .brand) -> some View {
         frame(maxWidth: .infinity, maxHeight: .infinity)
             .scrollContentBackground(.hidden)
-            .background { DJConnectWatchCanvas() }
+            .background { DJConnectWatchCanvas(theme: theme) }
     }
 }
 
@@ -4251,7 +4285,7 @@ private struct DJConnectWatchCompanionPages: View {
     @State private var heldVoice: (generation: UUID, context: DJConnectConversationContext)?
     // Presented outside the conditional pages, so runtime refreshes never replace
     // a question's original context or pop a reader off its original Moment.
-    private enum Destination { case text(DJConnectConversationContext), voice(DJConnectConversationContext), moment(DJConnectMoment), flow(DJConnectWatchFlowRow, String, String), notification(DJConnectWatchMomentOpenIntent) }
+    private enum Destination { case voice(DJConnectConversationContext), moment(DJConnectMoment), flow(DJConnectWatchFlowRow, String, String), notification(DJConnectWatchMomentOpenIntent) }
     @State private var destination: Destination?
     private func text(_ key: String) -> String { watchLocalizedKey(model.language, key) }
     private var snapshot: DJConnectWatchSessionSnapshot? { state.current() }
@@ -4278,10 +4312,22 @@ private struct DJConnectWatchCompanionPages: View {
                 guard page != 0 || (!isLoadingSession && visibleFlowRow == nil) else { return }
                 page = next
             })) {
-                more
-                    .background { DJConnectWatchCanvas() }
-                    .tag(2)
+                if let session {
+                    DJConnectWatchVibeScapeView(session: session, isVisible: page == 1 && destination == nil,
+                                                language: model.language)
+                        .id(session.id)
+                        .tag(1)
+                    if let binding = snapshot?.settings.binding {
+                        DJConnectWatchHorizonView(session: session, binding: binding, isVisible: page == 3 && destination == nil)
+                            .tag(3)
+                    }
+                } else {
+                    more.background { DJConnectWatchCanvas() }.tag(2)
+                }
                 crownHome.tag(0)
+                if session != nil {
+                    more.background { DJConnectWatchCanvas() }.tag(2)
+                }
             }
             .tabViewStyle(.page(indexDisplayMode: isLoadingSession && page == 0 ? .never : .automatic))
             .scrollDisabled((page == 0 && isLoadingSession) || visibleFlowRow != nil)
@@ -4295,23 +4341,21 @@ private struct DJConnectWatchCompanionPages: View {
                         openFlowRow(row)
                     }
                 },
-                including: visibleFlowRow != nil ? .all : .none
+                including: visibleFlowRow != nil ? .all : .subviews
             )
         }
         .tint(accent)
         .navigationDestination(isPresented: Binding(get: { destination != nil }, set: { if !$0 { destination = nil } })) {
             switch destination {
-            case .text(let context):
-                DJConnectWatchCompanionTextView(context: context)
             case .voice(let context):
-                DJConnectWatchCompanionVoiceView(context: context).watchStandardBackground()
+                DJConnectWatchCompanionVoiceView(context: context, state: state).watchStandardBackground()
             case .moment(let moment):
-                DJConnectWatchCompanionMomentView(moment: moment, state: state, speech: model.sessionSpeech).watchStandardBackground()
+                DJConnectWatchCompanionMomentView(moment: moment, state: state, speech: model.sessionSpeech).watchStandardBackground(theme: theme)
             case .flow(let row, let binding, let sessionID):
                 flowDetail(row, binding: binding, sessionID: sessionID)
-                    .watchStandardBackground()
+                    .watchStandardBackground(theme: theme)
             case .notification(let intent):
-                DJConnectWatchMomentNotificationView(intent: intent, state: state).watchStandardBackground()
+                DJConnectWatchMomentNotificationView(intent: intent, state: state).watchStandardBackground(theme: theme)
             case nil: EmptyView()
             }
         }
@@ -4322,7 +4366,11 @@ private struct DJConnectWatchCompanionPages: View {
         .onChange(of: model.watchMomentOpenIntent, initial: true) { _, intent in
             if let intent { destination = .notification(intent) }
         }
-        .onChange(of: session?.id) { _, _ in flowPosition = 0; unseenFlowID = nil }
+        .onChange(of: session?.id) { _, _ in
+            flowPosition = 0
+            unseenFlowID = nil
+            if page == 1 || page == 3 { page = 0 }
+        }
         .task(id: page == 0 ? session.map { (snapshot?.settings.binding ?? "") + ":" + $0.id } : nil) {
             guard page == 0, let binding = snapshot?.settings.binding, let sessionID = session?.id else { return }
             if flowOwner != binding || flowSessionID != sessionID {
@@ -4376,18 +4424,25 @@ private struct DJConnectWatchCompanionPages: View {
         if isLoadingSession || (session != nil && !dynamicTypeSize.isAccessibilitySize) {
             ZStack {
                 if isLoadingSession {
-                    VStack(spacing: 5) {
-                        Text("DJConnect").font(.headline.weight(.bold))
-                        Text(text("brand.tagline")).font(.caption2)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                        DJConnectWatchGlassBrandIcon(size: Self.avatarSize)
-                        ProgressView()
-                            .tint(.white)
-                            .accessibilityLabel(text(state.failureKey ?? "watch.session.loading"))
-                    }
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
+                    DJConnectWatchGlassBrandIcon(size: Self.avatarSize)
+                        .overlay(alignment: .top) {
+                            VStack(spacing: 5) {
+                                Text("DJConnect").font(.headline.weight(.bold))
+                                Text(text("brand.tagline")).font(.caption2)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                            }
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                            .fixedSize()
+                            .alignmentGuide(.top) { $0[.bottom] + 5 }
+                        }
+                        .overlay(alignment: .bottom) {
+                            ProgressView()
+                                .tint(.white)
+                                .accessibilityLabel(text(state.failureKey ?? "watch.session.loading"))
+                                .alignmentGuide(.bottom) { $0[.top] - 5 }
+                        }
                 } else {
                     VStack(spacing: 0) {
                         homeHeading
@@ -4397,16 +4452,17 @@ private struct DJConnectWatchCompanionPages: View {
                     homePlaybackControls
                 }
             }
-            .padding(.horizontal, 4)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, watchRowInset)
             .padding(.top, 42)
             .padding(.bottom, 16)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea(.container, edges: .vertical)
             .accessibilityIdentifier(isLoadingSession ? "watch-session-loading" : "watch-session-home")
         } else if dynamicTypeSize.isAccessibilitySize {
-            ScrollView { homeContent.padding(.horizontal, 4) }
+            ScrollView { homeContent.padding(.horizontal, watchRowInset) }
         } else {
-            homeContent.padding(.horizontal, 4)
+            homeContent.padding(.horizontal, watchRowInset)
         }
     }
 
@@ -4422,18 +4478,18 @@ private struct DJConnectWatchCompanionPages: View {
     @ViewBuilder private var homeHeading: some View {
         if session != nil {
             NavigationLink { DJConnectWatchCompanionTrackView(playback: model.playback, context: context, binding: snapshot?.settings.binding) } label: {
-            VStack(alignment: .leading, spacing: 1) {
-                let title = model.playback?.trackName ?? "DJConnect"
-                DJConnectWatchScrollingTitle(title: title)
-                    .font(.caption.weight(.semibold))
-                    .id(title)
-                if let artist = model.playback?.artistName {
-                    Text(artist)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                VStack(alignment: .leading, spacing: 1) {
+                    let title = model.playback?.trackName ?? "DJConnect"
+                    DJConnectWatchScrollingTitle(title: title)
+                        .font(.footnote.weight(.semibold))
+                        .id(title)
+                    if let artist = model.playback?.artistName {
+                        DJConnectWatchScrollingTitle(title: artist)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .id(artist)
+                    }
                 }
-            }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }.buttonStyle(.plain)
         } else {
@@ -4527,28 +4583,18 @@ private struct DJConnectWatchCompanionPages: View {
         }
     }
 
-    private var homeActions: some View {
-        HStack {
-            Button { destination = .text(context) } label: {
-                if dynamicTypeSize.isAccessibilitySize {
-                    Image(systemName: "square.and.pencil").frame(width: 44, height: 44)
-                } else {
-                    Label(text("watch.v2.text"), systemImage: "square.and.pencil")
-                        .font(.caption)
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-            }.accessibilityIdentifier("watch-question-text").accessibilityLabel(text("watch.v2.text"))
-            if session != nil {
-                NavigationLink { DJConnectWatchCompanionSoundView() } label: {
-                    Image(systemName: "speaker.wave.2").frame(minWidth: 44, minHeight: 44)
-                }.accessibilityLabel(text("watch.v2.sound"))
+    @ViewBuilder private var homeActions: some View {
+        if session != nil {
+            NavigationLink { DJConnectWatchCompanionSoundView() } label: {
+                Image(systemName: "speaker.wave.2").frame(minWidth: 44, minHeight: 44)
             }
-        }.buttonStyle(.plain)
+            .buttonStyle(.plain)
+            .accessibilityLabel(text("watch.v2.sound"))
+        }
     }
 
     private var crownHome: some View {
-        let acceptsCrown = page == 0 && destination == nil && scenePhase == .active && !currentFlowRows.isEmpty
+        let acceptsCrown = page == 0 && destination == nil && scenePhase == .active && !isLoadingSession && !currentFlowRows.isEmpty
         return TimelineView(.explicit([Date()] + (flowRows ?? []).map(\.expiresAt).sorted())) { _ in
             let rows = currentFlowRows
             let index = min(Int(flowPosition.rounded()), rows.count)
@@ -4572,7 +4618,7 @@ private struct DJConnectWatchCompanionPages: View {
             }
             .simultaneousGesture(
                 flowSwipe,
-                including: canScroll && index == 0 ? .all : .none
+                including: canScroll && index == 0 ? .all : .subviews
             )
             .onChange(of: rows.map(\.id)) { old, new in
                 if let unseenFlowID, !new.contains(unseenFlowID) { self.unseenFlowID = nil }
@@ -4596,7 +4642,7 @@ private struct DJConnectWatchCompanionPages: View {
             }
         }
         // Keep the Crown's focus target outside the timeline and card transitions.
-        .focusable(!isLoadingSession)
+        .focusable(acceptsCrown)
         .focused($crownFocused)
         .digitalCrownRotation(
             $crownPosition, from: 0, through: Double(max(1, currentFlowRows.count)), by: 1,
@@ -4671,12 +4717,14 @@ private struct DJConnectWatchCompanionPages: View {
                 }
                 .layoutPriority(1)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 4)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, 12)
+            .padding(.top, 42)
+            .padding(.bottom, 24)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .ignoresSafeArea(.container, edges: .vertical)
     }
 
     private func openFlowRow(_ row: DJConnectWatchFlowRow) {
@@ -4706,7 +4754,7 @@ private struct DJConnectWatchCompanionPages: View {
                             DJConnectWatchFlowArtworkView(reference: reference, binding: binding)
                         }
                         Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
-                            .padding(4)
+                            .padding(.vertical, 4)
                         if row.spotifyAttribution { flowSpotifyAttribution }
                         ForEach(row.sources.indices, id: \.self) { index in
                             let source = row.sources[index]
@@ -4718,6 +4766,9 @@ private struct DJConnectWatchCompanionPages: View {
                             }
                         }
                         if let reference = row.reference {
+                            if row.labelKey == "ui.session.moment.generic", !row.text.isEmpty {
+                                DJConnectWatchRetainedReplayButton(reference: reference, binding: binding, speech: model.sessionSpeech)
+                            }
                             NavigationLink {
                                 DJConnectWatchCompanionTextView(context: .init(sessionID: sessionID, selectedEntry: reference))
                             } label: {
@@ -4726,6 +4777,7 @@ private struct DJConnectWatchCompanionPages: View {
                             .buttonStyle(DJConnectWatchFlatActionRowStyle())
                         }
                     }
+                    .padding(.horizontal, watchRowInset)
                 } else {
                     Text(text("ui.session.history.contribution_unavailable")).foregroundStyle(.secondary)
                 }
@@ -4734,7 +4786,7 @@ private struct DJConnectWatchCompanionPages: View {
         .navigationTitle(text(row.labelKey))
     }
     private var more: some View {
-        List {
+        DJConnectWatchList {
             if session != nil {
                 NavigationLink {
                     DJConnectWatchSessionView(state: state, settings: model.profileDJSettings, speech: model.sessionSpeech)
@@ -4751,7 +4803,111 @@ private struct DJConnectWatchCompanionPages: View {
             NavigationLink { DJConnectWatchSessionSpeechSettingsView() } label: { Label(text("watch.v2.voice"), systemImage: "speaker.wave.2") }
             NavigationLink { DJConnectWatchCompanionNotificationsView() } label: { Label(text("watch.v2.notifications"), systemImage: "bell") }
             NavigationLink { DJConnectWatchAboutView() } label: { Label(text("watch.about"), systemImage: "info.circle") }
-        }.listStyle(.plain)
+        }
+        .listStyle(.plain)
+    }
+}
+
+private struct DJConnectWatchHorizonView: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+    @Environment(\.scenePhase) private var scenePhase
+    let session: DJConnectSessionRuntime
+    let binding: String
+    let isVisible: Bool
+
+    private struct Scope: Equatable {
+        let sessionID: String
+        let binding: String
+        let mood: String
+        let moodRevision: Int?
+        let locale: String?
+        let direction: String
+        let persona: Int?
+        let presence: Int?
+        let item: String?
+        let source: String?
+        let playbackState: String?
+    }
+
+    @State private var cursor: DJConnectForecastCursor?
+    @State private var loadedScope: Scope?
+
+    private var scope: Scope {
+        Scope(sessionID: session.id, binding: binding, mood: session.selectedMood,
+              moodRevision: session.confirmedMoodRevision, locale: session.broadcast.session.locale,
+              direction: session.broadcast.planner.currentDirection, persona: session.personaRevisionFloor, presence: session.presenceRevisionFloor,
+              item: session.broadcast.playback?.itemID, source: session.broadcast.playback?.sourceURL,
+              playbackState: session.broadcast.playback?.state)
+    }
+
+    private func text(_ key: String) -> String {
+        watchLocalizedKey(model.language, key)
+    }
+
+    var body: some View {
+        let currentScope = scope
+        let readScope = isVisible && scenePhase == .active ? currentScope : nil
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                GeometryReader { geometry in
+                    Image("HorizonHero")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipShape(.rect(cornerRadius: 12))
+                }
+                .frame(height: 58)
+                .accessibilityHidden(true)
+                Text(text("ui.session.forecast.title"))
+                    .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
+                TimelineView(.explicit([Date()] + [cursor?.projection?.valid_until]
+                    .compactMap { DJConnectSessionForecast.timestamp($0) })) { clock in
+                    if readScope == loadedScope, readScope != nil,
+                       let forecast = cursor?.visible(playbackItemID: currentScope.item, playbackSource: currentScope.source, at: clock.date),
+                       forecast.current_anchor == nil || currentScope.playbackState == "playing" {
+                        ForEach(forecast.sections) { section in
+                            DJConnectWatchSettingsSection(title: section.title) {
+                                Text(text("ui.session.forecast.claim." + section.claim_type))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text(section.text)
+                                    .font(.caption)
+                                    .lineSpacing(3)
+                            }
+                        }
+                    } else if readScope != nil && readScope != loadedScope {
+                        ProgressView()
+                            .accessibilityLabel(text("ui.session.forecast.loading"))
+                    } else {
+                        Text(text("ui.session.forecast.unavailable"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, watchRowInset)
+            .padding(.vertical, 8)
+        }
+        .watchStandardBackground(theme: .init(sessionMood: session.selectedMood))
+        .task(id: readScope) {
+            guard let readScope else {
+                cursor = nil
+                loadedScope = nil
+                return
+            }
+            var next = DJConnectForecastCursor(sessionID: readScope.sessionID)
+            while !Task.isCancelled {
+                let forecast = await model.loadWatchSessionForecast(binding: readScope.binding, sessionID: readScope.sessionID)
+                guard !Task.isCancelled else { return }
+                next.receive(forecast)
+                cursor = next
+                loadedScope = readScope
+                let remaining = next.projection == nil ? nil : next.remainingLifetime
+                let delay = remaining.map { $0 > 0 ? max(2, min(15, $0)) : 15 } ?? 15
+                do { try await Task.sleep(for: .seconds(delay)) } catch { return }
+            }
+        }
     }
 }
 
@@ -4760,7 +4916,7 @@ private struct DJConnectWatchFlowArtworkView: View {
     @Environment(\.scenePhase) private var scenePhase
     let reference: DJConnectSessionEntryReference
     let binding: String
-    @State private var artwork: (image: CGImage, expiresAt: Date)?
+    @State private var artwork: (image: CGImage, tint: Color?, expiresAt: Date)?
 
     var body: some View {
         TimelineView(.explicit([Date()] + [artwork?.expiresAt].compactMap { $0 })) { _ in
@@ -4772,8 +4928,13 @@ private struct DJConnectWatchFlowArtworkView: View {
                     .frame(width: 104, height: 104)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .padding(8)
+                    .background {
+                        card.fill(artwork.tint?.opacity(0.72) ?? .clear)
+                    }
                     .background(DJConnectMaterial(.regular), in: card)
-                    .overlay { card.strokeBorder(.white.opacity(0.16)) }
+                    .overlay {
+                        card.strokeBorder(artwork.tint?.opacity(0.8) ?? .white.opacity(0.16))
+                    }
                     .frame(maxWidth: .infinity, alignment: .center)
             }
         }
@@ -4784,9 +4945,41 @@ private struct DJConnectWatchFlowArtworkView: View {
                   !Task.isCancelled,
                   let source = CGImageSourceCreateWithData(result.jpeg as CFData, nil),
                   let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return }
-            artwork = (image, result.expiresAt)
+            artwork = (image, averageArtworkColor(from: image), result.expiresAt)
         }
         .onDisappear { artwork = nil }
+    }
+}
+
+private struct DJConnectWatchRetainedReplayButton: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+    let reference: DJConnectSessionEntryReference
+    let binding: String
+    @ObservedObject var speech: DJConnectWatchSessionSpeech
+
+    var body: some View {
+        let id = reference.entryID
+        let isSpeaking = speech.momentID == id && (speech.state == .preparing || speech.state == .playing)
+        Button {
+            if isSpeaking {
+                speech.stop()
+            } else {
+                model.replaySessionSpeech(.entry(sessionID: reference.sessionID, entryID: id), id: id, binding: binding)
+            }
+        } label: {
+            Label(watchLocalizedKey(model.language, isSpeaking ? "watch.session.stop_speech" : "watch.v2.listen"),
+                  systemImage: isSpeaking ? "stop.fill" : "speaker.wave.2")
+        }
+        .buttonStyle(DJConnectWatchFlatActionRowStyle())
+        .disabled(!isSpeaking && !model.canReplaySessionSpeech(binding: binding))
+        .onDisappear {
+            if speech.momentID == id { speech.stop() }
+        }
+        if speech.momentID == id && speech.state == .unavailable {
+            Text(watchLocalizedKey(model.language, "watch.session.speech_unavailable"))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -4905,23 +5098,51 @@ private struct DJConnectWatchCompanionTextView: View {
 }
 private struct DJConnectWatchCompanionVoiceView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
-    @State private var context: DJConnectConversationContext
-    init(context: DJConnectConversationContext) { _context = State(initialValue: context) }
-    private var isRecording: Bool { if case .recording = model.voiceState { return true }; return false }
-    private var isPending: Bool { if case .processing = model.voiceState { return true }; return false }
+    let context: DJConnectConversationContext
+    @ObservedObject var state: DJConnectWatchForegroundSession
+    private var isRecording: Bool { model.voiceState == .recording }
+    private var isPending: Bool { model.voiceState == .processing }
+
+    private var avatarEvidence: DJPersonaActivity.Evidence {
+        var evidence = DJPersonaActivity.Evidence()
+        evidence.authorized = model.isAppForeground && model.canUseBackend
+        evidence.capturing = isRecording
+        evidence.pending = isPending
+        evidence.explicitReply = model.hasWatchVoiceReply
+        if case .playing = model.askDJAudioPlaybackState {
+            evidence.speaking = model.hasWatchVoiceReply
+        }
+        return evidence
+    }
+
     var body: some View {
+        let evidence = avatarEvidence
         ScrollView {
             VStack(spacing: 10) {
-                DJConnectWatchGlassBrandIcon(size: 64)
-                Text(model.statusMessage).font(.caption).multilineTextAlignment(.center).lineLimit(3)
-                if isPending { ProgressView() }
+                DJPersonaAvatarView(confirmedMood: state.current()?.session?.selectedMood,
+                                    language: model.language, activity: DJPersonaActivity.resolve(evidence),
+                                    speechIsPlaying: evidence.speaking)
+                    .frame(width: 64, height: 64)
+                if !model.statusMessage.isEmpty && model.statusMessage != "Gereed" {
+                    Text(model.statusMessage).font(.caption).multilineTextAlignment(.center).lineLimit(3)
+                }
+                if isPending || model.isStartingRecording { ProgressView() }
                 Button { model.toggleWatchQuestionRecording(context: context) } label: {
                     Label(watchLocalizedKey(model.language, isRecording ? "watch.v2.stop_send" : "watch.v2.speak"),
                           systemImage: isRecording ? "stop.fill" : "mic.fill")
-                }.disabled(!model.canUseBackend || isPending)
+                }
+                .disabled(!isRecording && !model.canStartWatchQuestionRecording(context: context))
+                NavigationLink {
+                    DJConnectWatchCompanionTextView(context: context)
+                } label: {
+                    Label(watchLocalizedKey(model.language, "watch.v2.text"), systemImage: "square.and.pencil")
+                }
+                .disabled(isRecording || isPending || model.isStartingRecording)
+                .accessibilityIdentifier("watch-question-text")
                 if isRecording { Button(watchLocalizedKey(model.language, "ui.cancel")) { model.cancelWatchQuestionRecording() } }
             }
             .padding(.bottom, 8)
+            .padding(.horizontal, watchRowInset)
         }
         .navigationTitle("Ask DJ")
         .onDisappear { model.cancelWatchQuestionRecording() }
@@ -4930,7 +5151,7 @@ private struct DJConnectWatchCompanionVoiceView: View {
 private struct DJConnectWatchCompanionMusicView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     var body: some View {
-        List {
+        DJConnectWatchList {
             NavigationLink { DJConnectWatchQueueView() } label: {
                 Label(watchLocalizedKey(model.language, "watch.queue"), systemImage: "list.number")
             }
@@ -4955,7 +5176,7 @@ private struct DJConnectWatchFlatActionRowStyle: ButtonStyle {
         configuration.label
             .foregroundStyle(configuration.role == .destructive ? Color.red : Color.white)
             .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, watchListItemPadding)
             .background(.white.opacity(configuration.isPressed ? 0.20 : 0.12),
                         in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .contentShape(Rectangle())
@@ -4968,6 +5189,15 @@ private struct DJConnectWatchCompanionTrackView: View {
     @Environment(\.watchSessionTheme) private var theme
     @State private var original: DJConnectPlayback?
     @State private var progressObservedAt = Date()
+    private enum Page { case artwork, trackInfo }
+    private struct InsightDestination: Hashable {
+        let recording: String
+        let binding: String
+        let artworkURL: URL?
+    }
+
+    @State private var page: Page? = .artwork
+    @State private var insightDestination: InsightDestination?
     @State private var controlsVisit: UUID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var context: DJConnectConversationContext
@@ -4986,7 +5216,11 @@ private struct DJConnectWatchCompanionTrackView: View {
         AsyncImage(url: original?.albumImageURL) { phase in
             detail(artwork: phase.image)
         }
-        .navigationTitle(watchLocalizedKey(model.language, "watch.v2.music"))
+        .navigationTitle("")
+        .navigationDestination(item: $insightDestination) { destination in
+            DJConnectWatchRecordingInsightView(recording: destination.recording, binding: destination.binding,
+                                               session: model.foregroundSession, artworkURL: destination.artworkURL)
+        }
         .onReceive(model.$playback) { playback in
             guard let playback, playback.hasPlayback != false,
                   let title = playback.trackName, !title.isEmpty else { return }
@@ -4998,7 +5232,9 @@ private struct DJConnectWatchCompanionTrackView: View {
             progressObservedAt = Date()
             original = playback
         }
-        .onAppear { setControlsVisible(true) }
+        .onAppear {
+            if page == .artwork { setControlsVisible(true) }
+        }
         .task(id: controlsVisit) { [visit = controlsVisit] in
             guard let visit else { return }
             do { try await Task.sleep(for: .seconds(5)) } catch { return }
@@ -5009,49 +5245,26 @@ private struct DJConnectWatchCompanionTrackView: View {
     }
 
     private func detail(artwork: Image?) -> some View {
-        TabView {
-            trackArtwork(artwork)
-                .ignoresSafeArea(.container, edges: .vertical)
-            VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(original?.trackName ?? "").font(.headline).lineLimit(2)
-                    Text(original?.artistName ?? "").foregroundStyle(.secondary).lineLimit(2)
-                    trackTiming
+        GeometryReader { geometry in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    trackArtwork(artwork)
+                        .containerRelativeFrame(.vertical)
+                        .id(Page.artwork)
+                    trackInfo(insets: geometry.safeAreaInsets)
+                        .containerRelativeFrame(.vertical)
+                        .id(Page.trackInfo)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8)
-                VStack(spacing: 6) {
-                    if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
-                       let binding = originalBinding, let sessionID = context.sessionID {
-                        NavigationLink {
-                            DJConnectWatchCompanionTextView(context: context, initialText: originalQuestion, binding: binding,
-                                recording: .init(binding: binding, sessionID: sessionID, originalID: recording))
-                        } label: { Label(watchLocalizedKey(model.language, "watch.v2.ask_about"), systemImage: "bubble.left") }
-                    }
-                    if model.isDemoMode {
-                        NavigationLink {
-                            DJConnectWatchRootView.DJConnectWatchTrackInsightView()
-                        } label: {
-                            Label("Track Insight", systemImage: "waveform.path.ecg")
-                        }
-                    } else if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
-                              let binding = originalBinding {
-                        NavigationLink {
-                            DJConnectWatchRecordingInsightView(recording: recording, binding: binding,
-                                                              session: model.foregroundSession,
-                                                              artworkURL: original?.albumImageURL)
-                        } label: {
-                            Label("Track Insight", systemImage: "waveform.path.ecg")
-                        }
-                    }
-                }
-                .buttonStyle(DJConnectWatchFlatActionRowStyle())
+                .scrollTargetLayout()
             }
-            .padding(.trailing, 8)
-            .padding(.bottom, 8)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $page)
+            .scrollIndicators(.hidden)
+            .ignoresSafeArea(.container, edges: .vertical)
         }
-        .tabViewStyle(.verticalPage)
+        .onChange(of: page) { _, page in
+            if page == .trackInfo { controlsVisit = nil }
+        }
         .background {
             DJConnectWatchCanvas(theme: theme)
             if let artwork {
@@ -5066,6 +5279,45 @@ private struct DJConnectWatchCompanionTrackView: View {
                 .accessibilityHidden(true)
             }
         }
+    }
+
+    private func trackInfo(insets: EdgeInsets) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(original?.trackName ?? "").font(.headline).lineLimit(2)
+                Text(original?.artistName ?? "").foregroundStyle(.secondary).lineLimit(2)
+                trackTiming
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: 6) {
+                if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
+                   let binding = originalBinding, let sessionID = context.sessionID {
+                    NavigationLink {
+                        DJConnectWatchCompanionTextView(context: context, initialText: originalQuestion, binding: binding,
+                            recording: .init(binding: binding, sessionID: sessionID, originalID: recording))
+                    } label: { Label(watchLocalizedKey(model.language, "watch.v2.ask_about"), systemImage: "bubble.left") }
+                }
+                if model.isDemoMode {
+                    NavigationLink {
+                        DJConnectWatchRootView.DJConnectWatchTrackInsightView()
+                    } label: {
+                        Label("Track Insight", systemImage: "waveform.path.ecg")
+                    }
+                } else if let recording = original?.uri, DJConnectCurrentInsightSubject.isRecordingURI(recording),
+                          let binding = originalBinding {
+                    Button {
+                        insightDestination = .init(recording: recording, binding: binding, artworkURL: original?.albumImageURL)
+                    } label: {
+                        Label("Track Insight", systemImage: "waveform.path.ecg")
+                    }
+                }
+            }
+            .buttonStyle(DJConnectWatchFlatActionRowStyle())
+        }
+        .padding(.horizontal, watchRowInset)
+        .padding(.top, max(52, insets.top + 6))
+        .padding(.bottom, insets.bottom + 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     @ViewBuilder private var trackTiming: some View {
@@ -5089,7 +5341,13 @@ private struct DJConnectWatchCompanionTrackView: View {
     private func trackArtwork(_ artwork: Image?) -> some View {
         GeometryReader { geometry in
             let size = geometry.size
-            Button { setControlsVisible(true) } label: {
+            Button {
+                if controlsVisit == nil {
+                    setControlsVisible(true)
+                } else {
+                    controlsVisit = nil
+                }
+            } label: {
                 Group {
                     if let artwork {
                         artwork.resizable().scaledToFill()
@@ -5133,14 +5391,20 @@ private struct DJConnectWatchCompanionTrackView: View {
         let playback = model.playback
         let canSeek = playback?.hasPlayback == true
         let shuffle = playback?.shuffle == true
+        let repeatMode = playback?.repeatState ?? .off
+        let repeatValueKey = switch repeatMode {
+        case .off: "ui.off"
+        case .track: "ui.track"
+        case .context: "ui.context"
+        }
         return VStack(spacing: 0) {
             HStack(spacing: 0) {
-                playbackButton(icon: "arrow.counterclockwise", label: "watch.playback.replay") {
-                    guard let progress = model.playback?.progressMS else { return }
-                    let elapsed = isPlaying ? Int(max(0, Date().timeIntervalSince(progressObservedAt)) * 1_000) : 0
-                    await model.sendCommand("seek_relative", value: .int(-max(0, progress + elapsed)))
+                playbackButton(icon: repeatMode == .track ? "repeat.1" : "repeat",
+                               label: "ui.repeat", selected: repeatMode != .off) {
+                    await model.cycleRepeat()
                 }
-                .disabled(!canSeek || playback?.progressMS == nil)
+                .accessibilityValue(watchLocalizedKey(model.language, repeatValueKey))
+                .disabled(!canSeek || model.isChangingRepeat)
                 playbackButton(icon: "shuffle", label: "ui.shuffle", selected: shuffle) {
                     await model.sendCommand("set_shuffle", value: .bool(model.playback?.shuffle != true))
                 }
@@ -5205,11 +5469,12 @@ private struct DJConnectWatchCompanionTrackView: View {
             Image(systemName: icon)
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(selected ? watchAccentPurple : .white)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(watchLocalizedKey(model.language, label))
+        .frame(maxWidth: .infinity)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
@@ -5222,37 +5487,57 @@ private struct DJConnectWatchRecordingInsightView: View {
     @State private var result: (insight: TrackInsight, expiresAt: Date)?
     @State private var isLoading = true
 
+    private var canReadInsight: Bool {
+        model.isAppForeground && model.canUseBackend && model.playback?.uri == recording
+            && session.current()?.settings.binding == binding
+    }
+
     var body: some View {
         TimelineView(.explicit([Date()] + [result?.expiresAt].compactMap { $0 })) { _ in
+            let insight = result.flatMap { Date() < $0.expiresAt && canReadInsight ? $0.insight : nil }
             ScrollView {
                 if isLoading {
                     ProgressView()
-                } else if let result, Date() < result.expiresAt, session.current()?.settings.binding == binding {
-                    let insight = result.insight
+                } else if let insight {
                     VStack(alignment: .leading, spacing: 8) {
                         DJConnectWatchRootView.DJConnectWatchTrackInsightVisualCard(
                             insight: insight,
                             language: model.language,
                             moodStepIndex: model.askDJMoodStepIndex,
                             isPlaying: model.playback?.uri == recording && model.playback?.isPlaying == true,
-                            fallbackArtworkURL: artworkURL
+                            fallbackArtworkURL: artworkURL,
+                            fillsPage: true
                         )
                         DJConnectWatchRootView.DJConnectWatchTrackInsightAnalysisCard(insight: insight, language: model.language)
+                            .padding(.horizontal, watchRowInset)
+                            .padding(.bottom, 8)
                     }
                 } else {
                     Text(watchLocalizedKey(model.language, "appModel.track.insight.is.unavailable.for.this.track"))
                         .foregroundStyle(.secondary)
                 }
             }
+            .ignoresSafeArea(.container, edges: insight != nil && !isLoading ? .all : [])
+            .navigationTitle(insight != nil && !isLoading ? "" : "Track Insight")
         }
         .watchStandardBackground()
-        .navigationTitle("Track Insight")
-        .task {
-            result = await model.loadRecordingInsight(recording, binding: binding)
-            isLoading = false
-        }
-        .onChange(of: session.current()?.settings.binding) { _, current in
-            if current != binding { result = nil }
+        .task(id: canReadInsight) {
+            guard canReadInsight else {
+                result = nil
+                isLoading = false
+                return
+            }
+            while !Task.isCancelled {
+                isLoading = true
+                let fresh = await model.loadRecordingInsight(recording, binding: binding)
+                guard !Task.isCancelled else { return }
+                result = fresh
+                isLoading = false
+                guard let fresh else { return }
+                do {
+                    try await Task.sleep(for: .seconds(max(0, fresh.expiresAt.timeIntervalSinceNow)))
+                } catch { return }
+            }
         }
     }
 }
@@ -5260,7 +5545,7 @@ private struct DJConnectWatchRecordingInsightView: View {
 private struct DJConnectWatchCompanionSoundView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     var body: some View {
-        List {
+        DJConnectWatchList {
             Text(model.selectedOutput)
                 .font(.headline)
                 .frame(maxWidth: .infinity)
@@ -5273,6 +5558,8 @@ private struct DJConnectWatchCompanionSoundView: View {
             NavigationLink { DJConnectWatchOutputsView() } label: {
                 Label(watchLocalizedKey(model.language, "watch.output"), systemImage: "speaker.wave.2")
             }
+            .buttonStyle(DJConnectWatchFlatActionRowStyle())
+            .listRowBackground(Color.clear)
         }
         .listStyle(.plain)
         .watchStandardBackground()
@@ -5291,7 +5578,7 @@ struct DJConnectWatchCompanionMoodView: View {
     private let moods: [DJConnectSessionMoodTheme] = [.chill, .groove, .energy, .party]
 
     var body: some View {
-        List {
+        DJConnectWatchList {
             if let current = state.current(), let session = current.session,
                settings.response?.binding == current.settings.binding, !current.settings.requiresSelection,
                let revision = session.confirmedMoodRevision {
@@ -5362,6 +5649,8 @@ private struct DJConnectWatchMomentNotificationView: View {
                                 Image("SpotifyAttribution").resizable().scaledToFit()
                                     .frame(width: 72, height: 24).accessibilityLabel("Spotify")
                             }
+                            DJConnectWatchRetainedReplayButton(reference: retained.reference, binding: originalBinding,
+                                                               speech: model.sessionSpeech)
                             NavigationLink {
                                 DJConnectWatchCompanionTextView(context: .init(sessionID: nil, selectedEntry: retained.reference),
                                                                binding: originalBinding)
@@ -5399,7 +5688,7 @@ private struct DJConnectWatchMomentNotificationView: View {
 private struct DJConnectWatchCompanionNotificationsView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     var body: some View {
-        List {
+        DJConnectWatchList {
             Toggle(watchLocalizedKey(model.language, "watch.v2.moments"), isOn: $model.watchMomentNotificationsEnabled)
             // Ordinary push registration does not acknowledge the Moment preference.
             Text(watchLocalizedKey(model.language, "watch.v2.notification.pending"))

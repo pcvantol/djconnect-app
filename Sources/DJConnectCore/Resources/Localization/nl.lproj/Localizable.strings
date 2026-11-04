@@ -1637,7 +1637,7 @@
 "ui.vibescape.world.festival" = "Kosmische bloei";
 
 // Watch companion V2
-"watch.v2.moments" = "Moments";
+"watch.v2.moments" = "DJ moments";
 "watch.v2.more" = "Meer";
 "watch.v2.ask.prompt" = "Vraag je DJ over muziek, artiesten en meer.";
 "watch.v2.text" = "Typ een vraag";
@@ -1666,6 +1666,7 @@
 "watch.v2.question.new" = "Nieuwe vraag";
 
 "watch.v2.track.question" = "Vertel me over %@ van %@.";
+"watch.v2.recording_cancelled" = "Opname geannuleerd.";
 "watch.v2.recording_interrupted" = "Opname onderbroken.";
 
 "watch.v2.flow.question" = "Ask DJ-vraag";

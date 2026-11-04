@@ -56,16 +56,6 @@ struct VibeScapeConfirmedSettings: Equatable {
     }
 }
 
-enum VibeScapeAvailability {
-    static var previewEnabled: Bool {
-        #if DEBUG || DJCONNECT_VIBESCAPE_PREVIEW
-        true
-        #else
-        false
-        #endif
-    }
-}
-
 /// Entire visual visit is mounted at root, above navigation/tab chrome. Existing
 /// Flow and Forecast views remain mounted behind it, preserving their positions.
 struct VibeScapeScreen: View {

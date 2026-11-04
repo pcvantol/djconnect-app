@@ -21,7 +21,7 @@ struct DJConnectWatchSessionView: View {
             // It only schedules invalidation; current wall/monotonic clocks own
             // freshness and the producer's unchanged Moment deadlines.
             let now = Date()
-            List {
+            DJConnectWatchList {
                 if state.isChanging { ProgressView().accessibilityIdentifier("watch-session-changing") }
                 if state.outcomeUnknown {
                     Button(text("ui.refresh")) { Task { await model.refreshForegroundSession(force: true) } }
@@ -38,7 +38,8 @@ struct DJConnectWatchSessionView: View {
                             DJConnectWatchCompanionMoodView(state: state, settings: settings)
                         } label: {
                             VStack(alignment: .leading, spacing: 2) {
-                                Label(text("ui.dj_settings.mood"), systemImage: "waveform")
+                                let mood = DJConnectSessionMoodTheme(sessionMood: session.selectedMood)
+                                Label(text("ui.dj_settings.mood"), systemImage: mood.watchIcon)
                                 Text(text("ui.session.mood." + session.selectedMood))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
@@ -49,7 +50,8 @@ struct DJConnectWatchSessionView: View {
                                 sessionID: session.id, binding: snapshot.settings.binding)
                         } label: {
                             VStack(alignment: .leading, spacing: 2) {
-                                Label(text("ui.session.presence.title"), systemImage: "mic.fill")
+                                Label(text("ui.session.presence.title"),
+                                      systemImage: session.selectedPresence?.watchIcon ?? "mic.fill")
                                 Text(text(session.selectedPresence?.localizationKey ?? "ui.session.presence.unavailable"))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
@@ -59,7 +61,8 @@ struct DJConnectWatchSessionView: View {
                             personaChoices(sessionID: session.id, binding: snapshot.settings.binding)
                         } label: {
                             VStack(alignment: .leading, spacing: 2) {
-                                Label(text("ui.dj_settings.persona"), systemImage: "person.crop.circle")
+                                Label(text("ui.dj_settings.persona"),
+                                      systemImage: session.selectedPersona?.watchIcon ?? "person.crop.circle")
                                 if let persona = session.selectedPersona {
                                     Text(text("ui.session.persona." + persona.rawValue))
                                         .font(.caption2)
@@ -219,7 +222,7 @@ private struct DJConnectWatchSharedDJSettingsView: View {
         } else { Task { await model.changeSharedDJSettings(patch) } }
     }
     var body: some View {
-        List {
+        DJConnectWatchList {
             if settings.active, let r = settings.response {
                 let e = r.snapshot.effective
                 let review = r.requiresSelection
@@ -387,7 +390,7 @@ private struct DJConnectWatchSettingsChoices: View {
     let change: (String) -> Void
 
     var body: some View {
-        List {
+        DJConnectWatchList {
             if !values.contains(where: { $0.0 == selected }) {
                 Text(unavailableTitle).foregroundStyle(.secondary)
             }
@@ -441,7 +444,7 @@ private struct DJConnectWatchSessionPresenceView: View {
     }
 
     var body: some View {
-        List {
+        DJConnectWatchList {
             if let current {
                 let selected = current.snapshot.effective.presence
                 ForEach(DJConnectSessionPresenceValue.selectableChoices, id: \.self) { choice in

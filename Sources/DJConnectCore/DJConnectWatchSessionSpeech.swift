@@ -57,6 +57,32 @@ public struct DJConnectWatchMomentSpeechRequest: Codable, Sendable {
     }
 }
 
+public struct DJConnectWatchSpeechReplayRequest: Codable, Sendable {
+    public let binding: String
+    public let reference: DJConnectSpeechReference
+    public let processor: DJConnectSpeechProcessor
+
+    public init(binding: String, reference: DJConnectSpeechReference, processor: DJConnectSpeechProcessor) {
+        self.binding = binding
+        self.reference = reference
+        self.processor = processor
+    }
+}
+
+public struct DJConnectWatchSpeechReplay: Codable, Sendable {
+    public let speech: DJConnectSessionSpeech
+    public let text: String
+    public let audio: Data?
+    public let expiresAt: Date
+
+    public init(speech: DJConnectSessionSpeech, text: String, audio: Data?, expiresAt: Date) {
+        self.speech = speech
+        self.text = text
+        self.audio = audio
+        self.expiresAt = expiresAt
+    }
+}
+
 /// A manual foreground replay of an admitted Watch card. It never queues old
 /// contributions or turns a refresh/reconnect into an autoplay event.
 @MainActor public final class DJConnectWatchSessionSpeech: ObservableObject {
@@ -78,35 +104,40 @@ public struct DJConnectWatchMomentSpeechRequest: Codable, Sendable {
                      prepare: @escaping @MainActor () async throws -> DJConnectSharedSpeechResult,
                      isCurrent: @escaping @MainActor () -> Bool,
                      start: @escaping @MainActor (DJConnectSessionSpeech, @escaping () -> Void) throws -> Bool) {
+        guard preferences.enabled, preferences.isValid, request.settings.allowsSpeech(.local) else { return }
+        play(id: request.moment.id, prepare: {
+            let response = try await prepare()
+            let speech = response.session_speech
+            guard response.success, request.source.matches(speech),
+                  DJConnectNativeSpeechAdmission.admits(speech, reference: request.reference,
+                    text: request.moment.content, settings: request.settings),
+                  let deadline = speech.playbackDeadline() else { throw DJConnectError.invalidResponse }
+            return (deadline, { finished in try start(speech, finished) })
+        }, isCurrent: isCurrent)
+    }
+
+    public func play(id: String, prepare: @escaping @MainActor () async throws
+                     -> (Date, @MainActor (@escaping () -> Void) throws -> Bool),
+                     isCurrent: @escaping @MainActor () -> Bool) {
         stop()
-        guard preferences.enabled, preferences.isValid, request.settings.allowsSpeech(.local), isCurrent(),
-              let ticket = coordinator.begin(deadline: Date().addingTimeInterval(300)) else { return }
-        state = .preparing; momentID = request.moment.id
+        guard isCurrent(), let ticket = coordinator.begin(deadline: Date().addingTimeInterval(300)) else { return }
+        state = .preparing; momentID = id
         task = Task { @MainActor [weak self] in
             guard let self else { return }
             @MainActor func current() -> Bool { !Task.isCancelled && isCurrent() && coordinator.isCurrent(ticket) }
             defer { coordinator.finish(ticket) }
             do {
-                let response = try await prepare()
+                let (deadline, start) = try await prepare()
                 guard current() else { return }
-                let speech = response.session_speech
-                guard response.success, request.source.matches(speech), DJConnectNativeSpeechAdmission.admits(speech, reference: request.reference,
-                    text: request.moment.content, settings: request.settings),
-                    let deadline = speech.playbackDeadline(), coordinator.shortenDeadline(deadline, for: ticket) else {
-                    fail(ticket, id: request.moment.id); return
+                guard coordinator.shortenDeadline(deadline, for: ticket),
+                      try start({ [weak self] in self?.coordinator.finish(ticket) }) else {
+                    fail(ticket, id: id); return
                 }
-                guard try start(speech, { [weak self] in self?.coordinator.finish(ticket) }) else {
-                    fail(ticket, id: request.moment.id); return
-                }
-                // A synchronous finish cannot reclaim ownership of a stopped ticket.
                 guard current() else { return }
                 state = .playing
-                while current() && DJConnectNativeSpeechAdmission.admits(speech, reference: request.reference,
-                    text: request.moment.content, settings: request.settings) {
-                    try await Task.sleep(for: .milliseconds(100))
-                }
+                while current() { try await Task.sleep(for: .milliseconds(100)) }
             } catch {
-                if current() { fail(ticket, id: request.moment.id) }
+                if current() { fail(ticket, id: id) }
             }
         }
     }

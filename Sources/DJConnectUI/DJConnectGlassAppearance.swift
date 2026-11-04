@@ -96,3 +96,27 @@ struct DJConnectGlassPreferenceToggle: View {
         .accessibilityIdentifier("settings-glass-effects")
     }
 }
+
+/// Samples already decoded pixels without fetching or retaining protected artwork.
+func averageArtworkColor(from cgImage: CGImage) -> Color? {
+    var pixel = [UInt8](repeating: 0, count: 4)
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    guard let context = CGContext(
+        data: &pixel,
+        width: 1,
+        height: 1,
+        bitsPerComponent: 8,
+        bytesPerRow: 4,
+        space: colorSpace,
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else {
+        return nil
+    }
+    context.interpolationQuality = .medium
+    context.draw(cgImage, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+    return Color(
+        red: Double(pixel[0]) / 255.0,
+        green: Double(pixel[1]) / 255.0,
+        blue: Double(pixel[2]) / 255.0
+    )
+}
