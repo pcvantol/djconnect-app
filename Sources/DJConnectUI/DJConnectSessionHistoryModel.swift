@@ -1523,15 +1523,18 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     /// Dedicated startup presentation, using the same authenticated conversation,
     /// exact owner/context, accepted-response reducer and original message IDs.
     func sendStartupChoice(text: String, choice: DJConnectConversationChoice?, sessionID: String,
+                           suppliedContext: DJConnectConversationContext? = nil,
                            isCurrent: @escaping @MainActor () -> Bool) async throws -> DJConnectAskDJMessageResponse {
         guard profileScopeActive, let host, host.canUseProfileConversation, !host.isSendingAskDJText,
               let owner = ownerScope, host.activeDJSession?.id == sessionID, isCurrent() else { throw CancellationError() }
         let captured = epoch, archives = archiveGeneration
-        let context = DJConnectConversationContext(sessionID: sessionID)
+        let context = suppliedContext ?? DJConnectConversationContext(sessionID: sessionID)
+        guard context.sessionID == sessionID else { throw CancellationError() }
         let draft = host.askDJDraft
         let id = UUID().uuidString
         var payload = host.profileConversationPayload(text: text, clientMessageID: id, context: context)
         payload.choiceAction = choice
+        if suppliedContext != nil { payload.audioResponse = .never }
         let localID = host.beginProfileConversationText(text: text, clientMessageID: id)
         host.askDJDraft = draft
         defer { if captured == epoch, ownerScope == owner { host.setProfileConversationSending(false) } }

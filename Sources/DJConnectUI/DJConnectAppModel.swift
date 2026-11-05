@@ -1449,6 +1449,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var playback: DJConnectPlayback? {
         didSet {
             sessionStartup.reconcile()
+            sessionForYou.reconcile()
             if currentInsightObservation.observe(playback), currentInsightProof != nil {
                 clearCurrentInsightProof(); currentTrackInsight = nil
             }
@@ -1474,9 +1475,11 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     lazy var sessionStartup = SessionStartupModel(host: self)
+    lazy var sessionForYou = SessionForYouModel(host: self)
     @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
         didSet {
             sessionStartup.reconcile()
+            sessionForYou.reconcile()
             reconcileDirectSessionRuntimes()
             let helpNow = Date()
             if AskDJHelpPlaybackProjection(oldValue?.broadcast.playback, at: helpNow) != AskDJHelpPlaybackProjection(activeDJSession?.broadcast.playback, at: helpNow) ||
@@ -3448,6 +3451,7 @@ public final class DJConnectAppModel: ObservableObject {
         personaReactions.cancel(.background)
         isAppInForeground = false
         sessionStartup.reconcile()
+        sessionForYou.reconcile()
         directSessionAttemptEpoch = UUID()
         for runtime in directSessionRuntimes.values { runtime.suspend() }
         sessionSurfaceNativeCustody.suspend() // Fence already queued foreground starts immediately.
@@ -6082,6 +6086,7 @@ public final class DJConnectAppModel: ObservableObject {
               action.resultSetID == nil || liveConversationActionIsCurrent(action) else {
             return
         }
+        if sessionForYou.handleOutput(action) { return }
         if action.isFavoriteCurrentTrackControlAction {
             guard isStillValid == nil else { return }
             setCurrentTrackFavoriteFromAskDJ(action)
@@ -7578,6 +7583,7 @@ public final class DJConnectAppModel: ObservableObject {
             if !Task.isCancelled, request == sessionRequestGeneration {
                 acceptSessionSurfaceObservation(sessionID: response.resolvedSession?.id)
             }
+            sessionForYou.observe(response.forYou, session: response.resolvedSession)
             djSessionErrorMessage = nil
             startSessionBroadcastIfNeeded()
             return true
@@ -8410,6 +8416,7 @@ public final class DJConnectAppModel: ObservableObject {
             vibeCastHandoffApproved = false
             vibeCastHandoffFailed = false
             activeDJSession = incoming
+            sessionForYou.observe(response.forYou, session: response.resolvedSession)
             if !Task.isCancelled, request == sessionRequestGeneration {
                 acceptSessionSurfaceObservation(sessionID: incoming.id)
             }
