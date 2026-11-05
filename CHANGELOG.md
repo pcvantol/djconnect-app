@@ -4,6 +4,19 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Apple build 40475
+
+- Center pairing, permission and Music DNA dialogs within the iPhone/iPad
+  viewport; present Track Insight sharing as a full-screen glass overlay.
+- Restore reliable Watch demo transport for playback, repeat, shuffle,
+  favorites, speaker selection and Ask DJ with the iPhone Session.
+- Correct Watch home swipes and page indicators, inline mood-colored DJ Moment
+  headings, VibeScape overlay gestures and active-speaker volume labels.
+- Restore Paddle Rally, Meteor Run, Sky Dash and Maze Chase under Watch More >
+  Games, with responsive playfields, tap/Crown controls and local high scores.
+- Refine dark-purple frosted action buttons, white playback equalizers and the
+  compact iPhone log toolbar.
+
 ### Apple build 40474
 
 - Unify frosted action buttons, onboarding, pairing and consent presentation

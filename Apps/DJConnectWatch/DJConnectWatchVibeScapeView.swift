@@ -38,11 +38,12 @@ struct DJConnectWatchVibeScapeView: View {
             .background(.black)
             .ignoresSafeArea()
             .contentShape(Rectangle())
+            .onTapGesture { toggleControls() }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("VibeScape")
             .accessibilityValue(text(family.titleKey))
             .accessibilityAction(named: Text(text("ui.vibescape.dynamics"))) {
-                if isVisible { revealControls() }
+                toggleControls()
             }
 
             if isVisible && controlsVisit != nil {
@@ -144,6 +145,17 @@ struct DJConnectWatchVibeScapeView: View {
         .padding(.horizontal, watchListItemPadding)
         .padding(.vertical, 6)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func toggleControls() {
+        guard acceptsCrown else { return }
+        if controlsVisit == nil {
+            revealControls()
+        } else {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                controlsVisit = nil
+            }
+        }
     }
 
     private func revealControls() {

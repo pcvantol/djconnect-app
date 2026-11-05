@@ -1702,3 +1702,10 @@
 "ui.crash.no.thanks" = "No, gracias";
 
 "ui.connection.pair.again" = "Volver a vincular";
+
+// Watch arcade controls
+"watch.game.controls.pong" = "Corona: mover pala · Toca: posición";
+"watch.game.controls.asteroids" = "Corona: mover nave · Toca: disparar";
+"watch.game.controls.fly" = "Corona: altura · Toca: disparar";
+"watch.game.controls.pacman" = "Corona: girar · Toca: dirección";
+"watch.game.restart" = "Reiniciar";

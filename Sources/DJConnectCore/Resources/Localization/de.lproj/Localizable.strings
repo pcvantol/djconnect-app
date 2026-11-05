@@ -1702,3 +1702,10 @@
 "ui.crash.no.thanks" = "Nein danke";
 
 "ui.connection.pair.again" = "Erneut koppeln";
+
+// Watch arcade controls
+"watch.game.controls.pong" = "Krone: Schläger bewegen · Tippen: Position";
+"watch.game.controls.asteroids" = "Krone: Schiff bewegen · Tippen: schießen";
+"watch.game.controls.fly" = "Krone: Höhe · Tippen: schießen";
+"watch.game.controls.pacman" = "Krone: drehen · Tippen: Richtung";
+"watch.game.restart" = "Neu starten";

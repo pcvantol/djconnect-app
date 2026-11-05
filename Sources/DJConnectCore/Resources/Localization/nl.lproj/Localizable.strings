@@ -1702,3 +1702,10 @@
 "ui.crash.no.thanks" = "Nee bedankt";
 
 "ui.connection.pair.again" = "Opnieuw koppelen";
+
+// Watch arcade controls
+"watch.game.controls.pong" = "Crown: batje bewegen · Tik: positie kiezen";
+"watch.game.controls.asteroids" = "Crown: schip bewegen · Tik: schieten";
+"watch.game.controls.fly" = "Crown: hoogte · Tik: schieten";
+"watch.game.controls.pacman" = "Crown: richting draaien · Tik: richting kiezen";
+"watch.game.restart" = "Opnieuw starten";

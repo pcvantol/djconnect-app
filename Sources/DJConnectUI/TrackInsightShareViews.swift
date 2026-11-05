@@ -87,19 +87,14 @@ struct TrackInsightSharePreviewView: View {
                 }
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, horizontalSizeClass == .regular ? 8 : 20)
-                .padding(.bottom, 28)
+                .padding(djConnectCardSpacing)
+                .djSessionFrostedSurface()
                 .frame(maxWidth: contentMaxWidth)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(djConnectCardSpacing)
+                .frame(maxWidth: .infinity, alignment: .top)
             }
             .defaultScrollAnchor(.top)
         }
-        #if os(iOS)
-        .presentationDetents([.large])
-        .presentationSizing(.page)
-        .presentationDragIndicator(.hidden)
-        #endif
         .onAppear {
             startRender()
         }

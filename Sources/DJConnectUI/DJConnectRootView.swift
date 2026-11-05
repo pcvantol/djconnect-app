@@ -1641,7 +1641,7 @@ private struct PermissionExplanationView: View {
                     .djSessionFrostedSurface()
                 }
                 .padding(28)
-                .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
+                .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620)
                 .frame(maxWidth: .infinity)
             }
             .defaultScrollAnchor(.top)
@@ -1762,7 +1762,7 @@ private struct PairingSheetView: View {
                 }
             }
             .padding(28)
-            .frame(minWidth: 360, idealWidth: contentIdealWidth, maxWidth: contentMaxWidth)
+            .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: contentIdealWidth, maxWidth: contentMaxWidth)
             .frame(maxWidth: .infinity, alignment: .top)
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height
@@ -1941,6 +1941,7 @@ private struct PairingSheetView: View {
                     .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true, usesLiveGlass: false))
                     .controlSize(.large)
                     .disabled(model.isPairing || isManualPairingVisible || model.canRestartAppleWatchPairing)
+                    .accessibilityIdentifier("pairing-qr-button")
                 } else {
                     Button {
                         requestCameraConsentForScanner()
@@ -1954,6 +1955,7 @@ private struct PairingSheetView: View {
                     .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true, usesLiveGlass: false))
                     .controlSize(.large)
                     .disabled(model.isPairing || isManualPairingVisible)
+                    .accessibilityIdentifier("pairing-qr-button")
                 }
                 #endif
 
@@ -2965,7 +2967,7 @@ private struct WakeWordActivationPromptView: View {
                     .djSessionFrostedSurface()
                 }
                 .padding(28)
-                .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
+                .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620)
                 .frame(maxWidth: .infinity)
             }
             .defaultScrollAnchor(.top)
@@ -3010,7 +3012,7 @@ private struct UpdateRequiredView: View {
         .padding(24)
         .djSessionFrostedSurface()
         .padding(28)
-        .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
+        .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620)
     }
 }
 
@@ -3142,7 +3144,7 @@ private struct WelcomeView: View {
                     .djSessionFrostedSurface()
                 }
                 .padding(28)
-                .frame(minWidth: 360, idealWidth: contentIdealWidth, maxWidth: contentMaxWidth)
+                .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: contentIdealWidth, maxWidth: contentMaxWidth)
                 #if os(macOS)
                 .frame(minHeight: 620)
                 #endif
@@ -3414,7 +3416,7 @@ private struct WhatsNewView: View {
             }
             .padding(28)
         }
-        .frame(minWidth: 360, idealWidth: 560, maxWidth: 680)
+        .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 560, maxWidth: 680)
         #if os(macOS)
         .frame(minHeight: 560)
         #endif
@@ -3472,7 +3474,7 @@ private struct UpdateNotesView: View {
             }
             .padding(28)
         }
-        .frame(minWidth: 360, idealWidth: 560, maxWidth: 680)
+        .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 560, maxWidth: 680)
         #if os(macOS)
         .frame(minHeight: 620)
         #endif
@@ -4222,6 +4224,16 @@ struct TrackInsightView: View {
         }
     }
 
+    @ViewBuilder private var sharePreviewContent: some View {
+        if let insight {
+            TrackInsightSharePreviewView(
+                insight: insight,
+                language: model.language,
+                moodStepIndex: moodStepIndex
+            )
+        }
+    }
+
     @State private var visualPlaybackID: String?
 
     private var playbackVisual: TrackInsight? {
@@ -4400,15 +4412,15 @@ struct TrackInsightView: View {
                 SessionControlPopoverHost(model: model, intent: $menuIntent, visualMoodSelection: $standaloneMoodStepIndex)
             }
             #endif
-            .djConnectPopup(isPresented: $isShowingShare) {
-                if let insight {
-                    TrackInsightSharePreviewView(
-                        insight: insight,
-                        language: model.language,
-                        moodStepIndex: moodStepIndex
-                    )
-                }
+            #if os(iOS)
+            .fullScreenCover(isPresented: $isShowingShare) {
+                sharePreviewContent
             }
+            #else
+            .djConnectPopup(isPresented: $isShowingShare) {
+                sharePreviewContent
+            }
+            #endif
             .onChange(of: standaloneMoodStepIndex) { _, value in
                 model.setTrackInsightWidgetMood(step: value)
             }
@@ -9388,7 +9400,7 @@ struct VibeCastSessionStartDialog: View {
             .scrollBounceBehavior(.basedOnSize)
             .scrollDismissesKeyboard(.interactively)
             .defaultScrollAnchor(.center, for: .alignment)
-            .frame(minWidth: 360, idealWidth: 520, maxWidth: 620, idealHeight: 620)
+            .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620, idealHeight: 620)
             .accessibilityIdentifier("vibecast-session-start-scroll")
             #else
             dialogContent
@@ -9438,7 +9450,7 @@ struct VibeCastSessionStartDialog: View {
             .padding(24)
             .djSessionFrostedSurface()
             .padding(28)
-            .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
+            .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("vibecast-session-start-card")
     }
@@ -16849,7 +16861,7 @@ private struct AskDJHistoryExportSheet: View {
                     .djSessionFrostedSurface()
                 }
                 .padding(28)
-                .frame(minWidth: 360, idealWidth: 520, maxWidth: 620, minHeight: 420, alignment: .topLeading)
+                .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620, minHeight: 420, alignment: .topLeading)
             }
         }
     }
@@ -16978,7 +16990,7 @@ private struct MusicDNAExportSheet: View {
                     .djSessionFrostedSurface()
                 }
                 .padding(28)
-                .frame(minWidth: 360, idealWidth: 520, maxWidth: 620, minHeight: 420, alignment: .topLeading)
+                .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620, minHeight: 420, alignment: .topLeading)
             }
         }
     }
@@ -17119,7 +17131,7 @@ private struct MusicDNAImportSheet: View {
                     .djSessionFrostedSurface()
                 }
                 .padding(28)
-                .frame(minWidth: 360, idealWidth: 560, maxWidth: 660, minHeight: 520, alignment: .topLeading)
+                .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 560, maxWidth: 660, minHeight: 520, alignment: .topLeading)
             }
         }
     }
@@ -17996,9 +18008,12 @@ private struct LogsView: View {
                     clearLogToolbarButton
                 }
                 #else
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    logToolbarButtons
-                    clearLogToolbarButton
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 0) {
+                        logToolbarButtons
+                        clearLogToolbarButton
+                    }
+                    .buttonStyle(CompactLogToolbarButtonStyle())
                 }
                 #endif
             }
@@ -18037,6 +18052,16 @@ private struct LogsView: View {
             if !available { showingWatchLogs = false }
         }
         .onDisappear { showingWatchLogs = false; model.setWatchLogCollection(false) }
+    }
+
+    // Keep five actions compact without shrinking their touch targets.
+    private struct CompactLogToolbarButtonStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .opacity(configuration.isPressed ? 0.6 : 1)
+        }
     }
 
     @ViewBuilder
@@ -18773,7 +18798,7 @@ private struct FeedbackPromptView: View {
                 .djSessionFrostedSurface()
             }
             .padding(28)
-            .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
+            .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620)
         }
     }
 }

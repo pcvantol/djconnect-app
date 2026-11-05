@@ -136,9 +136,10 @@ final class DJConnectIOSUITests: XCTestCase {
         let title: String
     }
 
-    private func launchApp() -> XCUIApplication {
+    private func launchApp(additionalArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: ["--uitesting", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"])
+        app.launchArguments.append(contentsOf: additionalArguments)
         app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
         app.terminate()
         app.launch()
@@ -470,6 +471,52 @@ final class DJConnectIOSUITests: XCTestCase {
 
         XCTAssertTrue(app.descendants(matching: .any)["screen-pairing"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["pairing-start-demo-button"].exists)
+    }
+
+    func testPairingAndNestedCameraDialogStayCenteredInsideViewport() {
+        let app = launchApp(additionalArguments: [
+            "-DJConnectLastSeenAppVersion", "4.0.0",
+            "-DJConnectDemoMusicDNAEnabled", "NO",
+            "-DJConnectDemoMusicDNAOptInPromptSeen", "NO"
+        ])
+        let qr = app.buttons["pairing-qr-button"]
+        XCTAssertTrue(qr.waitForExistence(timeout: 10))
+        let viewport = app.windows.firstMatch.frame
+        func assertCentered(_ element: XCUIElement) {
+            let frame = element.frame
+            XCTAssertGreaterThan(frame.width, min(240, viewport.width * 0.6))
+            XCTAssertEqual(frame.midX, viewport.midX, accuracy: 4)
+            XCTAssertGreaterThanOrEqual(frame.minX, viewport.minX)
+            XCTAssertLessThanOrEqual(frame.maxX, viewport.maxX)
+        }
+        assertCentered(qr)
+        let pairing = XCTAttachment(screenshot: app.screenshot())
+        pairing.name = "centered-pairing-dialog"; pairing.lifetime = .keepAlways; add(pairing)
+        qr.tap()
+        let allow = app.buttons["Camera toestaan"].firstMatch
+        XCTAssertTrue(allow.waitForExistence(timeout: 3))
+        assertCentered(allow)
+        let camera = XCTAttachment(screenshot: app.screenshot())
+        camera.name = "centered-camera-dialog"; camera.lifetime = .keepAlways; add(camera)
+        app.buttons["Niet nu"].firstMatch.tap()
+        XCTAssertTrue(allow.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(qr.isHittable, "Dismissing camera consent returns to the same pairing dialog")
+        app.buttons["pairing-start-demo-button"].tap()
+        if app.staticTexts["App-toestemmingen"].waitForExistence(timeout: 3) {
+            app.buttons["Niet nu"].firstMatch.tap()
+        }
+        let more = app.tabBars.buttons["Meer"]
+        XCTAssertTrue(more.waitForExistence(timeout: 8)); more.tap()
+        let musicDNA = app.buttons["Music DNA"].firstMatch
+        XCTAssertTrue(musicDNA.waitForExistence(timeout: 5)); musicDNA.tap()
+        let enable = app.buttons["Music DNA activeren"].firstMatch
+        XCTAssertTrue(enable.waitForExistence(timeout: 5))
+        if !app.descendants(matching: .any)["music-dna-opt-in-prompt"].firstMatch.exists { enable.tap() }
+        let prompt = app.descendants(matching: .any)["music-dna-opt-in-prompt"].firstMatch
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        assertCentered(app.buttons["Music DNA activeren"].firstMatch)
+        let dna = XCTAttachment(screenshot: app.screenshot())
+        dna.name = "centered-music-dna-dialog"; dna.lifetime = .keepAlways; add(dna)
     }
 
     func testPairingManualEntryUsesLocalFixtureURLAndValidatesCode() {
