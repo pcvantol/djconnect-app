@@ -133,13 +133,7 @@ struct SavedSessionsView: View {
         selectedSearchIndex = (selectedSearchIndex + offset + filteredSessions.count) % filteredSessions.count
         withAnimation { proxy.scrollTo(filteredSessions[selectedSearchIndex].id, anchor: .center) }
     }
-    private var rowMaxWidth: CGFloat {
-        #if os(iOS)
-        UIDevice.current.userInterfaceIdiom == .pad ? .infinity : 1000
-        #else
-        1000
-        #endif
-    }
+    private let rowMaxWidth: CGFloat = 1000
     @ViewBuilder var body: some View {
         if embedsNavigationStack { NavigationStack { content } }
         else { content }
@@ -610,7 +604,13 @@ struct SessionTimelineScreen: View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
-                    let preparedEntries = renderCache.snapshot(entries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
+                    let now = max(clock.date, Date())
+                    let preparedEntries = renderCache.snapshot(entries, sessionID: sessionID, epoch: history.responseEpoch, at: now)
+                    let rows = renderCache.flowRows(retained: preparedEntries, broadcast: activeSession?.broadcast,
+                        admitsLive: !filtersTimeline && history.hasAuthorizedOwner && scenePhase == .active,
+                        withdrawals: history.withdrawnContentMoments, deadlines: retentionDeadlines, at: now) {
+                        flowRows(preparedEntries, at: now)
+                    }
                     GeometryReader { viewport in
                     ScrollView {
                         DJSessionGlassGroup {
@@ -699,7 +699,7 @@ struct SessionTimelineScreen: View {
                                             .id("current-conversation-" + message.id.uuidString)
                                     }
                                 }
-                                ForEach(flowRows(preparedEntries, at: clock.date)) { row in
+                                ForEach(rows) { row in
                                     liveRow(row, isSearchMatch: matchMap[row.id] != nil)
                                 }
                                 if !filtersTimeline && history.available && timeline.revision != nil && timeline.entries.isEmpty && timeline.errorKey == nil {
@@ -829,10 +829,16 @@ struct SessionTimelineScreen: View {
                         }
                     }
                 }
-                if activeSession != nil && !usesFloatingComposer && !searching && !showsForecast {
+            }
+            #if os(macOS)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if activeSession != nil && !searching && !showsForecast {
                     sessionComposer(floating: false)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity)
                 }
             }
+            #endif
             .background(sessionBackground)
             .coordinateSpace(name: AskDJHelpPanelLayout.coordinateSpace)
             .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
@@ -870,7 +876,7 @@ struct SessionTimelineScreen: View {
             .djStatusToastOverlay(model.personaReactionNotice, screenImage: DJConnectFeatureSymbols.djSession)
             .onDisappear { model.personaReactions.cancel(.dismissed) }
             .djStatusToastOverlay(manualRefresh.notice, screenImage: DJConnectFeatureSymbols.djSession)
-            .sheet(item: $feedbackMessage) { message in
+            .djConnectPopup(item: $feedbackMessage) { message in
                 AskDJFeedbackPromptView(model: model, message: message)
                 #if os(iOS)
                     .presentationDetents([.large])
@@ -916,6 +922,7 @@ struct SessionTimelineScreen: View {
                     if #available(macOS 26.0, *) { ToolbarSpacer(.fixed, placement: .navigation) }
                     ToolbarItem(placement: .navigation) {
                         SessionEndToolbarButton(model: model)
+                            .sessionIntroductionTarget("toolbar-stop")
                     }
                 }
                 #endif
@@ -942,7 +949,13 @@ struct SessionTimelineScreen: View {
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if activeSession == nil, history.deletionAvailable { archiveDeleteButton }
-                    if activeSession != nil { SessionConnectionToolbarButton(model: model) }
+                    if let activeSession {
+                        SessionConnectionToolbarButton(model: model) {
+                            sessionControlIntent = SessionControlIntent(kind: .connection, sessionID: activeSession.id,
+                                epoch: history.responseEpoch, sourceRect: menuFrames[.connection] ?? .zero)
+                        }
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.connection] = $0 }
+                    }
                     if activeSession == nil || refreshAction != nil {
                         RefreshButton(model: model, action: { Task { await refreshTimeline() } }, isLoading: timeline.loading || retryRefreshing)
                     }
@@ -1148,6 +1161,7 @@ struct SessionTimelineScreen: View {
                 #else
                 ActiveSessionMoodToolbar(model: model, session: activeSession)
                 ActiveSessionPresenceToolbar(model: model, session: activeSession)
+                    .sessionIntroductionTarget("toolbar-presence")
                 #endif
                 #if os(iOS)
                 ActiveSessionPersonaToolbar(model: model, session: activeSession, requestPresentation: {
@@ -1156,6 +1170,7 @@ struct SessionTimelineScreen: View {
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.persona] = $0 }
                 #else
                 ActiveSessionPersonaToolbar(model: model, session: activeSession)
+                    .sessionIntroductionTarget("toolbar-persona")
                 #endif
             }
             #if !os(macOS)
@@ -1218,8 +1233,13 @@ struct SessionTimelineScreen: View {
     @ViewBuilder private func sessionSearchToolbarButton(proxy: ScrollViewProxy) -> some View {
         if showsSessionSearch {
         Button {
-            if activeSession != nil { openCurrentSearch() }
-            else { toggleFlowSearch(proxy: proxy) }
+            if activeSession == nil ? searching : flowSearchExpanded {
+                closeSearch(proxy: proxy)
+            } else if activeSession != nil {
+                openCurrentSearch()
+            } else {
+                toggleFlowSearch(proxy: proxy)
+            }
         } label: {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle((activeSession == nil ? searching : flowSearchExpanded) ? djConnectAccent : .primary)
@@ -2706,6 +2726,8 @@ struct SessionConnectionToolbarButton: View {
 struct SessionConnectionPopoverContent: View {
     @ObservedObject var model: DJConnectAppModel
     var dismiss: () -> Void
+    @State private var stopDemoAfterDismissal = false
+    @State private var rePairAfterDismissal = false
     private func text(_ key: String) -> String {
         DJConnectLocalization.localized(key: key, language: model.language)
     }
@@ -2716,19 +2738,64 @@ struct SessionConnectionPopoverContent: View {
                 .frame(maxWidth: .infinity, alignment: .center)
             if model.isDemoMode {
                 SessionConnectionAboutLink(model: model, action: openAbout)
+                Button(role: .destructive) {
+                    stopDemoAfterDismissal = true
+                    dismiss()
+                } label: {
+                    Label(text("ui.stop.demo.mode"), systemImage: "stop.fill")
+                }
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .destructive, expands: true, usesDestructiveGlass: true))
+                .accessibilityIdentifier("connection-stop-demo")
             } else {
                 #if os(iOS)
-                IOSConnectionCard(model: model, openAbout: openAbout)
+                IOSConnectionCard(model: model, openAbout: openAbout, rePair: requestRePair)
                 #else
-                SetupStatusView(model: model, openAbout: openAbout)
+                SetupStatusView(model: model, openAbout: openAbout, rePair: requestRePair)
                 #endif
             }
         }
+        #if os(iOS)
+        .background(SessionPopoverDismissalObserver(onDismiss: finishDemoDismissal))
+        #else
+        .onDisappear(perform: finishDemoDismissal)
+        #endif
+    }
+
+    private func finishDemoDismissal() {
+        let shouldRePair = rePairAfterDismissal
+        let shouldStopDemo = stopDemoAfterDismissal
+        guard shouldRePair || shouldStopDemo else { return }
+        rePairAfterDismissal = false
+        stopDemoAfterDismissal = false
+        // Present pairing only after the connection popover has left the screen.
+        Task { @MainActor in
+            if shouldRePair { model.resetPairing() }
+            else if model.isDemoMode { model.stopDemoMode() }
+        }
+    }
+
+    private func requestRePair() {
+        rePairAfterDismissal = true
+        dismiss()
     }
 
     private func openAbout() {
         dismiss()
         model.performHomeScreenAction(.about)
+    }
+}
+
+struct ConnectionRePairButton: View {
+    let language: String
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Label(DJConnectLocalization.localized(key: "ui.connection.pair.again", language: language), systemImage: "link")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.glass)
+        .controlSize(.large)
+        .accessibilityIdentifier("connection-pair-again")
     }
 }
 
@@ -2830,6 +2897,13 @@ enum SessionConnectionStatus: String, CaseIterable, Equatable {
 }
 
 extension DJConnectAppModel {
+    var connectionRequiresRePairing: Bool {
+        guard !isDemoMode else { return false }
+        let message = pairingMessage?.lowercased() ?? ""
+        return pairingStatus == .stale || message.contains("not_configured") || message.contains("not configured")
+            || pairingMessage == DJConnectLocalization.localized(key: "pairing.error.notConfigured", language: language)
+    }
+
     var connectionPopoverDetail: String? {
         guard let message = pairingMessage,
               message != DJConnectLocalization.localized(key: "appModel.home.assistant.is.unreachable", language: language) else { return nil }

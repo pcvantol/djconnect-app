@@ -4,6 +4,19 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Apple build 40474
+
+- Unify frosted action buttons, onboarding, pairing and consent presentation
+  across iPhone, iPad and Mac; improve responsive game and Session layouts.
+- Keep Watch demo playback, favorites, speakers and Ask DJ synchronized with
+  the iPhone demo Session. Use the regular Watch screens and bounded demo data.
+- Improve Watch Flow, Horizon, mood styling, artwork and Crown-driven VibeScape
+  dynamics; restore scrollable Legal and Privacy pages under More.
+- Let the iPhone govern Watch logging, including Off, and inspect separate local
+  iPhone/Watch log files from the iPhone toolbar.
+- Reduce main-thread diagnostic file writes and repeated Session timeline work.
+
+
 ### Changed
 
 - Unify Session Flow/Forecast headers, visible search and glass selection;

@@ -24,6 +24,36 @@ struct SessionTimelineRenderEntry: Equatable, Identifiable {
     private var validFrom: Date?
     private var validUntil: Date?
 
+    private struct FlowInput: Equatable {
+        let retained: [SessionTimelineRenderEntry]
+        let session: DJConnectBroadcastState.Session?
+        let playbackState: String?
+        let playbackItem: String?
+        let delivery: DJConnectNativeMomentDelivery?
+        let items: [DJConnectSessionFlowItem]
+        let moments: [DJConnectMoment]
+        let admitsLive: Bool
+        let withdrawals: Set<String>
+    }
+    private var flowProjection: (input: FlowInput, from: Date, until: Date?, rows: [SessionTimelineLiveRow])?
+
+    func flowRows(retained: [SessionTimelineRenderEntry], broadcast: DJConnectBroadcastState?,
+                  admitsLive: Bool, withdrawals: Set<String>, deadlines: [Date], at date: Date,
+                  prepare: () -> [SessionTimelineLiveRow]) -> [SessionTimelineLiveRow] {
+        // Playback progress and unrelated broadcast fields do not affect admission.
+        let input = FlowInput(retained: retained, session: broadcast?.session,
+            playbackState: broadcast?.playback?.state, playbackItem: broadcast?.playback?.itemID,
+            delivery: broadcast?.nativeDelivery, items: broadcast?.sessionFlow.items ?? [],
+            moments: broadcast?.djMoments ?? [], admitsLive: admitsLive, withdrawals: withdrawals)
+        if let cached = flowProjection, cached.input == input, date >= cached.from,
+           cached.until.map({ date < $0 }) ?? true {
+            return cached.rows
+        }
+        let rows = prepare()
+        flowProjection = (input, date, deadlines.filter { $0 > date }.min(), rows)
+        return rows
+    }
+
     func snapshot(_ source: [DJConnectHistoryEntry], sessionID: String, epoch: UUID,
                   at date: Date = Date()) -> [SessionTimelineRenderEntry] {
         if self.sessionID != sessionID || self.epoch != epoch { clear() }
@@ -64,5 +94,6 @@ struct SessionTimelineRenderEntry: Equatable, Identifiable {
     func clear() {
         sessionID = nil; epoch = nil; entries.removeAll()
         sourceSnapshot = nil; preparedSnapshot = []; validFrom = nil; validUntil = nil
+        flowProjection = nil
     }
 }

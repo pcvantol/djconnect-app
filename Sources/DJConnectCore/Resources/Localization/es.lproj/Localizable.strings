@@ -85,7 +85,7 @@
 "ui.pair.iphone.via.qr.code" = "Pair via QR Code";
 "ui.manual" = "Manual";
 "ui.manual.pairing" = "Manual pairing";
-"ui.local.home.assistant.url" = "Local Home Assistant URL";
+"ui.local.home.assistant.url" = "Dirección de Home Assistant";
 "ui.pair.code" = "Pair Code";
 "ui.pair.code.scanned" = "Pair code scanned";
 "ui.start.demo.mode" = "Iniciar modo demo";
@@ -98,6 +98,9 @@
 "ui.ready.to.pair.apple.watch" = "Ready to Pair Apple Watch";
 "ui.ready.to.pair" = "Ready to Pair";
 "ui.pair.apple.watch" = "Pair Apple Watch";
+"ui.pair.device.iphone" = "Vincular iPhone";
+"ui.pair.device.ipad" = "Vincular iPad";
+"ui.pair.device.mac" = "Vincular Mac";
 "ui.pair.djconnect" = "Pair DJConnect";
 "ui.pair.apple.watch.with.home.assistant" = "Pair Apple Watch with Home Assistant";
 "ui.pair.with.home.assistant" = "Pair with Home Assistant";
@@ -550,8 +553,8 @@
 "watch.recent" = "Reciente";
 "watch.signals" = "Senales";
 "watch.not.enough.signals" = "Not enough signals";
-"watch.pair.djconnect" = "Pair DJConnect";
-"watch.lan.pairing.runs.through.your.iphone" = "LAN pairing runs through your iPhone";
+"watch.pair.djconnect" = "Vincular Watch";
+"watch.lan.pairing.runs.through.your.iphone" = "network pairing runs through your iPhone";
 "watch.iphone.companion" = "iPhone companion";
 "watch.demo.mode" = "Demo Mode";
 "watch.welcome.to.djconnect" = "Welcome to DJConnect";
@@ -646,7 +649,7 @@
 "watch.activate" = "Activate";
 "watch.warnings" = "Warnings";
 "watch.errors" = "Errors";
-"appModel.local.wi.fi.lan.is.required.connect.this.device" = "Local Wi-Fi/LAN is required. Connect this device to the same local network as Home Assistant.";
+"appModel.local.wi.fi.lan.is.required.connect.this.device" = "A local network is required. Connect this device to the same local network as Home Assistant.";
 "appModel.loading.release.notes" = "Loading release notes...";
 "appModel.release.notes.could.not.be.loaded.see.https.djconnect" = "Release notes could not be loaded. See https://djconnect.dev for more information.";
 "appModel.djconnect.token.restored.checking.home.assistant.pairing" = "DJConnect token restored. Checking Home Assistant pairing...";
@@ -795,11 +798,11 @@
 "ui.server.push.notifications.use.apple.apns.and.contain.only.a" = "Server push notifications use Apple APNs and contain only a small wake-up message; the app syncs the real Ask DJ history after opening.";
 "ui.enter.your.home.assistant.url.for.example.192.168.1" = "Enter your Home Assistant URL, for example 192.168.1.10:8123.";
 "ui.open.djconnect.on.apple.watch.then.scan.or.enter.the" = "Open DJConnect on Apple Watch, then scan or enter the Apple Watch pair code from Home Assistant on this iPhone.";
-"ui.enter.or.scan.the.code.shown.by.home.assistant.while" = "Enter or scan the code shown by Home Assistant while this device and Home Assistant are on the same LAN.";
-"ui.enter.the.code.shown.by.home.assistant.while.this.device" = "Enter the code shown by Home Assistant while this device and Home Assistant are on the same LAN.";
+"ui.enter.or.scan.the.code.shown.by.home.assistant.while" = "Enter or scan the code shown by Home Assistant while this device and Home Assistant are on the same network.";
+"ui.enter.the.code.shown.by.home.assistant.while.this.device" = "Enter the code shown by Home Assistant while this device and Home Assistant are on the same network.";
 "ui.apple.watch.is.paired.with.home.assistant.through.this.iphone" = "Apple Watch is paired with Home Assistant through this iPhone.";
 "ui.djconnect.is.paired.with.home.assistant" = "DJConnect is paired with Home Assistant.";
-"ui.pairing.is.local.only.use.the.lan.address.of.home" = "El emparejamiento es solo local. Usa la dirección LAN de Home Assistant. Apple puede pedir acceso a la red local para que DJConnect se conecte a Home Assistant en esta red.";
+"ui.pairing.is.local.only.use.the.lan.address.of.home" = "El emparejamiento es solo local. Usa la dirección de red de Home Assistant. Apple puede pedir acceso a la red local para que DJConnect se conecte a Home Assistant en esta red.";
 "ui.enter.a.valid.local.home.assistant.url.for.example.http" = "Enter a valid local Home Assistant URL, for example http://homeassistant.local:8123.";
 "ui.enter.the.6.digit.code.shown.by.home.assistant" = "Enter the 6-digit code shown by Home Assistant.";
 "ui.choose.value.in.the.home.assistant.djconnect.setup.flow.and" = "Elige %@ en el flujo de configuracion de DJConnect en Home Assistant e introduce aqui el codigo de Home Assistant.";
@@ -812,8 +815,8 @@
 "ui.you.can.share.redacted.diagnostics.by.opening.a.github.issue" = "You can share logs if you want to. Nothing is uploaded automatically.";
 "ui.setup.runs.through.home.assistant.spotify.playback.requires.spotify.premium" = "Setup and music playback run through Home Assistant.";
 "ui.control.playback.volume.and.the.active.output.from.the.main" = "Control playback, volume and the active output from the main screen.";
-"ui.ask.for.music.context.or.a.voice.reply.djconnect.keeps" = "Ask for music, context or a voice reply. DJConnect keeps the chat history in sync through Home Assistant.";
-"ui.analyze.the.current.track.for.mood.energy.genre.and.musical" = "Analyze the current track for mood, energy, genre and musical details when Home Assistant has provider data.";
+"ui.ask.for.music.context.or.a.voice.reply.djconnect.keeps" = "Pregunta a tu DJ sobre música, artistas y mucho más. Escribe o di tu pregunta y lee o escucha la respuesta.";
+"ui.analyze.the.current.track.for.mood.energy.genre.and.musical" = "Descubre el ambiente, la energía y el género de la canción que escuchas, además de sus detalles musicales e historia.";
 "ui.learn.from.your.taste.and.listening.behavior.to.shape.recommendations" = "Learn from your taste and listening behavior to shape recommendations around your listening profile.";
 "ui.play.local.mini.games.while.keeping.djconnect.ready.for.your" = "Play local mini-games while keeping DJConnect ready for your music setup.";
 "ui.djconnect.in.your.home.assistant.environment.does.not.build.a" = "DJConnect in your Home Assistant environment does not build a listening profile about you.";
@@ -940,7 +943,7 @@
 "ui.discovery.could.not.be.loaded" = "No se pudo cargar Descubrir";
 "ui.no.discovery.recommendations" = "Aun no hay recomendaciones";
 "ui.no.discovery.recommendations.available.currently" = "No hay recomendaciones disponibles en este momento";
-"ui.discovery.recommendations.will.appear.after.music.dna.has.more.signals" = "Las recomendaciones apareceran cuando Music DNA tenga suficientes senales.";
+"ui.discovery.recommendations.will.appear.after.music.dna.has.more.signals" = "Descubre canciones, artistas y álbumes que encajan con tus gustos musicales. Escucha las recomendaciones e indica lo que te gusta.";
 "ui.discovery.not.for.me" = "No es para mi";
 "ui.discovery.less.like.this" = "Menos como esto";
 "ui.discovery.hide.artist" = "Ocultar artista";
@@ -1041,6 +1044,11 @@
 "ui.session.history.start_unknown" = "hora de inicio desconocida";
 
 // Curated local App Store review sessions.
+"demo.horizon.notice" = "Demo · Ejemplo de Horizon";
+"demo.horizon.current" = "Ahora";
+"demo.horizon.guidance" = "Los próximos minutos";
+"demo.horizon.aim" = "Mi objetivo";
+"demo.horizon.direction" = "Subiré poco a poco la energía a partir del ritmo actual.";
 "demo.session.notice" = "Demo · Sesiones de ejemplo, no tu historial de escucha";
 "demo.session.title" = "Una noche con el DJ";
 "demo.session.direction" = "Mantenemos el groove. Los sintetizadores cálidos y una transición suave dejan espacio para la siguiente canción.";
@@ -1056,7 +1064,7 @@
 "ui.session.welcome.title" = "Tu música.\nTu DJ.";
 "ui.session.welcome.subtitle" = "Inicia una sesión DJ y vive tu música de una forma nueva.";
 "ui.session.welcome.promise" = "Descubre las historias detrás de tu música. Habla con tu DJ. Déjate sorprender.";
-"ui.session.welcome.mood" = "¿Cómo quieres escuchar?";
+"ui.session.welcome.mood" = "Ánimo";
 
 "ui.session.music_duration" = "Tiempo transcurrido y duración total";
 "ui.session.music_remaining" = "Tiempo restante";
@@ -1179,7 +1187,7 @@
 
 "ui.connection.transport" = "Transporte";
 
-"ui.connection.address.active" = "Dirección de Home Assistant";
+"ui.connection.address.active" = "Home Assistant";
 
 "ui.connection.address.unconfirmed" = "Ruta activa aún no confirmada";
 
@@ -1240,7 +1248,7 @@
 "ui.session.intro.next" = "Siguiente";
 "ui.session.intro.done" = "Empezar";
 "ui.session.intro.toolbar.title" = "Menús superiores";
-"ui.session.intro.toolbar.body" = "Elige el ambiente, la presencia del DJ y la voz. El icono de conexión muestra su estado.";
+"ui.session.intro.toolbar.body" = "Elige el ambiente, la presencia y el carácter del DJ. El cuadrado rojo finaliza la sesión DJ. El globo muestra el estado de la conexión.";
 "ui.session.intro.chat.title" = "Habla con el DJ";
 "ui.session.intro.chat.body" = "Elige una sugerencia o haz tu propia pregunta por texto o micrófono. El signo de interrogación explica las opciones disponibles.";
 "ui.session.intro.artwork.title" = "Controla la portada";
@@ -1249,7 +1257,7 @@
 "ui.session.intro.gesture.2" = "2×: siguiente canción";
 "ui.session.intro.gesture.3" = "3×: canción anterior";
 "ui.session.intro.navigation.title" = "Navegación inferior";
-"ui.session.intro.navigation.body" = "Cambia entre la sesión DJ, la reproducción actual, Track Insight y Descubrir. Más incluye la cola y los ajustes.";
+"ui.session.intro.navigation.body" = "Cambia entre Sesión DJ, Cola, Track Insight, Descubrir y Más. Encontrarás los ajustes en Más.";
 "ui.session.intro.sidebar.title" = "Navegación a la izquierda";
 "ui.session.intro.sidebar.body" = "Usa la barra lateral para cambiar entre la sesión DJ, la reproducción actual, Track Insight, Descubrir y las demás pantallas.";
 
@@ -1619,7 +1627,7 @@
 "ui.vibescape.voice.starting" = "Preparando el micrófono…";
 "ui.vibescape.voice.start_failed" = "No se pudo iniciar la grabación. Inténtalo de nuevo.";
 
-"ui.welcome.session.description" = "Elige un estado de ánimo, pregunta a tu DJ por la música y sigue lo que ocurre en tu sesión.";
+"ui.welcome.session.description" = "Vive tu música con las intervenciones de tu DJ. Descubre las historias detrás de las canciones, haz preguntas y da rumbo a tu sesión.\n\nHorizon muestra la dirección que propone tu DJ para los próximos minutos. VibeScape anima tu sesión con imágenes en movimiento. Con VibeCast compartes la sesión en otra pantalla.";
 "ui.welcome.queue.description" = "Consulta las próximas canciones y elige qué reproducir.";
 
 "ui.askdj.help.item.unavailable" = "No disponible en este momento";
@@ -1674,3 +1682,23 @@
 
 "watch.playback.controls" = "Controles de reproducción";
 "watch.playback.replay" = "Reiniciar la canción";
+
+"ui.welcome.connection.title" = "Conecta tu música";
+
+"ui.welcome.connection.description" = "Conecta DJConnect con Home Assistant para controlar tu música y tus altavoces. Conecta Spotify en Home Assistant para elegir y reproducir canciones y listas.";
+
+"ui.ha_speech.demo_unavailable" = "La configuración de Home Assistant no está disponible en el modo demo.";
+
+"ui.pair.code.integration.label" = "Código de vinculación de la integración DJConnect de Home Assistant";
+"ui.pair.code.integration.choice" = "Elige ‘Vincular la app DJConnect: iPhone/iPad, Apple Watch o macOS’.";
+
+"ui.pair.code.placeholder.six.digits" = "Código de 6 dígitos";
+
+"ui.network" = "red";
+
+"ui.local.network.explanation.title" = "Acceso a la red local";
+"ui.local.network.explanation.body" = "DJConnect usa tu red local para conectarse a Home Assistant. Después de Continuar, Apple puede pedir permiso. Puedes cambiarlo más tarde en Ajustes.";
+
+"ui.crash.no.thanks" = "No, gracias";
+
+"ui.connection.pair.again" = "Volver a vincular";

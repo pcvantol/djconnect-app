@@ -9,6 +9,23 @@ struct SpeechPreferenceRow<Control: View>: View {
 
     var body: some View {
         #if os(watchOS)
+        stackedRow
+        #else
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 12) {
+                Text(label)
+                    .fixedSize(horizontal: true, vertical: true)
+                Spacer(minLength: 0)
+                control()
+                    .labelsHidden()
+            }
+            stackedRow
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        #endif
+    }
+
+    private var stackedRow: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .fixedSize(horizontal: false, vertical: true)
@@ -17,17 +34,6 @@ struct SpeechPreferenceRow<Control: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-        #else
-        HStack(alignment: .center, spacing: 16) {
-            Text(label)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-            control()
-                .labelsHidden()
-                .layoutPriority(1)
-        }
-        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-        #endif
     }
 }
 
@@ -79,18 +85,29 @@ public struct DeviceSpeechSettingsView: View {
             speechChoiceRows
             SpeechPreferenceRow(label: text("rate")) {
                 Slider(value: $preferences.rate, in: 0...1)
-                    #if !os(watchOS)
+                    #if os(watchOS)
+                    // The slider draws its own row surface inside the list's text inset.
+                    .padding(.horizontal, -watchListItemPadding)
+                    #else
                     .frame(minWidth: 60, idealWidth: 160, maxWidth: 160)
                     #endif
                     .accessibilityLabel(text("rate"))
             }
+            #if os(watchOS)
+            .listRowBackground(Color.clear)
+            #endif
             SpeechPreferenceRow(label: text("pitch")) {
                 Slider(value: $preferences.pitch, in: 0.5...2)
-                    #if !os(watchOS)
+                    #if os(watchOS)
+                    .padding(.horizontal, -watchListItemPadding)
+                    #else
                     .frame(minWidth: 60, idealWidth: 160, maxWidth: 160)
                     #endif
                     .accessibilityLabel(text("pitch"))
             }
+            #if os(watchOS)
+            .listRowBackground(Color.clear)
+            #endif
             Button(action: isSpeaking ? stop : preview) {
                 #if os(watchOS)
                 HStack(alignment: .center) {
@@ -107,7 +124,7 @@ public struct DeviceSpeechSettingsView: View {
             #if os(watchOS)
             .buttonStyle(.plain)
             #else
-            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary))
             .frame(maxWidth: .infinity, alignment: .trailing)
             #endif
             .disabled(!isSpeaking && (!previewAllowed || matching.isEmpty))

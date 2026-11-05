@@ -82,6 +82,8 @@ struct DJConnectSessionWidgetEntry: TimelineEntry {
     var isActive: Bool { snapshot?.isCurrent(at: date) == true }
     var palette: DJConnectWidgetPaletteSnapshot? = nil
     var rich: DJConnectPassiveSurfaceCache? = nil
+    var demoMode = false
+    var demo: DJConnectDemoWidgetSnapshot? = nil
     var theme: DJConnectSessionMoodTheme { isActive ? (snapshot?.renderingTheme(at: date) ?? .brand) : (palette?.renderingTheme(at: date) ?? .brand) }
 }
 
@@ -96,15 +98,19 @@ struct DJConnectSessionWidgetProvider: TimelineProvider {
         let entry = current()
         var entries = [entry]
         let deadlines: [Date] = entry.snapshot?.playbackObservation != nil ? [] :
-            Set([entry.snapshot?.expiresAt, entry.palette?.expiresAt].compactMap { $0 } + (entry.rich?.projection.deadlines ?? [])).sorted()
+            Set([entry.snapshot?.expiresAt, entry.palette?.expiresAt, entry.demo?.expiresAt].compactMap { $0 } + (entry.rich?.projection.deadlines ?? [])).sorted()
         for expiry in deadlines {
-            entries.append(.init(date: expiry, snapshot: entry.snapshot, palette: entry.palette, rich: entry.rich))
+            entries.append(.init(date: expiry, snapshot: entry.snapshot, palette: entry.palette, rich: entry.rich, demoMode: entry.demoMode, demo: entry.demo))
         }
         completion(Timeline(entries: entries, policy: .after(Date().addingTimeInterval(15 * 60))))
     }
     private func current() -> DJConnectSessionWidgetEntry {
         let now = Date()
         let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
+        if let shared, shared.bool(forKey: DJConnectDemoWidgetSnapshot.enabledKey) {
+            return .init(date: now, snapshot: nil, demoMode: true,
+                         demo: DJConnectDemoWidgetSnapshot.load(from: shared, at: now))
+        }
         let snapshot = shared.flatMap { DJConnectSessionSurfaceSnapshot.load(from: $0, at: now) }
         if snapshot?.playbackObservation != nil || shared.map({ DJConnectSessionSurfaceSnapshot.privateCacheFallbackSuppressed(in: $0) }) == true {
             return .init(date: now, snapshot: snapshot) // Never read old private caches/palette as fallback.
@@ -122,15 +128,25 @@ struct DJConnectSessionSurfaceView: View {
     var compact = false
     var theme: DJConnectSessionMoodTheme = .brand
     var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 8 : 14) {
-            HStack(spacing: 10) {
-                SessionSurfaceAvatar(theme: theme, side: compact ? 40 : 64)
-                if !compact {
-                    Text("DJConnect").font(.headline)
+        let status = text(isActive ? "surface.session.active" : "surface.session.open")
+        Group {
+            if compact {
+                VStack(alignment: .leading, spacing: 8) {
+                    SessionSurfaceAvatar(theme: theme, side: 40)
+                    Text(status).font(.headline).lineLimit(3).minimumScaleFactor(0.8)
+                }
+            } else {
+                HStack(spacing: 10) {
+                    SessionSurfaceAvatar(theme: theme, side: 48)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("DJConnect").font(.caption.weight(.semibold))
+                        Text(status)
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .lineLimit(2).minimumScaleFactor(0.8)
+                    }
                 }
             }
-            Text(text(isActive ? "surface.session.active" : "surface.session.open"))
-                .font(.headline).lineLimit(3).minimumScaleFactor(0.8)
         }
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -145,10 +161,39 @@ private struct DJConnectSessionWidgetView: View {
         let now = max(entry.date, Date())
         let privateSuppressed = privateSurfaceFieldsSuppressed || entry.snapshot?.playbackObservation != nil
         let rich = !privateSuppressed ? entry.rich.flatMap { $0.isCurrent(at: now) ? $0 : nil } : nil
-        let theme = privateSuppressed ? DJConnectSessionMoodTheme.brand : DJConnectSessionSurfaceSnapshot.widgetTheme(confirmedSession: entry.snapshot,
+        let demo = entry.demo.flatMap { $0.isCurrent(at: now) ? $0 : nil }
+        let theme = entry.demoMode ? (demo?.theme ?? .brand) : privateSuppressed ? DJConnectSessionMoodTheme.brand : DJConnectSessionSurfaceSnapshot.widgetTheme(confirmedSession: entry.snapshot,
             passiveMood: rich?.projection.mood.value, fallback: entry.theme, at: now)
         Group {
-            if let observation = entry.snapshot?.playbackObservation {
+            if entry.demoMode {
+                if let demo, let track = demo.track {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 8) {
+                            SessionSurfaceAvatar(theme: theme, side: 28)
+                            Text("DJConnect").font(.caption.weight(.semibold))
+                            Spacer(minLength: 0)
+                            Image(systemName: demo.isPlaying ? "play.fill" : "pause.fill").font(.caption)
+                        }
+                        Spacer(minLength: 0)
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle().fill(.black.opacity(0.8))
+                                Circle().stroke(.white.opacity(0.15), lineWidth: 1).padding(5)
+                                Circle().fill(theme.accent).padding(16)
+                                Circle().fill(.black).frame(width: 5, height: 5)
+                            }.frame(width: family == .systemSmall ? 38 : 64, height: family == .systemSmall ? 38 : 64)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(track).font(.headline).lineLimit(2)
+                                if let artist = demo.artist { Text(artist).font(.subheadline).foregroundStyle(.white.opacity(0.8)).lineLimit(2) }
+                                if family != .systemSmall, let album = demo.album { Text(album).font(.caption).foregroundStyle(.white.opacity(0.65)).lineLimit(1) }
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }.foregroundStyle(.white)
+                } else {
+                    DJConnectSessionSurfaceView(isActive: false, compact: family == .systemSmall, theme: theme)
+                }
+            } else if let observation = entry.snapshot?.playbackObservation {
                 DJConnectSessionPlaybackObservationView(observation: observation, compact: family == .systemSmall)
             } else if let rich {
                 PassiveSessionContentView(contribution: rich.projection.currentContribution(at: now),

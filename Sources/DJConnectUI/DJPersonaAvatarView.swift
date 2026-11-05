@@ -140,6 +140,7 @@ struct DJPersonaGraphic: View {
     var activity: DJPersonaActivity = .resting
     var speechIsPlaying = false
     var animatesActivity = false
+    var winkEyeOpenness: CGFloat? = nil
 
     var body: some View {
         let gradient = LinearGradient(colors: highContrast ? [.white] : colors,
@@ -160,11 +161,28 @@ struct DJPersonaGraphic: View {
                     ], center: .center, startRadius: 0, endRadius: side * 0.52))
                 }
                 Circle().fill(Color.black.opacity(opaque ? 1 : 0.82)).padding(side * 0.15)
-                DJPersonaMark(includesWaveform: activity == .resting)
+                DJPersonaMark(includesWaveform: activity == .resting && winkEyeOpenness == nil)
                     .fill(gradient)
                     .shadow(color: .black.opacity(0.85), radius: side * 0.035, y: side * 0.015)
-                if animatesActivity && (activity == .listening || speechIsPlaying) {
-                    // Inward capture and outward output are deliberately distinct.
+                if let winkEyeOpenness {
+                    VStack(spacing: side * 0.045) {
+                        HStack(spacing: side * 0.13) {
+                            Capsule().fill(gradient)
+                                .frame(width: side * 0.055, height: side * 0.09)
+                            Capsule().fill(gradient)
+                                .frame(width: side * 0.055, height: side * 0.09)
+                                .scaleEffect(x: 1.5 - winkEyeOpenness * 0.5, y: winkEyeOpenness)
+                        }
+                        Circle()
+                            .trim(from: 0.08, to: 0.42)
+                            .stroke(gradient, style: StrokeStyle(lineWidth: side * 0.026, lineCap: .round))
+                            .frame(width: side * 0.16, height: side * 0.085)
+                    }
+                    .offset(y: side * 0.03)
+                    .accessibilityHidden(true)
+                }
+                if animatesActivity && (activity == .listening || activity == .preparing || speechIsPlaying) {
+                    // Capture contracts inward; preparation and output pulse outward.
                     // This is a lifecycle pulse, never a fabricated audio envelope.
                     Circle().stroke(gradient, lineWidth: 2)
                         .frame(width: side * 0.48, height: side * 0.48)

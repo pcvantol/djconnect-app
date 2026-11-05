@@ -222,7 +222,7 @@ public struct DJConnectWatchSettingsReceipt: Codable, Sendable {
             snapshot = nil; receivedUptime = nil; receivedDate = nil
             expiration?.cancel(); expiration = nil; unavailable = true
             switch error as? DJConnectError {
-            case .missingToken, .authStale, .notConfigured: failureKey = "watch.session.pair_again"
+            case .missingToken, .authStale: failureKey = "watch.session.pair_again"
             case .invalidConfiguration: failureKey = "watch.session.connect_phone"
             default: failureKey = "watch.session.retry"
             }
@@ -325,4 +325,98 @@ public struct DJConnectWatchFlowRow: Codable, Identifiable, Sendable {
         }
         return ordered.prefix(maximumCount).map(\.element)
     }
+}
+
+
+// Local demo presentation sent over WatchConnectivity. It carries no HA binding.
+public struct DJConnectWatchDemoSession: Codable, Sendable {
+    public static let contextKey = "djconnect_demo_session_v1"
+    public static let playbackMessageType = "watch_demo_session_playback"
+    public static let choiceMessageType = "watch_demo_session_choice"
+
+    public enum Choice: String, Sendable { case mood, persona, presence }
+    public let observedAt: Date?
+    public let id: String
+    public let mood: String
+    public let persona: DJConnectSessionPersonaValue
+    public let presence: DJConnectSessionPresenceValue
+    public let track: String
+    public let artist: String?
+    public let album: String?
+    public let playback: DJConnectPlayback?
+    public let outputs: [DJConnectOutputDevice]?
+    public let rows: [DJConnectWatchFlowRow]
+
+    public init(id: String, mood: String, persona: DJConnectSessionPersonaValue, presence: DJConnectSessionPresenceValue, track: String, artist: String?, album: String?, playback: DJConnectPlayback?, outputs: [DJConnectOutputDevice]?, rows: [DJConnectWatchFlowRow]) {
+        self.observedAt = Date()
+        self.id = id
+        self.mood = mood
+        self.persona = persona
+        self.presence = presence
+        self.track = track
+        self.artist = artist
+        self.album = album
+        self.playback = playback
+        self.outputs = outputs
+        self.rows = rows
+    }
+}
+
+/// Explicit local demo transport only; never dispatched through the HA proxy.
+public struct DJConnectWatchDemoTextRequest: Codable, Equatable, Sendable {
+    public static let messageKind = "watch_demo_text_v1"
+    public let kind: String
+    public let requestID: UUID
+    public let sessionID: String
+    public let text: String
+    public init(requestID: UUID = UUID(), sessionID: String, text: String) {
+        kind = Self.messageKind; self.requestID = requestID; self.sessionID = sessionID; self.text = text
+    }
+}
+public struct DJConnectWatchDemoTextReply: Codable, Equatable, Sendable {
+    public let requestID: UUID
+    public let sessionID: String
+    public let answer: String
+    public init(requestID: UUID, sessionID: String, answer: String) {
+        self.requestID = requestID; self.sessionID = sessionID; self.answer = answer
+    }
+}
+
+/// Foreground demo playback goes through the iPhone's demo queue.
+public struct DJConnectWatchDemoPlaybackRequest: Codable, Sendable {
+    public let kind: String
+    public let sessionID: String
+    public let command: String
+    public let value: DJConnectCommandValue?
+    public init(sessionID: String, command: String, value: DJConnectCommandValue? = nil) {
+        kind = "watch_demo_playback_v1"; self.sessionID = sessionID
+        self.command = command; self.value = value
+    }
+}
+
+/// Device diagnostics only, shared with the OS-paired iPhone through WatchConnectivity.
+public struct DJConnectWatchLoggingConfiguration: Codable, Sendable {
+    public static let contextKey = "djconnect_watch_logging_v1"
+    public let epoch: UUID
+    public let updatedAt: Date
+    public let level: String
+    public let collect: Bool
+    public init(epoch: UUID, level: String, collect: Bool) {
+        self.epoch = epoch; self.updatedAt = Date(); self.level = level; self.collect = collect
+    }
+    public func permits(_ level: String) -> Bool {
+        let levels = ["debug", "info", "warning", "error"]
+        guard let configured = levels.firstIndex(of: self.level), let candidate = levels.firstIndex(of: level) else { return false }
+        return candidate >= configured
+    }
+}
+public struct DJConnectWatchDiagnosticLine: Codable, Sendable {
+    public let id: UUID
+    public let text: String
+    public init(id: UUID = UUID(), text: String) { self.id = id; self.text = text }
+}
+public struct DJConnectWatchDiagnosticBatch: Codable, Sendable {
+    public let epoch: UUID
+    public let lines: [DJConnectWatchDiagnosticLine]
+    public init(epoch: UUID, lines: [DJConnectWatchDiagnosticLine]) { self.epoch = epoch; self.lines = lines }
 }

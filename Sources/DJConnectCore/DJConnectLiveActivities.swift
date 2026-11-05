@@ -100,12 +100,52 @@ public enum DJConnectSessionMoodTheme: String, Codable, CaseIterable, Sendable {
         case .party: [0xFF287F, 0xAA38F5, 0xF43DCE]
         }
     }
+    public var horizonHeroColorValues: [UInt32] {
+        self == .groove ? [0x10B5D2, 0x169BC8, 0x169BC0] : colorValues
+    }
+
     public var glow: Double {
         switch self {
         case .brand, .chill: 0.36
         case .groove: 0.46
         case .energy: 0.58
         case .party: 0.66
+        }
+    }
+}
+
+/// Explicit, short-lived local demonstration. Never contains authenticated content,
+/// artwork URLs, Profile identity or passive-surface grants.
+public struct DJConnectDemoWidgetSnapshot: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectDemoWidget.v1"
+    public static let enabledKey = "DJConnectDemoWidget.enabled.v1"
+    public let observedAt: Date
+    public let theme: DJConnectSessionMoodTheme
+    public let track: String?
+    public let artist: String?
+    public let album: String?
+    public let isPlaying: Bool
+    public var expiresAt: Date { observedAt.addingTimeInterval(120) }
+    public init(theme: DJConnectSessionMoodTheme, track: String?, artist: String?, album: String?, isPlaying: Bool, at now: Date) {
+        self.theme = theme; self.track = track; self.artist = artist; self.album = album
+        self.isPlaying = isPlaying; observedAt = now
+    }
+    public func isCurrent(at now: Date) -> Bool { now >= observedAt && now < expiresAt }
+    public func sameContent(as other: Self) -> Bool {
+        theme == other.theme && track == other.track && artist == other.artist && album == other.album && isPlaying == other.isPlaying
+    }
+    public static func load(from defaults: UserDefaults, at now: Date) -> Self? {
+        guard defaults.bool(forKey: enabledKey), let data = defaults.data(forKey: storageKey),
+              let value = try? JSONDecoder().decode(Self.self, from: data), value.isCurrent(at: now) else { return nil }
+        return value
+    }
+    public static func replace(_ value: Self?, in defaults: UserDefaults) {
+        if let value, let data = try? JSONEncoder().encode(value) {
+            defaults.set(data, forKey: storageKey)
+            defaults.set(true, forKey: enabledKey)
+        } else {
+            defaults.removeObject(forKey: storageKey)
+            defaults.removeObject(forKey: enabledKey)
         }
     }
 }

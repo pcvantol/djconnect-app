@@ -351,14 +351,21 @@ struct HASpeechConfigurationView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(text("ui.ha_speech.configuration")).font(.subheadline.weight(.semibold))
                 .accessibilityAddTraits(.isHeader)
-            row("input", snapshot?.ha_stt)
-            row("output", snapshot?.ha_tts)
-            row("speaker", snapshot?.ha_speaker_target)
-            if let output = snapshot?.ha_tts, output.isAvailable,
-               output.operational?.synthesis_state == "failed",
-               (output.operational?.retry_after_seconds ?? 0) > 0 {
-                Text(text("ui.ha_speech.retry_delay"))
-                    .font(.caption).foregroundStyle(.secondary)
+            if model.isDemoMode {
+                Text(text("ui.ha_speech.demo_unavailable"))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                row("input", snapshot?.ha_stt)
+                row("output", snapshot?.ha_tts)
+                row("speaker", snapshot?.ha_speaker_target)
+                if let output = snapshot?.ha_tts, output.isAvailable,
+                   output.operational?.synthesis_state == "failed",
+                   (output.operational?.retry_after_seconds ?? 0) > 0 {
+                    Text(text("ui.ha_speech.retry_delay"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
         }
         .accessibilityIdentifier("ha-speech-configuration")

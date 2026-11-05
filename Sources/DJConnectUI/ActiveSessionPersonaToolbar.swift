@@ -89,7 +89,7 @@ struct ActiveSessionPersonaControl: View {
     }
     private var canChange: Bool {
         scenePhase == .active && epoch == model.sessionHistory.responseEpoch &&
-        !model.isDemoMode && model.pairingStatus == .paired && model.sessionHistory.hasAuthorizedOwner &&
+        (model.isDemoMode || (model.pairingStatus == .paired && model.sessionHistory.hasAuthorizedOwner)) &&
         model.activePersonaAvailable && !model.activePersonaPending &&
         model.activeDJSession?.runtimeState == "active" && confirmed != nil
     }

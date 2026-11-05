@@ -252,12 +252,13 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(model.askDJExampleContext().ownerEpoch != original)
 }
 
-@Test(.isolatedClientResources) @MainActor func helpActualAppModelSameTrackMetadataAndFreshnessRetireButProgressDoesNot() throws {
+@Test(.isolatedClientResources) @MainActor func helpActualAppModelSameTrackMetadataAndFreshnessRetireButProgressDoesNot() async throws {
     let name = "help-playback-aba-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: nil), startBackgroundTasks: false)
     model.startDemoMode() // Existing memory-only path; no Profile/HA/native authority.
+    await model.startDJSession()
     defer { model.stopDemoMode() }
     var snapshot = try #require(model.activeDJSession?.broadcast)
     _ = try #require(snapshot.playback)
