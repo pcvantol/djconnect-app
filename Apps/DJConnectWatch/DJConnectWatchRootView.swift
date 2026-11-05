@@ -4967,7 +4967,11 @@ private struct DJConnectWatchCompanionPages: View {
                 Button(role: .destructive) {
                     model.stopDemoMode()
                 } label: {
-                    Label(text("ui.stop.demo.mode"), systemImage: "stop.fill")
+                    HStack(alignment: .center, spacing: 8) {
+                        Image(systemName: "stop.fill")
+                            .accessibilityHidden(true)
+                        Text(text("ui.stop.demo.mode"))
+                    }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .foregroundStyle(.red)
                 }
