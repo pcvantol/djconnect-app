@@ -48,7 +48,7 @@ enum DJPersonaActivity: String, CaseIterable {
         }
     }
     static func isObservedAnnouncement(_ moment: DJConnectMoment) -> Bool {
-        moment.type == "track" && moment.knowledgeIntent?["type"] == "track_context" &&
+        moment.isMusicAnnouncementV1 || moment.type == "track" && moment.knowledgeIntent?["type"] == "track_context" &&
         moment.generationMetadata?["context_source"] == "observed_playback" &&
         moment.sourceReferences == ["spotify_playback_status"]
     }

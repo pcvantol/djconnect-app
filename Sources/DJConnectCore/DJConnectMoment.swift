@@ -22,6 +22,7 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
     public var playbackItemID: String?
     public var settingsConfirmation: DJConnectSettingsConfirmationIdentity? = nil
     public var sources: [DJConnectBulletinSource] = []
+    public var musicAnnouncement: DJConnectMusicAnnouncement? = nil
     public var id: String { momentID }
 
     public struct Artwork: Codable, Equatable, Sendable { public var url: String? }
@@ -57,6 +58,7 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         }
     }
     enum CodingKeys: String, CodingKey {
+        case musicAnnouncement = "music_announcement"
         case type, title, summary, content, artwork, actions, sources
         case momentID = "moment_id", sessionID = "session_id", createdAt = "created_at"
         case presentationIntent = "presentation_intent", sourceReferences = "source_references"
@@ -70,6 +72,7 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         sessionID = try c.decode(String.self, forKey: .sessionID)
         createdAt = try c.decode(String.self, forKey: .createdAt)
         type = try c.decode(String.self, forKey: .type)
+        musicAnnouncement = try? c.decode(DJConnectMusicAnnouncement.self, forKey: .musicAnnouncement)
         content = try c.decode(String.self, forKey: .content)
         presentationIntent = try c.decode(PresentationIntent.self, forKey: .presentationIntent)
         knowledgeIntent = try? c.decode([String: String].self, forKey: .knowledgeIntent)
@@ -261,7 +264,8 @@ public extension DJConnectBroadcastState {
               authority.sessionID == session.sessionID, authority.revocationScope == "session",
               !authority.revision.isEmpty, authority.currentSilenceMomentID == nil, let id = authority.currentMomentID,
               let moment = djMoments.first(where: { $0.id == id }),
-              moment.isSettingsConfirmation || (playback?.state == "playing" && moment.playbackItemID == playback?.itemID),
+              moment.isSettingsConfirmation || (playback?.state == "playing" &&
+                (moment.isMusicAnnouncementV1 ? moment.musicAnnouncement?.media_uri == playback?.itemID : moment.playbackItemID == playback?.itemID)),
               admitted(moment, authority: authority, at: date, current: true, spotifyAttributionAvailable: spotifyAttributionAvailable) else { return nil }
         return moment
     }
@@ -292,6 +296,14 @@ public extension DJConnectBroadcastState {
             #else
             return moment.admitsBulletin(admission, at: date, current: current)
             #endif
+        }
+        if moment.type == "music_announcement" {
+            guard moment.isMusicAnnouncementV1, admission.requiresSpotifyAttribution,
+                  let expiry = admission.sourceExpiresAt.flatMap(nativeDeadline), date < expiry else { return false }
+            if current {
+                guard spotifyAttributionAvailable, let deadline = admission.displayExpiresAt.flatMap(nativeDeadline), date < deadline else { return false }
+            }
+            return true
         }
         // A new wire family cannot inherit music-source action/speech admission.
         guard moment.isSupportedNativeType else { return false }
@@ -407,5 +419,38 @@ public extension DJConnectBroadcastState {
               let admission = nativeDelivery?.admissions.first(where: { $0.momentID == moment.id }),
               let source = admission.sourceExpiresAt.flatMap(nativeDeadline) else { return nil }
         return min(published.addingTimeInterval(600), source)
+    }
+}
+
+/// Original Core occurrence metadata; neither a local track-start detector nor a media grant.
+public struct DJConnectMusicAnnouncement: Codable, Equatable, Sendable {
+    public let schema_version: Int
+    public let occurrence_id: String
+    public let media_uri: String
+    public let album_uri: String?
+    public let title: String
+    public let artist: String
+    public let realization: String
+    public let automatic_deadline_seconds: Double
+    public var isSupported: Bool {
+        schema_version == 1 && !occurrence_id.isEmpty && occurrence_id.utf8.count <= 128 &&
+        DJConnectCurrentInsightSubject.isRecordingURI(media_uri) &&
+        (album_uri == nil || album_uri?.range(of: "^spotify:album:[A-Za-z0-9]{22}$", options: .regularExpression) != nil) &&
+        !title.isEmpty && title.utf8.count <= 2000 && !artist.isEmpty && artist.utf8.count <= 2000 &&
+        ["generated", "degraded"].contains(realization) && automatic_deadline_seconds == 12
+    }
+}
+public extension DJConnectMoment {
+    var isMusicAnnouncementV1: Bool {
+        guard type == "music_announcement", let metadata = musicAnnouncement, metadata.isSupported else { return false }
+        return !content.isEmpty && content.unicodeScalars.count <= 4000 &&
+            DJConnectHistoryEntry.date(createdAt) != nil &&
+            generationMetadata?["context_source"] == "track_start_announcement" &&
+            generationMetadata?["occurrence_id"] == metadata.occurrence_id &&
+            generationMetadata?["realization"] == metadata.realization &&
+            sourceReferences == ["spotify_playback_status"] &&
+            sourceAttribution?["provider"] == "Spotify" && sourceAttribution?["license"] == "Spotify-Policy" &&
+            sourceAttribution?["url"] == "https://open.spotify.com/track/" + metadata.media_uri.dropFirst("spotify:track:".count) &&
+            actions.isEmpty && artwork == nil && settingsConfirmation == nil
     }
 }

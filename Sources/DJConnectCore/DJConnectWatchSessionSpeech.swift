@@ -42,7 +42,7 @@ public struct DJConnectWatchMomentSpeechRequest: Codable, Sendable {
         self.settings = settings; self.moment = moment; self.source = source
     }
     public func matches(_ snapshot: DJConnectWatchSessionSnapshot, at now: Date = Date()) -> Bool {
-        guard snapshot.isValid, settings.allowsSpeech(.local), snapshot.settings.allowsSpeech(.local),
+        guard snapshot.isValid, settings.allowsSpeech(.local, manualMomentType: moment.isMusicAnnouncementV1 ? moment.type : nil), snapshot.settings.allowsSpeech(.local, manualMomentType: moment.isMusicAnnouncementV1 ? moment.type : nil),
               settings.binding == snapshot.settings.binding, settings.speechFence == snapshot.settings.speechFence,
               settings.snapshot.effective == snapshot.settings.snapshot.effective,
               settings.voice_revision == snapshot.settings.voice_revision,
@@ -104,7 +104,7 @@ public struct DJConnectWatchSpeechReplay: Codable, Sendable {
                      prepare: @escaping @MainActor () async throws -> DJConnectSharedSpeechResult,
                      isCurrent: @escaping @MainActor () -> Bool,
                      start: @escaping @MainActor (DJConnectSessionSpeech, @escaping () -> Void) throws -> Bool) {
-        guard preferences.enabled, preferences.isValid, request.settings.allowsSpeech(.local) else { return }
+        guard preferences.enabled, preferences.isValid, request.settings.allowsSpeech(.local, manualMomentType: request.moment.isMusicAnnouncementV1 ? request.moment.type : nil) else { return }
         play(id: request.moment.id, prepare: {
             let response = try await prepare()
             let speech = response.session_speech

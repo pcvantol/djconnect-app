@@ -1709,3 +1709,11 @@
 "watch.game.controls.fly" = "Krone: Höhe · Tippen: schießen";
 "watch.game.controls.pacman" = "Krone: drehen · Tippen: Richtung";
 "watch.game.restart" = "Neu starten";
+
+"ui.for_you.pending" = "Bestätigung steht aus. Wähle bei Bedarf einen Lautsprecher in der Session.";
+"ui.for_you.unavailable" = "Diese Auswahl ist nicht verfügbar oder abgelaufen. Fordere neue Vorschläge an.";
+"ui.for_you.refresh" = "Auswahl erneuern";
+"ui.for_you.art.local" = "Lokal generierte Landschaftsillustration; keine Audioanalyse.";
+"ui.for_you.art.procedural" = "Prozedurale Landschaftsillustration; keine Audioanalyse.";
+
+"ui.session.moment.music_announcement" = "Musikankündigung";

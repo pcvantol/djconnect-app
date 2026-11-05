@@ -270,12 +270,14 @@ public struct DJConnectSessionResponse: Codable, Equatable, Sendable {
     public var session: DJConnectSessionRuntime?
     public var activeSession: DJConnectSessionRuntime?
     public var startupActions: DJConnectSessionStartupActions? = nil
+    public var forYou: DJConnectForYou? = nil
     public var error: String?
     public var message: String?
 
     enum CodingKeys: String, CodingKey {
         case success, session
         case activeSession = "active_session"
+        case forYou = "for_you"
         case startupActions = "session_start_actions"
         case error, message
     }
@@ -287,6 +289,7 @@ public struct DJConnectSessionResponse: Codable, Equatable, Sendable {
         activeSession = try c.decodeIfPresent(DJConnectSessionRuntime.self, forKey: .activeSession)
         error = try c.decodeIfPresent(String.self, forKey: .error)
         message = try c.decodeIfPresent(String.self, forKey: .message)
+        forYou = try? c.decodeIfPresent(DJConnectForYou.self, forKey: .forYou)
         startupActions = try? c.decodeIfPresent(DJConnectSessionStartupActions.self, forKey: .startupActions)
     }
     public var resolvedSession: DJConnectSessionRuntime? { session ?? activeSession }
@@ -484,6 +487,10 @@ public struct DJConnectActiveMoodCapabilities: Decodable, Sendable {
         capabilities?["session_start_actions"] == true && contractVersions?["session_start_actions"] == 1 &&
         capabilities?["session_first_play_surprise_mix"] == true && contractVersions?["session_first_play_surprise_mix"] == 2
     }
+    public var forYouAvailable: Bool {
+        capabilities?["session_start_actions"] == true && contractVersions?["session_start_actions"] == 2 &&
+        capabilities?["session_first_play_surprise_mix"] == true && contractVersions?["session_first_play_surprise_mix"] == 3
+    }
     public var settingsConfirmationAvailable: Bool { capabilities?["settings_confirmation_moment"] == true && contractVersions?["settings_confirmation_moment"] == 1 }
     public var sharedSettingsAvailable: Bool { capabilities?["profile_session_settings"] == true && contractVersions?["profile_session_settings"] == 3 }
     let contract: Contract?
@@ -626,4 +633,11 @@ public struct DJConnectConversationChoice: Codable, Equatable, Sendable {
     public init(resultSetID: String, actionID: String) {
         result_set_id = resultSetID; action_id = actionID; operation = "select"
     }
+    public static func dismiss(offerID: String) -> Self {
+        Self(resultSetID: offerID, actionID: "", operation: "dismiss")
+    }
+    private init(resultSetID: String, actionID: String, operation: String) {
+        result_set_id = resultSetID; action_id = actionID; self.operation = operation
+    }
+
 }

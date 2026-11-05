@@ -1709,3 +1709,11 @@
 "watch.game.controls.fly" = "Corona: altura · Toca: disparar";
 "watch.game.controls.pacman" = "Corona: girar · Toca: dirección";
 "watch.game.restart" = "Reiniciar";
+
+"ui.for_you.pending" = "Esperando confirmación. Si hace falta, elige un altavoz en la sesión.";
+"ui.for_you.unavailable" = "Estas opciones no están disponibles o han caducado. Actualiza para solicitar otras.";
+"ui.for_you.refresh" = "Actualizar opciones";
+"ui.for_you.art.local" = "Ilustración de paisaje generada localmente; no es un análisis de audio.";
+"ui.for_you.art.procedural" = "Ilustración de paisaje procedimental; no es un análisis de audio.";
+
+"ui.session.moment.music_announcement" = "Anuncio musical";

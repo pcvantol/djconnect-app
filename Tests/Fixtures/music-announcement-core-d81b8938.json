@@ -1,0 +1,371 @@
+{
+  "producer_sha": "d81b8938be58a5be8127018de1cc531785c9c650",
+  "example": {
+    "moment": {
+      "actions": [],
+      "artwork": null,
+      "content": "Synthetic performer — Synthetic recording. Geef dit moment even alle ruimte.",
+      "created_at": "2026-11-05T18:54:14.175219+00:00",
+      "delivery_channels": [
+        "broadcast",
+        "owner",
+        "shared"
+      ],
+      "generation_metadata": {
+        "context_source": "track_start_announcement",
+        "occurrence_id": "occurrence-bd4394ad249a40ce8de5182046698f7b",
+        "realization": "generated"
+      },
+      "importance": "normal",
+      "knowledge_intent": {
+        "goal": "Introduce this actually started recording.",
+        "type": "track_context"
+      },
+      "moment_id": "moment-9a688dbce1dc48f79985c1b792641a19",
+      "music_announcement": {
+        "album_uri": "spotify:album:ZZZZZZZZZZZZZZZZZZZZZZ",
+        "artist": "Synthetic performer",
+        "automatic_deadline_seconds": 12.0,
+        "media_uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+        "occurrence_id": "occurrence-bd4394ad249a40ce8de5182046698f7b",
+        "realization": "generated",
+        "schema_version": 1,
+        "title": "Synthetic recording"
+      },
+      "presentation_intent": {
+        "delivery_channels": [
+          "broadcast",
+          "owner",
+          "shared"
+        ],
+        "delivery_style": "short contextual music story",
+        "dj_persona": "home_dj",
+        "energy_level": "energy",
+        "importance": "normal",
+        "maximum_duration_seconds": 6,
+        "source_session_mood": "energy",
+        "tone_of_voice": "warm and conversational",
+        "visibility": "session_shared",
+        "visual_theme": "music-context",
+        "voice_style": "persona-guided"
+      },
+      "session_id": "session-d25646a3c14846ba951e88847696c7ea",
+      "source_attribution": {
+        "license": "Spotify-Policy",
+        "provider": "Spotify",
+        "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "source_references": [
+        "spotify_playback_status"
+      ],
+      "summary": "Synthetic recording — Synthetic performer",
+      "title": "Muziek aankondiging",
+      "type": "music_announcement",
+      "visibility": "session_shared"
+    },
+    "native_delivery": {
+      "active_flow_moment_ids": [
+        "moment-9a688dbce1dc48f79985c1b792641a19"
+      ],
+      "admissions": [
+        {
+          "active_flow_display_allowed": true,
+          "current_display_allowed": true,
+          "display_expires_at": "2026-11-05T18:54:20.181913+00:00",
+          "executable_actions": [],
+          "moment_id": "moment-9a688dbce1dc48f79985c1b792641a19",
+          "qualification": "qualified",
+          "requires_spotify_attribution": true,
+          "source_expires_at": "9999-12-31T00:00:00+00:00"
+        }
+      ],
+      "current_moment_id": "moment-9a688dbce1dc48f79985c1b792641a19",
+      "current_silence_moment_id": null,
+      "revision": "16d519d55cde342db3ab1a1c",
+      "revocation_scope": "session",
+      "schema_version": 1,
+      "session_id": "session-d25646a3c14846ba951e88847696c7ea"
+    }
+  },
+  "entry": {
+    "archive_basis": "owner_metadata_narration_v1",
+    "current_display_allowed": false,
+    "entry_id": "entry-d4f87a2d56fc53f89dc1226c78b325cb",
+    "generation_metadata": {
+      "context_source": "track_start_announcement",
+      "occurrence_id": "occurrence-f04110545ead45ffa53feb9b21f9ca2c",
+      "realization": "generated"
+    },
+    "historical_view_only": true,
+    "kind": "dj_moment",
+    "locale": "nl",
+    "moment_id": "moment-4c1d54f0da964165a808453d9b1918cf",
+    "moment_type": "music_announcement",
+    "mood": "energy",
+    "music_announcement": {
+      "album_uri": "spotify:album:ZZZZZZZZZZZZZZZZZZZZZZ",
+      "artist": "Synthetic performer",
+      "automatic_deadline_seconds": 12.0,
+      "media_uri": "spotify:track:TTTTTTTTTTTTTTTTTTTTTT",
+      "occurrence_id": "occurrence-f04110545ead45ffa53feb9b21f9ca2c",
+      "realization": "generated",
+      "schema_version": 1,
+      "title": "Synthetic recording"
+    },
+    "occurred_at": "2026-11-05T18:54:14.446585+00:00",
+    "order": 40,
+    "persona": "home_dj",
+    "persona_revision": 0,
+    "provider": "Spotify",
+    "retained_until": "2027-02-03T18:54:14.460416+00:00",
+    "session_id": "session-d25646a3c14846ba951e88847696c7ea",
+    "session_media": {
+      "artwork": {
+        "active_flow_display_allowed": false,
+        "current_display_allowed": false,
+        "historical_display_allowed": false,
+        "reason": "not_prepared",
+        "state": "unavailable"
+      },
+      "entry_id": "entry-d4f87a2d56fc53f89dc1226c78b325cb",
+      "revision": "not_prepared",
+      "schema_version": 1,
+      "session_id": "session-d25646a3c14846ba951e88847696c7ea"
+    },
+    "session_speech": {
+      "attribution": [
+        {
+          "license": "Spotify-Policy",
+          "provider": "Spotify",
+          "url": "https://open.spotify.com/track/TTTTTTTTTTTTTTTTTTTTTT"
+        }
+      ],
+      "autoplay_eligible": false,
+      "cache_policy": "private,no-store",
+      "expires_at": "2027-02-03T18:54:14.460416+00:00",
+      "locale": "nl",
+      "manual_allowed": true,
+      "moment_type": "music_announcement",
+      "mood": "energy",
+      "persona": "home_dj",
+      "persona_revision": 0,
+      "presentation_revision": "bafa86b0a6dd1a240346e160",
+      "processor_qualification_required": true,
+      "processors": [
+        "local_on_device",
+        "ha_configured"
+      ],
+      "reason": null,
+      "reference": {
+        "entry_id": "entry-d4f87a2d56fc53f89dc1226c78b325cb",
+        "session_id": "session-d25646a3c14846ba951e88847696c7ea"
+      },
+      "schema_version": 1,
+      "segments": [
+        {
+          "ordinal": 1,
+          "speaker_role": "dj",
+          "text": "Synthetic performer — Synthetic recording. Geef dit moment even alle ruimte."
+        }
+      ],
+      "session_id": "session-d25646a3c14846ba951e88847696c7ea",
+      "source_expires_at": "2027-02-03T18:54:14.460416+00:00",
+      "source_id": "entry-d4f87a2d56fc53f89dc1226c78b325cb",
+      "source_kind": "retained_dj_contribution",
+      "state": "available",
+      "style_basis": "accepted_contribution",
+      "text_revision": "051fcfa4e25917a912b9c14b"
+    },
+    "source_attribution": {
+      "license": "Spotify-Policy",
+      "provider": "Spotify",
+      "url": "https://open.spotify.com/track/TTTTTTTTTTTTTTTTTTTTTT"
+    },
+    "summary": "Synthetic recording — Synthetic performer",
+    "text": "Synthetic performer — Synthetic recording. Geef dit moment even alle ruimte."
+  },
+  "settings": {
+    "accepted": true,
+    "allowed_values": {
+      "announcement_output": [
+        "both",
+        "client_device",
+        "ha_speaker",
+        "text_only"
+      ],
+      "gender": [
+        "default"
+      ],
+      "mood": [
+        "chill",
+        "energy",
+        "groove",
+        "party"
+      ],
+      "persona": [
+        "club_dj",
+        "festival_dj",
+        "home_dj",
+        "radio_dj"
+      ],
+      "presence": [
+        "music_only",
+        "occasional",
+        "balanced",
+        "presenter"
+      ],
+      "voice": {
+        "kinds": [
+          "provider_default",
+          "provider_voice"
+        ],
+        "provider_id": "",
+        "voices": []
+      }
+    },
+    "announcement_output": {
+      "autoplay_scope": "device_local_default_off",
+      "outputs": [
+        {
+          "available": false,
+          "value": "both"
+        },
+        {
+          "available": true,
+          "value": "client_device"
+        },
+        {
+          "available": false,
+          "value": "ha_speaker"
+        },
+        {
+          "available": true,
+          "value": "text_only"
+        }
+      ],
+      "selected": "text_only",
+      "speaker_available": false,
+      "speaker_reason": "announcement_speaker_not_configured",
+      "voice_applicability": "not_applicable_text_only"
+    },
+    "as_of": "2026-11-05T18:54:14.472296+00:00",
+    "binding": "88c6ca8956e00bb0d54550ed9f70831cec829db3f512c8651fe71fa5ed0f3adb",
+    "cache_policy": "private,no-store",
+    "contract_version": 3,
+    "expires_ms": 1793905154471,
+    "migration": {
+      "legacy_cleanup_pending": false,
+      "requires_review": false,
+      "state": "accepted_shared_settings",
+      "version": 1
+    },
+    "operation_id": "01a1ad0f-c5c7-7375-8740-e040e7303d4a",
+    "replayed": false,
+    "scope": "profile_and_active_session",
+    "settings_confirmation_contract": {
+      "automatic_mood": "no_confirmation",
+      "available": true,
+      "fields": [
+        "mood",
+        "persona",
+        "presence"
+      ],
+      "music_only": "confirm_then_silent",
+      "no_session": "operation_confirmation_only",
+      "one_per_operation": true,
+      "owner_only": true,
+      "replay": "original_identity_no_new_lease",
+      "speech": "existing_session_speech_respecting_announcement_output",
+      "trigger": "accepted_user_change",
+      "version": 1
+    },
+    "snapshot": {
+      "accepted_contract_version": 3,
+      "activated": true,
+      "contract_version": 3,
+      "defaults": {
+        "announcement_output": "text_only",
+        "gender": "default",
+        "mood": "groove",
+        "persona": "home_dj",
+        "presence": "balanced",
+        "voice": {
+          "kind": "provider_default"
+        }
+      },
+      "defaults_revision": 1,
+      "output_choice_confirmed": true,
+      "session": null,
+      "updated_at": "2026-11-05T18:54:14.471000+00:00"
+    },
+    "success": true,
+    "voice_availability": {
+      "available": false,
+      "reason": "processor_not_qualified"
+    },
+    "voice_revision": "d86083e040c0e20ee2aa51f3",
+    "writable_fields": [
+      "announcement_output",
+      "gender",
+      "mood",
+      "persona",
+      "presence",
+      "voice"
+    ]
+  },
+  "prepared": {
+    "session_speech": {
+      "attribution": [
+        {
+          "license": "Spotify-Policy",
+          "provider": "Spotify",
+          "url": "https://open.spotify.com/track/TTTTTTTTTTTTTTTTTTTTTT"
+        }
+      ],
+      "audio_state": "renderer_pending",
+      "autoplay_eligible": false,
+      "cache_policy": "private,no-store",
+      "effective_voice": null,
+      "expires_at": "2026-11-05T18:59:14.473928+00:00",
+      "locale": "nl",
+      "manual_allowed": true,
+      "moment_type": "music_announcement",
+      "mood": "energy",
+      "persona": "home_dj",
+      "persona_revision": 0,
+      "presentation_revision": "bafa86b0a6dd1a240346e160",
+      "processor": "local_on_device",
+      "processor_qualification_required": true,
+      "processors": [
+        "local_on_device",
+        "ha_configured"
+      ],
+      "reason": null,
+      "reference": {
+        "entry_id": "entry-d4f87a2d56fc53f89dc1226c78b325cb",
+        "session_id": "session-d25646a3c14846ba951e88847696c7ea"
+      },
+      "schema_version": 1,
+      "segments": [
+        {
+          "ordinal": 1,
+          "speaker_role": "dj",
+          "text": "Synthetic performer — Synthetic recording. Geef dit moment even alle ruimte."
+        }
+      ],
+      "session_id": "session-d25646a3c14846ba951e88847696c7ea",
+      "settings_contract_version": 3,
+      "settings_revision": [
+        1,
+        null
+      ],
+      "source_expires_at": "2027-02-03T18:54:14.460416+00:00",
+      "source_id": "entry-d4f87a2d56fc53f89dc1226c78b325cb",
+      "source_kind": "retained_dj_contribution",
+      "state": "available",
+      "style_basis": "accepted_contribution",
+      "text_revision": "051fcfa4e25917a912b9c14b"
+    },
+    "success": true
+  }
+}

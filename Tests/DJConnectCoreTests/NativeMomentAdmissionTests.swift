@@ -199,3 +199,65 @@ func nativeOwnerCurrentFailureResetsLoadingAndObsoleteFailureCannotClearRecovery
     model.markInactiveSession()
     defaults.removePersistentDomain(forName:"native-owner-error-generation-test")
 }
+
+private func announcementReceipt() throws -> [String: Any] {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    return try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/music-announcement-core-d81b8938.json"))) as? [String: Any])
+}
+@Test(.isolatedClientResources) @MainActor func musicAnnouncementUsesOriginalOccurrenceAndIndependentDeadlines() throws {
+    let root = try announcementReceipt(), example = try #require(root["example"] as? [String: Any])
+    let moment = try JSONDecoder().decode(DJConnectMoment.self, from: JSONSerialization.data(withJSONObject: example["moment"]!))
+    #expect(moment.isMusicAnnouncementV1 && moment.isSupportedNativeType)
+    #expect(DJPersonaActivity.isObservedAnnouncement(moment))
+    let authority = try JSONDecoder().decode(DJConnectNativeMomentDelivery.self, from: JSONSerialization.data(withJSONObject: example["native_delivery"]!))
+    let receipt = try nativeReceipt(), after = receipt["after"] as! [String: Any]
+    var state = try decodeSnapshot((after["http_initial"] as! [String: Any])["snapshot"]!)
+    state.session.sessionID = moment.sessionID; state.session.runtimeState = "active"
+    state.djMoments = [moment]; state.nativeDelivery = authority
+    state.playback?.state = "playing"; state.playback?.itemID = moment.musicAnnouncement?.media_uri
+    state.sessionFlow.items = [.init(itemID: "original", itemType: "dj_moment", position: "now", label: "", momentID: moment.id)]
+    let deadline = try nativeDate(authority.admissions[0].displayExpiresAt!)
+    let before = deadline.addingTimeInterval(-0.1)
+    #expect(state.nativeCurrentMoment(at: before, spotifyAttributionAvailable: true)?.content == moment.content)
+    #expect(state.nativeCurrentMoment(at: before) == nil) // attribution still mandatory
+    let ref = DJConnectSpeechReference.moment(sessionID: moment.sessionID, momentID: moment.id)
+    #expect(state.nativeMomentSpeechIsAdmitted(ref, at: before, automatic: true))
+    #expect(state.nativeCurrentMoment(at: deadline, spotifyAttributionAvailable: true) == nil)
+    #expect(!state.nativeMomentSpeechIsAdmitted(ref, at: deadline, automatic: true))
+    #expect(state.nativeMomentSpeechIsAdmitted(ref, at: deadline, automatic: false))
+    var wrong = state; wrong.playback?.itemID = "spotify:track:BBBBBBBBBBBBBBBBBBBBBB"
+    #expect(wrong.nativeCurrentMoment(at: before, spotifyAttributionAvailable: true) == nil)
+    for mutation in ["schema", "occurrence", "legacy", "source"] {
+        var raw = example["moment"] as! [String: Any]
+        var metadata = raw["music_announcement"] as! [String: Any]
+        switch mutation {
+        case "schema": metadata["schema_version"] = 99
+        case "occurrence": metadata["occurrence_id"] = "other"
+        case "legacy": raw["type"] = "track"
+        default: raw["source_attribution"] = ["provider": "Spotify", "license": "Spotify-Policy", "url": "https://example.invalid/cover"]
+        }
+        raw["music_announcement"] = metadata
+        let bad = try JSONDecoder().decode(DJConnectMoment.self, from: JSONSerialization.data(withJSONObject: raw))
+        #expect(!bad.isMusicAnnouncementV1)
+    }
+}
+@Test(.isolatedClientResources) func musicAnnouncementTextOnlyReplayIsManualLocalAndOriginal() throws {
+    let root = try announcementReceipt()
+    let settings = try JSONDecoder().decode(DJConnectProfileDJSettingsResponse.self, from: JSONSerialization.data(withJSONObject: root["settings"]!))
+    let entry = try JSONDecoder().decode(DJConnectHistoryEntry.self, from: JSONSerialization.data(withJSONObject: root["entry"]!))
+    let result = try JSONDecoder().decode(DJConnectSharedSpeechResult.self, from: JSONSerialization.data(withJSONObject: root["prepared"]!))
+    let speech = result.session_speech
+    #expect(settings.isValid && settings.snapshot.effective.announcement_output == .textOnly)
+    #expect(!settings.allowsSpeech(.local))
+    #expect(settings.allowsSpeech(.local, manualMomentType: "music_announcement"))
+    for target: DJConnectSharedSpeechTarget in [.haSpeaker, .both] {
+        #expect(!settings.allowsSpeech(target, manualMomentType: "music_announcement"))
+    }
+    for type in ["track", "dj_bulletin", "session", "future"] { #expect(!settings.allowsSpeech(.local, manualMomentType: type)) }
+    #expect(speech.momentType == "music_announcement" && entry.momentType == speech.momentType)
+    #expect(entry.isContractValid && entry.text == speech.segments.map(\.text).joined())
+    let now = try nativeDate(speech.expiresAt!).addingTimeInterval(-1)
+    #expect(speech.admits(reference: .entry(sessionID: entry.sessionID, entryID: entry.id), text: entry.text!, at: now))
+    #expect(!speech.admits(reference: .entry(sessionID: entry.sessionID, entryID: "other"), text: entry.text!, at: now))
+    #expect(!speech.admits(reference: speech.reference, text: "Other track", at: now))
+}

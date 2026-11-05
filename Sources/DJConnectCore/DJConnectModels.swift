@@ -6278,6 +6278,8 @@ public struct DJConnectResultSet: Codable, Equatable, Sendable {
 }
 
 public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
+    public var forYou: DJConnectForYou? = nil
+    public private(set) var forYouDismissed = false
     public var firstPlay: DJConnectFirstPlayState? = nil
     public var resultSet: DJConnectResultSet? = nil
     public var userMessage: DJConnectAskDJHistoryMessage?
@@ -6323,10 +6325,17 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         enum CodingKeys: String, CodingKey { case schemaVersion = "schema_version", historyScope = "history_scope" }
     }
 
+    private struct ForYouDismissal: Decodable {
+        let schema_version: Int
+        let state: String
+        let visible: Bool
+    }
+
     /// Private response-only grant. Deliberately omitted from Codable output.
     public private(set) var sessionSpeech: DJConnectSessionSpeech? = nil
 
     enum CodingKeys: String, CodingKey {
+        case forYou = "for_you"
         case firstPlay = "first_play"
         case resultSet = "result_set"
         case userMessage = "user_message"
@@ -6439,6 +6448,10 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
             && presentation.decodeIfPresent(Bool.self, forKey: .historyPersisted) != true
             && confirmation?.schemaVersion == 1 && confirmation?.historyScope == "private_ephemeral"
             && !container.contains(.historyRevision) && !container.contains(.clearRevision)
+        forYou = try? container.decodeIfPresent(DJConnectForYou.self, forKey: .forYou)
+        if let dismissal = try? container.decode(ForYouDismissal.self, forKey: .forYou) {
+            forYouDismissed = (try? presentation.decode(Bool.self, forKey: .success)) == true && dismissal.schema_version == 1 && dismissal.state == "dismissed" && !dismissal.visible
+        }
         firstPlay = try? container.decodeIfPresent(DJConnectFirstPlayState.self, forKey: .firstPlay)
         resultSet = try container.decodeIfPresent(DJConnectResultSet.self, forKey: .resultSet)
         userMessage = try container.decodeIfPresent(DJConnectAskDJHistoryMessage.self, forKey: .userMessage)

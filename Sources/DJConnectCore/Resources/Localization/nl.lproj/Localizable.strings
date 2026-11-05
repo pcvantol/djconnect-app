@@ -1709,3 +1709,11 @@
 "watch.game.controls.fly" = "Crown: hoogte · Tik: schieten";
 "watch.game.controls.pacman" = "Crown: richting draaien · Tik: richting kiezen";
 "watch.game.restart" = "Opnieuw starten";
+
+"ui.for_you.pending" = "Wachten op bevestiging. Kies zo nodig een speaker in de sessie.";
+"ui.for_you.unavailable" = "Deze keuzes zijn nu niet beschikbaar of verlopen. Vernieuw om een nieuw aanbod te vragen.";
+"ui.for_you.refresh" = "Keuzes vernieuwen";
+"ui.for_you.art.local" = "Lokaal gegenereerde landschapsillustratie; geen audioanalyse.";
+"ui.for_you.art.procedural" = "Procedurele landschapsillustratie; geen audioanalyse.";
+
+"ui.session.moment.music_announcement" = "Muziek aankondiging";

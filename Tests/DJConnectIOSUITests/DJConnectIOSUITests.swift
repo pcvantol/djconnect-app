@@ -2470,3 +2470,37 @@ extension DJConnectIOSUITests {
         app.terminate()
     }
 }
+
+extension DJConnectIOSUITests {
+    func testForYouShowsThreeChoicesWithoutPlaybackAndDismisses() async throws {
+        guard ProcessInfo.processInfo.environment["DJCONNECT_FOR_YOU_UI_FIXTURE"] == "1" else {
+            throw XCTSkip("Requires the explicit loopback For-you fixture")
+        }
+        let base = URL(string: "http://127.0.0.1:18179")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=session_history_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "session_history_contract"
+        app.launch()
+        let card = app.descendants(matching: .any)["session-for-you"].firstMatch
+        guard card.waitForExistence(timeout: 20) else { XCTFail("Core offer did not render"); return }
+        let choices = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-for-you-option-"))
+        XCTAssertEqual(choices.count, 3)
+        for choice in choices.allElementsBoundByIndex {
+            XCTAssertTrue(choice.isHittable)
+            XCTAssertGreaterThanOrEqual(choice.frame.minX, 0)
+            XCTAssertLessThanOrEqual(choice.frame.maxX, app.frame.width)
+        }
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "For-you-native-three-landscapes"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        let (before, _) = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/metrics"))
+        XCTAssertEqual((try JSONSerialization.jsonObject(with: before) as? [String: Any])?["posts"] as? [String], [])
+        card.buttons["Sluiten"].tap()
+        XCTAssertTrue(card.waitForNonExistence(timeout: 5))
+        let (after, _) = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/metrics"))
+        XCTAssertEqual((try JSONSerialization.jsonObject(with: after) as? [String: Any])?["posts"] as? [String], ["/api/djconnect/v1/ask_dj/message"])
+    }
+}

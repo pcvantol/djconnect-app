@@ -27,7 +27,7 @@ public struct DJConnectWatchSessionSnapshot: Codable, Sendable {
             // no speech segments, hidden history, future labels, media or actions.
             speechSources = value.broadcast.djMoments.filter { ids.contains($0.id) }.compactMap { moment in
                 let reference = DJConnectSpeechReference.moment(sessionID: value.id, momentID: moment.id)
-                guard settings.allowsSpeech(.local),
+                guard settings.allowsSpeech(.local, manualMomentType: moment.isMusicAnnouncementV1 ? moment.type : nil),
                       value.broadcast.nativeMomentSpeechIsAdmitted(reference, at: date, automatic: false),
                       let original = value.broadcast.sessionSpeech.first(where: { $0.reference == reference }) else { return nil }
                 return DJConnectWatchSpeechSource(original, text: moment.content, at: date)
@@ -304,7 +304,7 @@ public struct DJConnectWatchFlowRow: Codable, Identifiable, Sendable {
                 content = [entry.playback?.title, entry.playback?.artist, entry.playback?.album]
                     .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
             case .djMoment:
-                label = "ui.session.moment.generic"; content = entry.text ?? ""
+                label = entry.momentType == "music_announcement" ? "ui.session.moment.music_announcement" : "ui.session.moment.generic"; content = entry.text ?? ""
             case .conversationUser:
                 label = "watch.v2.flow.question"; content = entry.text ?? ""
             case .conversationDJ:

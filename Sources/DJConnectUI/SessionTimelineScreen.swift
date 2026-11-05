@@ -1268,7 +1268,7 @@ struct SessionTimelineScreen: View {
 
     private func currentHeader(_ session: DJConnectSessionRuntime) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            SessionStartupCard(model: model)
+            SessionForYouCard(model: model)
             NativeSessionMomentsView(session: session, language: model.language,
             isRecovering: model.djSessionIsRecovering,
             isLiveUnavailable: model.djSessionLiveUnavailable,
@@ -1287,6 +1287,7 @@ struct SessionTimelineScreen: View {
                 }
             }, contributionQuestion: history.contributionQuestion)
         }
+        .task(id: model.sessionForYou.scope) { await model.sessionForYou.observeWhileVisible() }
         .onChange(of: hasSessionPlayback, initial: true) { _, observed in
             if observed { history.rememberObservedPlayback(sessionID: sessionID) }
         }
@@ -1845,7 +1846,7 @@ struct SessionEntryView: View, Equatable {
         }
     }
     private var entryHeading: some View {
-        Label(text(entry.kind == .djMoment ? "ui.session.moment.generic" : "ui.session.history.playback"),
+        Label(text(entry.kind == .djMoment ? (entry.momentType == "music_announcement" ? "ui.session.moment.music_announcement" : "ui.session.moment.generic") : "ui.session.history.playback"),
               systemImage: entry.kind == .djMoment ? "sparkles" : "music.note")
             .font(.caption.weight(.semibold))
     }
