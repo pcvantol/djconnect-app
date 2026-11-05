@@ -2310,7 +2310,7 @@ public final class DJConnectAppModel: ObservableObject {
         var context = wc.applicationContext
         context[DJConnectWatchLoggingConfiguration.contextKey] = data
         try? wc.updateApplicationContext(context)
-        if wc.isReachable { wc.sendMessage(["type": "watch_logging_configuration", DJConnectWatchLoggingConfiguration.contextKey: data], replyHandler: nil, errorHandler: { _ in }) }
+        if wc.isReachable { wc.sendMessage(["type": "watch_logging_configuration", DJConnectWatchLoggingConfiguration.contextKey: data], replyHandler: nil, errorHandler: { @Sendable _ in }) }
         #endif
     }
 
@@ -15399,7 +15399,7 @@ public final class DJConnectAppModel: ObservableObject {
                   let encoded = try? JSONEncoder().encode(reply) else { return }
             let response: [String: Any] = ["type": "watch_demo_text_reply", "data": encoded]
             if WCSession.default.isReachable {
-                WCSession.default.sendMessage(response, replyHandler: nil, errorHandler: { _ in })
+                WCSession.default.sendMessage(response, replyHandler: nil, errorHandler: { @Sendable _ in })
             }
             // The matching request ID makes a duplicate foreground/background reply harmless.
             WCSession.default.transferUserInfo(response)
@@ -16383,14 +16383,14 @@ public final class DJConnectAppModel: ObservableObject {
                 WCSession.default.sendMessage([
                     "type": "watch_proxy_speech_chunk", "correlation_id": correlationID,
                     "index": index, "count": count, "bytes": payload.subdata(in: start..<min(start + chunkSize, payload.count))
-                ], replyHandler: nil, errorHandler: { _ in })
+                ], replyHandler: nil, errorHandler: { @Sendable _ in })
             }
             return
         }
         guard let data = try? JSONEncoder().encode(response), data.count <= 60_000 else { return }
         WCSession.default.sendMessage([
             "type": "watch_proxy_ha_response", "correlation_id": correlationID, "response": data
-        ], replyHandler: nil, errorHandler: { _ in })
+        ], replyHandler: nil, errorHandler: { @Sendable _ in })
     }
 
     private static func watchProxyErrorCode(for error: Error) -> String {
@@ -16447,7 +16447,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             try wc.updateApplicationContext(context)
             if wc.isReachable {
-                wc.sendMessage(["type": "watch_demo_snapshot", key: payload ?? Data()], replyHandler: nil, errorHandler: { _ in })
+                wc.sendMessage(["type": "watch_demo_snapshot", key: payload ?? Data()], replyHandler: nil, errorHandler: { @Sendable _ in })
             }
         } catch {
             log(.warning, "Watch demo context could not be updated")
@@ -16468,7 +16468,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Watch proxy application context failed: \(error.localizedDescription)")
         }
         if WCSession.default.isReachable {
-            WCSession.default.sendMessage(message, replyHandler: nil) { [weak self] error in
+            WCSession.default.sendMessage(message, replyHandler: nil) { @Sendable [weak self] error in
                 Task { @MainActor in
                     self?.log(.warning, "Watch proxy message failed: \(error.localizedDescription)")
                 }

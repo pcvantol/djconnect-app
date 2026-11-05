@@ -4279,6 +4279,7 @@ private struct DJConnectWatchCompanionPages: View {
     @ObservedObject var state: DJConnectWatchForegroundSession
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var page = 0
+    @State private var pageIndicatorVisit: UUID?
     @State private var flowRows: [DJConnectWatchFlowRow]?
     @State private var flowOwner: String?
     @State private var flowSessionID: String?
@@ -4336,8 +4337,8 @@ private struct DJConnectWatchCompanionPages: View {
             } else {
                 DJConnectWatchCanvas(theme: theme)
             }
-            // Logical order and gesture direction are independent: Flow is the
-            // first dot, while a right swipe advances the native RTL pager.
+            // Standard LTR paging: a leftward finger swipe reveals the next
+            // page on the right. Flow remains the first, leftmost dot.
             TabView(selection: Binding(get: { mainPageOrder.firstIndex(of: page) ?? 0 }, set: { position in
                 guard !isLoadingSession, visibleFlowRow == nil,
                       mainPageOrder.indices.contains(position) else { return }
@@ -4379,10 +4380,10 @@ private struct DJConnectWatchCompanionPages: View {
                     .tag(position)
                 }
             }
-            .environment(\.layoutDirection, .rightToLeft)
+            .environment(\.layoutDirection, .leftToRight)
             .tabViewStyle(.page(indexDisplayMode: .never))
             .overlay(alignment: .bottom) {
-                if !isLoadingSession && visibleFlowRow == nil && mainPageOrder.count > 1 {
+                if !isLoadingSession && visibleFlowRow == nil && mainPageOrder.count > 1 && pageIndicatorVisit != nil {
                     HStack(spacing: 5) {
                         ForEach(mainPageOrder, id: \.self) { mainPage in
                             Circle()
@@ -4396,6 +4397,17 @@ private struct DJConnectWatchCompanionPages: View {
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\((mainPageOrder.firstIndex(of: page) ?? 0) + 1) / \(mainPageOrder.count)")
                 }
+            }
+            .onChange(of: page) { pageIndicatorVisit = UUID() }
+            .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { drag in
+                guard visibleFlowRow == nil, abs(drag.translation.width) > abs(drag.translation.height) else { return }
+                pageIndicatorVisit = UUID()
+            })
+            .task(id: pageIndicatorVisit) {
+                guard let visit = pageIndicatorVisit else { return }
+                do { try await Task.sleep(for: .seconds(1.5)) } catch { return }
+                guard pageIndicatorVisit == visit else { return }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { pageIndicatorVisit = nil }
             }
             .scrollDisabled((page == 0 && isLoadingSession) || visibleFlowRow != nil)
             .highPriorityGesture(

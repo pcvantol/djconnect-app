@@ -949,12 +949,8 @@ struct SessionTimelineScreen: View {
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if activeSession == nil, history.deletionAvailable { archiveDeleteButton }
-                    if let activeSession {
-                        SessionConnectionToolbarButton(model: model) {
-                            sessionControlIntent = SessionControlIntent(kind: .connection, sessionID: activeSession.id,
-                                epoch: history.responseEpoch, sourceRect: menuFrames[.connection] ?? .zero)
-                        }
-                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.connection] = $0 }
+                    if activeSession != nil {
+                        SessionConnectionToolbarButton(model: model)
                     }
                     if activeSession == nil || refreshAction != nil {
                         RefreshButton(model: model, action: { Task { await refreshTimeline() } }, isLoading: timeline.loading || retryRefreshing)
@@ -2687,22 +2683,20 @@ struct ConnectionStatusToolbar: ToolbarContent {
 
 struct SessionConnectionToolbarButton: View {
     @ObservedObject var model: DJConnectAppModel
-    var requestPresentation: (() -> Void)? = nil
     @State private var showingStatus = false
     private func text(_ key: String) -> String {
         DJConnectLocalization.localized(key: key, language: model.language)
     }
     private var status: SessionConnectionStatus { model.connectionPresentation }
     var body: some View {
-        Button {
-            #if os(iOS)
-            // Preserve the search query, but release keyboard focus before presenting.
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            #endif
-            model.recordPresentationState("connection-toggle")
-            if let requestPresentation { requestPresentation() }
-            else { showingStatus.toggle() }
-        } label: {
+        #if os(iOS)
+        ConnectionToolbarPopover(isPresented: $showingStatus, symbol: status.icon,
+                                 tint: UIColor(status.color), label: text("ui.connection.status"),
+                                 value: text(status.key)) { statusContent }
+            .frame(width: 44, height: 44)
+            .sessionIntroductionTarget("toolbar-connection")
+        #else
+        Button { showingStatus.toggle() } label: {
             Image(systemName: status.icon).font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(status.color).frame(width: 44, height: 44)
         }
@@ -2711,17 +2705,102 @@ struct SessionConnectionToolbarButton: View {
         .accessibilityIdentifier("session-connection-toggle")
         .sessionIntroductionTarget("toolbar-connection")
         .help(text(status.key))
-        .popover(isPresented: $showingStatus) {
-            SessionConnectionPopoverContent(model: model) { showingStatus = false }
-                .padding(16).frame(idealWidth: 340, maxWidth: 420)
-                .fixedSize(horizontal: false, vertical: true)
-                .ignoresSafeArea(.keyboard)
-                .presentationCompactAdaptation(.popover)
-                .djConnectGlassPopoutSurface(nativePresentation: true)
-                .djConnectPresentationSurface()
+        .popover(isPresented: $showingStatus, arrowEdge: .top) { statusContent }
+        #endif
+    }
+
+    private var statusContent: some View {
+        SessionConnectionPopoverContent(model: model) { showingStatus = false }
+            .padding(16).frame(idealWidth: 340, maxWidth: 420)
+            .fixedSize(horizontal: false, vertical: true)
+            .ignoresSafeArea(.keyboard)
+            #if os(macOS)
+            .djConnectGlassPopoutSurface(nativePresentation: true)
+            #endif
+            .djConnectPresentationSurface()
+    }
+}
+
+
+#if os(iOS)
+/// SwiftUI toolbar popovers can promote their source to the navigation host on
+/// compact screens. Keep a UIKit source view physically inside the 44pt button
+/// so the system owns the arrow, dismissal and placement on both phone and pad.
+private struct ConnectionToolbarPopover<Content: View>: UIViewRepresentable {
+    @Binding var isPresented: Bool
+    let symbol: String
+    let tint: UIColor
+    let label: String
+    let value: String
+    @ViewBuilder var content: () -> Content
+
+    func makeCoordinator() -> Coordinator { Coordinator(isPresented: $isPresented) }
+    func makeUIView(context: Context) -> UIButton {
+        let button = UIButton(type: .system)
+        let coordinator = context.coordinator
+        button.addAction(UIAction { [weak coordinator] _ in
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            coordinator?.isPresented.wrappedValue.toggle()
+        }, for: .touchUpInside)
+        return button
+    }
+    func updateUIView(_ source: UIButton, context: Context) {
+        source.setImage(UIImage(systemName: symbol,
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)), for: .normal)
+        source.tintColor = tint
+        source.accessibilityIdentifier = "session-connection-toggle"
+        source.accessibilityLabel = label
+        source.accessibilityValue = value
+        let coordinator = context.coordinator
+        coordinator.isPresented = $isPresented
+        if !isPresented {
+            coordinator.host?.dismiss(animated: true)
+            coordinator.host = nil
+            return
+        }
+        if let host = coordinator.host {
+            host.rootView = content()
+            coordinator.resize(host, source: source)
+            return
+        }
+        let host = UIHostingController(rootView: content())
+        host.modalPresentationStyle = .popover
+        host.view.backgroundColor = .clear
+        host.popoverPresentationController?.sourceView = source
+        host.popoverPresentationController?.sourceRect = source.bounds
+        host.popoverPresentationController?.permittedArrowDirections = .up
+        host.popoverPresentationController?.delegate = coordinator
+        coordinator.resize(host, source: source)
+        coordinator.host = host
+        // UIKit presentation must follow the toolbar layout/update transaction.
+        Task { @MainActor [weak source, weak host] in
+            guard let source, let host, coordinator.isPresented.wrappedValue,
+                  source.window != nil, coordinator.host === host else { return }
+            guard var presenter = source.window?.rootViewController else { return }
+            while let presented = presenter.presentedViewController { presenter = presented }
+            host.popoverPresentationController?.sourceRect = source.bounds
+            presenter.present(host, animated: true)
+        }
+    }
+
+    @MainActor final class Coordinator: NSObject, UIPopoverPresentationControllerDelegate {
+        var isPresented: Binding<Bool>
+        var host: UIHostingController<Content>?
+        init(isPresented: Binding<Bool>) { self.isPresented = isPresented }
+        func resize(_ host: UIHostingController<Content>, source: UIView) {
+            let width = min(360, (source.window?.bounds.width ?? 402) - 32)
+            host.preferredContentSize = host.sizeThatFits(in: CGSize(width: width, height: 1_000))
+        }
+        func adaptivePresentationStyle(for controller: UIPresentationController) -> UIModalPresentationStyle { .none }
+        func adaptivePresentationStyle(for controller: UIPresentationController,
+                                       traitCollection: UITraitCollection) -> UIModalPresentationStyle { .none }
+        func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+            host = nil
+            isPresented.wrappedValue = false
         }
     }
 }
+#endif
 
 struct SessionConnectionPopoverContent: View {
     @ObservedObject var model: DJConnectAppModel

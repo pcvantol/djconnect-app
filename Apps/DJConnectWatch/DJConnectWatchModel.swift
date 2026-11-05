@@ -758,7 +758,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         while !lines.isEmpty {
             guard let data = try? JSONEncoder().encode(DJConnectWatchDiagnosticBatch(epoch: config.epoch, lines: lines)) else { return }
             if data.count <= 32_000 {
-                WCSession.default.sendMessage(["type": "watch_diagnostic_batch", "data": data], replyHandler: nil, errorHandler: { _ in })
+                WCSession.default.sendMessage(["type": "watch_diagnostic_batch", "data": data], replyHandler: nil, errorHandler: { @Sendable _ in })
                 return
             }
             lines.removeFirst()
@@ -1150,7 +1150,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard isDemoMode, WCSession.default.activationState == .activated else { return }
         let message = ["type": "watch_demo_snapshot_request"]
         if WCSession.default.isReachable {
-            WCSession.default.sendMessage(message, replyHandler: nil, errorHandler: { _ in })
+            WCSession.default.sendMessage(message, replyHandler: nil, errorHandler: { @Sendable _ in })
         } else {
             WCSession.default.transferUserInfo(message)
         }
@@ -1166,7 +1166,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             WCSession.default.transferUserInfo(message)
             return
         }
-        WCSession.default.sendMessage(message, replyHandler: nil) { [weak self] _ in
+        WCSession.default.sendMessage(message, replyHandler: nil) { @Sendable [weak self] _ in
             Task { @MainActor in
                 self?.appendDiagnosticLog("Demo-instelling kon niet naar iPhone worden gestuurd", level: .warning)
             }
@@ -1207,8 +1207,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             let request = DJConnectWatchDemoPlaybackRequest(sessionID: demo.id, command: command, value: value)
             let data = try JSONEncoder().encode(request)
             let response: Data = try await withCheckedThrowingContinuation { continuation in
-                WCSession.default.sendMessageData(data, replyHandler: { continuation.resume(returning: $0) },
-                    errorHandler: { continuation.resume(throwing: $0) })
+                let reply = DJConnectCompanionDataReply(continuation)
+                WCSession.default.sendMessageData(data, replyHandler: reply.success, errorHandler: reply.failure)
             }
             guard let snapshot = try? JSONDecoder().decode(DJConnectWatchDemoSession.self, from: response),
                   isDemoMode, companionDemoSession?.id == demo.id, snapshot.id == demo.id else { return }
@@ -1515,7 +1515,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         let response = await companionRequests.request(timeout: timeout, allowsReplayChunks: isSpeechReplay) { correlationID in
             WCSession.default.sendMessage([
                 "type": "watch_proxy_ha_request", "correlation_id": correlationID, "request": requestData
-            ], replyHandler: nil) { [weak self] _ in
+            ], replyHandler: nil) { @Sendable [weak self] _ in
                 Task { @MainActor [weak self] in
                     self?.companionRequests.complete(id: correlationID,
                         response: .init(success: false, error: "iphone_unreachable"))
@@ -2339,6 +2339,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var pendingDemoTextRequest: DJConnectWatchDemoTextRequest?
 
     private func sendDemoWatchText(_ text: String, context: DJConnectConversationContext) async -> Bool {
+        // Without a Session, Ask DJ is still a usable local demo. Never wait
+        // for a companion Session or dispatch an unscoped backend request.
+        if isDemoMode, isAppForeground, !watchTextPending, companionDemoSession == nil,
+           context.sessionID == nil, context.selectedEntry == nil, context.selectedMoment == nil,
+           !text.isEmpty, text.utf8.count <= 16_000 {
+            let answer = DJConnectLocalization.localized(key: "demo.session.answer", language: language)
+            appendAskDJMessage(role: .user, text: text)
+            appendAskDJMessage(role: .dj, text: answer)
+            lastWatchTextReply = .init(role: .dj, text: answer)
+            return true
+        }
         guard isDemoMode, isAppForeground, !watchTextPending, let demo = companionDemoSession,
               !text.isEmpty, text.utf8.count <= 16_000,
               WCSession.default.activationState == .activated else {
@@ -2371,8 +2382,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 return false
             }
             let response: Data = try await withCheckedThrowingContinuation { continuation in
-                WCSession.default.sendMessageData(data, replyHandler: { continuation.resume(returning: $0) },
-                    errorHandler: { continuation.resume(throwing: $0) })
+                let reply = DJConnectCompanionDataReply(continuation)
+                WCSession.default.sendMessageData(data, replyHandler: reply.success, errorHandler: reply.failure)
             }
             let reply = try JSONDecoder().decode(DJConnectWatchDemoTextReply.self, from: response)
             return acceptDemoWatchTextReply(reply)
@@ -4076,7 +4087,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             let final = index == total - 1
             let response = await companionRequests.request(timeout: final ? .seconds(35) : .seconds(20)) { correlationID in
                 WCSession.default.sendMessage(["type": "watch_proxy_voice_chunk", "correlation_id": correlationID,
-                    "operation_id": operation.id, "sequence": operation.sequence, "header": header, "index": index, "total": total, "bytes": bytes], replyHandler: nil) { [weak self] _ in
+                    "operation_id": operation.id, "sequence": operation.sequence, "header": header, "index": index, "total": total, "bytes": bytes], replyHandler: nil) { @Sendable [weak self] _ in
                     Task { @MainActor [weak self] in self?.companionRequests.complete(id: correlationID,
                         response: .init(success: false, error: "outcome_unknown")) }
                 }

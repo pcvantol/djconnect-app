@@ -10,30 +10,21 @@ enum DJConnectGlassAppearance {
 }
 
 #if os(iOS) || os(macOS)
-/// Shared default action surface, matching the dark purple session options.
-/// One frosted material and a subtle rim, without a bright blue/pink wash.
+/// Default actions use the same native glass as unselected Session choices.
+/// The surrounding app canvas supplies the purple tint, without painted gloss.
 struct DJConnectPrimaryButtonSurface: View {
     var shape: AnyShape = AnyShape(Capsule())
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        ZStack {
-            shape.fill(DJConnectMaterial(.thin))
-            shape.fill(Color(red: 0.15, green: 0.09, blue: 0.27)
-                .opacity(glassEnabled && !reduceTransparency ? 0.78 : 1))
+        Group {
             if glassEnabled && !reduceTransparency {
-                shape.fill(LinearGradient(stops: [
-                    .init(color: .white.opacity(0.09), location: 0),
-                    .init(color: .white.opacity(0.03), location: 0.48),
-                    .init(color: .clear, location: 0.52),
-                    .init(color: .white.opacity(0.04), location: 1)
-                ], startPoint: .top, endPoint: .bottom))
+                shape.fill(.white.opacity(0.04))
+                    .glassEffect(.regular.interactive(), in: shape)
+            } else {
+                shape.fill(DJConnectGlassAppearance.opaqueSurface)
             }
-            shape.stroke(LinearGradient(colors: [.white.opacity(0.32),
-                Color(red: 0.59, green: 0.48, blue: 0.78).opacity(0.22),
-                Color(red: 0.70, green: 0.57, blue: 0.86).opacity(0.30)],
-                startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
         }
         .clipShape(shape)
         .allowsHitTesting(false)
@@ -232,52 +223,19 @@ var djConnectDialogMinimumWidth: CGFloat? {
     #endif
 }
 
-/// App-owned dialogs use a viewport-centered presentation, independent of the
-/// triggering control or the size of a nested presenter.
-/// System permissions, scanners and document pickers retain their native presentation.
+/// App dialogs use native blocking sheets. Their explicit actions own dismissal;
+/// the system retains the presenting page, surrounding edges and transitions.
+/// Toolbar status remains a separate anchored native popover.
 extension View {
-    @ViewBuilder
     func djConnectPopup<Popup: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Popup) -> some View {
-        #if os(iOS)
-        fullScreenCover(isPresented: isPresented) {
-            DJConnectCenteredPopup { content() }
+        sheet(isPresented: isPresented) {
+            content().interactiveDismissDisabled()
         }
-        .transaction(value: isPresented.wrappedValue) { $0.disablesAnimations = true }
-        #else
-        sheet(isPresented: isPresented, content: content)
-        #endif
     }
 
-    @ViewBuilder
     func djConnectPopup<Item: Identifiable, Popup: View>(item: Binding<Item?>, @ViewBuilder content: @escaping (Item) -> Popup) -> some View {
-        #if os(iOS)
-        fullScreenCover(item: item) { item in
-            DJConnectCenteredPopup { content(item) }
+        sheet(item: item) { item in
+            content(item).interactiveDismissDisabled()
         }
-        .transaction(value: item.wrappedValue?.id) { $0.disablesAnimations = true }
-        #else
-        sheet(item: item, content: content)
-        #endif
     }
 }
-
-#if os(iOS)
-private struct DJConnectCenteredPopup<Popup: View>: View {
-    @ViewBuilder let content: () -> Popup
-
-    var body: some View {
-        GeometryReader { viewport in
-            ZStack {
-                Color.black.opacity(0.28).ignoresSafeArea()
-                content()
-                    .frame(width: max(0, min(940, viewport.size.width - 24)))
-                    .frame(maxHeight: max(0, viewport.size.height - 24))
-                    .background(DJConnectCanvasBackground())
-                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-            }
-            .frame(width: viewport.size.width, height: viewport.size.height)
-        }
-        .presentationBackground(.clear)
-    }
-}
-#endif
