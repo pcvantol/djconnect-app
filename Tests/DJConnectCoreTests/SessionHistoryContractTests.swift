@@ -2013,6 +2013,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     defer { defaults.removePersistentDomain(forName: name) }
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.startDemoMode()
+    await model.startDJSession()
     let active = try #require(model.activeDJSession)
     #expect(active.id.hasPrefix("demo-active-"))
     #expect(active.broadcast.nativeCurrentMoment(at: Date())?.content.isEmpty == false)
@@ -2088,6 +2089,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     model.isRecordingVoice = true
     model.startDemoMode()
     #expect(!model.isRecordingVoice && model.voiceOperationID != oldOperation)
+    await model.startDJSession()
     model.askDJDraft = "PRIVATE DEMO INPUT"
     model.sendAskDJText()
     model.startVoiceRecording()
@@ -2113,6 +2115,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     defaults.set(wire.baseURL.absoluteString, forKey: "DJConnectHomeAssistantURL")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), urlSession: wire.session(), startBackgroundTasks: false)
     model.startDemoMode()
+    await model.startDJSession()
     await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability(); await model.changeActiveSessionMood("party")
     await model.sessionHistory.prepare(); await model.sessionHistory.loadSessions()
     await model.sessionHistory.refreshConversation()
@@ -2309,6 +2312,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(model.playbackMoodStepIndex == 1)
     #expect(model.confirmedSessionMoodInt == nil)
     model.startDemoMode()
+    await model.startDJSession()
     for (index, mood) in ["chill", "groove", "energy", "party"].enumerated() {
         await model.changeActiveSessionMood(mood)
         #expect(model.playbackMoodStepIndex == index)
@@ -2325,6 +2329,31 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(model.confirmedSessionMoodInt == nil)
     let payload = model.profileConversationPayload(text: "question", clientMessageID: UUID().uuidString, context: DJConnectConversationContext(sessionID: nil))
     #expect(payload.mood == nil)
+}
+
+@Test @MainActor func sessionRenderCacheRefreshesFlowOnExpiryOrWithdrawal() {
+    let cache = SessionTimelineRenderCache()
+    let now = Date()
+    let deadline = now.addingTimeInterval(5)
+    var preparations = 0
+    func render(at date: Date, withdrawals: Set<String> = []) {
+        _ = cache.flowRows(retained: [], broadcast: nil, admitsLive: true,
+            withdrawals: withdrawals, deadlines: [deadline], at: date) {
+            preparations += 1
+            return []
+        }
+    }
+
+    render(at: now)
+    render(at: now.addingTimeInterval(1))
+    #expect(preparations == 1)
+    render(at: deadline)
+    #expect(preparations == 2)
+    render(at: deadline, withdrawals: ["withdrawn"])
+    #expect(preparations == 3)
+    cache.clear()
+    render(at: deadline, withdrawals: ["withdrawn"])
+    #expect(preparations == 4)
 }
 
 @Test(.isolatedClientResources) @MainActor func sessionRenderCacheKeepsStableRowsAndHonorsExactExpiryAndEpoch() throws {
@@ -5262,10 +5291,16 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     await model.endDJSession()
     await model.startDJSession()
     #expect(!model.isSessionIntroductionPresented)
-    let relaunched = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
-    relaunched.startDemoMode()
-    await relaunched.startDJSession()
-    #expect(!relaunched.isSessionIntroductionPresented, "Completion/skip survives app relaunch for this installation")
+    #expect(!defaults.bool(forKey: "DJConnectSessionIntroductionSeenV1"))
+    model.stopDemoMode()
+    defaults.set(true, forKey: "DJConnectSessionIntroductionSeenV1")
+    model.startDemoMode()
+    #expect(!model.isSessionIntroductionPresented)
+    await model.startDJSession()
+    #expect(model.isSessionIntroductionPresented, "A new demo shows its introduction even when regular onboarding was already seen")
+    model.stopDemoMode()
+    #expect(!model.isSessionIntroductionPresented)
+    #expect(defaults.bool(forKey: "DJConnectSessionIntroductionSeenV1"))
 }
 
 @Test(.isolatedClientResources, arguments: [0, 6]) @MainActor func currentOnlyConversationKeepsQuestionAndSessionReplyAcrossHistoryRefresh(choiceCount: Int) async throws {
@@ -5319,9 +5354,18 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     let fixture = HistoryWireFixture { _ in (500, Data(), 0) }; defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
     model.startDemoMode()
+    #expect(model.activeDJSession == nil)
+    _ = await model.refreshQueue()
+    _ = await model.refreshPlaylists()
+    #expect(model.activeDJSession == nil)
+    model.scheduleProfileDJChoice(.init(persona: .clubDJ, presence: .occasional))
+    await model.startDJSession()
     let session = try #require(model.activeDJSession)
     let epoch = model.sessionHistory.responseEpoch
-    #expect(model.activePresenceAvailable && session.confirmedPresence?.selectedPresence == .balanced)
+    #expect(model.activePresenceAvailable && session.confirmedPresence?.selectedPresence == .occasional)
+    #expect(session.confirmedPersona?.selectedPersona == .clubDJ)
+    await model.changeActiveSessionPersona(.radioDJ, expectedSessionID: session.id, expectedEpoch: epoch)
+    #expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .radioDJ)
     await model.refreshActiveMoodCapability()
     #expect(model.activePresenceCapabilityStatus == .supported)
     for value in DJConnectSessionPresenceValue.allCases {
@@ -6000,12 +6044,13 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     #expect(history.hasAuthorizedOwner)
 }
 
-@Test(.isolatedClientResources) @MainActor func firstPlayHelperUsesSessionMusicHistoryAndStaysDismissedAfterPlaybackClears() throws {
+@Test(.isolatedClientResources) @MainActor func firstPlayHelperUsesSessionMusicHistoryAndStaysDismissedAfterPlaybackClears() async throws {
     let name = "first-play-helper-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.startDemoMode()
+    await model.startDJSession()
     var session = try #require(model.activeDJSession)
     let playing = try #require(session.broadcast.playback)
     session.broadcast.playback = nil
@@ -9653,7 +9698,14 @@ private func startupFixtureObject() throws -> [String: Any] {
     }
 }
 
-@Test(.isolatedClientResources, arguments: ["play", "playlist", "noDNA", "expired", "continued_expired", "scope", "unknown"])
+private final class StartupReadFailure: @unchecked Sendable {
+    private let lock = NSLock()
+    private var pending = false
+    func arm() { lock.withLock { pending = true } }
+    func consume() -> Bool { lock.withLock { let value = pending; pending = false; return value } }
+}
+
+@Test(.isolatedClientResources, arguments: ["play", "playlist", "noDNA", "expired", "continued_expired", "scope", "unknown", "read_retry"])
 @MainActor func sessionStartupOriginalChoicesUseConversationExactlyOnce(_ scenario: String) async throws {
     let source = try startupFixtureObject(), receipt = try historyObject()
     let sessionID = try #require(receipt["session_id"] as? String)
@@ -9693,10 +9745,15 @@ private func startupFixtureObject() throws -> [String: Any] {
     let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_start_actions": true, "session_first_play_surprise_mix": true],
         "contract_versions": ["session_conversation_history": 1, "session_start_actions": 1, "session_first_play_surprise_mix": 2]])
     let genreResultID = try #require(((source["genres"] as? [String: Any])?["result_set"] as? [String: Any])?["result_set_id"] as? String)
+    let startupReads = StartupReadFailure()
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
-        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/capabilities") {
+            let reply = startupReads.consume() ? Data() : caps
+            return (reply.isEmpty ? 503 : 200, reply, 0)
+        }
         if path.hasSuffix("/session/active") { return (200, runtimeData, 0) }
+
         if path.hasSuffix("/ask_dj/message") {
             if scenario == "unknown" { return (503, Data(), 0) }
             let data = try presenceRequestBody(request)
@@ -9714,9 +9771,11 @@ private func startupFixtureObject() throws -> [String: Any] {
     await model.sessionHistory.prepare(); await model.refreshActiveDJSession(); model.isConnected = true
     model.language = "nl"; model.askDJDraft = "Niet verzenden"
     let startup = model.sessionStartup
+    if scenario == "read_retry" { startupReads.arm() }
     await startup.refresh()
     #expect(startup.phase == .ready)
     #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+    if scenario == "read_retry" { return }
     if scenario == "playlist" || scenario == "noDNA" {
         if scenario == "noDNA" { startup.surprise(); #expect(startup.phase == .ready) }
         startup.selectPlaylist()

@@ -20,12 +20,22 @@ extension DJConnectAppModel {
 
 /// Authored text is independent of optional imagery. No generated local claims.
 struct SessionForecastTextView: View {
-    let projection: DJConnectSessionForecast
+    let sections: [DJConnectSessionForecast.Section]
     let language: String
+
+    init(projection: DJConnectSessionForecast, language: String) {
+        self.init(sections: projection.sections, language: language)
+    }
+
+    init(sections: [DJConnectSessionForecast.Section], language: String) {
+        self.sections = sections
+        self.language = language
+    }
+
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            ForEach(projection.sections) { section in
+            ForEach(sections) { section in
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
                         if let glyph = ["current": "play.fill", "guidance": "clock", "aim": "target"][section.id] {
@@ -175,13 +185,25 @@ struct SessionForecastContent: View {
         readProgress.showsLoading(context: contextKey, canRead: model.canRefreshSessionForecast,
                                   readInFlight: model.forecastLoading)
     }
+    private var demoSections: [DJConnectSessionForecast.Section] {
+        [
+            .init(id: "current", title: text("demo.horizon.current"), claim_type: "current", text: "Midnight City · M83"),
+            .init(id: "guidance", title: text("demo.horizon.guidance"), claim_type: "intention", text: text("demo.session.direction")),
+            .init(id: "aim", title: text("demo.horizon.aim"), claim_type: "conditional_target", text: text("demo.horizon.direction"))
+        ]
+    }
+
     var body: some View {
         TimelineView(SessionEntryRefreshSchedule(deadlines: deadlines)) { clock in
             VStack(alignment: .leading, spacing: 12) {
-                SessionHorizonHero(theme: .init(sessionMood: model.sessionForecastRefreshScope?.mood))
+                let mood = model.isDemoMode ? model.activeDJSession?.selectedMood : model.sessionForecastRefreshScope?.mood
+                SessionHorizonHero(theme: .init(sessionMood: mood))
                 Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                 Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
-                if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
+                if model.isDemoMode {
+                    Text(text("demo.horizon.notice")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    SessionForecastTextView(sections: demoSections, language: model.language)
+                } else if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
                     ForEach(Array(projection.imagery.enumerated()), id: \.offset) { _, image in
                         SessionForecastArtwork(model: model, projection: projection, artwork: image)
                     }
@@ -230,7 +252,7 @@ private struct SessionHorizonHero: View {
     }()
 
     private var palette: [Color] {
-        theme.colorValues.map { value in
+        theme.horizonHeroColorValues.map { value in
             Color(red: Double((value >> 16) & 255) / 255,
                   green: Double((value >> 8) & 255) / 255,
                   blue: Double(value & 255) / 255)
@@ -261,11 +283,14 @@ private struct SessionHorizonHero: View {
             let artwork = artwork(size: geometry.size, colors: colors)
             if !reduceMotion && scenePhase == .active {
                 TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { clock in
-                    let seconds = clock.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 12)
-                    artwork.distortionEffect(
-                        Self.shaders.horizonWave(.boundingRect, .float(Float(seconds * 2 * .pi / 12))),
-                        maxSampleOffset: CGSize(width: 0, height: 2)
-                    )
+                    let cycleDuration = 9.0
+                    let seconds = clock.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: cycleDuration)
+                    artwork
+                        .drawingGroup()
+                        .distortionEffect(
+                            Self.shaders.horizonWave(.boundingRect, .float(Float(seconds * 2 * .pi / cycleDuration))),
+                            maxSampleOffset: CGSize(width: 0, height: 5)
+                        )
                 }
             } else {
                 artwork

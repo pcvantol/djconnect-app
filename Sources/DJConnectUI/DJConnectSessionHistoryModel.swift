@@ -198,7 +198,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     private var lastAcceptedConversationRead = UUID()
     private var invalidContentDeletionJournal = false
     private var contentDeletionReadback: (owner: String, archiveEpoch: UUID)?
-    @Published private var withdrawnContentMoments: Set<String> = []
+    @Published private(set) var withdrawnContentMoments: Set<String> = []
     private var archiveGeneration = UUID()
     @Published public private(set) var archiveResponseEpoch = UUID()
     @Published public private(set) var deletionAvailable = false
@@ -261,7 +261,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var listErrorKey: String?
     @Published public private(set) var listNextCursor: String?
     @Published public private(set) var timelines: [String: Timeline] = [:] {
-        didSet { selectedTimelineIndex = nil }
+        didSet {
+            selectedTimelineIndex = nil
+            host?.demoSessionTimelineDidChange()
+        }
     }
     private var conversationMessageContexts: [String: DJConnectConversationContext] = [:]
     @Published public private(set) var historicalMatches: [String: [DJConnectHistoryEntry]] = [:] {
@@ -478,13 +481,14 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     /// Explicit, ephemeral review examples; never an owner grant or backend history.
-    func installDemo(_ data: DJConnectDemoSessionData, preservingArchives: Bool = false) {
+    func installDemo(_ data: DJConnectDemoSessionData, preservingArchives: Bool = false, includesActiveTimeline: Bool = true) {
         guard host?.isDemoMode == true else { return }
         let archived = preservingArchives ? sessions.filter { $0.readOnly && $0.id.hasPrefix("demo-active-") } : []
         let oldTimelines = timelines.filter { archived.map(\.id).contains($0.key) }
         reset()
         available = true; searchAvailable = true; ownerScope = nil
-        sessions = archived + data.sessions; timelines = data.timelines
+        sessions = archived + data.sessions
+        timelines = includesActiveTimeline ? data.timelines : data.timelines.filter { $0.key != data.active.id }
         timelines.merge(oldTimelines) { _, old in old }
     }
 

@@ -3652,6 +3652,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 
     let visibleLog = model.diagnosticLogLines.map(\.text).joined(separator: "\n")
     let logFile = logDirectory.appendingPathComponent("djconnect.log")
+    model.flushPersistentDiagnosticLog()
     let persistedLog = try String(contentsOf: logFile, encoding: .utf8)
 
     for log in [visibleLog, persistedLog] {
@@ -7804,10 +7805,12 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test(.isolatedClientResources) func sessionSpeakerUsesPlaybackAuthorityInsteadOfPendingOrNormalizedOutputs() throws {
+@Test(.isolatedClientResources) func sessionSpeakerUsesPlaybackAuthorityInsteadOfPendingOrNormalizedOutputs() async throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.language = "nl"
     model.startDemoMode()
+    #expect(model.sessionPlaybackOutputName == nil)
+    await model.startDJSession()
     #expect(model.sessionPlaybackOutputName == "Woonkamer")
     model.selectedOutput = "Pending Kitchen"
     #expect(model.sessionPlaybackOutputName == "Woonkamer")
@@ -8312,6 +8315,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
                   "is_playing": false,
                   "track_name": "Track One",
                   "artist_name": "Artist One",
+                  "album_name": "Album One",
                   "album_image_url": "https://example.test/art.jpg",
                   "progress_ms": 12000,
                   "duration_ms": 180000,
@@ -8328,6 +8332,9 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.success)
     #expect(response.playback?.isPlaying == false)
     #expect(response.playback?.trackName == "Track One")
+    #expect(response.playback?.albumName == "Album One")
+    let playback = try #require(response.playback)
+    #expect(try JSONDecoder().decode(DJConnectPlayback.self, from: JSONEncoder().encode(playback)).albumName == "Album One")
     #expect(response.playback?.albumImageURL?.absoluteString == "https://example.test/art.jpg")
     #expect(response.playback?.contextURI == "spotify:playlist:abc")
     #expect(response.playback?.device?.name == "Living Room")
@@ -9123,6 +9130,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set(true, forKey: "djconnect.local-network.explanation-accepted.v1")
     defaults.set("ABCDEF1234567890", forKey: "DJConnectInstallID")
     let tokenStore = DJConnectInMemoryTokenStore()
     let host = "pair-status-macos.local"
@@ -9189,6 +9197,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set(true, forKey: "djconnect.local-network.explanation-accepted.v1")
     defaults.set("ABCDEF1234567890", forKey: "DJConnectInstallID")
     let tokenStore = DJConnectInMemoryTokenStore()
     let host = "pair-status-pending-macos.local"
@@ -9249,6 +9258,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set(true, forKey: "djconnect.local-network.explanation-accepted.v1")
     defaults.set("ABCDEF1234567890", forKey: "DJConnectInstallID")
     let tokenStore = DJConnectInMemoryTokenStore()
     let host = "pair-background-macos.local"
@@ -9324,6 +9334,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set(true, forKey: "djconnect.local-network.explanation-accepted.v1")
     defaults.set("ABCDEF1234567890", forKey: "DJConnectInstallID")
     let tokenStore = DJConnectInMemoryTokenStore()
     let host = "pair-complete.local"
@@ -9520,6 +9531,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
         startBackgroundTasks: false, diagnosticLogDirectory: directory)
     #expect(model.isDiagnosticLoggingEnabled)
     let file = directory.appendingPathComponent("djconnect.log")
+    model.flushPersistentDiagnosticLog()
     let original = try Data(contentsOf: file)
     let originalLines = model.diagnosticLogLines.map(\.text)
     model.logLevel = "off"
@@ -9551,6 +9563,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
         startBackgroundTasks: false, diagnosticLogDirectory: directory)
     model.apply(error: .server(statusCode: 500, message: "before-confirmed-disable"))
     let file = directory.appendingPathComponent("djconnect.log")
+    model.flushPersistentDiagnosticLog()
     #expect(try String(contentsOf: file, encoding: .utf8).contains("before-confirmed-disable"))
     try model.disableDiagnosticLoggingAndClear()
     #expect(model.logLevel == "off" && !model.isDiagnosticLoggingEnabled)
@@ -9565,6 +9578,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(!FileManager.default.fileExists(atPath: file.path))
     restored.logLevel = "info"
     restored.apply(error: .server(statusCode: 500, message: "fresh-enabled-log"))
+    restored.flushPersistentDiagnosticLog()
     let fresh = try String(contentsOf: file, encoding: .utf8)
     #expect(fresh.contains("fresh-enabled-log"))
     #expect(!fresh.contains("before-confirmed-disable") && !fresh.contains("after-confirmed-disable"))
@@ -9582,7 +9596,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
         try? FileManager.default.removeItem(at: logDirectory)
     }
 
-    _ = DJConnectAppModel(
+    let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
         startBackgroundTasks: false,
@@ -9590,6 +9604,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     )
 
     let logFile = logDirectory.appendingPathComponent("djconnect.log")
+    model.flushPersistentDiagnosticLog()
     let persisted = try String(contentsOf: logFile, encoding: .utf8)
     #expect(persisted.contains("App started without DJConnect bearer token"))
 
@@ -9624,6 +9639,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     model.clearDiagnosticLog()
 
     let logFile = logDirectory.appendingPathComponent("djconnect.log")
+    model.flushPersistentDiagnosticLog()
     let clearedLog = try String(contentsOf: logFile, encoding: .utf8)
     #expect(!clearedLog.contains("App started without DJConnect bearer token"))
     #expect(clearedLog.contains("Diagnostic log cleared"))
@@ -9662,6 +9678,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(model.diagnosticLogLines.first?.text.contains("newest-visible-log-marker") == true)
     #expect(model.diagnosticLogLines.last?.text.contains("Diagnostic log cleared") == true)
 
+    model.flushPersistentDiagnosticLog()
     let relaunched = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
@@ -11011,8 +11028,12 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let stepsSource = String(source[stepsStart.lowerBound..<stepsEnd.lowerBound])
 
     let session = try #require(stepsSource.range(of: "id: .djSession"))
-    let queue = try #require(stepsSource.range(of: "id: .queue"))
-    #expect(session.lowerBound < queue.lowerBound)
+    let connection = try #require(stepsSource.range(of: "id: .connection"))
+    let discovery = try #require(stepsSource.range(of: "id: .discovery"))
+    let musicDNA = try #require(stepsSource.range(of: "id: .musicDNA"))
+    #expect(session.lowerBound < connection.lowerBound)
+    #expect(discovery.lowerBound < musicDNA.lowerBound)
+    #expect(stepsSource.contains("id: .queue") == false)
     #expect(stepsSource.contains("id: .discovery"))
     #expect(stepsSource.contains("id: .games") == false)
     #expect(stepsSource.contains("ui.mini.games") == false)
@@ -13222,6 +13243,20 @@ func gamesKeepRoundSpritesAndMapTouchesIntoCenteredBoard(_ size: CGSize) {
     #expect(abs(center.x - 160) < 0.001 && abs(center.y - 85) < 0.001)
 }
 
+@Test func gamesUseTheExtraHeightOfAPortraitPlayfield() {
+    let viewport = CGSize(width: 340, height: 380)
+    let board = DJConnectGameViewport.boardSize(for: viewport, baseHeight: 170)
+    #expect(board == CGSize(width: 320, height: 338))
+    #expect(DJConnectGameViewport.origin(in: viewport, board: board).y < 12)
+
+    let rows = MazeChaseBoard.rows + Int((board.height - 170) / MazeChaseBoard.spacing)
+    var position = MazeChaseBoard.center(0)
+    for _ in 0..<(rows * 7) {
+        position = MazeChaseBoard.step(position: position, direction: .down, requested: .down, rows: rows).position
+    }
+    #expect(position == MazeChaseBoard.center((rows - 1) * MazeChaseBoard.columns))
+}
+
 @Test func mazeChaseTraversesEveryPelletCenterAndStopsAtPaddedEdges() {
     var position = MazeChaseBoard.center(0)
     var direction = MazeChaseBoard.Direction.right
@@ -13765,12 +13800,16 @@ private extension String {
     #expect(model.resolvedMusicDiscoveryImageURL("https://user:secret@i.scdn.co/image/example") == nil)
     #expect(model.resolvedMusicDiscoveryImageURL("http://i.scdn.co/image/example") == nil)
     #expect(model.resolvedMusicDiscoveryImageURL("/api/djconnect/image_proxy/album")?.host == "discovery-art.local")
+    model.startDemoMode()
+    #expect(model.resolvedMusicDiscoveryImageURL("https://i.scdn.co/image/example") == nil)
+    #expect(model.resolvedMusicDiscoveryImageURL("/api/djconnect/image_proxy/album") == nil)
 }
 
 @MainActor
 @Test(.isolatedClientResources) func sessionFavoriteRejectsMissingOrChangedPlayback() async throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.startDemoMode()
+    await model.startDJSession()
     let session = try #require(model.activeDJSession)
     #expect(model.canToggleSessionFavorite(session))
     let original = try #require(model.playback)
@@ -14991,3 +15030,275 @@ import CoreAudio
     #expect(DJConnectMacAudioRouteMonitor.route(computer: "MacBook", output: nil, transport: transport).bluetoothName == nil)
 }
 #endif
+
+@Test func demoWidgetCacheExpiresWithoutFallingBackToProduction() throws {
+    let name = "demo-widget-test-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let now = Date(timeIntervalSince1970: 5000)
+    let value = DJConnectDemoWidgetSnapshot(theme: .groove, track: "Midnight City", artist: "M83",
+        album: "Hurry Up, We're Dreaming", isPlaying: true, at: now)
+    DJConnectDemoWidgetSnapshot.replace(value, in: defaults)
+    #expect(DJConnectDemoWidgetSnapshot.load(from: defaults, at: now) == value)
+    #expect(DJConnectDemoWidgetSnapshot.load(from: defaults, at: now.addingTimeInterval(-1)) == nil)
+    #expect(DJConnectDemoWidgetSnapshot.load(from: defaults, at: now.addingTimeInterval(120)) == nil)
+    // Expiry keeps the explicit demo marker: the provider must render neutral,
+    // never an unrelated previous real session.
+    #expect(defaults.bool(forKey: DJConnectDemoWidgetSnapshot.enabledKey))
+    DJConnectDemoWidgetSnapshot.replace(nil, in: defaults)
+    #expect(!defaults.bool(forKey: DJConnectDemoWidgetSnapshot.enabledKey))
+    #expect(defaults.data(forKey: DJConnectDemoWidgetSnapshot.storageKey) == nil)
+}
+
+@Test func demoWidgetRenewalDoesNotChangeDisplayedContent() {
+    let now = Date()
+    let value = DJConnectDemoWidgetSnapshot(theme: .groove, track: "Track", artist: "Artist", album: "Album", isPlaying: true, at: now)
+    let renewed = DJConnectDemoWidgetSnapshot(theme: .groove, track: "Track", artist: "Artist", album: "Album", isPlaying: true, at: now.addingTimeInterval(60))
+    let paused = DJConnectDemoWidgetSnapshot(theme: .groove, track: "Track", artist: "Artist", album: "Album", isPlaying: false, at: now)
+    #expect(value.sameContent(as: renewed))
+    #expect(!value.sameContent(as: paused))
+}
+
+@MainActor
+@Test(.isolatedClientResources) func localNetworkExplanationWaitsForContinueAndRemembersExplanation() async throws {
+    let name = "local-network-consent-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    var calls = 0
+    #expect(!model.requestLocalNetworkExplanation { calls += 1 })
+    #expect(model.isShowingLocalNetworkExplanation)
+    #expect(calls == 0)
+    model.continueAfterLocalNetworkExplanation()
+    #expect(!model.isShowingLocalNetworkExplanation)
+    #expect(calls == 0)
+    try await Task.sleep(for: .milliseconds(450))
+    #expect(calls == 1)
+    #expect(model.localNetworkPermissionStatus == .unknown)
+    #expect(model.requestLocalNetworkExplanation { calls += 1 })
+    #expect(!model.isShowingLocalNetworkExplanation)
+    #expect(calls == 1)
+}
+
+@MainActor
+@Test(.isolatedClientResources) func localNetworkExplanationNotNowDoesNotStartOrRememberPermission() async throws {
+    let name = "local-network-consent-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    var calls = 0
+    #expect(!model.requestLocalNetworkExplanation { calls += 1 })
+    model.cancelLocalNetworkExplanation()
+    try await Task.sleep(for: .milliseconds(450))
+    #expect(calls == 0)
+    #expect(!model.isShowingLocalNetworkExplanation)
+    #expect(!model.requestLocalNetworkExplanation { calls += 1 })
+    #expect(model.isShowingLocalNetworkExplanation)
+    model.cancelLocalNetworkExplanation()
+}
+
+@MainActor
+@Test(.isolatedClientResources) func connectionOffersRePairingForRemovedConfiguration() throws {
+    let name = "connection-repair-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let tokens = DJConnectInMemoryTokenStore(token: "obsolete-device-token")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokens, startBackgroundTasks: false)
+    model.pairingMessage = "DJConnect is not configured."
+    #expect(model.connectionRequiresRePairing)
+    model.pairingMessage = "not_configured"
+    #expect(model.connectionRequiresRePairing)
+    model.pairingMessage = "Connection timed out"
+    #expect(!model.connectionRequiresRePairing)
+    model.resetPairing()
+    #expect(try tokens.loadToken() == nil)
+    #expect(model.pairingToken.isEmpty)
+    #expect(!model.isPairingScreenDismissed)
+    #expect(model.pairingFlowTarget == .iPhone)
+}
+
+@MainActor
+@Test(.isolatedClientResources) func watchDemoFlowIncludesNewSessionQuestionsAndAnswers() async throws {
+    let name = "watch-demo-flow-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode()
+    #expect(model.watchDemoFlowRows().isEmpty)
+    await model.startDJSession()
+    model.sessionHistory.recordDemoTurn(question: "Nieuwe vraag", answer: "Nieuw antwoord", inputType: "voice")
+    let rows = model.watchDemoFlowRows()
+    #expect(rows.contains { $0.labelKey == "watch.v2.flow.question" && $0.text == "Nieuwe vraag" })
+    #expect(rows.contains { $0.labelKey == "watch.v2.flow.answer" && $0.text == "Nieuw antwoord" })
+    #expect(rows.contains { $0.labelKey == "ui.session.history.playback" })
+    #expect(rows.contains { $0.labelKey == "ui.session.moment.generic" })
+    #expect(Set(rows.map(\.id)).count == rows.count)
+    model.stopDemoMode()
+    #expect(model.watchDemoFlowRows().isEmpty)
+}
+
+@MainActor
+@Test(.isolatedClientResources) func watchDemoFlowUsesOneTwentyItemWindowForAllEntryKinds() async throws {
+    let name = "watch-demo-flow-limit-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode()
+    await model.startDJSession()
+    for i in 0..<15 { model.sessionHistory.recordDemoTurn(question: "Vraag \(i)", answer: "Antwoord \(i)") }
+    let rows = model.watchDemoFlowRows()
+    #expect(rows.count == 20)
+    #expect(rows.contains { $0.text == "Vraag 14" })
+    #expect(rows.contains { $0.text == "Antwoord 14" })
+    #expect(!rows.contains { $0.text == "Vraag 0" })
+    #expect(zip(rows, rows.dropFirst()).allSatisfy { $0.date >= $1.date })
+}
+
+@MainActor
+@Test(.isolatedClientResources) func watchDemoTextAddsOneTurnAndReturnsTheSameAnswerOnRetry() async throws {
+    let name = "watch-demo-text-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode(); await model.startDJSession()
+    let id = try #require(model.activeDJSession?.id)
+    let count = try #require(model.sessionHistory.timelines[id]?.entries.count)
+    let request = DJConnectWatchDemoTextRequest(sessionID: id, text: "Welk album is dit?")
+    let reply = try #require(model.handleDemoWatchText(request))
+    #expect(!reply.answer.isEmpty && reply.requestID == request.requestID && reply.sessionID == id)
+    #expect(model.sessionHistory.timelines[id]?.entries.count == count + 2)
+    #expect(model.watchDemoFlowRows().contains { $0.text == request.text && $0.labelKey == "watch.v2.flow.question" })
+    #expect(model.watchDemoFlowRows().contains { $0.text == reply.answer && $0.labelKey == "watch.v2.flow.answer" })
+    #expect(model.handleDemoWatchText(request) == reply)
+    #expect(model.sessionHistory.timelines[id]?.entries.count == count + 2)
+    #expect(model.handleDemoWatchText(.init(requestID: request.requestID, sessionID: id, text: "Ander verzoek")) == nil)
+    model.stopDemoMode()
+    #expect(model.handleDemoWatchText(request) == nil)
+}
+
+@MainActor
+@Test(.isolatedClientResources) func watchDemoTextRejectsWrongSessionAndInvalidInput() async throws {
+    let name = "watch-demo-text-invalid-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode(); await model.startDJSession()
+    let id = try #require(model.activeDJSession?.id)
+    let count = model.sessionHistory.timelines[id]?.entries.count
+    #expect(model.handleDemoWatchText(.init(sessionID: "demo-active-other", text: "Vraag")) == nil)
+    #expect(model.handleDemoWatchText(.init(sessionID: id, text: "  \n")) == nil)
+    #expect(model.handleDemoWatchText(.init(sessionID: id, text: String(repeating: "a", count: 16_001))) == nil)
+    #expect(model.sessionHistory.timelines[id]?.entries.count == count)
+}
+
+@MainActor
+@Test(.isolatedClientResources) func watchDemoPlaybackUsesPhoneQueueAndReturnsCurrentState() async throws {
+    let name = "watch-demo-playback-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode(); await model.startDJSession()
+    let id = try #require(model.activeDJSession?.id)
+    let queue = model.queueItems
+    #expect(queue.count > 1)
+    let paused = try #require(model.handleDemoWatchPlayback(.init(sessionID: id, command: "pause")))
+    #expect(paused.playback?.isPlaying == false && model.playback?.isPlaying == false)
+    let playing = try #require(model.handleDemoWatchPlayback(.init(sessionID: id, command: "play")))
+    #expect(playing.playback?.isPlaying == true)
+    let next = try #require(model.handleDemoWatchPlayback(.init(sessionID: id, command: "next")))
+    #expect(next.track == queue[1].title && model.playback?.trackName == queue[1].title)
+    #expect(next.album == queue[1].album)
+    let previous = try #require(model.handleDemoWatchPlayback(.init(sessionID: id, command: "previous")))
+    #expect(previous.track == queue[0].title)
+    // A change initiated by the phone is exposed through the same snapshot.
+    let confirmed: Bool = await withCheckedContinuation { continuation in
+        model.sendPlaybackCommand("next", onConfirmed: { continuation.resume(returning: true) },
+                                  onUnconfirmed: { continuation.resume(returning: false) })
+    }
+    #expect(confirmed)
+    #expect(model.watchDemoSessionSnapshot()?.track == queue[1].title)
+    #expect(model.watchDemoSessionSnapshot()?.playback == model.playback)
+    let favorite = try #require(model.handleDemoWatchPlayback(.init(sessionID: id,
+        command: "set_current_track_favorite", value: .bool(true))))
+    #expect(favorite.playback?.currentTrackFavoriteStatus == true)
+    #expect(model.playback?.currentTrackFavoriteStatus == true)
+    let removed = try #require(model.handleDemoWatchPlayback(.init(sessionID: id,
+        command: "set_current_track_favorite", value: .bool(false))))
+    #expect(removed.playback?.currentTrackFavoriteStatus == false)
+    let before = model.playback
+    #expect(model.handleDemoWatchPlayback(.init(sessionID: "demo-active-stale", command: "next")) == nil)
+    #expect(model.handleDemoWatchPlayback(.init(sessionID: id, command: "delete_profile")) == nil)
+    #expect(model.playback == before)
+    model.stopDemoMode()
+    #expect(model.handleDemoWatchPlayback(.init(sessionID: id, command: "play")) == nil)
+}
+
+@MainActor
+@Test(.isolatedClientResources) func watchDemoSpeakerSelectionUsesSharedPhoneOutputState() async throws {
+    let name = "watch-demo-speaker-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode(); await model.startDJSession()
+    let id = try #require(model.activeDJSession?.id)
+    let original = try #require(model.availableOutputs.first { $0.active == true })
+    let other = try #require(model.availableOutputs.first { $0.active != true })
+    let selected = try #require(model.handleDemoWatchPlayback(.init(sessionID: id, command: "set_output", value: .string(other.id))))
+    #expect(model.selectedOutput == other.name)
+    #expect(selected.outputs?.filter { $0.active == true }.map(\.id) == [other.id])
+    #expect(selected.playback?.device?.id == other.id)
+    #expect(selected.playback?.volumePercent == other.volumePercent)
+    let confirmed: Bool = await withCheckedContinuation { continuation in
+        model.sendPlaybackCommand("set_output", value: .string(original.id),
+            onConfirmed: { continuation.resume(returning: true) },
+            onUnconfirmed: { continuation.resume(returning: false) })
+    }
+    #expect(confirmed)
+    let refreshed = try #require(model.handleDemoWatchPlayback(.init(sessionID: id, command: "devices")))
+    #expect(refreshed.outputs?.filter { $0.active == true }.map(\.id) == [original.id])
+    #expect(refreshed.playback?.device?.id == original.id)
+    #expect(refreshed.playback?.volumePercent == original.volumePercent)
+    #expect(model.handleDemoWatchPlayback(.init(sessionID: id, command: "set_output", value: .string("unknown-speaker"))) == nil)
+    #expect(model.playback?.device?.id == original.id)
+}
+
+@Test func watchLoggingPolicyFollowsPhoneLevelIncludingOff() {
+    let off = DJConnectWatchLoggingConfiguration(epoch: UUID(), level: "off", collect: true)
+    for level in ["debug", "info", "warning", "error"] { #expect(!off.permits(level)) }
+    let warning = DJConnectWatchLoggingConfiguration(epoch: UUID(), level: "warning", collect: false)
+    #expect(!warning.permits("debug") && !warning.permits("info"))
+    #expect(warning.permits("warning") && warning.permits("error"))
+}
+
+@MainActor
+@Test(.isolatedClientResources) func watchLogsStaySeparateAndRejectDisabledOrStaleBatches() throws {
+    let name = "watch-logs-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    let dir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
+    defer { defaults.removePersistentDomain(forName: name); try? FileManager.default.removeItem(at: dir) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false, diagnosticLogDirectory: dir)
+    model.logLevel = "info"
+    let line = DJConnectWatchDiagnosticLine(text: "Watch speaker selected")
+    model.receiveWatchDiagnosticBatch(.init(epoch: model.watchLoggingConfiguration.epoch, lines: [line]))
+    #expect(model.watchDiagnosticLogLines.isEmpty) // collection is optional
+    model.setWatchLogCollection(true)
+    let epoch = model.watchLoggingConfiguration.epoch
+    let batch = DJConnectWatchDiagnosticBatch(epoch: epoch, lines: [line])
+    model.receiveWatchDiagnosticBatch(batch); model.receiveWatchDiagnosticBatch(batch)
+    #expect(model.watchDiagnosticLogLines.count == 1)
+    #expect(!model.diagnosticLogLines.contains { $0.text.contains("Watch speaker") })
+    model.flushPersistentDiagnosticLog()
+    #expect(try String(contentsOf: dir.appendingPathComponent("djconnect-watch.log"), encoding: .utf8).contains("Watch speaker selected"))
+    #expect(try !String(contentsOf: dir.appendingPathComponent("djconnect.log"), encoding: .utf8).contains("Watch speaker selected"))
+    model.logLevel = "off"
+    #expect(!model.watchLoggingConfiguration.collect)
+    model.receiveWatchDiagnosticBatch(.init(epoch: epoch, lines: [.init(text: "Late batch")]))
+    #expect(model.watchDiagnosticLogLines.count == 1)
+    model.logLevel = "debug"
+    model.receiveWatchDiagnosticBatch(.init(epoch: epoch, lines: [.init(text: "Stale enabled batch")]))
+    #expect(model.watchDiagnosticLogLines.count == 1)
+    model.clearWatchDiagnosticLog()
+    #expect(model.watchDiagnosticLogLines.isEmpty)
+    model.receiveWatchDiagnosticBatch(batch)
+    #expect(model.watchDiagnosticLogLines.isEmpty)
+}

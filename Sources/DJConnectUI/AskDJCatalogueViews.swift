@@ -622,21 +622,35 @@ struct AskDJHelpTapRegion: NSViewRepresentable {
               !consumedSessions.contains(captured.owner + ":" + captured.session) else { return }
         readCompleted = true
         let token = generation
-        do {
-            let capabilities = try await host.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
-                try await $0.activeSessionMoodCapabilities()
+        // Retry only the initial read; startup choices remain explicitly user initiated.
+        for attempt in 0..<3 {
+            guard !Task.isCancelled, current(captured, token) else { return }
+            do {
+                let capabilities = try await host.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                    try await $0.activeSessionMoodCapabilities()
+                }
+                guard current(captured, token), capabilities.sessionStartupAvailable else { return }
+                let response = try await host.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                    try await $0.activeSession()
+                }
+                guard current(captured, token), response.success,
+                      let session = response.resolvedSession, session.id == captured.session,
+                      (try? Self.settingsData(session)) == captured.settings,
+                      let menu = response.startupActions, menu.isSupported, menu.available else { return }
+                catalogue = menu; phase = .ready
+
+                return
+            } catch {
+                guard !Task.isCancelled, !(error is CancellationError),
+                      (error as? URLError)?.code != .cancelled,
+                      (error as? DJConnectError)?.invalidatesSessionAuthority != true,
+                      current(captured, token), attempt < 2 else { return }
+                do { try await Task.sleep(for: .seconds(attempt + 1)) }
+                catch { return }
             }
-            guard current(captured, token), capabilities.sessionStartupAvailable else { return }
-            let response = try await host.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
-                try await $0.activeSession()
-            }
-            guard current(captured, token), response.success,
-                  let session = response.resolvedSession, session.id == captured.session,
-                  (try? Self.settingsData(session)) == captured.settings,
-                  let menu = response.startupActions, menu.isSupported, menu.available else { return }
-            catalogue = menu; phase = .ready
-        } catch { /* A failed capability read creates no speculative startup choices. */ }
+        }
     }
+
     func selectPlaylist() {
         guard phase == .ready, let host, let captured, matchesOriginal(scope),
               catalogue?.items.last?.available == true else { return }

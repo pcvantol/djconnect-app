@@ -39,3 +39,9 @@ TDE Swift analyzer servicing: the Observe workflow pins the published runtime
 profile, unmodified policy thresholds and non-blocking Observe mode. A completed
 analysis may produce a genuine policy FAIL; green workflow status is separate.
 See `docs/feedback/APPLE_TDE_1_1_2_ADOPTION_20261101.md`.
+
+Current Apple UX delivery candidate (2026-11-05): version 4.0.0, build 40474.
+The cumulative UI/demo/diagnostics changes require ordinary PR qualification,
+merge and fresh Release artifacts from clean main before device installation.
+Recent local Debug build success is not a physical-device, APNs or Core #1439
+pairing/binding acceptance receipt. See CHANGELOG.md and docs/RELEASE.md.

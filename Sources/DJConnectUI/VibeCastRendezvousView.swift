@@ -41,7 +41,13 @@ struct VibeCastRendezvousView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("VibeCast").font(.title.bold())
+                    VStack(spacing: 16) {
+                        DJConnectHeroGlyph(systemImage: "tv.badge.wifi")
+                        Text("VibeCast")
+                            .font(.title2.bold())
+                            .accessibilityAddTraits(.isHeader)
+                    }
+                    .frame(maxWidth: .infinity)
                     Text(rendezvousText(model.language, model.rendezvousStatusKey))
                         .accessibilityIdentifier("vibecast-rendezvous-status")
                     #if os(iOS)
@@ -89,8 +95,15 @@ struct VibeCastRendezvousView: View {
                     }
                     .disabled(!model.canResolveDisplayConsent || model.rendezvousBusy)
                     .accessibilityIdentifier("vibecast-rendezvous-tv-code")
-                }.padding(24)
+                }
+                .djConnectButtonStyle(DJConnectButtonStyle(expands: true))
+                .padding(24)
+                .frame(maxWidth: 620, alignment: .leading)
+                .djSessionFrostedSurface()
+                .padding(28)
+                .frame(maxWidth: .infinity)
             }
+            .background(DJConnectCanvasBackground())
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(rendezvousText(model.language, "ui.not.now.b1e535")) {

@@ -9,6 +9,39 @@ enum DJConnectGlassAppearance {
     static let opaqueSurface = Color(red: 0.09, green: 0.11, blue: 0.19)
 }
 
+#if os(iOS) || os(macOS)
+/// Shared DJConnect action surface: one frosted material, a restrained brand
+/// wash and a specular rim. No live refraction compositor inside parent cards.
+struct DJConnectPrimaryButtonSurface: View {
+    var shape: AnyShape = AnyShape(Capsule())
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        ZStack {
+            shape.fill(DJConnectMaterial(.thin))
+            shape.fill(DJConnectButtonAppearance.primaryGradient.opacity(glassEnabled && !reduceTransparency ? 0.24 : 0.32))
+            if glassEnabled && !reduceTransparency {
+                shape.fill(LinearGradient(stops: [
+                    .init(color: .white.opacity(0.16), location: 0),
+                    .init(color: .white.opacity(0.03), location: 0.48),
+                    .init(color: .clear, location: 0.52),
+                    .init(color: .white.opacity(0.04), location: 1)
+                ], startPoint: .top, endPoint: .bottom))
+            }
+            shape.stroke(LinearGradient(colors: [.white.opacity(0.48),
+                Color(red: 0.42, green: 0.62, blue: 1).opacity(0.28),
+                Color(red: 0.85, green: 0.56, blue: 1).opacity(0.40)],
+                startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+        }
+        .clipShape(shape)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+#endif
+
 private struct DJConnectGlassEnabledKey: EnvironmentKey {
     static let defaultValue = true
 }
@@ -119,4 +152,98 @@ func averageArtworkColor(from cgImage: CGImage) -> Color? {
         green: Double(pixel[1]) / 255.0,
         blue: Double(pixel[2]) / 255.0
     )
+}
+
+let djConnectIconGradient = LinearGradient(
+    colors: [
+        Color(red: 0.12, green: 0.45, blue: 1.00),
+        Color(red: 0.84, green: 0.22, blue: 0.96)
+    ],
+    startPoint: .topLeading,
+    endPoint: .bottomTrailing
+)
+
+struct DJConnectHeroGlyph: View {
+    let systemImage: String
+    var assetName: String? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var startedAt = ProcessInfo.processInfo.systemUptime
+
+    var body: some View {
+        Group {
+            if reduceMotion || scenePhase != .active {
+                artwork(angle: nil)
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
+                    let elapsed = max(0, ProcessInfo.processInfo.systemUptime - startedAt)
+                    let turn = elapsed.truncatingRemainder(dividingBy: 12) / 12
+                    artwork(angle: turn * 360)
+                }
+            }
+        }
+        .frame(width: 72, height: 72)
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+
+    private func artwork(angle: Double?) -> some View {
+        symbol.foregroundStyle(djConnectIconGradient)
+            .overlay {
+                if let angle {
+                    let light = AngularGradient(stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .clear, location: 0.70),
+                        .init(color: .white.opacity(0.04), location: 0.78),
+                        .init(color: .white.opacity(0.25), location: 0.90),
+                        .init(color: .white.opacity(0.82), location: 0.96),
+                        .init(color: .white.opacity(0.18), location: 0.985),
+                        .init(color: .clear, location: 1)
+                    ], center: .center, startAngle: .degrees(angle), endAngle: .degrees(angle + 360))
+                    ZStack {
+                        light.mask(symbol.foregroundStyle(.white))
+                            .blur(radius: 2).opacity(0.45)
+                        light.mask(symbol.foregroundStyle(.white))
+                    }
+                }
+            }
+    }
+
+    @ViewBuilder private var symbol: some View {
+        if let assetName {
+            Image(assetName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 50, height: 50)
+        } else {
+            Image(systemName: systemImage)
+                .font(.system(size: 50, weight: .semibold))
+        }
+    }
+}
+
+/// App-owned dialogs remain floating popovers on compact iPhone layouts.
+/// System permissions, scanners and document pickers retain their native presentation.
+extension View {
+    @ViewBuilder
+    func djConnectPopup<Popup: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Popup) -> some View {
+        #if os(iOS)
+        popover(isPresented: isPresented) {
+            content().presentationCompactAdaptation(.popover)
+        }
+        #else
+        sheet(isPresented: isPresented, content: content)
+        #endif
+    }
+
+    @ViewBuilder
+    func djConnectPopup<Item: Identifiable, Popup: View>(item: Binding<Item?>, @ViewBuilder content: @escaping (Item) -> Popup) -> some View {
+        #if os(iOS)
+        popover(item: item) { item in
+            content(item).presentationCompactAdaptation(.popover)
+        }
+        #else
+        sheet(item: item, content: content)
+        #endif
+    }
 }

@@ -12,6 +12,15 @@ public struct DJConnectSessionForecast: Codable, Equatable, Sendable {
         public let claim_type: String
         public let text: String
         public let source_url: String?
+
+        public init(id: String, title: String, claim_type: String, text: String, source_url: String? = nil) {
+            self.id = id
+            self.title = title
+            self.claim_type = claim_type
+            self.text = text
+            self.source_url = source_url
+        }
+
         var valid: Bool {
             ["current": "current", "guidance": "intention", "aim": "conditional_target"][id] == claim_type &&
                 !title.isEmpty && title.count <= 200 && !text.isEmpty && text.count <= 2000 &&

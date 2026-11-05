@@ -91,6 +91,10 @@ struct VibeScapeScreen: View {
     }
     // Voice obtains its occurrence from the dedicated server context route,
     // never from history IDs or polling timestamps.
+    private var sceneMood: String? {
+        model.activeDJSession?.selectedMood ?? (model.isDemoMode ? model.selectedSessionMood : nil)
+    }
+
     private var admitted: Bool {
         model.isDemoMode || (model.pairingStatus == .paired && owner != nil && model.activeDJSession?.runtimeState == "active")
     }
@@ -211,8 +215,9 @@ struct VibeScapeScreen: View {
             screenIsActive = scenePhase == .active
             displayWakeLock.setActive(scenePhase == .active)
             let confirmed = model.activeDJSession?.confirmedPersona
-            visit.enter(mood: model.activeDJSession?.selectedMood, occurrence: nil,
-                        family: confirmed.map { VibeScapeFamily(persona: $0.selectedPersona) } ?? .neutral,
+            let family = confirmed.map { VibeScapeFamily(persona: $0.selectedPersona) } ?? .neutral
+            visit.enter(mood: sceneMood, occurrence: nil,
+                        family: model.isDemoMode && confirmed == nil ? VibeScapeFamily(persona: model.demoSessionPersona) : family,
                         personaRevision: confirmed?.personaRevision)
             synchronizePersona()
             updateAutomaticIntensity()
@@ -228,7 +233,7 @@ struct VibeScapeScreen: View {
             }
         }
         .onChange(of: automaticIntensity) { _, _ in updateAutomaticIntensity() }
-        .onChange(of: model.activeDJSession?.selectedMood) { _, mood in voice.cancel(); visit.moodChanged(mood) }
+        .onChange(of: sceneMood) { _, mood in voice.cancel(); visit.moodChanged(mood) }
         .onChange(of: VibeScapeConfirmedSettings(model.activeDJSession)) { _, _ in voice.cancel() }
         .onChange(of: model.activeDJSession?.confirmedPersona) { _, _ in synchronizePersona() }
         .onChange(of: model.activeDJSession?.personaRevisionFloor) { _, _ in synchronizePersona() }
@@ -274,6 +279,7 @@ struct VibeScapeScreen: View {
     private func synchronizePersona() {
         let runtime = model.activeDJSession
         let confirmed = runtime?.confirmedPersona
+        guard !model.isDemoMode || confirmed != nil else { return }
         if visit.personaChanged(family: confirmed.map { VibeScapeFamily(persona: $0.selectedPersona) } ?? .neutral,
             revision: confirmed?.personaRevision, floor: runtime?.personaRevisionFloor,
             conflicted: runtime?.hasUnconfirmedPersonaRevision == true, mood: runtime?.selectedMood) {
@@ -529,7 +535,7 @@ private struct VibeScapeHelpContent: View {
                                             .accessibilityHidden(true)
                                     }.frame(maxWidth: .infinity, alignment: .leading)
                                 }
-                                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: scope == choice ? .selected : .secondary))
+                                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary))
                                 .disabled(!scopeEnabled)
                                 .accessibilityAddTraits(scope == choice ? .isSelected : [])
                                 .accessibilityIdentifier("vibescape-scope-" + choice.rawValue)

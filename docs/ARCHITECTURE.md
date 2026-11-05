@@ -35,6 +35,10 @@ The Apple app owns:
   current/native Session, readonly earlier Sessions and scripted text/voice examples
   use the same views/models. Examples remain in memory, make no server requests,
   confer no Profile authority and are excluded from ordinary chat/widget persistence.
+  An explicitly enabled demo publishes only local example playback and mood to a
+  separate App Group widget cache. Foreground observations expire after 120 seconds,
+  never renew in the background, and are cleared when demo ends. The demo marker
+  prevents fallback to production content; production passive grants remain unchanged.
 
 The Apple app does not own Profile resolution. Application session state is
 device/client runtime state. Profile state is backend-owned and may be selected
@@ -425,6 +429,16 @@ redacted rolling logfile in Application Support:
 `DJConnect/Logs/djconnect.log`. The file is capped at 500 lines and 128 KB,
 loaded on app restart, and removed when the user clears logs. The app never
 uploads this file automatically.
+
+The OS-paired iPhone owns the Watch diagnostic log level, including Off.
+Watch logging starts disabled until it receives the companion configuration;
+the level gate runs before both unified-system logging and the bounded memory
+buffer. Selecting the Watch icon in iPhone Logs enables optional, bounded,
+redacted WatchConnectivity batches into a separate `djconnect-watch.log`.
+Configuration generations reject late or disabled batches. Leaving the screen
+stops collection, and clearing/disabling logs removes the relevant local files.
+No Watch log viewer or independently writable Watch log-level setting remains.
+This runtime diagnostic channel is separate from HA Profile/Session authority.
 
 ## Local Games
 

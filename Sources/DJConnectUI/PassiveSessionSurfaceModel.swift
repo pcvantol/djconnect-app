@@ -375,6 +375,38 @@ import DJConnectCore
         caches[surface] = completed
         notify(); scheduleExpiry()
     }
+    static func cachePNG(for image: CGImage) throws -> Data {
+        func encode(_ image: CGImage) throws -> Data {
+            let bytes = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(bytes, "public.png" as CFString, 1, nil) else {
+                throw DJConnectError.invalidResponse
+            }
+            CGImageDestinationAddImage(destination, image, nil)
+            guard CGImageDestinationFinalize(destination) else { throw DJConnectError.invalidResponse }
+            return bytes as Data
+        }
+
+        let original = try encode(image)
+        let limit = DJConnectPassiveSurfaceCache.maximumImageBytes
+        if original.count <= limit { return original }
+
+        // 240 × 240 at four 8-bit channels leaves room for PNG overhead.
+        let scale = min(1, 240.0 / Double(max(image.width, image.height)))
+        let width = max(1, Int(Double(image.width) * scale))
+        let height = max(1, Int(Double(image.height) * scale))
+        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                                      bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw DJConnectError.invalidResponse
+        }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let thumbnail = context.makeImage() else { throw DJConnectError.invalidResponse }
+        let reduced = try encode(thumbnail)
+        guard reduced.count <= limit else { throw DJConnectError.invalidResponse }
+        return reduced
+    }
+
     private static func validPixels(_ data: Data) -> Bool {
         guard data.count <= DJConnectPassiveSurfaceCache.maximumImageBytes,
               let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),

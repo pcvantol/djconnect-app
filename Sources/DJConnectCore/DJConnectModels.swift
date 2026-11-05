@@ -7894,6 +7894,7 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
     public var isPlaying: Bool?
     public var trackName: String?
     public var artistName: String?
+    public var albumName: String?
     public var albumImageURL: URL?
     public var progressMS: Int?
     public var durationMS: Int?
@@ -7911,6 +7912,7 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         isPlaying: Bool? = nil,
         trackName: String? = nil,
         artistName: String? = nil,
+        albumName: String? = nil,
         albumImageURL: URL? = nil,
         progressMS: Int? = nil,
         durationMS: Int? = nil,
@@ -7927,6 +7929,7 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         self.isPlaying = isPlaying
         self.trackName = trackName
         self.artistName = artistName
+        self.albumName = albumName
         self.albumImageURL = albumImageURL
         self.progressMS = progressMS
         self.durationMS = durationMS
@@ -7946,6 +7949,7 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         isPlaying = try container.decodeIfPresent(Bool.self, forKey: .isPlaying)
         trackName = container.decodeStringAliasIfPresent(.trackName, .title, .name)
         artistName = container.decodeStringAliasIfPresent(.artistName, .artist, .artists)
+        albumName = container.decodeStringAliasIfPresent(.albumName, .album, .mediaAlbum)
         albumImageURL = container.decodeURLAliasIfPresent(
             .albumImageURL,
             .albumImageUrl,
@@ -7977,6 +7981,7 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         try container.encodeIfPresent(isPlaying, forKey: .isPlaying)
         try container.encodeIfPresent(trackName, forKey: .trackName)
         try container.encodeIfPresent(artistName, forKey: .artistName)
+        try container.encodeIfPresent(albumName, forKey: .albumName)
         try container.encodeIfPresent(albumImageURL, forKey: .albumImageURL)
         try container.encodeIfPresent(progressMS, forKey: .progressMS)
         try container.encodeIfPresent(durationMS, forKey: .durationMS)
@@ -8000,6 +8005,9 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         case artistName = "artist_name"
         case artist
         case artists
+        case albumName = "album_name"
+        case album
+        case mediaAlbum = "media_album"
         case albumImageURL = "album_image_url"
         case albumImageUrl
         case albumArtURL = "album_art_url"

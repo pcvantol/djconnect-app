@@ -44,7 +44,10 @@ def validate(write=False):
             assert not any(old in path.read_text() for old in LEGACY), f'active legacy tagline: {path}'
     storyboard = ET.parse(ROOT / 'Apps/DJConnectIOS/LaunchScreen.storyboard')
     assert [label.get('text') for label in storyboard.findall('.//label')] == ['DJConnect'], 'system launch must contain only the product name'
-    assert storyboard.find(".//imageView[@image='LaunchIcon']") is not None
+    assert storyboard.find(".//imageView[@image='LaunchAvatar.png']") is not None, 'transparent native avatar missing'
+    assert (ROOT / 'Apps/DJConnectIOS/LaunchAvatar.png').is_file(), 'native avatar resource missing'
+    assert storyboard.find(".//imageView[@image='LaunchBackground.png']") is not None, 'brand launch background missing'
+    assert (ROOT / 'Apps/DJConnectIOS/LaunchBackground.png').is_file(), 'launch background resource missing'
     assert not list((ROOT / 'Apps/DJConnectIOS').glob('*.lproj/LaunchScreen.strings')), 'obsolete launch translations are still shipped'
     assert storyboard.find(".//image[@name='LaunchBanner']") is None, 'old raster tagline is active'
     assert not (ROOT / 'Apps/Shared/Assets.xcassets/LaunchBanner.imageset').exists(), 'old raster is still shipped'

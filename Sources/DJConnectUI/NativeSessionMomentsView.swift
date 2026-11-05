@@ -474,7 +474,7 @@ struct NativeSessionMomentsView: View {
         }
         .frame(maxWidth: 1000, alignment: .leading)
         .frame(maxWidth: .infinity)
-        .sheet(isPresented: Binding(get: { playbackModel?.momentTrackInsightTarget != nil }, set: { if !$0 { playbackModel?.dismissMomentTrackInsight() } })) {
+        .djConnectPopup(isPresented: Binding(get: { playbackModel?.momentTrackInsightTarget != nil }, set: { if !$0 { playbackModel?.dismissMomentTrackInsight() } })) {
             if let model = playbackModel {
                 #if os(macOS)
                 TrackInsightView(model: model, explicitMoment: true).frame(minWidth: 640, minHeight: 600)
@@ -807,7 +807,7 @@ struct NativeSessionMomentsView: View {
                         SessionPlaybackCardButton(model: model, session: session, position: current, duration: duration)
                             .id(session.id)
                     } else {
-                        ProgressView(value: Double(current), total: Double(duration))
+                        SessionMusicProgress(position: current, duration: duration, isPlaying: playback.state == "playing")
                             .accessibilityLabel(text("ui.session.music_progress"))
                     }
                     HStack(alignment: .center, spacing: 8) {
@@ -1129,6 +1129,47 @@ struct SessionPlaybackVolumePanel: View {
     }
 }
 
+/// The decorative meter has its own clock so it never re-renders the Session timeline.
+private struct SessionMusicProgress: View {
+    let position: Int
+    let duration: Int
+    let isPlaying: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            SessionPlaybackEqualizer(isPlaying: isPlaying)
+                .frame(width: 20, height: 20)
+                .accessibilityHidden(true)
+            ProgressView(value: Double(position), total: Double(max(duration, 1)))
+                .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+private struct SessionPlaybackEqualizer: View {
+    let isPlaying: Bool
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !isPlaying || scenePhase != .active || reduceMotion)) { clock in
+            Canvas { context, size in
+                let time = clock.date.timeIntervalSinceReferenceDate
+                let animated = isPlaying && scenePhase == .active && !reduceMotion
+                let resting: [Double] = isPlaying ? [0.85, 0.35, 0.62, 0.25] : [0.16, 0.16, 0.16, 0.16]
+                for index in 0..<4 {
+                    let phase = Double(index) * 1.7
+                    let level = animated ? 0.18 + 0.82 * (0.5 + 0.5 * sin(time * (4.2 + Double(index) * 0.7) + phase)) : resting[index]
+                    let height = max(3, size.height * level)
+                    let bar = CGRect(x: Double(index) * 5, y: size.height - height, width: 3, height: height)
+                    context.fill(Path(roundedRect: bar, cornerRadius: 0.75), with: .color(djConnectAccent))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 struct SessionPlaybackCardButton: View {
     @ObservedObject var model: DJConnectAppModel
     let session: DJConnectSessionRuntime
@@ -1143,7 +1184,8 @@ struct SessionPlaybackCardButton: View {
     }
     var body: some View {
         Button { showsPlayback.toggle() } label: {
-            ProgressView(value: Double(position), total: Double(max(duration, 1)))
+            SessionMusicProgress(position: position, duration: duration,
+                                 isPlaying: model.playback?.isPlaying ?? (session.broadcast.playback?.state == "playing"))
                 .frame(minHeight: 44).contentShape(Rectangle())
         }
         .djConnectPlainButtonStyle()
@@ -1293,6 +1335,7 @@ func sessionPlaybackTime(_ milliseconds: Int) -> String {
 
 @MainActor final class SessionIntroductionAnchors: ObservableObject {
     @Published private(set) var frames: [String: CGRect] = [:]
+    @Published var highlightsToolbar = false
     func record(_ name: String, frame: CGRect) {
         guard !frame.isEmpty, !frame.isInfinite, frames[name] != frame else { return }
         frames[name] = frame
@@ -1309,10 +1352,46 @@ extension EnvironmentValues {
     }
 }
 extension View {
+    @ViewBuilder
     func sessionIntroductionTarget(_ name: String) -> some View {
+        #if os(macOS)
+        if name.hasPrefix("toolbar-") {
+            modifier(SessionIntroductionMacToolbarTarget())
+        } else {
+            background(SessionIntroductionTargetReader(name: name))
+        }
+        #else
         background(SessionIntroductionTargetReader(name: name))
+        #endif
     }
 }
+
+#if os(macOS)
+private struct SessionIntroductionMacToolbarTarget: ViewModifier {
+    @Environment(\.sessionIntroductionAnchors) private var anchors
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            if let anchors {
+                SessionIntroductionToolbarRing(anchors: anchors)
+            }
+        }
+    }
+}
+
+private struct SessionIntroductionToolbarRing: View {
+    @ObservedObject var anchors: SessionIntroductionAnchors
+
+    var body: some View {
+        if anchors.highlightsToolbar {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(.white.opacity(0.95), lineWidth: 2)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+}
+#endif
 
 #if os(iOS)
 private struct SessionIntroductionTargetReader: UIViewRepresentable {
@@ -1404,7 +1483,11 @@ struct SessionIntroductionOverlay: View {
             frame = anchors.frames.filter { $0.key.hasPrefix("toolbar-") }.values.reduce(CGRect.null) { $0.union($1) }
         } else { frame = anchors.frames[targets[step]] ?? .null }
         guard !frame.isNull else { return .zero }
+        #if os(macOS)
+        guard let origin = anchors.frames["overlay"]?.origin else { return .zero }
+        #else
         let origin = geometry.frame(in: .global).origin
+        #endif
         return frame.offsetBy(dx: -origin.x, dy: -origin.y).insetBy(dx: -6, dy: -6)
             .intersection(CGRect(origin: .zero, size: geometry.size).insetBy(dx: 4, dy: 4))
     }
@@ -1412,6 +1495,11 @@ struct SessionIntroductionOverlay: View {
         GeometryReader { geometry in
             let highlight = target(in: geometry)
             let above = !highlight.isEmpty && highlight.midY > geometry.size.height / 2
+            #if os(macOS)
+            let toolbarStep = step == 0
+            #else
+            let toolbarStep = false
+            #endif
             ZStack {
                 Color.clear.contentShape(Rectangle()).onTapGesture { }
                 Path { path in
@@ -1427,7 +1515,8 @@ struct SessionIntroductionOverlay: View {
                         .allowsHitTesting(false).accessibilityHidden(true)
                 }
                 VStack(spacing: 0) {
-                    if above || highlight.isEmpty { Spacer(minLength: 16) }
+                    if toolbarStep { Spacer().frame(height: 16) }
+                    else if above || highlight.isEmpty { Spacer(minLength: 16) }
                     else { Spacer().frame(height: min(highlight.maxY + 18, geometry.size.height * 0.42)) }
                     card
                         .id(step)
@@ -1443,6 +1532,12 @@ struct SessionIntroductionOverlay: View {
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("session-introduction")
+        #if os(macOS)
+        .background(SessionIntroductionTargetReader(name: "overlay")
+            .environment(\.sessionIntroductionAnchors, anchors))
+        .onChange(of: step, initial: true) { _, step in anchors.highlightsToolbar = step == 0 }
+        .onDisappear { anchors.highlightsToolbar = false }
+        #endif
         .onAppear { titleFocused = true }
         .onChange(of: step) { titleFocused = true }
     }
@@ -1452,6 +1547,7 @@ struct SessionIntroductionOverlay: View {
                 Text("\(step + 1) / 4").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer()
                 Button(text("skip"), action: dismiss).frame(minHeight: 44)
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("session-introduction-skip")
             }
             Label(text(stepName + ".title"), systemImage: symbols[step])
@@ -1469,7 +1565,8 @@ struct SessionIntroductionOverlay: View {
             HStack(spacing: 12) {
                 if step > 0 {
                     Button(text("back")) { DJConnectHaptics.selection(); step -= 1 }
-                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary, usesLiveGlass: false))
+                        .buttonStyle(.glass)
+                        .controlSize(.large)
                 }
                 Spacer(minLength: 0)
                 Button(text(step == 3 ? "done" : "next")) {
@@ -1482,7 +1579,7 @@ struct SessionIntroductionOverlay: View {
         }
         .padding(20)
         .foregroundStyle(.white)
-        .background(DJConnectMaterial(.regular), in: RoundedRectangle(cornerRadius: 26))
-        .overlay { RoundedRectangle(cornerRadius: 26).stroke(DJConnectCardAppearance.searchFocusGradient, lineWidth: 1.25).allowsHitTesting(false) }
+        .djSessionFrostedSurface(cornerRadius: 26)
+        .overlay { RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(DJConnectCardAppearance.searchFocusGradient, lineWidth: 1.25).allowsHitTesting(false) }
     }
 }

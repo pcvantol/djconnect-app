@@ -13,10 +13,13 @@
                         <rect key="frame" x="0.0" y="0.0" width="1024" height="1366"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleToFill" image="LaunchBackground.png" translatesAutoresizingMaskIntoConstraints="NO" id="launch-background">
+                                <rect key="frame" x="0.0" y="0.0" width="1024" height="1366"/>
+                            </imageView>
                             <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="center" spacing="14" translatesAutoresizingMaskIntoConstraints="NO" id="launch-brand-stack">
                                 <rect key="frame" x="232" y="613.5" width="560" height="139"/>
                                 <subviews>
-                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchIcon" translatesAutoresizingMaskIntoConstraints="NO" id="launch-brand-icon">
+                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchAvatar.png" translatesAutoresizingMaskIntoConstraints="NO" id="launch-brand-icon">
                                         <rect key="frame" x="238" y="0.0" width="84" height="84"/>
                                         <constraints>
                                             <constraint firstAttribute="width" constant="84" id="launch-icon-width"/>
@@ -38,6 +41,10 @@
                         <viewLayoutGuide key="safeArea" id="launch-safe-area"/>
                         <color key="backgroundColor" red="0.090196078431372548" green="0.070588235294117646" blue="0.12156862745098039" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
+                            <constraint firstItem="launch-background" firstAttribute="top" secondItem="launch-view" secondAttribute="top" id="launch-background-top"/>
+                            <constraint firstItem="launch-background" firstAttribute="bottom" secondItem="launch-view" secondAttribute="bottom" id="launch-background-bottom"/>
+                            <constraint firstItem="launch-background" firstAttribute="leading" secondItem="launch-view" secondAttribute="leading" id="launch-background-leading"/>
+                            <constraint firstItem="launch-background" firstAttribute="trailing" secondItem="launch-view" secondAttribute="trailing" id="launch-background-trailing"/>
                             <constraint firstItem="launch-brand-stack" firstAttribute="centerX" secondItem="launch-safe-area" secondAttribute="centerX" id="launch-brand-center-x"/>
                             <constraint firstItem="launch-brand-stack" firstAttribute="centerY" secondItem="launch-safe-area" secondAttribute="centerY" id="launch-brand-center-y"/>
                             <constraint firstItem="launch-brand-stack" firstAttribute="width" secondItem="launch-safe-area" secondAttribute="width" constant="-48" priority="750" id="launch-brand-width"/>
@@ -51,6 +58,7 @@
         </scene>
     </scenes>
     <resources>
-        <image name="LaunchIcon" width="1024" height="1024"/>
+        <image name="LaunchBackground.png" width="1024" height="1024"/>
+        <image name="LaunchAvatar.png" width="1254" height="1254"/>
     </resources>
 </document>
