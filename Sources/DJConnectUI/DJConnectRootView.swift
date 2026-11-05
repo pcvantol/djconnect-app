@@ -2415,10 +2415,12 @@ private struct PairingEditableURLCard: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.62))
             HStack(spacing: 8) {
-                TextField("", text: $text, prompt: Text("http://homeassistant.local:8123").foregroundStyle(.secondary))
-                    .foregroundStyle(trimmedText == "http://homeassistant.local:8123" ? Color.secondary : Color.primary)
+                TextField("", text: $text, prompt: Text("http://homeassistant.local:8123").foregroundColor(.gray))
+                    .foregroundColor(trimmedText == "http://homeassistant.local:8123" ? .gray : .primary)
                     .font(.system(.body, design: .monospaced))
+                    #if os(iOS)
                     .textContentType(.URL)
+                    #endif
                     .focused($isURLFocused)
                     #if os(iOS)
                     .keyboardType(.URL)
@@ -2517,8 +2519,8 @@ private struct PairingCodeEntryCard: View {
             Text(localizedKey(language, "ui.pair.code.integration.label"))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.62))
-            TextField("", text: $text, prompt: Text(localizedKey(language, "ui.pair.code.placeholder.six.digits")).foregroundStyle(.secondary))
-                .foregroundStyle(.primary)
+            TextField("", text: $text, prompt: Text(localizedKey(language, "ui.pair.code.placeholder.six.digits")).foregroundColor(.gray))
+                .foregroundColor(text.isEmpty ? .gray : .primary)
                 .font(.system(.title3, design: .monospaced).weight(.bold))
                 .textContentType(.oneTimeCode)
                 .focused($isCodeFocused)
@@ -4374,10 +4376,7 @@ struct TrackInsightView: View {
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if !explicitMoment {
-                        SessionConnectionToolbarButton(model: model) {
-                            menuIntent = SessionControlIntent(kind: .connection, sessionID: model.activeDJSession?.id ?? "", epoch: model.sessionHistory.responseEpoch, sourceRect: menuFrames[.connection] ?? .zero)
-                        }
-                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.connection] = $0 }
+                        SessionConnectionToolbarButton(model: model)
                     }
                     insightRefreshButton
                 }
@@ -6640,6 +6639,7 @@ private struct MusicDiscoveryView: View {
     private var content: some View {
         if shouldShowMusicDNALockedState {
             MusicDiscoveryLockedState(model: model)
+                .djConnectStandardHeroWidth()
         } else if model.musicDiscoveryResponse == nil || visibleSections.isEmpty {
             MusicDiscoveryEmptyState(model: model)
         } else {
@@ -9378,7 +9378,7 @@ struct DJSessionWelcomeArtwork: View {
 
     private func artworkGlyph(_ glyph: String, size: CGFloat) -> some View {
         Image(systemName: glyph).font(.system(size: size * 0.07, weight: .medium))
-            .foregroundStyle(.white)
+            .foregroundStyle(djConnectIconGradient)
             .frame(width: size * 0.18, height: size * 0.18)
             .background(DJConnectMaterial(.ultraThin), in: RoundedRectangle(cornerRadius: size * 0.06))
             .overlay { RoundedRectangle(cornerRadius: size * 0.06).stroke(.white.opacity(0.22)) }

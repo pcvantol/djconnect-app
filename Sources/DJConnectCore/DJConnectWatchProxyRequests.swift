@@ -221,3 +221,16 @@ public struct DJConnectWatchTextOutcomeRequest: Codable, Sendable {
         self.clientMessageID = clientMessageID
     }
 }
+
+/// WatchConnectivity delivers both outcomes on its own operation queue. These
+/// callbacks must never inherit the caller's MainActor isolation. UI updates
+/// happen after the awaiting task resumes on its original actor.
+public struct DJConnectCompanionDataReply: Sendable {
+    public let success: @Sendable (Data) -> Void
+    public let failure: @Sendable (any Error) -> Void
+
+    public nonisolated init(_ continuation: CheckedContinuation<Data, any Error>) {
+        success = { @Sendable data in continuation.resume(returning: data) }
+        failure = { @Sendable error in continuation.resume(throwing: error) }
+    }
+}

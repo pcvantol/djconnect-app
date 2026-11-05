@@ -1638,6 +1638,26 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.buttons["Start DJ-sessie"].isHittable)
     }
 
+    func testConnectionStatusKeepsToolbarArrowAndUnderlyingPage() {
+        let app = launchSessionUIDemo()
+        let connection = app.buttons["session-connection-toggle"].firstMatch
+        XCTAssertTrue(connection.waitForExistence(timeout: 8))
+        let toolbarFrame = connection.frame
+        connection.tap()
+        let title = app.staticTexts["Verbindingsstatus"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(title.frame.minY, toolbarFrame.maxY)
+        // A popover intentionally blocks hits outside; verify the page remains
+        // rendered and becomes interactive again when dismissed instead.
+        XCTAssertTrue(app.tabBars.buttons["DJ-sessie"].exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "connection-status-toolbar-arrow"; shot.lifetime = .keepAlways; add(shot)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7)).tap()
+        XCTAssertTrue(title.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(connection.isHittable)
+        XCTAssertTrue(app.staticTexts["Stemming"].firstMatch.waitForExistence(timeout: 5), "Dismissing status must preserve the underlying page")
+    }
+
     func testSessionMoodToolbarAndPlaybackTimes() {
         let app = launchSessionUIDemo()
         let connection = app.buttons["session-connection-toggle"]

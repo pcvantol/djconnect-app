@@ -130,7 +130,7 @@ struct DJConnectWatchVibeScapeView: View {
             }
             Button {
                 setDynamics(0.5, followsDJ: true)
-                controlsVisit = nil
+                revealControls()
                 crownFocused = true
             } label: {
                 Image(systemName: "arrow.uturn.backward")
