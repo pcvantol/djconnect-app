@@ -27,15 +27,18 @@ public struct DJConnectSessionEntryReference: Codable, Hashable, Sendable {
 
 public struct DJConnectConversationContext: Codable, Equatable, Sendable {
     public var sessionID: String?
+    public var threadID: String? = nil
     public var selectedEntry: DJConnectSessionEntryReference?
     public var selectedMoment: DJConnectSelectedMomentReference?
     public init(sessionID: String?, selectedEntry: DJConnectSessionEntryReference? = nil,
-                selectedMoment: DJConnectSelectedMomentReference? = nil) {
+                selectedMoment: DJConnectSelectedMomentReference? = nil, threadID: String? = nil) {
+        self.threadID = threadID
         self.sessionID = sessionID; self.selectedEntry = selectedEntry; self.selectedMoment = selectedMoment
     }
-    enum CodingKeys: String, CodingKey { case sessionID = "session_id", selectedEntry = "selected_entry", selectedMoment = "selected_moment" }
+    enum CodingKeys: String, CodingKey { case threadID = "thread_id", sessionID = "session_id", selectedEntry = "selected_entry", selectedMoment = "selected_moment" }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        threadID = try c.decodeIfPresent(String.self, forKey: .threadID)
         sessionID = try c.decodeIfPresent(String.self, forKey: .sessionID)
         selectedEntry = try c.decodeIfPresent(DJConnectSessionEntryReference.self, forKey: .selectedEntry)
         selectedMoment = try c.decodeIfPresent(DJConnectSelectedMomentReference.self, forKey: .selectedMoment)
@@ -50,6 +53,7 @@ public struct DJConnectConversationContext: Codable, Equatable, Sendable {
         var c = encoder.container(keyedBy: CodingKeys.self)
         if let sessionID { try c.encode(sessionID, forKey: .sessionID) }
         else { try c.encodeNil(forKey: .sessionID) }
+        try c.encodeIfPresent(threadID, forKey: .threadID)
         try c.encodeIfPresent(selectedEntry, forKey: .selectedEntry)
         try c.encodeIfPresent(selectedMoment, forKey: .selectedMoment)
     }

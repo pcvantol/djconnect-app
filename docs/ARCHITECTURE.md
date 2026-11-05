@@ -658,3 +658,35 @@ factory, allocator, migration or activation path. Their source review does not
 open SDK or service admission. See [composition](VIBECAST_HANDLE_JOURNAL_COMPOSITION.md)
 and [child storage](VIBECAST_CHILD_JOURNAL_STORE.md). Shipping and ordinary QA
 remain closed without an exact finite native policy and external admission.
+
+## Session For you
+
+Core's `SESSION_FOR_YOU_V1` contract (Source PR1463, merge
+`b8c07abd434abb06bed8fbedd1a7a3a10f3c32b5`; Finalization main
+`2bcc36150544b044c6c48fa6690086debd6e9c4c`) replaces the visible Verras me
+launcher on iOS/iPadOS and macOS. `SessionForYouCard` renders the authenticated
+`for_you` schema1 projection above Flow artwork, gated by startup-actions2 and
+first-play3. Watch neither renders nor prepares this card. The original legacy
+startup DTO/model remains compatibility-only and is not mounted as a launcher.
+
+Three original opaque genre choices enter the existing Session conversation
+route with the supplied Session/thread context, a unique client-message ID and
+`audio_response:never`. A returned output choice renders in the ordinary Session
+speaker bubble and continues that same conversation, never the direct legacy
+playback command. Negative dismissal uses the same endpoint without a synthetic
+user message. Unknown outcomes remain pending; neither ACK nor unrelated playback
+hides the card. Only the server's visible=false projection closes it. Cached
+active-session observations are read-only; expiry/settings changes disable old
+choices. Renewal is explicit, using the original server-supplied refresh prompt.
+The client bounds both wall and monotonic lifetime and fences owner/session,
+transport origin, language and history generation across awaited work.
+
+Only the bounded `visual_recipe` enters Foundation Models on supported devices.
+The generated numeric SceneSpec is clamped and rendered as a native decorative
+landscape; no image, catalogue URI, action identity, history or Profile data is
+passed to that local model. An unavailable/refused model uses a procedural
+illustration and does not claim local generation or audio analysis. Session and
+recipe-revision caches keep polling from changing illustrations. These are
+visual illustrations, not music recommendations or acoustic facts. Source and
+fixture validation do not establish installed Core/Spotify/local-model/device
+acceptance.

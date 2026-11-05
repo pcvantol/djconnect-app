@@ -9837,3 +9837,110 @@ private final class StartupReadFailure: @unchecked Sendable {
     }
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/command") })
 }
+
+@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss"])
+@MainActor func forYouUsesOriginalOfferWithoutPlaybackOrAutomaticRenewal(_ scenario: String) async throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let fixtureEnvelope = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-v1.json"))) as? [String: Any])
+    var offer = try #require(fixtureEnvelope["for_you"] as? [String: Any])
+    let receipt = try historyObject(), old = try startupFixtureObject()
+    let sessionID = try #require(receipt["session_id"] as? String)
+    let context: [String: Any] = ["session_id": sessionID, "thread_id": "for-you-" + sessionID]
+    offer["session_id"] = sessionID; offer["conversation_context"] = context
+    var timelineObject = try #require(receipt["archived_timeline"] as? [String: Any])
+    timelineObject["window"] = "tail"; timelineObject["window_limit"] = 20; timelineObject["scan_complete"] = true
+    let orders = (timelineObject["entries"] as? [[String: Any]] ?? []).compactMap { $0["order"] as? Int }
+    timelineObject["scanned_order_min"] = orders.min(); timelineObject["scanned_order_max"] = orders.max()
+    let timeline = try historyData(timelineObject), profile = try historyData(receipt["later_historical_answer"]!)
+    var runtime = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+    var session = runtime["session"] as! [String: Any]; session["session_id"] = sessionID
+    var broadcast = session["broadcast"] as! [String: Any]
+    var fields = broadcast["session"] as! [String: Any]; fields["session_id"] = sessionID
+    broadcast["session"] = fields; session["broadcast"] = broadcast; runtime["session"] = session
+    runtime["for_you"] = offer
+    let runtimeData = try historyData(runtime)
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_start_actions": true, "session_first_play_surprise_mix": true],
+        "contract_versions": ["session_conversation_history": 1, "session_start_actions": 2, "session_first_play_surprise_mix": 3]])
+    var answer = receipt["text_turn"] as! [String: Any]
+    for (key, value) in old["output"] as! [String: Any] { answer[key] = value }
+    answer["history_revision"] = 100; answer["server_time"] = ISO8601DateFormatter().string(from: Date())
+    var confirmation = answer["conversation"] as! [String: Any]; confirmation["context"] = context; confirmation["entry_ids"] = []
+    answer["conversation"] = confirmation
+    // Core publishes the same live output actions on the ordinary assistant bubble.
+    var assistant = answer["assistant_message"] as! [String: Any]
+    assistant["playback_actions"] = answer["playback_actions"]
+    answer["assistant_message"] = assistant
+    if var messages = answer["messages"] as? [[String: Any]], !messages.isEmpty {
+        messages[messages.count - 1] = assistant; answer["messages"] = messages
+    }
+
+    let answerData = try historyData(answer)
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/session/active") { return (200, runtimeData, 0) }
+        if path.hasSuffix("/ask_dj/message") {
+            if scenario == "unknown" { return (503, Data(), 0) }
+            if scenario == "dismiss" {
+                return (200, try historyData(["success": true, "for_you": ["schema_version": 1, "state": "dismissed", "visible": false]]), 0)
+            }
+            return (200, answerData, 0)
+        }
+        if path.contains("/session/history") { return (200, timeline, 0) }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare(); await model.refreshActiveDJSession(); model.isConnected = true
+    model.language = "nl"; model.askDJDraft = "Mijn concept"
+    model.playback = .init(hasPlayback: true, isPlaying: true, trackName: "Already playing")
+    let projection = model.sessionForYou
+    await projection.refresh()
+    #expect(projection.offer?.options.count == 3 && projection.canChoose)
+    #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+    let option = try #require(projection.offer?.options.first)
+    if scenario == "expired" {
+        projection.now = { Date().addingTimeInterval(61) }
+        projection.choose(option); await projection.refresh()
+        #expect(!projection.canChoose && projection.offer?.visible == true)
+        #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+        return
+    }
+    if scenario == "scope" {
+        model.language = "en"; projection.choose(option)
+        #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+        return
+    }
+    if scenario == "dismiss" { projection.dismiss() }
+    else { projection.choose(option); projection.choose(option) }
+    for _ in 0..<200 where projection.busy { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(model.askDJDraft == "Mijn concept")
+    if scenario == "dismiss" { #expect(projection.offer == nil) }
+    else { #expect(projection.offer?.visible == true && !projection.canChoose) }
+    if scenario == "output" {
+        let result = try JSONDecoder().decode(DJConnectResultSet.self, from: historyData((old["output"] as! [String: Any])["result_set"]!))
+        let speaker = try #require(result.admittedPlaybackActions.first)
+        let originalEntries = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timeline).entries
+        let replyEntry = try #require(originalEntries.first { $0.originMessageID == assistant["id"] as? String })
+        let bubble = try #require(model.sessionHistory.liveMessage(for: replyEntry, activeSessionID: sessionID))
+        #expect(bubble.playbackActions.contains(speaker))
+        model.playAskDJRecommendation(speaker)
+        model.playAskDJRecommendation(speaker) // Duplicate consumes no additional effect.
+        for _ in 0..<200 where projection.busy { try await Task.sleep(for: .milliseconds(10)) }
+    }
+    let posts = fixture.requests.filter { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }
+    #expect(posts.count == (scenario == "output" ? 2 : 1))
+    for request in posts {
+        let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+        let sentContext = try #require(body["conversation_context"] as? [String: Any])
+        #expect(sentContext["thread_id"] as? String == "for-you-" + sessionID)
+        #expect(sentContext["session_id"] as? String == sessionID)
+        #expect(body["audio_response"] as? String == "never")
+        #expect(body["uri"] == nil && body["uris"] == nil)
+        let choice = try #require(body["choice_action"] as? [String: Any])
+        if scenario == "dismiss" { #expect(choice["operation"] as? String == "dismiss" && body["client_message_id"] == nil) }
+        else { #expect(choice["operation"] as? String == "select") }
+    }
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/command") || $0.url!.path.hasSuffix("/session/start") })
+}

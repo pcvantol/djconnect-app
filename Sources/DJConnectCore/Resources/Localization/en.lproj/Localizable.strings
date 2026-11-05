@@ -1709,3 +1709,9 @@
 "watch.game.controls.fly" = "Crown: altitude · Tap: fire";
 "watch.game.controls.pacman" = "Crown: turn · Tap: choose direction";
 "watch.game.restart" = "Restart";
+
+"ui.for_you.pending" = "Awaiting confirmation. Continue any speaker selection in the session.";
+"ui.for_you.unavailable" = "These choices are currently unavailable or expired. Refresh to request a new offer.";
+"ui.for_you.refresh" = "Refresh choices";
+"ui.for_you.art.local" = "Locally generated landscape illustration; not audio analysis.";
+"ui.for_you.art.procedural" = "Procedural landscape illustration; not audio analysis.";
