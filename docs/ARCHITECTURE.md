@@ -690,3 +690,21 @@ recipe-revision caches keep polling from changing illustrations. These are
 visual illustrations, not music recommendations or acoustic facts. Source and
 fixture validation do not establish installed Core/Spotify/local-model/device
 acceptance.
+
+### Music announcement V1
+
+Apple renders Core's typed `music_announcement` independently of legacy track
+Moments. Its occurrence, recording, source attribution and original current/Flow
+delivery grants remain Core-owned. The current card requires the original
+recording to be playing and respects the published display deadline; polling
+does not renew it. Retained entries keep the original text, reference and media
+preparation route. A localized music-announcement label is shared across Apple
+surfaces. No client playback, push or haptic effect is introduced by admission.
+
+Only this family can request explicit manual local speech under Settings3
+`text_only`. The client does not add a family or caller text to the prepare
+payload: Core must return the exact original reference and a typed
+`moment_type: music_announcement` grant. Existing processor, settings fence,
+voice, source/text, expiry and owner checks still apply. Both on-device TTS and
+HA-configured local audio use their existing routes. Automatic, speaker and
+other Moment/Ask DJ routes keep their previous output policy.

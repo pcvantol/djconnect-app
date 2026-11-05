@@ -4914,7 +4914,7 @@ private struct DJConnectWatchCompanionPages: View {
                    flowRows?.contains(where: { $0.id == row.id && $0.text == row.text }) == true {
                     VStack(alignment: .leading, spacing: 8) {
                         DJConnectWatchMomentHeading(title: text(row.labelKey), color: accent)
-                        if row.labelKey == "ui.session.history.playback", let reference = row.reference {
+                        if ["ui.session.history.playback", "ui.session.moment.music_announcement"].contains(row.labelKey), let reference = row.reference {
                             DJConnectWatchFlowArtworkView(reference: reference, binding: binding)
                         }
                         Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
@@ -4930,8 +4930,8 @@ private struct DJConnectWatchCompanionPages: View {
                             }
                         }
                         if let reference = row.reference {
-                            if row.labelKey == "ui.session.moment.generic", !row.text.isEmpty {
-                                DJConnectWatchRetainedReplayButton(reference: reference, binding: binding, speech: model.sessionSpeech)
+                            if ["ui.session.moment.generic", "ui.session.moment.music_announcement"].contains(row.labelKey), !row.text.isEmpty {
+                                DJConnectWatchRetainedReplayButton(reference: reference, binding: binding, speech: model.sessionSpeech, momentType: row.labelKey == "ui.session.moment.music_announcement" ? "music_announcement" : nil)
                             }
                             NavigationLink {
                                 DJConnectWatchCompanionTextView(context: .init(sessionID: sessionID, selectedEntry: reference))
@@ -5261,6 +5261,7 @@ private struct DJConnectWatchRetainedReplayButton: View {
     let binding: String
     @ObservedObject var speech: DJConnectWatchSessionSpeech
 
+    var momentType: String? = nil
     var body: some View {
         let id = reference.entryID
         let isSpeaking = speech.momentID == id && (speech.state == .preparing || speech.state == .playing)
@@ -5268,14 +5269,14 @@ private struct DJConnectWatchRetainedReplayButton: View {
             if isSpeaking {
                 speech.stop()
             } else {
-                model.replaySessionSpeech(.entry(sessionID: reference.sessionID, entryID: id), id: id, binding: binding)
+                model.replaySessionSpeech(.entry(sessionID: reference.sessionID, entryID: id), id: id, binding: binding, momentType: momentType)
             }
         } label: {
             Label(watchLocalizedKey(model.language, isSpeaking ? "watch.session.stop_speech" : "watch.v2.listen"),
                   systemImage: isSpeaking ? "stop.fill" : "speaker.wave.2")
         }
         .buttonStyle(DJConnectWatchFlatActionRowStyle())
-        .disabled(!isSpeaking && !model.canReplaySessionSpeech(binding: binding))
+        .disabled(!isSpeaking && !model.canReplaySessionSpeech(binding: binding, momentType: momentType))
         .onDisappear {
             if speech.momentID == id { speech.stop() }
         }
@@ -5304,7 +5305,7 @@ private struct DJConnectWatchCompanionMomentView: View {
         ScrollView {
             if available {
             VStack(alignment: .leading, spacing: 10) {
-                DJConnectWatchMomentHeading(title: watchLocalizedKey(model.language, "watch.v2.moments"), color: theme.watchColors[1])
+                DJConnectWatchMomentHeading(title: watchLocalizedKey(model.language, moment.isMusicAnnouncementV1 ? "ui.session.moment.music_announcement" : "watch.v2.moments"), color: theme.watchColors[1])
                 Text(moment.content).fixedSize(horizontal: false, vertical: true)
                 if moment.sourceAttribution?["provider"] == "Spotify",
                    moment.nativeSourceURLs.contains(where: { $0.host == "open.spotify.com" }) {
@@ -6013,14 +6014,14 @@ private struct DJConnectWatchMomentNotificationView: View {
                           let originalBinding, state.current()?.settings.binding == originalBinding {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
-                            DJConnectWatchMomentHeading(title: watchLocalizedKey(model.language, "watch.v2.moments"), color: theme.watchColors[1])
+                            DJConnectWatchMomentHeading(title: watchLocalizedKey(model.language, retained.momentType == "music_announcement" ? "ui.session.moment.music_announcement" : "watch.v2.moments"), color: theme.watchColors[1])
                             Text(retained.text ?? "").fixedSize(horizontal: false, vertical: true)
                             if retained.requiresSpotifyAttribution == true {
                                 Image("SpotifyAttribution").resizable().scaledToFit()
                                     .frame(width: 72, height: 24).accessibilityLabel("Spotify")
                             }
                             DJConnectWatchRetainedReplayButton(reference: retained.reference, binding: originalBinding,
-                                                               speech: model.sessionSpeech)
+                                                               speech: model.sessionSpeech, momentType: retained.momentType)
                             NavigationLink {
                                 DJConnectWatchCompanionTextView(context: .init(sessionID: nil, selectedEntry: retained.reference),
                                                                binding: originalBinding)

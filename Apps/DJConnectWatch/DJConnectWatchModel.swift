@@ -4780,24 +4780,24 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         ![.idle, .loading, .saving, .unavailable, .uncertain].contains(profileDJSettings.phase)
     }
     func stopDeviceSpeechPreview() { if deviceSpeechPreviewIsPlaying { stopAskDJAudio() } }
-    func canReplaySessionSpeech(binding: String) -> Bool {
+    func canReplaySessionSpeech(binding: String, momentType: String? = nil) -> Bool {
         isAppForeground && canUseBackend && !isDemoMode &&
             foregroundSession.current()?.settings.binding == binding &&
-            foregroundSession.current()?.settings.allowsSpeech(.local) == true
+            foregroundSession.current()?.settings.allowsSpeech(.local, manualMomentType: momentType) == true
     }
 
     func canPlaySessionMoment(_ moment: DJConnectMoment) -> Bool {
         guard let snapshot = foregroundSession.current(), snapshot.session?.id == moment.sessionID else { return false }
-        return canReplaySessionSpeech(binding: snapshot.settings.binding)
+        return canReplaySessionSpeech(binding: snapshot.settings.binding, momentType: moment.isMusicAnnouncementV1 ? moment.type : nil)
     }
 
     func playSessionMoment(_ moment: DJConnectMoment) {
         guard canPlaySessionMoment(moment), let binding = foregroundSession.current()?.settings.binding else { return }
-        replaySessionSpeech(.moment(sessionID: moment.sessionID, momentID: moment.id), id: moment.id, binding: binding)
+        replaySessionSpeech(.moment(sessionID: moment.sessionID, momentID: moment.id), id: moment.id, binding: binding, momentType: moment.isMusicAnnouncementV1 ? moment.type : nil)
     }
 
-    func replaySessionSpeech(_ reference: DJConnectSpeechReference, id: String, binding: String) {
-        guard canReplaySessionSpeech(binding: binding), let settings = foregroundSession.current()?.settings else { return }
+    func replaySessionSpeech(_ reference: DJConnectSpeechReference, id: String, binding: String, momentType: String? = nil) {
+        guard canReplaySessionSpeech(binding: binding, momentType: momentType), let settings = foregroundSession.current()?.settings else { return }
         let owner = stableInstallID
         let preferences = deviceSpeechPreferences
         let processor: DJConnectSpeechProcessor = preferences.enabled ? .localOnDevice : .haConfigured
@@ -4830,7 +4830,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                         locale: locale, preferences: preferences, completion: finished)
                 })
             }
-            guard replay.speech.effectiveVoice?.processor == .haConfigured, replay.speech.audioState == "ready",
+            guard settings.allowsSpeech(.local, manualMomentType: replay.speech.momentType),
+                  replay.speech.effectiveVoice?.processor == .haConfigured, replay.speech.audioState == "ready",
                   let audio = replay.audio, !audio.isEmpty else { throw DJConnectError.invalidResponse }
             return (min(deadline, replay.expiresAt), { [weak self] finished in
                 guard let self else { return false }
@@ -4852,7 +4853,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 return true
             })
         }, isCurrent: { [weak self] in
-            guard let self, canReplaySessionSpeech(binding: binding), stableInstallID == owner,
+            guard let self, canReplaySessionSpeech(binding: binding, momentType: momentType), stableInstallID == owner,
                   deviceSpeechPreferences == preferences, let snapshot = foregroundSession.current(),
                   snapshot.settings.speechFence == settings.speechFence,
                   snapshot.settings.voice_revision == settings.voice_revision,

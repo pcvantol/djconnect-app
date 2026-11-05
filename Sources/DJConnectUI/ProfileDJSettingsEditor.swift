@@ -451,7 +451,7 @@ struct SharedDJSpeechActions: View {
         else if let speech { model.replaySharedDJSpeech(speech, acceptedText: acceptedText, target: target) }
     }
     var body: some View {
-        if model.profileDJSettings.effective?.announcement_output != .textOnly, let reference {
+        if model.sharedDJSpeechAllowed(momentType: retainedEntry?.momentType ?? speech?.momentType), let reference {
             HStack(alignment: .center, spacing: 8) {
                 Spacer(minLength: 0)
                 if model.sharedSpeechReference == reference,
@@ -471,7 +471,8 @@ struct SharedDJSpeechActions: View {
         let active = ownsOutput && (model.sharedSpeechIsPlaying || preparing)
         let actionLabel = text(active ? "stop_local" : ownsOutput && model.sharedSpeechDelivery["local"] != nil ? "replay_local" : "listen_local")
         if case .moment = reference, model.canUseHASpeechOutput(.haSpeaker),
-           model.profileDJSettings.effective?.announcement_output != .clientDevice {
+           model.profileDJSettings.effective?.announcement_output != .clientDevice,
+           model.profileDJSettings.effective?.announcement_output != .textOnly {
             Menu {
                 Button(text("target.ha_speaker")) { play(.haSpeaker) }
                     .disabled(model.profileDJSettings.response?.announcement_output.speaker_available != true)
@@ -498,7 +499,7 @@ struct SharedDJSpeechActions: View {
             .contentShape(Circle())
         }
         .djConnectPlainButtonStyle()
-        .disabled(!active && (!model.sharedDJSpeechAllowed || !model.canUseLocalDJSpeechOutput))
+        .disabled(!active && (!model.sharedDJSpeechAllowed(momentType: retainedEntry?.momentType ?? speech?.momentType) || !model.canUseLocalDJSpeechOutput))
         .accessibilityLabel(actionLabel)
         .accessibilityValue(preparing ? text("delivery.preparing") : ownsOutput ? text("delivery." + (model.sharedSpeechDelivery["local"] ?? "ready")) : "")
         .accessibilityIdentifier(active ? "shared-speech-stop-local" : "shared-speech-listen-local")
