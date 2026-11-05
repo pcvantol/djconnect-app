@@ -10,8 +10,8 @@ enum DJConnectGlassAppearance {
 }
 
 #if os(iOS) || os(macOS)
-/// Shared DJConnect action surface: one frosted material, a restrained brand
-/// wash and a specular rim. No live refraction compositor inside parent cards.
+/// Shared default action surface, matching the dark purple session options.
+/// One frosted material and a subtle rim, without a bright blue/pink wash.
 struct DJConnectPrimaryButtonSurface: View {
     var shape: AnyShape = AnyShape(Capsule())
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
@@ -20,18 +20,19 @@ struct DJConnectPrimaryButtonSurface: View {
     var body: some View {
         ZStack {
             shape.fill(DJConnectMaterial(.thin))
-            shape.fill(DJConnectButtonAppearance.primaryGradient.opacity(glassEnabled && !reduceTransparency ? 0.24 : 0.32))
+            shape.fill(Color(red: 0.15, green: 0.09, blue: 0.27)
+                .opacity(glassEnabled && !reduceTransparency ? 0.78 : 1))
             if glassEnabled && !reduceTransparency {
                 shape.fill(LinearGradient(stops: [
-                    .init(color: .white.opacity(0.16), location: 0),
+                    .init(color: .white.opacity(0.09), location: 0),
                     .init(color: .white.opacity(0.03), location: 0.48),
                     .init(color: .clear, location: 0.52),
                     .init(color: .white.opacity(0.04), location: 1)
                 ], startPoint: .top, endPoint: .bottom))
             }
-            shape.stroke(LinearGradient(colors: [.white.opacity(0.48),
-                Color(red: 0.42, green: 0.62, blue: 1).opacity(0.28),
-                Color(red: 0.85, green: 0.56, blue: 1).opacity(0.40)],
+            shape.stroke(LinearGradient(colors: [.white.opacity(0.32),
+                Color(red: 0.59, green: 0.48, blue: 0.78).opacity(0.22),
+                Color(red: 0.70, green: 0.57, blue: 0.86).opacity(0.30)],
                 startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
         }
         .clipShape(shape)
@@ -222,15 +223,26 @@ struct DJConnectHeroGlyph: View {
     }
 }
 
-/// App-owned dialogs remain floating popovers on compact iPhone layouts.
+/// Desktop dialogs keep a useful minimum; iPhone dialogs must accept the viewport width.
+var djConnectDialogMinimumWidth: CGFloat? {
+    #if os(macOS)
+    360
+    #else
+    nil
+    #endif
+}
+
+/// App-owned dialogs use a viewport-centered presentation, independent of the
+/// triggering control or the size of a nested presenter.
 /// System permissions, scanners and document pickers retain their native presentation.
 extension View {
     @ViewBuilder
     func djConnectPopup<Popup: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Popup) -> some View {
         #if os(iOS)
-        popover(isPresented: isPresented) {
-            content().presentationCompactAdaptation(.popover)
+        fullScreenCover(isPresented: isPresented) {
+            DJConnectCenteredPopup { content() }
         }
+        .transaction(value: isPresented.wrappedValue) { $0.disablesAnimations = true }
         #else
         sheet(isPresented: isPresented, content: content)
         #endif
@@ -239,11 +251,33 @@ extension View {
     @ViewBuilder
     func djConnectPopup<Item: Identifiable, Popup: View>(item: Binding<Item?>, @ViewBuilder content: @escaping (Item) -> Popup) -> some View {
         #if os(iOS)
-        popover(item: item) { item in
-            content(item).presentationCompactAdaptation(.popover)
+        fullScreenCover(item: item) { item in
+            DJConnectCenteredPopup { content(item) }
         }
+        .transaction(value: item.wrappedValue?.id) { $0.disablesAnimations = true }
         #else
         sheet(item: item, content: content)
         #endif
     }
 }
+
+#if os(iOS)
+private struct DJConnectCenteredPopup<Popup: View>: View {
+    @ViewBuilder let content: () -> Popup
+
+    var body: some View {
+        GeometryReader { viewport in
+            ZStack {
+                Color.black.opacity(0.28).ignoresSafeArea()
+                content()
+                    .frame(width: max(0, min(940, viewport.size.width - 24)))
+                    .frame(maxHeight: max(0, viewport.size.height - 24))
+                    .background(DJConnectCanvasBackground())
+                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            }
+            .frame(width: viewport.size.width, height: viewport.size.height)
+        }
+        .presentationBackground(.clear)
+    }
+}
+#endif

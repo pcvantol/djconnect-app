@@ -15225,12 +15225,47 @@ import CoreAudio
     let removed = try #require(model.handleDemoWatchPlayback(.init(sessionID: id,
         command: "set_current_track_favorite", value: .bool(false))))
     #expect(removed.playback?.currentTrackFavoriteStatus == false)
+    for enabled in [true, false] {
+        let changed = try #require(model.handleDemoWatchPlayback(.init(sessionID: id,
+            command: "set_shuffle", value: .bool(enabled))))
+        #expect(changed.playback?.shuffle == enabled)
+        #expect(model.watchDemoSessionSnapshot()?.playback?.shuffle == enabled)
+    }
+    for mode in [DJConnectRepeatState.track, .context, .off] {
+        let changed = try #require(model.handleDemoWatchPlayback(.init(sessionID: id,
+            command: "set_repeat", value: .string(mode.rawValue))))
+        #expect(changed.playback?.repeatState == mode)
+        #expect(model.watchDemoSessionSnapshot()?.playback?.repeatState == mode)
+    }
     let before = model.playback
     #expect(model.handleDemoWatchPlayback(.init(sessionID: "demo-active-stale", command: "next")) == nil)
     #expect(model.handleDemoWatchPlayback(.init(sessionID: id, command: "delete_profile")) == nil)
     #expect(model.playback == before)
     model.stopDemoMode()
     #expect(model.handleDemoWatchPlayback(.init(sessionID: id, command: "play")) == nil)
+}
+
+@MainActor
+@Test(.isolatedClientResources) func watchDemoSnapshotTracksAllPhoneSessionSettings() async throws {
+    let name = "watch-demo-settings-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode()
+    #expect(model.watchDemoSessionSnapshot() == nil)
+    await model.startDJSession()
+    let id = try #require(model.activeDJSession?.id)
+    let epoch = model.sessionHistory.responseEpoch
+    await model.changeActiveSessionMood("party", expectedSessionID: id, expectedEpoch: epoch)
+    await model.changeActiveSessionPersona(.radioDJ, expectedSessionID: id, expectedEpoch: epoch)
+    model.selectActiveSessionPresence(.occasional, expectedSessionID: id, expectedEpoch: epoch)
+    let snapshot = try #require(model.watchDemoSessionSnapshot())
+    #expect(snapshot.id == id)
+    #expect(snapshot.mood == "party")
+    #expect(snapshot.persona == .radioDJ)
+    #expect(snapshot.presence == .occasional)
+    model.stopDemoMode()
+    #expect(model.watchDemoSessionSnapshot() == nil)
 }
 
 @MainActor
@@ -15241,6 +15276,10 @@ import CoreAudio
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.startDemoMode(); await model.startDJSession()
     let id = try #require(model.activeDJSession?.id)
+    let phoneOutputs = model.availableOutputs
+    let initialSnapshot = try #require(model.watchDemoSessionSnapshot())
+    #expect(initialSnapshot.outputs == phoneOutputs)
+    #expect(initialSnapshot.outputs?.map(\.id) == ["demo-living-room", "demo-kitchen"])
     let original = try #require(model.availableOutputs.first { $0.active == true })
     let other = try #require(model.availableOutputs.first { $0.active != true })
     let selected = try #require(model.handleDemoWatchPlayback(.init(sessionID: id, command: "set_output", value: .string(other.id))))

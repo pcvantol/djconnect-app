@@ -3311,6 +3311,7 @@ public final class DJConnectAppModel: ObservableObject {
         appendAskDJMessage(role: .user, text: text, status: .sent)
         appendAskDJMessage(role: .dj, text: reply.answer)
         sessionHistory.recordDemoTurn(question: text, answer: reply.answer)
+        demoSessionTimelineDidChange()
         if demoWatchTextReplies.count >= 40 { demoWatchTextReplies.removeAll() }
         demoWatchTextReplies[request.requestID] = (request, reply)
         return reply
@@ -15379,6 +15380,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     fileprivate func handleWatchProxyReachabilityChange() {
         publishWatchLoggingConfiguration()
+        publishWatchDemoSession(forceDelivery: true)
         if WCSession.default.isReachable, watchProxyRegistration != nil {
             sendWatchProxyReady()
             resumeWatchProxySetupIfNeeded()
@@ -15390,6 +15392,20 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         switch type {
+        case "watch_demo_text_request":
+            guard let data = message["data"] as? Data, data.count <= 20_000,
+                  let request = try? JSONDecoder().decode(DJConnectWatchDemoTextRequest.self, from: data),
+                  let reply = handleDemoWatchText(request),
+                  let encoded = try? JSONEncoder().encode(reply) else { return }
+            let response: [String: Any] = ["type": "watch_demo_text_reply", "data": encoded]
+            if WCSession.default.isReachable {
+                WCSession.default.sendMessage(response, replyHandler: nil, errorHandler: { _ in })
+            }
+            // The matching request ID makes a duplicate foreground/background reply harmless.
+            WCSession.default.transferUserInfo(response)
+            publishWatchDemoSession(forceDelivery: true)
+        case "watch_demo_snapshot_request":
+            publishWatchDemoSession(forceDelivery: true)
         case "watch_diagnostic_batch":
             guard let data = message["data"] as? Data, data.count <= 32_000,
                   let batch = try? JSONDecoder().decode(DJConnectWatchDiagnosticBatch.self, from: data) else { return }
@@ -16413,7 +16429,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func publishWatchDemoSession() {
+    private func publishWatchDemoSession(forceDelivery: Bool = false) {
         guard startBackgroundTasks, WCSession.isSupported(), WCSession.default.activationState == .activated else { return }
         let key = DJConnectWatchDemoSession.contextKey
         let wc = WCSession.default
@@ -16426,7 +16442,7 @@ public final class DJConnectAppModel: ObservableObject {
         } else {
             payload = nil
         }
-        guard context[key] as? Data != payload else { return }
+        guard forceDelivery || context[key] as? Data != payload else { return }
         context[key] = payload
         do {
             try wc.updateApplicationContext(context)

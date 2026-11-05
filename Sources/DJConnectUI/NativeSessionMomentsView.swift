@@ -1162,7 +1162,7 @@ private struct SessionPlaybackEqualizer: View {
                     let level = animated ? 0.18 + 0.82 * (0.5 + 0.5 * sin(time * (4.2 + Double(index) * 0.7) + phase)) : resting[index]
                     let height = max(3, size.height * level)
                     let bar = CGRect(x: Double(index) * 5, y: size.height - height, width: 3, height: height)
-                    context.fill(Path(roundedRect: bar, cornerRadius: 0.75), with: .color(djConnectAccent))
+                    context.fill(Path(roundedRect: bar, cornerRadius: 0.75), with: .color(.white))
                 }
             }
         }

@@ -48,6 +48,7 @@
 		10AF9AFDBA822FF58C07C512 /* DJConnectDeviceSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30E3F5AB8079C533BE43DF01 /* DJConnectDeviceSpeech.swift */; };
 		113AE925D080486029BE641C /* PersonaReactionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05156EF33E8A00358351EB39 /* PersonaReactionView.swift */; };
 		1147A2DFBEECC020952755E5 /* RendezvousCompositionEnvelopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E024E44CE136F64F716CCA82 /* RendezvousCompositionEnvelopeTests.swift */; };
+		11AF35DB9B19273E5136B217 /* DJConnectWatchArcade.swift in Sources */ = {isa = PBXBuildFile; fileRef = C192CA5F6C92195353470546 /* DJConnectWatchArcade.swift */; };
 		11D50DC21D19F2A8E17CC303 /* DJConnectSurfacePushContinuation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6008F2CE8D28AC4C5F79AE43 /* DJConnectSurfacePushContinuation.swift */; };
 		127A70C2EEDDE0B9B7059C58 /* AutomaticSurfaceDiscoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2004AD02B4716DA9189F6A2A /* AutomaticSurfaceDiscoveryTests.swift */; };
 		133D969E0D726F02E009B07F /* DJConnectRendezvousSubmitChallenge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840BB7CBD23A4F6C9B351A85 /* DJConnectRendezvousSubmitChallenge.swift */; };
@@ -319,6 +320,7 @@
 		74BA3CD4D2B6E2AE5CDB09B6 /* CurrentInsightReadClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56968B4E84BAA4C16ACE65BF /* CurrentInsightReadClock.swift */; };
 		74EBED3FC200F76CB8B57E68 /* DJConnectWebSocketSessionAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD94D01429C701E3E5A3FDEF /* DJConnectWebSocketSessionAuthProvider.swift */; };
 		754FC26A57168C9F533E7820 /* DJConnectSessionHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = D30A7F8046B3191EF66D2033 /* DJConnectSessionHistory.swift */; };
+		755AB26A1E91A6078B6123C8 /* DJConnectWatchArcade.swift in Sources */ = {isa = PBXBuildFile; fileRef = C192CA5F6C92195353470546 /* DJConnectWatchArcade.swift */; };
 		7583A2AA59318D70AEF92CF0 /* SessionTimelineLiveRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A7FF2FEF5342D6E2557FDCC /* SessionTimelineLiveRows.swift */; };
 		75A00534BE8229509AAB4EC5 /* DJConnectModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26056425DEFDCF738458EB87 /* DJConnectModels.swift */; };
 		761936DE154AC9191A6AD73C /* JOSESwift-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 53B6C3DF83F55342C594BF75 /* JOSESwift-LICENSE.txt */; };
@@ -422,6 +424,7 @@
 		98FD076D84CC9F9E2CF14F6F /* DJConnectErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA78D455672D5B5BBD091CA /* DJConnectErrors.swift */; };
 		992BFA3F87084AB68B0E9B80 /* RendezvousRepairWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A30E01DCBBC74B7F694B6F6 /* RendezvousRepairWindow.swift */; };
 		9A17042495EF6145D70B5230 /* DJConnectDirectLocalPresentationV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C610E7F4FAB6F00A4FBCDF2 /* DJConnectDirectLocalPresentationV2.swift */; };
+		9A775A77C7F6855A53B91F16 /* WatchArcadeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF0C22410E0B085ED5C06831 /* WatchArcadeTests.swift */; };
 		9AED86DE9981CCF454DCD022 /* DJConnectAudioPlaybackCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2D269974F89251A6D044359 /* DJConnectAudioPlaybackCoordinator.swift */; };
 		9B64ACC4C32778B3734D0D93 /* rich-surface-original-encoder-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 71D4B44DEC7AA1109E37E75B /* rich-surface-original-encoder-v1.json */; };
 		9CF77819BC33C060E818A6FE /* FindShortcutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CF83A5057182EC496998FC /* FindShortcutTests.swift */; };
@@ -512,6 +515,7 @@
 		C36BA68C62A6AF9F69820651 /* RendezvousNativeRunGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEFC436CF4FE607EEAA53086 /* RendezvousNativeRunGate.swift */; };
 		C4177A225FD7A7AE2E345886 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */; };
 		C44F11B0B828A67CE4F83F34 /* AskDJCatalogueViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E53B00A4F8A82C75934D455 /* AskDJCatalogueViews.swift */; };
+		C45D45DD8045810F09991339 /* DJConnectWatchGamesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76854B381E8DE53F94E32AD8 /* DJConnectWatchGamesView.swift */; };
 		C49A3883CD063A048112871F /* PersonaReactionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A09632C93D839766384CA4 /* PersonaReactionController.swift */; };
 		C50821E77FD4001AAB9C70DE /* rendezvous-fixed-qa-api-3b43332.json in Resources */ = {isa = PBXBuildFile; fileRef = 52ACC307FF0CE77C7E860B82 /* rendezvous-fixed-qa-api-3b43332.json */; };
 		C57D749530184685E98B312F /* RendezvousAppAttestAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43E287DBC673F6DFA9CCB070 /* RendezvousAppAttestAdapter.swift */; };
@@ -549,6 +553,7 @@
 		D4B4DB305EB2625579F2BA82 /* DJConnectGlassAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175EDF7175EC7D4B19AFF364 /* DJConnectGlassAppearance.swift */; };
 		D4D86DB53837778288CB332E /* RendezvousRetryWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D09933C37173DAE4A0D3B9 /* RendezvousRetryWindow.swift */; };
 		D539FCBB417AAF91E465816D /* SurfacePushRegistrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9276E6C295372EBEF4D0D13F /* SurfacePushRegistrationTests.swift */; };
+		D55A4D5B24146DC902BF6B8E /* DJConnectWatchArcade.swift in Sources */ = {isa = PBXBuildFile; fileRef = C192CA5F6C92195353470546 /* DJConnectWatchArcade.swift */; };
 		D5B8DEB5307C6A446100A404 /* DJConnectSurfacePushHTTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = E55B22E4C40974595E2616BC /* DJConnectSurfacePushHTTP.swift */; };
 		D63CDB8B36B6FD2AFF3A2CC5 /* DJConnectSurfacePushJSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46E2CA04DF764E37B71176FB /* DJConnectSurfacePushJSON.swift */; };
 		D6814E9E4FBE59A0E72B0333 /* native-status-once-data-test-schema-v1.sql in Resources */ = {isa = PBXBuildFile; fileRef = E75D90FD9583BF5933803150 /* native-status-once-data-test-schema-v1.sql */; };
@@ -1071,6 +1076,7 @@
 		75854DE35F5A2B4F10D86022 /* DJConnectIOSUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectIOSUITests.swift; sourceTree = "<group>"; };
 		760279FAE53A2917AFEDF556 /* DJConnectSessionArtworkTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionArtworkTransport.swift; sourceTree = "<group>"; };
 		763B87402E37F98FDE09C614 /* DJConnectDisplayClaim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectDisplayClaim.swift; sourceTree = "<group>"; };
+		76854B381E8DE53F94E32AD8 /* DJConnectWatchGamesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchGamesView.swift; sourceTree = "<group>"; };
 		76E4324AA64C740D868C0530 /* DJConnectMacAudioRouteMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectMacAudioRouteMonitor.swift; sourceTree = "<group>"; };
 		7B1D2239570C02F3F6B43C72 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		7CE40DF95FB967211356B085 /* NativeBottomTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBottomTabBar.swift; sourceTree = "<group>"; };
@@ -1173,6 +1179,7 @@
 		C03E1C18DD13555ECE132799 /* DJConnectBackgroundSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectBackgroundSession.swift; sourceTree = "<group>"; };
 		C0FC026AD1117484DC80AB5F /* NativeStatusOnceDataJournalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeStatusOnceDataJournalTests.swift; sourceTree = "<group>"; };
 		C162C43F9DC210B40900B1CB /* DJConnectPairedOwnerLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectPairedOwnerLive.swift; sourceTree = "<group>"; };
+		C192CA5F6C92195353470546 /* DJConnectWatchArcade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchArcade.swift; sourceTree = "<group>"; };
 		C626CA5088FE1B6961D342C6 /* DirectLocalPresentationV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectLocalPresentationV2Tests.swift; sourceTree = "<group>"; };
 		C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectUIMac.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C7F0AA5DE46A56544E5D2202 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -1184,6 +1191,7 @@
 		CD94D01429C701E3E5A3FDEF /* DJConnectWebSocketSessionAuthProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWebSocketSessionAuthProvider.swift; sourceTree = "<group>"; };
 		CDE973EC0D9C7884A1B597A6 /* DJConnectWebSocketFastPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWebSocketFastPath.swift; sourceTree = "<group>"; };
 		CE3A951E5E61254043A34141 /* TrackInsightMotionClockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInsightMotionClockTests.swift; sourceTree = "<group>"; };
+		CF0C22410E0B085ED5C06831 /* WatchArcadeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchArcadeTests.swift; sourceTree = "<group>"; };
 		D20A92AC82037786CB434E3B /* StatusOnlyShippingComponentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusOnlyShippingComponentTests.swift; sourceTree = "<group>"; };
 		D21E755D2D8C80FD37215B42 /* RendezvousNativeAdmission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousNativeAdmission.swift; sourceTree = "<group>"; };
 		D30A7F8046B3191EF66D2033 /* DJConnectSessionHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionHistory.swift; sourceTree = "<group>"; };
@@ -1486,6 +1494,7 @@
 				6ED30158F8F13306FCCB4B00 /* DJConnectSurfacePushV3Data.swift */,
 				FAA7CF1F826E0E1A711ABDF2 /* DJConnectThirdPartyNotices.swift */,
 				23742113397B7D6D33BD468B /* DJConnectTransport.swift */,
+				C192CA5F6C92195353470546 /* DJConnectWatchArcade.swift */,
 				1219DD7FC1CF9A39F3DA8CD2 /* DJConnectWatchForegroundSession.swift */,
 				39AD53999D974F8977239E44 /* DJConnectWatchInstallation.swift */,
 				7FE6F6D318C7820416C0D8F2 /* DJConnectWatchPairingIntent.swift */,
@@ -1700,6 +1709,7 @@
 				20304A8B277BB00E7EB41610 /* VibeScapeFamilyTests.swift */,
 				25A1930B151FE77FA9064B52 /* VibeScapeSpeechAuthorizationTests.swift */,
 				D98562CF011DA3B26DAB71BC /* VibeScapeVisitTests.swift */,
+				CF0C22410E0B085ED5C06831 /* WatchArcadeTests.swift */,
 				230A10A5F59E57BD8C742DC3 /* WatchForegroundSessionTests.swift */,
 				F8E42BDE7A79FC0B0AB82BB8 /* WatchPairingIntentTests.swift */,
 				42306ADBDAFA10044451B8AB /* WatchSessionActivityPresentationTests.swift */,
@@ -1843,6 +1853,7 @@
 			children = (
 				5E48B927D9C02E6EDFF53AE2 /* DJConnectWatch.entitlements */,
 				E261C2E77577F5E05601B484 /* DJConnectWatchApp.swift */,
+				76854B381E8DE53F94E32AD8 /* DJConnectWatchGamesView.swift */,
 				B7E1C5F0578AC3B08A73377D /* DJConnectWatchModel.swift */,
 				8F0251944CAC3B0BAF17E08B /* DJConnectWatchRootView.swift */,
 				AB18D6EC6A2FED5E85FCF77B /* DJConnectWatchSessionView.swift */,
@@ -2523,6 +2534,7 @@
 				1C75581A27EE44D41C19C031 /* VibeScapeFamilyTests.swift in Sources */,
 				575BA98D3FAB8B3B63F744C5 /* VibeScapeSpeechAuthorizationTests.swift in Sources */,
 				4C76F7FA789215AC9668CFDE /* VibeScapeVisitTests.swift in Sources */,
+				9A775A77C7F6855A53B91F16 /* WatchArcadeTests.swift in Sources */,
 				CCA94D967905A1C92ADBF183 /* WatchForegroundSessionTests.swift in Sources */,
 				A672491284CCD0708513761B /* WatchPairingIntentTests.swift in Sources */,
 				618B2308A2751D77AE3AB6C0 /* WatchSessionActivityPresentationTests.swift in Sources */,
@@ -2617,6 +2629,7 @@
 				88E9EC5F6514592A6AEF46A4 /* DJConnectSurfacePushV3Data.swift in Sources */,
 				D88F009CD5323279047227A7 /* DJConnectThirdPartyNotices.swift in Sources */,
 				B4E1C5CD16B3FEDE73A454A8 /* DJConnectTransport.swift in Sources */,
+				11AF35DB9B19273E5136B217 /* DJConnectWatchArcade.swift in Sources */,
 				67AB7F05E823411092AE113A /* DJConnectWatchForegroundSession.swift in Sources */,
 				40E48013DED8C08DE12762FC /* DJConnectWatchInstallation.swift in Sources */,
 				5C4310E872D908B1E36C568F /* DJConnectWatchPairingIntent.swift in Sources */,
@@ -2747,6 +2760,7 @@
 				104A4D14456E16DABAA6688B /* DJConnectSurfacePushV3Data.swift in Sources */,
 				6680FD0FBD39DE2582C8F4E5 /* DJConnectThirdPartyNotices.swift in Sources */,
 				AC7A04E15082502938CFE99C /* DJConnectTransport.swift in Sources */,
+				755AB26A1E91A6078B6123C8 /* DJConnectWatchArcade.swift in Sources */,
 				710E66C1CAFFB78EA9756129 /* DJConnectWatchForegroundSession.swift in Sources */,
 				F9697AAB3E08470F170865B2 /* DJConnectWatchInstallation.swift in Sources */,
 				FF222D9306AD235E9826C076 /* DJConnectWatchPairingIntent.swift in Sources */,
@@ -2882,6 +2896,7 @@
 				4B1B80BEBCFEA0042E0C5C86 /* DJConnectSurfacePushV3Data.swift in Sources */,
 				22D4FB279A3F68128E7E23BE /* DJConnectThirdPartyNotices.swift in Sources */,
 				442DFD79FFD229971488AB87 /* DJConnectTransport.swift in Sources */,
+				D55A4D5B24146DC902BF6B8E /* DJConnectWatchArcade.swift in Sources */,
 				07E140B7B01BB70EC7A59E77 /* DJConnectWatchForegroundSession.swift in Sources */,
 				0D6DCE0E597BD151FCF7CC9F /* DJConnectWatchInstallation.swift in Sources */,
 				9EB6274B977134532196C47D /* DJConnectWatchPairingIntent.swift in Sources */,
@@ -3070,6 +3085,7 @@
 				368E712FF3479ECFE563F3AB /* AlbumArtworkPlaceholder.swift in Sources */,
 				81506862F7DD6B1BF10F5A63 /* DJConnectGlassAppearance.swift in Sources */,
 				D27083BE729C4FFAB0EF3E8E /* DJConnectWatchApp.swift in Sources */,
+				C45D45DD8045810F09991339 /* DJConnectWatchGamesView.swift in Sources */,
 				D90767C18105D1A76C9FDED8 /* DJConnectWatchModel.swift in Sources */,
 				96E767533FE9B51F0EC1A379 /* DJConnectWatchRootView.swift in Sources */,
 				13881662F93DE9D712B6D84C /* DJConnectWatchSessionView.swift in Sources */,
@@ -3481,7 +3497,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 40474;
+				CURRENT_PROJECT_VERSION = 40475;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -3631,7 +3647,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 40474;
+				CURRENT_PROJECT_VERSION = 40475;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;

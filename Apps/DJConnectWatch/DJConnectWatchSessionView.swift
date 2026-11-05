@@ -144,7 +144,7 @@ struct DJConnectWatchSessionView: View {
             demo != nil || (binding != nil && response?.binding == binding && response?.allowed_values.persona.contains($0.rawValue) == true)
         }
         let selected = demo?.persona.rawValue ?? response?.snapshot.effective.persona.rawValue ?? ""
-        let canEdit = demo != nil ? model.isCompanionReachable : settings.canEdit && response?.requiresSelection == false
+        let canEdit = demo != nil ? model.canSendCompanionDemoCommands : settings.canEdit && response?.requiresSelection == false
         return DJConnectWatchSettingsChoices(title: text("ui.dj_settings.persona"),
             values: personas.map { ($0.rawValue, text($0.localizationKey)) },
             selected: selected, unavailableTitle: text("ui.dj_settings.unavailable"),
@@ -490,7 +490,7 @@ private struct DJConnectWatchSessionPresenceView: View {
                         }
                         .contentShape(Rectangle())
                     }
-                    .disabled(demo != nil ? !model.isCompanionReachable :
+                    .disabled(demo != nil ? !model.canSendCompanionDemoCommands :
                         !settings.canEdit || current?.allowed_values.presence.contains(choice.rawValue) != true)
                     .accessibilityAddTraits(choice == selected ? .isSelected : [])
                 }

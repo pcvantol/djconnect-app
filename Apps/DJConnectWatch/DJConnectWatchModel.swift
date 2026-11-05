@@ -209,6 +209,7 @@ extension DJConnectWatchModel: WCSessionDelegate {
             isCompanionReachable = session.isReachable
             applyLoggingConfiguration(session.receivedApplicationContext[DJConnectWatchLoggingConfiguration.contextKey] as? Data)
             readCompanionDemoSession()
+            requestCompanionDemoSession()
             sendCompanionPairingRegistration()
         }
     }
@@ -218,6 +219,7 @@ extension DJConnectWatchModel: WCSessionDelegate {
             companionPairingStatus = session.isReachable ? "iPhone verbonden" : "Open DJConnect op je iPhone"
             isCompanionReachable = session.isReachable
             if session.isReachable {
+                requestCompanionDemoSession()
                 scheduleDiagnosticTransfer()
                 sendCompanionPairingRegistration()
                 if isAppForeground, paired {
@@ -401,6 +403,28 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var playingAskDJActionID: String?
     @Published private(set) var isSavingCurrentTrack = false
     @Published private(set) var isChangingRepeat = false
+    private struct DemoControlChoice<Value> {
+        let id: UUID
+        let sessionID: String
+        let value: Value
+    }
+    @Published private var demoShuffleChoice: DemoControlChoice<Bool>?
+    @Published private var demoRepeatChoice: DemoControlChoice<DJConnectRepeatState>?
+
+    var playbackShuffleEnabled: Bool {
+        if isDemoMode, let choice = demoShuffleChoice { return choice.value }
+        return playback?.shuffle == true
+    }
+
+    var playbackRepeatMode: DJConnectRepeatState {
+        if isDemoMode, let choice = demoRepeatChoice { return choice.value }
+        return playback?.repeatState ?? .off
+    }
+
+    private func clearDemoControlChoice(_ id: UUID) {
+        if demoShuffleChoice?.id == id { demoShuffleChoice = nil }
+        if demoRepeatChoice?.id == id { demoRepeatChoice = nil }
+    }
     @Published private(set) var askDJToast: DJConnectWatchToast?
     @Published private(set) var askDJAudioPlaybackState: DJConnectWatchAudioPlaybackState = .idle
     @Published private(set) var isShowingPairingSuccess = false
@@ -666,6 +690,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 startRuntimeDiagnosticsMonitor()
             }
             activateCompanionSession()
+            readCompanionDemoSession()
+            requestCompanionDemoSession()
             sendCompanionPairingRegistration()
             updateVoiceActivationListening()
             Task { await refreshStatus() }
@@ -1116,13 +1142,31 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         identity.deviceID
     }
 
+    var canSendCompanionDemoCommands: Bool {
+        isDemoMode && companionDemoSession != nil && WCSession.default.activationState == .activated
+    }
+
+    private func requestCompanionDemoSession() {
+        guard isDemoMode, WCSession.default.activationState == .activated else { return }
+        let message = ["type": "watch_demo_snapshot_request"]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(message, replyHandler: nil, errorHandler: { _ in })
+        } else {
+            WCSession.default.transferUserInfo(message)
+        }
+    }
+
     func chooseCompanionDemoSetting(_ field: DJConnectWatchDemoSession.Choice, value: String, sessionID: String) {
-        guard isDemoMode, companionDemoSession?.id == sessionID,
-              WCSession.default.activationState == .activated, WCSession.default.isReachable else { return }
-        WCSession.default.sendMessage([
+        guard canSendCompanionDemoCommands, companionDemoSession?.id == sessionID else { return }
+        let message = [
             "type": DJConnectWatchDemoSession.choiceMessageType,
             "session_id": sessionID, "field": field.rawValue, "value": value
-        ], replyHandler: nil) { [weak self] _ in
+        ]
+        guard WCSession.default.isReachable else {
+            WCSession.default.transferUserInfo(message)
+            return
+        }
+        WCSession.default.sendMessage(message, replyHandler: nil) { [weak self] _ in
             Task { @MainActor in
                 self?.appendDiagnosticLog("Demo-instelling kon niet naar iPhone worden gestuurd", level: .warning)
             }
@@ -1130,9 +1174,33 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func sendCompanionDemoPlayback(_ command: String, value: DJConnectCommandValue?) async {
-        guard let demo = companionDemoSession, WCSession.default.activationState == .activated,
-              WCSession.default.isReachable else {
+        guard canSendCompanionDemoCommands, let demo = companionDemoSession else {
             showAskDJToast(DJConnectLocalization.localized(key: "watch.session.connect_phone", language: language))
+            return
+        }
+        // Reflect demo choices immediately while the phone confirms them.
+        // Keep them separate from confirmed playback so delayed snapshots cannot
+        // flash the icon back to the previous state or skip the repeat cycle.
+        let choiceID = UUID()
+        if command == "set_shuffle", case let .bool(enabled) = value {
+            demoShuffleChoice = .init(id: choiceID, sessionID: demo.id, value: enabled)
+        } else if command == "set_repeat", case let .string(rawMode) = value,
+                  let mode = DJConnectRepeatState(rawValue: rawMode) {
+            demoRepeatChoice = .init(id: choiceID, sessionID: demo.id, value: mode)
+        }
+        if demoShuffleChoice?.id == choiceID || demoRepeatChoice?.id == choiceID {
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(30))
+                self?.clearDemoControlChoice(choiceID)
+            }
+        }
+        // Queue only when no live dispatch was attempted. Never retry an
+        // ambiguous next/previous reply, which could advance the queue twice.
+        if !WCSession.default.isReachable {
+            var message: [String: Any] = ["type": DJConnectWatchDemoSession.playbackMessageType,
+                                          "session_id": demo.id, "command": command]
+            if let value, let data = try? JSONEncoder().encode(value) { message["value"] = data }
+            WCSession.default.transferUserInfo(message)
             return
         }
         do {
@@ -1146,6 +1214,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                   isDemoMode, companionDemoSession?.id == demo.id, snapshot.id == demo.id else { return }
             applyCompanionDemoSession(snapshot)
         } catch {
+            clearDemoControlChoice(choiceID)
             appendDiagnosticLog("Demo-afspeelopdracht kon niet naar iPhone worden gestuurd", level: .warning)
             showAskDJToast(DJConnectLocalization.localized(key: "watch.session.connect_phone", language: language))
         }
@@ -1157,6 +1226,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
               data.count <= 32_000, let snapshot = try? JSONDecoder().decode(DJConnectWatchDemoSession.self, from: data),
               snapshot.id.hasPrefix("demo-active-"), snapshot.rows.count <= DJConnectWatchFlowRow.maximumCount else {
             companionDemoSession = nil
+            availableOutputs = []
+            selectedOutput = Self.noOutputName
             return
         }
         applyCompanionDemoSession(snapshot)
@@ -1169,8 +1240,14 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
            let current = companionDemoSession?.observedAt, let incoming = snapshot.observedAt,
            incoming < current { return }
         companionDemoSession = snapshot
+        if let choice = demoShuffleChoice,
+           choice.sessionID != snapshot.id || snapshot.playback?.shuffle == choice.value { demoShuffleChoice = nil }
+        if let choice = demoRepeatChoice,
+           choice.sessionID != snapshot.id || snapshot.playback?.repeatState == choice.value { demoRepeatChoice = nil }
         if let syncedPlayback = snapshot.playback, syncedPlayback != playback { applyPlayback(syncedPlayback) }
-        if let outputs = snapshot.outputs { applyOutputs(outputs) }
+        // Demo devices belong to the phone snapshot; never merge local examples.
+        applyOutputs(snapshot.outputs ?? [])
+        if availableOutputs.isEmpty { selectedOutput = Self.noOutputName }
     }
 
     private func activateCompanionSession() {
@@ -1267,11 +1344,22 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             applyLoggingConfiguration(message[DJConnectWatchLoggingConfiguration.contextKey] as? Data)
             return
         }
+        if type == "watch_demo_text_reply", isDemoMode {
+            if let data = message["data"] as? Data, data.count <= 32_000,
+               let reply = try? JSONDecoder().decode(DJConnectWatchDemoTextReply.self, from: data) {
+                _ = acceptDemoWatchTextReply(reply)
+            }
+            return
+        }
         if type == "watch_demo_snapshot", isDemoMode {
             if let data = message[DJConnectWatchDemoSession.contextKey] as? Data, data.count <= 32_000,
                let snapshot = try? JSONDecoder().decode(DJConnectWatchDemoSession.self, from: data) {
                 applyCompanionDemoSession(snapshot)
-            } else { companionDemoSession = nil }
+            } else {
+                companionDemoSession = nil
+                availableOutputs = []
+                selectedOutput = Self.noOutputName
+            }
             return
         }
         if isDemoMode {
@@ -1511,6 +1599,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func startDemoMode() {
         pendingDemoTextRequest = nil
+        demoShuffleChoice = nil
+        demoRepeatChoice = nil
+        watchTextPending = false
+        lastWatchTextReply = nil
         publishStackEntry(nil)
         foregroundSession.bind(owner: nil, active: false)
         profileDJSettings.bind(owner: nil, active: false)
@@ -1532,6 +1624,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func stopDemoMode() {
         pendingDemoTextRequest = nil
+        demoShuffleChoice = nil
+        demoRepeatChoice = nil
+        watchTextPending = false
+        lastWatchTextReply = nil
         appendDiagnosticLog("Demo modus stoppen")
         stopVoiceActivationListening(status: .paused)
         storedDemoMode = false
@@ -1709,7 +1805,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func cycleRepeat() async {
         guard !isChangingRepeat, playback?.hasPlayback == true else { return }
-        let next: DJConnectRepeatState = switch playback?.repeatState ?? .off {
+        let next: DJConnectRepeatState = switch playbackRepeatMode {
         case .off: .track
         case .track: .context
         case .context: .off
@@ -1987,7 +2083,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             defer { isLoadingOutputs = false }
             if companionDemoSession != nil {
                 await sendCompanionDemoPlayback("devices", value: nil)
-            } else { applyDemoOutputs() }
+            } else {
+                availableOutputs = []
+                selectedOutput = Self.noOutputName
+                requestCompanionDemoSession()
+                showAskDJToast(DJConnectLocalization.localized(key: "watch.session.connect_phone", language: language))
+            }
             appendDiagnosticLog("Demo uitvoerapparaten geladen")
             return
         }
@@ -2026,10 +2127,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 await sendCompanionDemoPlayback("set_output", value: .string(output.id))
                 return
             }
-            loadingOutputID = output.id
-            applyDemoCommand("set_output", value: .string(output.name))
-            loadingOutputID = nil
-            appendDiagnosticLog("Demo uitvoer ingesteld: \(output.name)")
+            requestCompanionDemoSession()
+            showAskDJToast(DJConnectLocalization.localized(key: "watch.session.connect_phone", language: language))
             return
         }
         guard canUseBackend else {
@@ -2241,30 +2340,60 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func sendDemoWatchText(_ text: String, context: DJConnectConversationContext) async -> Bool {
         guard isDemoMode, isAppForeground, !watchTextPending, let demo = companionDemoSession,
-              context.sessionID == demo.id, !text.isEmpty, text.utf8.count <= 16_000,
-              WCSession.default.activationState == .activated, WCSession.default.isReachable else { return false }
+              !text.isEmpty, text.utf8.count <= 16_000,
+              WCSession.default.activationState == .activated else {
+            showAskDJToast(DJConnectLocalization.localized(key: "watch.session.connect_phone", language: language))
+            return false
+        }
+        // A generic composer can open before the first phone snapshot arrives.
+        // Only an unscoped question may adopt the now-confirmed demo session.
+        guard context.sessionID == demo.id ||
+                (context.sessionID == nil && context.selectedEntry == nil && context.selectedMoment == nil) else { return false }
         let request: DJConnectWatchDemoTextRequest
         if let pending = pendingDemoTextRequest, pending.sessionID == demo.id, pending.text == text { request = pending }
         else { request = .init(sessionID: demo.id, text: text) }
         pendingDemoTextRequest = request
         watchTextPending = true; lastWatchTextReply = nil
-        defer { watchTextPending = false }
+        var queued = false
+        defer { if !queued { watchTextPending = false } }
         do {
             let data = try JSONEncoder().encode(request)
+            if !WCSession.default.isReachable {
+                WCSession.default.transferUserInfo(["type": "watch_demo_text_request", "data": data])
+                queued = true
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .seconds(30))
+                    guard let self, self.pendingDemoTextRequest?.requestID == request.requestID else { return }
+                    self.watchTextPending = false
+                    self.showAskDJToast(DJConnectLocalization.localized(key: "watch.session.connect_phone", language: self.language))
+                }
+                // Keep the draft until the confirmed asynchronous reply arrives.
+                return false
+            }
             let response: Data = try await withCheckedThrowingContinuation { continuation in
                 WCSession.default.sendMessageData(data, replyHandler: { continuation.resume(returning: $0) },
                     errorHandler: { continuation.resume(throwing: $0) })
             }
             let reply = try JSONDecoder().decode(DJConnectWatchDemoTextReply.self, from: response)
-            guard isDemoMode, companionDemoSession?.id == request.sessionID,
-                  reply.requestID == request.requestID, reply.sessionID == request.sessionID else { return false }
-            lastWatchTextReply = .init(role: .dj, text: reply.answer)
-            pendingDemoTextRequest = nil
-            return true
+            return acceptDemoWatchTextReply(reply)
         } catch {
             showAskDJToast(DJConnectLocalization.localized(key: "watch.session.connect_phone", language: language))
             return false
         }
+    }
+
+    @discardableResult
+    private func acceptDemoWatchTextReply(_ reply: DJConnectWatchDemoTextReply) -> Bool {
+        guard isDemoMode, let request = pendingDemoTextRequest,
+              companionDemoSession?.id == request.sessionID,
+              reply.requestID == request.requestID, reply.sessionID == request.sessionID else { return false }
+        appendAskDJMessage(role: .user, text: request.text)
+        appendAskDJMessage(role: .dj, text: reply.answer)
+        lastWatchTextReply = .init(role: .dj, text: reply.answer)
+        pendingDemoTextRequest = nil
+        watchTextPending = false
+        requestCompanionDemoSession()
+        return true
     }
 
     func sendWatchText(_ original: String, context: DJConnectConversationContext, expectedBinding: String?) async -> Bool {
@@ -3507,7 +3636,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         hasAppliedDemoState = true
         activateCompanionSession()
-        readCompanionDemoSession()
         connectionState = .paired
         isShowingPairingSuccess = false
         playback = DJConnectPlayback(
@@ -3532,20 +3660,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             contextURI: "spotify:playlist:djconnect-demo"
         )
         currentTrackInsight = localizedDemoTrackInsights.first
-        applyDemoOutputs()
+        availableOutputs = []
+        selectedOutput = Self.noOutputName
         applyDemoQueue()
         applyDemoPlaylists()
         responseImages = []
         statusMessage = "Demo modus actief"
-    }
-
-    private func applyDemoOutputs() {
-        let outputs = [
-            DJConnectOutputDevice(id: "demo-living-room", name: "Woonkamer", type: "speaker", active: true, supportsVolume: true, volumePercent: 42),
-            DJConnectOutputDevice(id: "demo-kitchen", name: "Keuken", type: "speaker", active: false, supportsVolume: true, volumePercent: 35),
-            DJConnectOutputDevice(id: "demo-headphones", name: "Koptelefoon", type: "headphones", active: false, supportsVolume: true, volumePercent: 28)
-        ]
-        applyOutputs(outputs)
+        // The phone snapshot wins over the local initial presentation.
+        readCompanionDemoSession()
+        requestCompanionDemoSession()
     }
 
     private func applyDemoQueue() {
