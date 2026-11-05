@@ -1715,3 +1715,5 @@
 "ui.for_you.refresh" = "Actualizar opciones";
 "ui.for_you.art.local" = "Ilustración de paisaje generada localmente; no es un análisis de audio.";
 "ui.for_you.art.procedural" = "Ilustración de paisaje procedimental; no es un análisis de audio.";
+
+"ui.session.moment.music_announcement" = "Anuncio musical";

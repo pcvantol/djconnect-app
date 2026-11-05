@@ -89,6 +89,7 @@ public struct DJConnectSessionSpeech: Codable, Equatable, Sendable {
     }
     public let schemaVersion: Int
     public let reference: DJConnectSpeechReference
+    public var momentType: String? = nil
     public let sourceKind: String?
     public let sourceID: String?
     public let sessionID: String?
@@ -118,6 +119,7 @@ public struct DJConnectSessionSpeech: Codable, Equatable, Sendable {
     public var settingsContractVersion: Int? = nil
     public var settingsRevision: [DJConnectJSONValue]? = nil
     enum CodingKeys: String, CodingKey {
+        case momentType = "moment_type"
         case reference, persona, locale, segments, state, reason, processor, processors, attribution, notification
         case settingsContractVersion = "settings_contract_version", settingsRevision = "settings_revision"
         case schemaVersion = "schema_version", sourceKind = "source_kind", sourceID = "source_id", sessionID = "session_id"

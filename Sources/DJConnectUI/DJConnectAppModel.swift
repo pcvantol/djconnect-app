@@ -8025,17 +8025,18 @@ public final class DJConnectAppModel: ObservableObject {
         // Prepare3 reauthorizes this exact retained entry and synthesizes on demand.
         // An expired/missing previous audio asset is never used as the source grant.
         playSharedDJSpeech(reference: .entry(sessionID: entry.sessionID, entryID: entry.id), acceptedText: text,
-            sourceDeadline: deadline, target: .local, original: nil,
+            sourceDeadline: deadline, target: .local, original: nil, manualMomentType: entry.momentType,
             sourceIsCurrent: { [weak self] in self?.retainedSpeechSourceIsCurrent(entry) == true })
     }
 
     private func playSharedDJSpeech(reference: DJConnectSpeechReference, acceptedText: String, sourceDeadline: Date,
-        target requestedTarget: DJConnectSharedSpeechTarget, original: DJConnectSessionSpeech?, automatic: Bool = false, sourceIsCurrent: @escaping @MainActor () -> Bool) {
-        guard sharedDJSpeechAllowed, let settings = profileDJSettings.response, settings.allowsSpeech(requestedTarget), sourceIsCurrent() else { return }
+        target requestedTarget: DJConnectSharedSpeechTarget, original: DJConnectSessionSpeech?, automatic: Bool = false, manualMomentType: String? = nil, sourceIsCurrent: @escaping @MainActor () -> Bool) {
+        let family = automatic ? nil : (manualMomentType ?? original?.momentType)
+        guard sharedDJSpeechAllowed(momentType: family), let settings = profileDJSettings.response, settings.allowsSpeech(requestedTarget, manualMomentType: family), sourceIsCurrent() else { return }
         let unavailableLocalOverride = deviceSpeechPreferences.enabled && requestedTarget == .both
         // Native output uses the same prepare3 source/settings admission; never
         // speak visible bubble text or bypass it with a legacy preparation.
-        guard let target = DJConnectDeviceSpeechRouting.serverTarget(for: requestedTarget, nativeOverride: deviceSpeechPreferences.enabled, settings: settings) else {
+        guard let target = DJConnectDeviceSpeechRouting.serverTarget(for: requestedTarget, nativeOverride: deviceSpeechPreferences.enabled, settings: settings, manualMomentType: family) else {
             stopResponsePlayback(clearText: false)
             sharedSpeechReference = reference; sharedSpeechDelivery["local"] = "unavailable"
             return
@@ -8067,7 +8068,7 @@ public final class DJConnectAppModel: ObservableObject {
         sharedSpeechDelivery = [target == .haSpeaker ? "ha_speaker" : "local": "preparing"]
         if unavailableLocalOverride { sharedSpeechDelivery["local"] = "unavailable" }
         func current() -> Bool {
-            sharedDJSpeechAllowed && epoch == sessionHistory.responseEpoch && isAppInForeground &&
+            sharedDJSpeechAllowed(momentType: family) && epoch == sessionHistory.responseEpoch && isAppInForeground &&
             deviceSpeechPreferences == preferences &&
             profileDJSettings.response?.binding == settings.binding &&
             profileDJSettings.response?.speechFence == settings.speechFence &&
@@ -8086,7 +8087,7 @@ public final class DJConnectAppModel: ObservableObject {
                     }
                     guard current(), !Task.isCancelled else { throw CancellationError() }
                     return try await $0.prepareSharedDJSpeech(reference: reference, acceptedText: acceptedText, settings: settings,
-                        target: target, automatic: automatic, processor: nativeLocal ? .localOnDevice : .haConfigured)
+                        target: target, automatic: automatic, processor: nativeLocal ? .localOnDevice : .haConfigured, manualMomentType: family)
                 }
                 guard current(), !Task.isCancelled else { return }
                 sharedSpeechDelivery = result.delivery ?? [:]
@@ -8202,12 +8203,13 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    public var sharedDJSpeechAllowed: Bool {
+    public var sharedDJSpeechAllowed: Bool { sharedDJSpeechAllowed(momentType: nil) }
+    public func sharedDJSpeechAllowed(momentType: String?) -> Bool {
         if isDemoMode { return true }
         guard let response = profileDJSettings.response else { return false }
         return profileDJSettings.active && ![.idle, .loading, .saving, .unavailable, .uncertain].contains(profileDJSettings.phase) &&
             !response.requiresSelection && (canUseNativeDJSpeechOutput || response.voice_availability.available) &&
-            response.snapshot.effective.announcement_output != .textOnly && !profileDJSettings.hasUncertainOperation
+            response.allowsSpeech(.local, manualMomentType: momentType) && !profileDJSettings.hasUncertainOperation
     }
 
     private var currentVoiceScope: DJConnectSpeechVoiceScope? {
@@ -15952,15 +15954,15 @@ public final class DJConnectAppModel: ObservableObject {
             }
             guard watchIsCurrent() else { throw CancellationError() }
             let settings = try await client.profileDJSettings()
-            guard settings.binding == intent.binding, settings.allowsSpeech(.local) else { throw DJConnectError.invalidResponse }
-            func source() async throws -> (text: String, deadline: Date?) {
+            guard settings.binding == intent.binding, settings.isValid else { throw DJConnectError.invalidResponse }
+            func source() async throws -> (text: String, deadline: Date?, momentType: String?) {
                 switch intent.reference {
                 case .entry(let sessionID, let entryID):
                     let entry = try await client.openSavedSession(.init(reference: .init(sessionID: sessionID, entryID: entryID))).entry
                     guard [.djMoment, .conversationDJ].contains(entry.kind), entry.isRetained(),
                           let text = entry.text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                           let deadline = DJConnectHistoryEntry.date(entry.retainedUntil) else { throw DJConnectError.invalidResponse }
-                    return (text, deadline)
+                    return (text, deadline, entry.momentType)
                 case .moment(let sessionID, let momentID):
                     let runtime = try await client.activeSession()
                     let now = Date()
@@ -15971,7 +15973,7 @@ public final class DJConnectAppModel: ObservableObject {
                     let flow = session.broadcast.nativeFlowMoments(at: now)
                     guard let moment = ([current].compactMap { $0 } + flow).first(where: { $0.id == momentID })
                     else { throw DJConnectError.invalidResponse }
-                    return (moment.content, nil)
+                    return (moment.content, nil, moment.isMusicAnnouncementV1 ? moment.type : nil)
                 case .turn:
                     throw DJConnectError.invalidResponse
                 }
@@ -15979,7 +15981,7 @@ public final class DJConnectAppModel: ObservableObject {
             let original = try await source()
             guard watchIsCurrent() else { throw CancellationError() }
             let result = try await client.prepareSharedDJSpeech(reference: intent.reference, acceptedText: original.text,
-                                                                settings: settings, processor: intent.processor)
+                                                                settings: settings, processor: intent.processor, manualMomentType: original.momentType)
             let speech = result.session_speech
             guard speech.admits(reference: intent.reference, text: original.text),
                   let deadline = speech.playbackDeadline() else {
@@ -15993,7 +15995,7 @@ public final class DJConnectAppModel: ObservableObject {
             guard watchIsCurrent(), deadline > Date(), latest.text == original.text, latest.deadline == original.deadline,
                   after.binding == settings.binding, after.speechFence == settings.speechFence,
                   after.voice_revision == settings.voice_revision, after.snapshot.effective == settings.snapshot.effective,
-                  after.allowsSpeech(.local) else { throw DJConnectError.invalidResponse }
+                  after.allowsSpeech(.local, manualMomentType: original.momentType), latest.momentType == original.momentType else { throw DJConnectError.invalidResponse }
             return try encoder.encode(DJConnectWatchSpeechReplay(speech: speech, text: original.text, audio: audio,
                                                                 expiresAt: min(deadline, original.deadline ?? deadline)))
         case .prepareSessionSpeech:
@@ -16003,7 +16005,7 @@ public final class DJConnectAppModel: ObservableObject {
             let source = DJConnectWatchSessionSnapshot(settings: before, session: runtime.resolvedSession)
             guard runtime.success, intent.matches(source) else { throw DJConnectError.invalidResponse }
             let prepared = try await client.prepareSharedDJSpeech(reference: intent.reference,
-                acceptedText: intent.moment.content, settings: before, processor: .localOnDevice)
+                acceptedText: intent.moment.content, settings: before, processor: .localOnDevice, manualMomentType: intent.moment.isMusicAnnouncementV1 ? intent.moment.type : nil)
             // Re-read both owners before crossing the companion boundary. Reads
             // cannot refresh the original speech grant or manufacture publication.
             let after = try await client.profileDJSettings()

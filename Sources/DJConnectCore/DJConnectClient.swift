@@ -739,8 +739,8 @@ public final class DJConnectClient: Sendable {
 
     public func prepareSharedDJSpeech(reference: DJConnectSpeechReference, acceptedText: String,
         settings: DJConnectProfileDJSettingsResponse, target: DJConnectSharedSpeechTarget = .local,
-        automatic: Bool = false, processor: DJConnectSpeechProcessor = .haConfigured) async throws -> DJConnectSharedSpeechResult {
-        guard reference.isValid, settings.allowsSpeech(target),
+        automatic: Bool = false, processor: DJConnectSpeechProcessor = .haConfigured, manualMomentType: String? = nil) async throws -> DJConnectSharedSpeechResult {
+        guard reference.isValid, settings.allowsSpeech(target, manualMomentType: automatic ? nil : manualMomentType),
               processor != .localOnDevice || target == .local,
               !automatic || (target == .local && settings.snapshot.effective.announcement_output.allowsClientAudio) else { throw DJConnectError.invalidResponse }
         struct SharedPrepare: Encodable {
@@ -764,6 +764,10 @@ public final class DJConnectClient: Sendable {
         }
         guard result.success, result.session_speech.reference == reference else { throw DJConnectError.invalidResponse }
         let prepared = result.session_speech
+        if settings.snapshot.effective.announcement_output == .textOnly {
+            guard !automatic, target == .local, reference.source.kind != "accepted_ask_dj",
+                  manualMomentType == "music_announcement", prepared.momentType == manualMomentType else { throw DJConnectError.invalidResponse }
+        }
         if ["unavailable", "withdrawn", "expired"].contains(prepared.state) && !prepared.manualAllowed && prepared.audioReference == nil { return result }
         if processor == .localOnDevice {
             guard DJConnectNativeSpeechAdmission.admits(prepared, reference: reference, text: acceptedText, settings: settings) else { throw DJConnectError.invalidResponse }

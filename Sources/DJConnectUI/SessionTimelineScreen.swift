@@ -1850,7 +1850,7 @@ struct SessionEntryView: View, Equatable {
         }
     }
     private var entryHeading: some View {
-        Label(text(entry.kind == .djMoment ? "ui.session.moment.generic" : "ui.session.history.playback"),
+        Label(text(entry.kind == .djMoment ? (entry.momentType == "music_announcement" ? "ui.session.moment.music_announcement" : "ui.session.moment.generic") : "ui.session.history.playback"),
               systemImage: entry.kind == .djMoment ? "sparkles" : "music.note")
             .font(.caption.weight(.semibold))
     }

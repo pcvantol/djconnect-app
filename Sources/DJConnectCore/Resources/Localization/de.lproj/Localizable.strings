@@ -1715,3 +1715,5 @@
 "ui.for_you.refresh" = "Auswahl erneuern";
 "ui.for_you.art.local" = "Lokal generierte Landschaftsillustration; keine Audioanalyse.";
 "ui.for_you.art.procedural" = "Prozedurale Landschaftsillustration; keine Audioanalyse.";
+
+"ui.session.moment.music_announcement" = "Musikankündigung";
