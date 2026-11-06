@@ -346,7 +346,7 @@
 "ui.down" = "Down";
 "ui.move.the.paddle.and.keep.the.ball.alive" = "Move the paddle and keep the ball alive.";
 "ui.move.left.and.right.fire.to.hit.meteors" = "Move left and right. Fire to hit meteors.";
-"ui.fly.through.the.gaps.fire.clears.an.obstacle" = "Fly through the gaps. Fire clears an obstacle.";
+"ui.fly.through.the.gaps.fire.clears.an.obstacle" = "Vuela y dispara a los obstáculos.";
 "ui.eat.dots.and.dodge.the.ghost" = "Eat dots and dodge the ghost.";
 "ui.fire" = "Fire";
 "ui.reset" = "Reset";

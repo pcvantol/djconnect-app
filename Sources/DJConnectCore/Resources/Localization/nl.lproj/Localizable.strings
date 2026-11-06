@@ -346,7 +346,7 @@
 "ui.down" = "Omlaag";
 "ui.move.the.paddle.and.keep.the.ball.alive" = "Beweeg het batje en houd de bal in het spel.";
 "ui.move.left.and.right.fire.to.hit.meteors" = "Beweeg links en rechts. Schiet om meteorieten te raken.";
-"ui.fly.through.the.gaps.fire.clears.an.obstacle" = "Vlieg door de openingen. Schieten ruimt een obstakel op.";
+"ui.fly.through.the.gaps.fire.clears.an.obstacle" = "Vlieg en schiet obstakels weg.";
 "ui.eat.dots.and.dodge.the.ghost" = "Eet bolletjes en ontwijk de geest.";
 "ui.fire" = "Schiet";
 "ui.reset" = "Reset";
