@@ -4,6 +4,16 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Apple build 40478
+
+- Add Core-owned Voor jou choices to start a personalized Session, with bounded
+  landscape previews and the ordinary confirmed music-request route.
+- Show Music announcements as a distinct DJ Moment type and preserve original
+  occurrence, recording, text and manual replay through on-device or HA TTS.
+- Repair Watch demo callback crashes, synchronized controls and standalone Ask DJ;
+  restore native dialogs, connection popovers and standard home paging.
+- Retain the original content, source deadlines and settings fences on replay.
+
 ### Apple build 40475
 
 - Center pairing, permission and Music DNA dialogs within the iPhone/iPad

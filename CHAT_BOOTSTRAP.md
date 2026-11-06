@@ -40,7 +40,9 @@ profile, unmodified policy thresholds and non-blocking Observe mode. A completed
 analysis may produce a genuine policy FAIL; green workflow status is separate.
 See `docs/feedback/APPLE_TDE_1_1_2_ADOPTION_20261101.md`.
 
-Current Apple UX delivery candidate (2026-11-05): version 4.0.0, build 40475.
+Current Apple release candidate (2026-11-06): version 4.0.0, build 40478.
+Includes Voor jou (#318), Music announcement V1 (#319) and regression recovery
+(#317), integrated on main 569007101524f242f6605ca8b669e56047cb825d.
 The cumulative UI/demo/diagnostics changes require ordinary PR qualification,
 merge and fresh Release artifacts from clean main before device installation.
 Recent local Debug build success is not a physical-device, APNs or Core #1439
