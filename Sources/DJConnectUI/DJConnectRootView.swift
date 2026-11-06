@@ -3299,9 +3299,10 @@ private struct WelcomeTourPanel: View {
             if step.id == .connection {
                 Link(destination: URL(string: "https://djconnect.dev/start")!) {
                     Label("djconnect.dev/start", systemImage: "arrow.up.right.square")
+                        .foregroundStyle(.white)
                 }
                 .font(.callout.weight(.semibold))
-                .foregroundStyle(djConnectAccent)
+                .tint(.white)
             }
         }
         .padding(.vertical, 8)
@@ -9255,7 +9256,7 @@ private struct DJSessionWelcomeFeatures: View {
                 VStack(alignment: .leading, spacing: 16) { features }
             }
             HStack(spacing: 12) {
-                Image(systemName: "play.circle")
+                Image(systemName: "info.circle")
                     .font(.title2)
                     .foregroundStyle(.white)
                     .accessibilityHidden(true)
@@ -9276,19 +9277,19 @@ private struct DJSessionWelcomeFeatures: View {
     }
 
     @ViewBuilder private var features: some View {
-        feature("ui.session.welcome.feature.music", symbol: "music.note", color: .mint)
-        feature("ui.session.welcome.feature.stories", symbol: "book", color: .indigo)
-        feature("ui.session.welcome.feature.discovery", symbol: "sparkles", color: .pink)
+        feature("ui.session.welcome.feature.music", symbol: "music.note")
+        feature("ui.session.welcome.feature.stories", symbol: "book")
+        feature("ui.session.welcome.feature.discovery", symbol: "sparkles")
     }
 
-    private func feature(_ key: String, symbol: String, color: Color) -> some View {
+    private func feature(_ key: String, symbol: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
                 .font(.system(size: 23, weight: .medium))
-                .foregroundStyle(color)
+                .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
-                .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .shadow(color: color.opacity(0.28), radius: 10)
+                .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .shadow(color: .white.opacity(0.28), radius: 10)
                 .accessibilityHidden(true)
             Text(text(key))
                 .font(.subheadline.weight(.semibold))
