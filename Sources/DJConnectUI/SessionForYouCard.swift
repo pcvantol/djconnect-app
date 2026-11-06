@@ -14,6 +14,7 @@ import DJConnectCore
     @Published private(set) var busy = false
     @Published private(set) var uncertain = false
     @Published private(set) var expired = false
+    @Published private var hiddenOfferID: String?
     private weak var host: DJConnectAppModel?
     private var captured: Scope?
     private var qualified = false
@@ -64,6 +65,7 @@ import DJConnectCore
             expiryTask?.cancel(); expiryTask = nil
             captured = scope; generation = UUID(); qualified = false; readCompleted = false
             offer = nil; ownedOutputs = []; pendingOutputs = []; outputDeadline = nil; outputInstant = nil; busy = false; uncertain = false; expired = false
+            hiddenOfferID = nil
             wallDeadline = nil; monotonicDeadline = nil; settings = nil; settingsChanged = false
             outputResultSetID = nil; submittedOutputs = []; outputContext = nil
             return
@@ -103,7 +105,7 @@ import DJConnectCore
         let token = generation
         while current(captured, token), isPresented, !Task.isCancelled {
             do { try await Task.sleep(for: .seconds(8)) } catch { return }
-            guard current(captured, token), !Task.isCancelled else { return }
+            guard current(captured, token), isPresented, !Task.isCancelled else { return }
             if busy { continue }
             do {
                 let response = try await host.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
@@ -163,14 +165,14 @@ import DJConnectCore
     /// Terminal Core states close presentation, even if an older server leaves
     /// its visible bit set. An unknown/unavailable outcome is never success.
     var isPresented: Bool {
-        offer?.visible == true && !["confirmed", "closed", "dismissed"].contains(offer?.state ?? "")
+        offer?.visible == true && offer?.offer_id != hiddenOfferID && !["confirmed", "closed", "dismissed"].contains(offer?.state ?? "")
     }
     var canChoose: Bool {
-        offer?.visible == true && offer?.actions_available == true && !busy && !uncertain &&
+        isPresented && offer?.actions_available == true && !busy && !uncertain &&
         !settingsChanged && withinDeadline && scope == captured && host?.isSendingAskDJText == false
     }
     var canRefresh: Bool {
-        offer?.refresh_request?.automatic == false && !busy && !uncertain &&
+        isPresented && offer?.refresh_request?.automatic == false && !busy && !uncertain &&
         scope == captured && host?.isSendingAskDJText == false &&
         !["attempted", "awaiting_output", "uncertain"].contains(offer?.state ?? "")
     }
@@ -254,7 +256,13 @@ import DJConnectCore
         }
     }
     func dismiss() {
-        guard !busy, let host, let offer, let context = offer.conversation_context,
+        guard let offer else { return }
+        // Closing a panel is a local presentation choice, never playback authority.
+        // Keep the tombstone across stale same-offer polls even when expiry or an
+        // unknown operation makes a server dismissal unavailable.
+        hiddenOfferID = offer.offer_id
+        pendingOutputs = []
+        guard !busy, !uncertain, withinDeadline, let host, let context = offer.conversation_context,
               let captured, scope == captured else { return }
         let token = generation
         busy = true
@@ -299,7 +307,8 @@ struct SessionForYouCard: View {
                         }
                         Button(action: projection.dismiss) { Image(systemName: "xmark") }
                             .buttonStyle(.plain).frame(width: 44, height: 44)
-                            .disabled(projection.busy).accessibilityLabel(text("ui.close"))
+                            .accessibilityLabel(text("ui.close"))
+                            .accessibilityIdentifier("session-for-you-close")
                     }
                     if let intro = offer.intro, !intro.isEmpty { Text(intro).font(.subheadline) }
                     if !offer.options.isEmpty {

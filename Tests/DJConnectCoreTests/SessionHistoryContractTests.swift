@@ -9838,7 +9838,7 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/command") })
 }
 
-@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss", "server_refresh", "manual_refresh", "output_expiry", "output_replacement", "terminal"])
+@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss", "server_refresh", "manual_refresh", "output_expiry", "output_replacement", "terminal", "dismiss_expired", "dismiss_without_context"])
 @MainActor func forYouUsesOriginalOfferWithoutPlaybackOrAutomaticRenewal(_ scenario: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let fixtureEnvelope = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-v1.json"))) as? [String: Any])
@@ -9945,6 +9945,22 @@ private final class StartupReadFailure: @unchecked Sendable {
         incoming["refresh_policy"] = policy; incoming["offer_id"] = "wrong-revision"
         projection.observe(try JSONDecoder().decode(DJConnectForYou.self, from: historyData(incoming)))
         #expect(projection.offer?.offer_id == replacement.offer_id)
+        #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+        return
+    }
+    if scenario == "dismiss_expired" || scenario == "dismiss_without_context" {
+        if scenario == "dismiss_expired" { projection.now = { Date().addingTimeInterval(61) } }
+        else {
+            var unavailable = offer
+            unavailable["state"] = "unavailable"; unavailable["actions_available"] = false
+            unavailable.removeValue(forKey: "conversation_context")
+            projection.observe(try JSONDecoder().decode(DJConnectForYou.self, from: historyData(unavailable)))
+        }
+        projection.dismiss()
+        #expect(!projection.isPresented)
+        // A delayed same-offer projection must not re-open the closed card.
+        projection.observe(try JSONDecoder().decode(DJConnectForYou.self, from: historyData(offer)))
+        #expect(!projection.isPresented)
         #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
         return
     }
