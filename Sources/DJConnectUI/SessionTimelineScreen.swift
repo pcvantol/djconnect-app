@@ -2256,7 +2256,8 @@ struct SessionControlPopoverHost: View {
                 .frame(idealWidth: 360, maxHeight: 620)
                     }
                 }
-                .background(SessionPopoverDismissalObserver { finishDismissal(captured.id) })
+                .background(SessionPopoverDismissalObserver { finishDismissal(captured.id) }
+                    .allowsHitTesting(false).accessibilityHidden(true))
                 .presentationCompactAdaptation(.popover)
                 // The voice editor owns its own surface on iOS and Mac.
                 .djConnectGlassPopoutSurface(enabled: captured.kind != .voice, nativePresentation: true)
@@ -2293,6 +2294,9 @@ private struct SessionPopoverDismissalObserver: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> Controller {
         let controller = Controller(); controller.onDismiss = onDismiss
         controller.view.backgroundColor = .clear
+        // Lifecycle observation must never become the native touch target behind
+        // noninteractive labels/gaps in the popover's scrolling content.
+        controller.view.isUserInteractionEnabled = false
         return controller
     }
     func updateUIViewController(_ controller: Controller, context: Context) { controller.onDismiss = onDismiss }

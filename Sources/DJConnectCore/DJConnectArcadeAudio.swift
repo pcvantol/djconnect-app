@@ -10,9 +10,24 @@ public enum DJConnectArcadeSound: CaseIterable, Hashable, Sendable {
 /// Original, synthesized arcade cues: each game has its own oscillator, envelope and melody.
 /// No audio-session/category changes: game effects do not take ownership of music playback.
 public enum DJConnectArcadeSynth {
+    private static func mazeNotes(_ sound: DJConnectArcadeSound) -> [(Double, Double)] {
+        switch sound {
+        case .collect, .move: [(950, 0.026), (300, 0.030)]
+        case .start: [(523, 0.055), (784, 0.055), (1_047, 0.08), (784, 0.055)]
+        case .power: [(523, 0.035), (659, 0.035), (784, 0.035), (1_047, 0.07)]
+        case .explosion: [(440, 0.05), (880, 0.06), (1_320, 0.08)]
+        case .gameOver, .crash: [(784, 0.06), (622, 0.06), (440, 0.07), (196, 0.12)]
+        case .fire: [(880, 0.04), (440, 0.045)]
+        case .bounce: [(330, 0.035)]
+        case .hit: [(660, 0.04), (990, 0.05)]
+        }
+    }
+
     public static func wav(game: DJConnectWatchArcadeGame, sound: DJConnectArcadeSound) -> Data {
         let rate = 22_050
-        let notes: [(Double, Double)] = switch sound {
+        let notes: [(Double, Double)]
+        if game == .pacman { notes = mazeNotes(sound) }
+        else { notes = switch sound {
         case .start: [(262, 0.07), (392, 0.07), (524, 0.12)]
         case .move: [(220, 0.025)]
         case .fire: [(1_400, 0.10)]
@@ -23,11 +38,12 @@ public enum DJConnectArcadeSynth {
         case .explosion: [(150, 0.20)]
         case .crash: [(220, 0.23)]
         case .gameOver: [(392, 0.09), (294, 0.09), (196, 0.18)]
-        }
+        } }
         var samples = [Int16]()
         var random: UInt32 = 0xA7C4_1309
         var phase = 0.0
-        for (frequency, duration) in notes {
+        for (noteIndex, note) in notes.enumerated() {
+            let (frequency, duration) = note
             let count = Int(duration * Double(rate))
             for i in 0..<count {
                 let t = Double(i) / Double(count - 1)
@@ -42,7 +58,16 @@ public enum DJConnectArcadeSynth {
                 case .pong: pitch = frequency * (sound == .fire ? 0.5 : 1)
                 case .asteroids: pitch = frequency * pow(destructive ? 0.16 : 0.24, t) * 1.3
                 case .fly: pitch = frequency * (destructive ? (1 - t * 0.85) : (0.65 + t * 1.4))
-                case .pacman: pitch = frequency * (0.65 + 0.8 * sin(.pi * t)) * 1.6
+                case .pacman:
+                    switch sound {
+                    case .collect, .move:
+                        // Two tiny mouth strokes: close (wa), open (ka), never a long whistle.
+                        pitch = noteIndex.isMultiple(of: 2) ? 950 - 650 * t : 300 + 550 * t
+                    case .gameOver, .crash:
+                        pitch = frequency * (1 - t * 0.3) * (1 + 0.06 * sin(t * .pi * 8))
+                    case .explosion: pitch = frequency * (1 + t * 0.8)
+                    default: pitch = frequency
+                    }
                 }
                 phase += pitch / Double(rate)
                 let p = phase.truncatingRemainder(dividingBy: 1)
@@ -55,8 +80,8 @@ public enum DJConnectArcadeSynth {
                 case .fly: // brighter triangle chirps, with an airy crash
                     let triangle = 1 - 4 * abs(p - 0.5)
                     value = triangle * 0.75 + (destructive ? noise * 0.25 : sin(phase * 4 * .pi) * 0.2)
-                case .pacman: // rounded, vowel-like waka and bubbling bonuses
-                    value = sin(phase * 2 * .pi) * 0.7 + sin(phase * 4 * .pi) * 0.25
+                case .pacman: // hollow arcade mouth pulses; discrete pitched bonus arpeggios
+                    value = sin(phase * 2 * .pi) * 0.76 + sin(phase * 6 * .pi) * 0.18
                 }
                 samples.append(Int16(max(-1, min(1, value * envelope)) * 9_000))
             }
