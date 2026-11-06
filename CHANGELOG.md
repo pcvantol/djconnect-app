@@ -4,6 +4,8 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+- Give primary actions the selected DJ settings purple fill and visible outline, with glass enabled or disabled.
+
 - Keep demo widgets in the active Session mood when the mood changes after startup.
 
 ### Apple build 40478

@@ -3681,7 +3681,7 @@ struct DJConnectButtonStyle: ButtonStyle {
                                 outline.fill(primaryFill).glassEffect(.regular.interactive(), in: outline)
                             } else { outline.fill(primaryFill) }
                         } else {
-                            DJConnectPrimaryButtonSurface(shape: outline)
+                            DJConnectPrimaryButtonSurface(shape: outline, usesLiveGlass: usesLiveGlass)
                         }
                     case .selected:
                         if usesLiveGlass && glassEnabled && !reduceTransparency {

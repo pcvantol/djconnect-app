@@ -10,22 +10,25 @@ enum DJConnectGlassAppearance {
 }
 
 #if os(iOS) || os(macOS)
-/// Default actions use the same native glass as unselected Session choices.
-/// The surrounding app canvas supplies the purple tint, without painted gloss.
+/// Primary actions keep the purple fill and outline of selected DJ settings.
+/// Disabling glass removes transparency without removing the button surface.
 struct DJConnectPrimaryButtonSurface: View {
     var shape: AnyShape = AnyShape(Capsule())
+    var usesLiveGlass = true
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         Group {
-            if glassEnabled && !reduceTransparency {
-                shape.fill(.white.opacity(0.04))
-                    .glassEffect(.regular.interactive(), in: shape)
+            if usesLiveGlass && glassEnabled && !reduceTransparency {
+                shape.fill(djConnectAccent.opacity(0.10))
+                    .glassEffect(.regular.tint(djConnectAccent.opacity(0.22)).interactive(), in: shape)
             } else {
                 shape.fill(DJConnectGlassAppearance.opaqueSurface)
+                    .overlay { shape.fill(DJConnectButtonAppearance.selectedFill) }
             }
         }
+        .overlay { shape.stroke(djConnectAccent.opacity(0.55), lineWidth: 1) }
         .clipShape(shape)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
