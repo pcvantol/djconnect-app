@@ -10050,3 +10050,48 @@ private final class StartupReadFailure: @unchecked Sendable {
     }
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/command") || $0.url!.path.hasSuffix("/session/start") })
 }
+
+@Test(.isolatedClientResources, arguments: ["matching", "missing", "wrong", "pin_changed", "owner_changed"])
+@MainActor func watchVoiceAdmissionUsesOriginalWatchPinRatherThanPhonePin(_ state: String) async throws {
+    let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
+    let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
+    let cases = try #require(root["cases"] as? [[String: Any]])
+    let snapshot = try #require(cases.first(where: { $0["case"] as? String == "configuration_stt_True_tts_False" })?["snapshot"] as? [String: Any])
+    let body = try historyData(["success": true, "ha_install_id": "original-watch-install", "device_speech": snapshot])
+    let gate = HistoryWireResponseGate()
+    let fixture = HistoryWireFixture { request in
+        #expect(request.url?.path == "/api/djconnect/v1/status")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "watchos")
+        throw HistoryWireHeldResponse(data: body, gate: gate)
+    }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    defaults.set("different-phone-install", forKey: "DJConnectHAInstallID")
+    let key = "DJConnectWatchProxyBootstrapInstallID"
+    if state != "missing" { defaults.set(state == "wrong" ? "stale-watch-install" : "original-watch-install", forKey: key) }
+    let client = DJConnectClient(baseURL: fixture.baseURL,
+        identity: .init(deviceID: "djconnect-watchos-ABCDEF123456", deviceName: "Watch", clientType: .watchos, firmware: "4.0.0", platform: .watchos),
+        tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-watch-token"), session: fixture.session())
+    var ownerIsCurrent = true
+    let rotation = Task { @MainActor in
+        guard state != "missing" else { return }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while !gate.hasHeldResponse && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(gate.hasHeldResponse)
+        defer { gate.release() }
+        if state == "pin_changed" { defaults.set("replacement-watch-install", forKey: key) }
+        if state == "owner_changed" { ownerIsCurrent = false }
+    }
+    var admitted = false
+    do {
+        try await model.requireWatchProxyVoiceInput(client: client, language: "en", isStillCurrent: { ownerIsCurrent })
+        admitted = true
+    } catch { }
+    try await rotation.value
+    #expect(admitted == (state == "matching"))
+    #expect(fixture.requests.count == (state == "missing" ? 0 : 1))
+    #expect(defaults.string(forKey: "DJConnectHAInstallID") == "different-phone-install")
+    if state == "matching" { #expect(defaults.string(forKey: key) == "original-watch-install") }
+}

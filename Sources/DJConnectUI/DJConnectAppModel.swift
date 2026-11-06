@@ -2199,6 +2199,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var lastActivitySurfaceIdentity: String?
     private var hasSyncedSessionSurfaceActivity = false
     private var hasObservedSessionSurfaceAuthority = false
+    private let watchProxyBootstrapInstallIDKey = "DJConnectWatchProxyBootstrapInstallID"
     #if os(iOS) && canImport(WatchConnectivity)
     @Published private var watchProxyRegistration: DJConnectWatchProxyRegistration?
     private var watchProxySetupReadbackTask: Task<Void, Never>?
@@ -2206,7 +2207,6 @@ public final class DJConnectAppModel: ObservableObject {
     private var watchProxyPairingGeneration = UUID()
     private let watchProxyHomeAssistantURLKey = "DJConnectWatchProxyHomeAssistantURL"
     private let watchProxyHomeAssistantPairCodeKey = "DJConnectWatchProxyHomeAssistantPairCode"
-    private let watchProxyBootstrapInstallIDKey = "DJConnectWatchProxyBootstrapInstallID"
     private let watchProxyBootstrapPairingSessionKey = "DJConnectWatchProxyBootstrapPairingSession"
     private var watchProxySessionDelegate: DJConnectWatchProxySessionDelegate?
     private var pendingWatchProxyPairingPayload: DJConnectPairingDeepLink?
@@ -9605,6 +9605,20 @@ public final class DJConnectAppModel: ObservableObject {
         else { throw DJConnectError.invalidResponse }
     }
 
+    /// The Watch has its own original pairing pin; the phone's install pin is
+    /// not authority for Watch speech. Never learn or replace this pin from status.
+    func requireWatchProxyVoiceInput(client: DJConnectClient, language: String,
+                                    isStillCurrent: () -> Bool) async throws {
+        guard client.identity.clientType == .watchos, isStillCurrent(),
+              let install = defaults.string(forKey: watchProxyBootstrapInstallIDKey), !install.isEmpty
+        else { throw CancellationError() }
+        let availability = try await client.currentDeviceSpeech(language: language, expectedInstallationID: install)
+        guard !Task.isCancelled, isStillCurrent(),
+              defaults.string(forKey: watchProxyBootstrapInstallIDKey) == install,
+              availability?.allowsHAInput(locale: language) == true
+        else { throw DJConnectError.invalidResponse }
+    }
+
     private func sendVoiceWithFallback(wavData: Data) async throws -> DJConnectVoiceResponse {
         let operation = voiceOperationGeneration, epoch = sessionHistory.responseEpoch
         return try await withHomeAssistantClient { client in
@@ -16391,14 +16405,18 @@ public final class DJConnectAppModel: ObservableObject {
             let locale = payload.language ?? currentRequestLocale
             let watchID = watchProxyRegistration?.identity.deviceID
             let watchToken = defaults.string(forKey: watchProxyDeviceTokenKey)
-            let install = defaults.string(forKey: haInstallIDKey) ?? ""
+            let generation = watchProxyPairingGeneration
+            let pairingIntent = watchProxyRegistration?.pairingIntentID
+            let localRoute = localHomeAssistantURL(), remoteRoute = haRemoteURL
             guard client.identity.clientType == .watchos, client.identity.deviceID == watchID,
                   watchToken?.isEmpty == false, try client.tokenStore.loadToken() == watchToken else { throw CancellationError() }
-            let availability = try await client.currentDeviceSpeech(language: locale, expectedInstallationID: install)
-            guard !Task.isCancelled, watchProxyRegistration?.identity.deviceID == watchID,
-                  defaults.string(forKey: watchProxyDeviceTokenKey) == watchToken,
-                  defaults.string(forKey: haInstallIDKey) == install,
-                  availability?.allowsHAInput(locale: locale) == true else { throw DJConnectError.invalidResponse }
+            try await requireWatchProxyVoiceInput(client: client, language: locale) { [self] in
+                !Task.isCancelled && watchProxyPairingGeneration == generation &&
+                    watchProxyRegistration?.identity.deviceID == watchID &&
+                    watchProxyRegistration?.pairingIntentID == pairingIntent &&
+                    defaults.string(forKey: watchProxyDeviceTokenKey) == watchToken &&
+                    localHomeAssistantURL() == localRoute && haRemoteURL == remoteRoute
+            }
             if let context = payload.conversationContext {
                 guard let operationID = payload.clientMessageID, !operationID.isEmpty,
                       context.selectedMoment == nil else { throw DJConnectError.invalidResponse }
