@@ -1061,9 +1061,8 @@
 
 // Native invitation when no DJ Session is active.
 "ui.session.welcome.eyebrow" = "Welcome to DJConnect";
-"ui.session.welcome.title" = "Your music.\nYour DJ.";
-"ui.session.welcome.subtitle" = "Start a DJ session and experience your music in a new way.";
-"ui.session.welcome.promise" = "Discover the stories behind your music. Talk to your DJ. Let yourself be surprised.";
+"ui.session.welcome.title" = "Your DJ is ready.";
+"ui.session.welcome.subtitle" = "Discover music that fits you and the stories behind what you hear. Ask your DJ for more, or let your DJ guide you.";
 "ui.session.welcome.mood" = "Your mood";
 
 "ui.session.music_duration" = "Elapsed time and total duration";
@@ -1717,3 +1716,11 @@
 "ui.for_you.art.procedural" = "Procedural landscape illustration; not audio analysis.";
 
 "ui.session.moment.music_announcement" = "Music announcement";
+"ui.session.welcome.feature.music" = "Personal\nmusic";
+"ui.session.welcome.feature.stories" = "Music stories\nand highlights";
+"ui.session.welcome.feature.discovery" = "Every session,\na discovery";
+"ui.session.welcome.instruction" = "You can start right away or adjust your choices first.";
+"ui.session.welcome.for_you_tip" = "Then find three personal mix suggestions in “For you”.";
+"ui.session.welcome.mood.explanation" = "Choose your vibe for this session";
+"ui.session.welcome.presence.explanation" = "How often your DJ speaks";
+"ui.session.welcome.persona.explanation" = "Your DJ’s style and tone";

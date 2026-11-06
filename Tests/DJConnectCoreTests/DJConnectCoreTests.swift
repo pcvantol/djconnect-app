@@ -15377,3 +15377,19 @@ func welcomeMoodStartsTheSelectedSessionWithoutChangingAnAlreadyActiveSession(mo
     #expect(model.activeDJSession?.id == session.id)
     #expect(model.activeDJSession?.selectedMood == mood)
 }
+
+@MainActor
+@Test(.isolatedClientResources, arguments: [false, true])
+func demoEntryClearsPriorSessionFailureAfterOptionalRePairing(rePair: Bool) async throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    await model.recoverAfterPairedAuthorityWithdrawal("profile_changed")
+    #expect(model.djSessionErrorMessage != nil)
+    if rePair { model.resetPairing() }
+    model.startDemoMode()
+    #expect(model.isDemoMode)
+    #expect(model.activeDJSession == nil)
+    #expect(model.djSessionErrorMessage == nil)
+    await model.startDJSession(mood: "chill")
+    #expect(model.activeDJSession?.selectedMood == "chill")
+    #expect(model.djSessionErrorMessage == nil)
+}

@@ -32,6 +32,37 @@ struct DJConnectPrimaryButtonSurface: View {
     }
 }
 
+/// A fixed brand gradient for the welcome start action, independent of Session mood.
+struct DJConnectSessionStartButtonSurface: View {
+    var shape: AnyShape = AnyShape(Capsule())
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    private let gradient = LinearGradient(colors: [
+        Color(red: 0.10, green: 0.84, blue: 0.84),
+        Color(red: 0.22, green: 0.46, blue: 1.00),
+        Color(red: 0.50, green: 0.17, blue: 0.98),
+        Color(red: 0.76, green: 0.10, blue: 0.86)
+    ], startPoint: .leading, endPoint: .trailing)
+
+    var body: some View {
+        Group {
+            if glassEnabled && !reduceTransparency {
+                shape.fill(gradient)
+                    .glassEffect(.clear.interactive(), in: shape)
+            } else {
+                shape.fill(gradient)
+            }
+        }
+        .overlay {
+            shape.stroke(LinearGradient(colors: [.white.opacity(0.75), .white.opacity(0.25)],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+        }
+        .shadow(color: Color.blue.opacity(0.28), radius: 12)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
 #endif
 
 private struct DJConnectGlassEnabledKey: EnvironmentKey {

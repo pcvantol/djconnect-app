@@ -3341,6 +3341,7 @@ public final class DJConnectAppModel: ObservableObject {
         stopPairingWait()
         cancelVoiceRecording()
         clearSessionProjection()
+        djSessionErrorMessage = nil
         sessionHistory.reset()
         isDemoMode = true
         demoSessionIntroductionSeen = false
