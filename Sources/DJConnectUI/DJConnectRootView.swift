@@ -1989,7 +1989,7 @@ private struct PairingSheetView: View {
                             .font(.subheadline.weight(.semibold))
                             .rotationEffect(.degrees(isManualPairingVisible ? 180 : 0))
                     }
-                    .foregroundStyle(djConnectAccent)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
                 }
@@ -2133,6 +2133,8 @@ private struct PairingSheetView: View {
             .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
             .controlSize(.large)
         }
+        .padding(24)
+        .djSessionFrostedSurface()
     }
 
     private var statusTitle: String {
@@ -2410,8 +2412,8 @@ private struct PairingEditableURLCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.62))
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
             HStack(spacing: 8) {
                 TextField("", text: $text, prompt: Text(verbatim: "http://homeassistant.local:8123").foregroundColor(.gray))
                     .foregroundColor(trimmedText == "http://homeassistant.local:8123" ? .gray : .primary)
@@ -2515,8 +2517,8 @@ private struct PairingCodeEntryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(localizedKey(language, "ui.pair.code.integration.label"))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.62))
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
             TextField("", text: $text, prompt: Text(localizedKey(language, "ui.pair.code.placeholder.six.digits")).foregroundColor(.gray))
                 .foregroundColor(text.isEmpty ? .gray : .primary)
                 .font(.body)
@@ -3639,6 +3641,7 @@ struct DJConnectButtonStyle: ButtonStyle {
     var selectionTint: Color? = nil
     /// Applied after label padding/expansion, over the complete button shape.
     var selectionFill: Color? = nil
+    var sessionStartMood: String? = nil
     var dimsWhenDisabled = true
     @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
@@ -3672,7 +3675,7 @@ struct DJConnectButtonStyle: ButtonStyle {
             .frame(maxWidth: expands ? .infinity : nil)
             .background {
                 if role == .sessionStart {
-                    DJConnectSessionStartButtonSurface(shape: outline)
+                    DJConnectSessionStartButtonSurface(shape: outline, mood: sessionStartMood)
                 } else if usesPrimarySurface {
                     DJConnectPrimaryButtonSurface(shape: outline)
                 } else {
@@ -5436,6 +5439,7 @@ private struct MusicDNADisabledView: View {
         }
         .padding(24)
         .djSessionFrostedSurface()
+        .djConnectStandardHeroWidth()
     }
 }
 
@@ -9154,13 +9158,17 @@ private struct IdleDJSessionView: View {
             DJSessionWelcomeFeatures(language: model.language)
             VStack(alignment: .leading, spacing: 16) {
                 IdleSessionProfileChoices(model: model, mood: $selectedMood)
-                Button { Task { await model.startDJSession(mood: selectedMood) } } label: {
+                Button {
+                    let startMood = selectedMood
+                    Task { await model.startDJSession(mood: startMood) }
+                } label: {
                     HStack(spacing: 12) {
                         Group {
                             if model.isLoadingDJSession {
                                 ProgressView().tint(.white)
                             } else {
-                                DJPersonaAvatarView(confirmedMood: nil, language: model.language, activity: .resting)
+                                DJPersonaMark()
+                                    .fill(.white)
                                     .accessibilityHidden(true)
                             }
                         }
@@ -9171,6 +9179,7 @@ private struct IdleDJSessionView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .sessionStart, expands: true,
+                    sessionStartMood: selectedMood,
                     dimsWhenDisabled: !model.isSchedulingProfileDJChoice && model.profileDJSettings.phase != .saving))
                 .disabled(model.isLoadingDJSession || (!model.isDemoMode && model.pairingStatus != .paired) || !model.canUsePlaybackFeatures || model.isSchedulingProfileDJChoice || (!model.isDemoMode && [.saving, .uncertain].contains(model.profileDJSettings.phase)))
                 .accessibilityIdentifier("session-welcome-start")
@@ -9224,11 +9233,22 @@ private struct IdleDJSessionView: View {
             Text(localizedKey(model.language, "ui.session.welcome.title"))
                 .font(.system(size: titleSize, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(1)
+                .minimumScaleFactor(0.50)
+                .allowsTightening(true)
                 .accessibilityAddTraits(.isHeader)
-            Text(localizedKey(model.language, "ui.session.welcome.subtitle"))
-                .font(.body).foregroundStyle(.white.opacity(0.82))
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(localizedKey(model.language, "ui.session.welcome.subtitle")
+                    .split(separator: "\n").enumerated()), id: \.offset) { _, line in
+                    Text(String(line))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.1)
+                        .allowsTightening(true)
+                }
+            }
+            .font(.body)
+            .foregroundStyle(.white.opacity(0.82))
+            .accessibilityElement(children: .combine)
         }
     }
 
@@ -9258,10 +9278,9 @@ private struct DJSessionWelcomeFeatures: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .djSessionFrostedSurface(cornerRadius: 20, surfaceTint: Color(red: 0.10, green: 0.48, blue: 0.76))
             .overlay {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.cyan.opacity(0.35), lineWidth: 1)
+                    .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
                     .allowsHitTesting(false)
             }
             .accessibilityElement(children: .combine)
@@ -13441,11 +13460,13 @@ struct SessionGlassChoiceSelector: View {
     var selectionColor: Color = djConnectAccent
     var sessionTheme: DJConnectSessionMoodTheme? = nil
     private var resolvedSelectionColor: Color {
-        sessionTheme == .chill ? djConnectAccent : (sessionTheme?.controlSelectionColor ?? selectionColor)
+        sessionTheme?.controlSelectionButtonTint ?? selectionColor
+    }
+    private var selectedForegroundColor: Color {
+        sessionTheme?.controlSelectionForegroundColor ?? .white
     }
     private var selectionFill: Color? {
-        guard let sessionTheme, sessionTheme != .chill else { return nil }
-        return resolvedSelectionColor.opacity(0.80)
+        sessionTheme?.controlSelectionButtonFill
     }
     var preservesAppearanceWhileDisabled = true
     var selectedLabelIdentifier = "session-popover-selected-mood"
@@ -13488,13 +13509,13 @@ struct SessionGlassChoiceSelector: View {
                             .font(.title3.weight(.semibold))
                             // Equal intrinsic width keeps HStack allocation independent of the symbol.
                             .frame(width: 24, height: 28)
-                            .foregroundStyle(.white.opacity(index == selectedIndex ? 1 : 0.78))
+                            .foregroundStyle(index == selectedIndex ? selectedForegroundColor : .white.opacity(0.78))
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(
                         emphasis: index == selectedIndex ? .selected : .secondary,
                         shape: .segmented, expands: true, usesLiveGlass: true,
-                        showsFocusIndicator: false, foregroundColor: .white.opacity(index == selectedIndex ? 1 : 0.78),
+                        showsFocusIndicator: false, foregroundColor: index == selectedIndex ? selectedForegroundColor : .white.opacity(0.78),
                         selectionTint: resolvedSelectionColor,
                         selectionFill: selectionFill,
                         dimsWhenDisabled: !preservesAppearanceWhileDisabled

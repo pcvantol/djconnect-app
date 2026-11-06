@@ -206,7 +206,7 @@ struct DJConnectWatchRootView: View {
         case "discover":
             DJConnectWatchDiscoveryView()
         case "track-insight":
-            DJConnectWatchTrackInsightView()
+            DJConnectWatchTrackInsightView(session: model.foregroundSession)
         case "music-dna":
             DJConnectWatchMusicDNAView()
         case "playlists":
@@ -261,12 +261,20 @@ struct DJConnectWatchRootView: View {
                 }
                 .buttonStyle(DJConnectWatchFlatActionRowStyle())
             }
+            .padding(watchListItemPadding)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
             .padding(.horizontal, watchRowInset)
         }
     }
 
     fileprivate struct DJConnectWatchTrackInsightView: View {
         @EnvironmentObject private var model: DJConnectWatchModel
+        @ObservedObject var session: DJConnectWatchForegroundSession
 
         private var insight: TrackInsight {
             if let currentTrackInsight = model.currentTrackInsight {
@@ -294,13 +302,13 @@ struct DJConnectWatchRootView: View {
         var body: some View {
             let fillsPage = model.currentTrackInsight != nil || model.isDemoMode
             ZStack {
-                DJConnectWatchCanvas()
+                DJConnectWatchCanvas(theme: model.trackInsightMoodTheme)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
                         DJConnectWatchTrackInsightVisualCard(
                             insight: insight,
                             language: model.language,
-                            moodStepIndex: model.askDJMoodStepIndex,
+                            moodTheme: model.trackInsightMoodTheme,
                             isPlaying: model.playback?.isPlaying == true,
                             usesDemoArtwork: model.isDemoMode,
                             fillsPage: fillsPage
@@ -319,6 +327,10 @@ struct DJConnectWatchRootView: View {
                     .padding(.top, fillsPage ? 0 : 8)
                 }
                 .ignoresSafeArea(.container, edges: fillsPage ? .all : [])
+            }
+            .task(id: model.trackInsightRefreshScope) {
+                guard model.trackInsightRefreshScope.available else { return }
+                await model.refreshTrackInsight()
             }
             .navigationTitle(fillsPage ? "" : "Track Insight")
             .toolbar {
@@ -352,8 +364,7 @@ struct DJConnectWatchRootView: View {
                 insight.artist,
                 insight.visualProfile?.motionStyle?.rawValue ?? "",
                 insight.visualProfile?.palette.joined(separator: ",") ?? "",
-                String(model.askDJMoodStepIndex),
-                String(model.askDJMoodInt)
+                model.trackInsightMoodTheme.rawValue
             ].joined(separator: "|")
         }
     }
@@ -574,7 +585,7 @@ struct DJConnectWatchRootView: View {
     fileprivate struct DJConnectWatchTrackInsightVisualCard: View {
         let insight: TrackInsight
         let language: String
-        let moodStepIndex: Int
+        let moodTheme: DJConnectSessionMoodTheme
         let isPlaying: Bool
         var usesDemoArtwork = false
         var fallbackArtworkURL: URL?
@@ -601,7 +612,7 @@ struct DJConnectWatchRootView: View {
             DJConnectWatchTrackInsightVisualizer(
                 insight: insight,
                 profile: TrackVibeProfile.make(for: insight)
-                    .applyingWatchTrackInsightMoodRenderOverride(stepIndex: moodStepIndex),
+                    .applyingWatchTrackInsightMoodRenderOverride(theme: moodTheme),
                 isPlaying: isPlaying,
                 usesDemoArtwork: usesDemoArtwork,
                 fallbackArtworkURL: fallbackArtworkURL
@@ -4165,12 +4176,18 @@ private struct DJConnectWatchPanel: View {
 }
 
 private extension TrackVibeProfile {
-    func applyingWatchTrackInsightMoodRenderOverride(stepIndex: Int) -> TrackVibeProfile {
+    func applyingWatchTrackInsightMoodRenderOverride(theme: DJConnectSessionMoodTheme) -> TrackVibeProfile {
         var copy = self
-        let clampedStep = max(0, min(3, stepIndex))
+        copy.palette = theme.colorValues.map { String(format: "#%06X", $0) }
+        let clampedStep: Int
+        switch theme {
+        case .brand, .chill: clampedStep = 0
+        case .groove: clampedStep = 1
+        case .energy: clampedStep = 2
+        case .party: clampedStep = 3
+        }
         switch clampedStep {
         case 0:
-            copy.palette = ["#4DA3FF", "#7B61FF", "#D184FF"]
             copy.glow = max(0.30, glow * 0.76)
             copy.pulseSpeed = max(0.35, pulseSpeed * 0.70)
             copy.waveform = max(0.20, waveform * 0.72)
@@ -4179,7 +4196,6 @@ private extension TrackVibeProfile {
             copy.animationSpeed = max(0.45, animationSpeed * 0.68)
             copy.motionStyle = .dreamy
         case 1:
-            copy.palette = ["#2EC4B6", "#7B61FF", "#D184FF"]
             copy.glow = max(0.36, glow * 0.94)
             copy.pulseSpeed = max(0.52, pulseSpeed * 0.90)
             copy.waveform = max(0.32, waveform * 0.94)
@@ -4188,7 +4204,6 @@ private extension TrackVibeProfile {
             copy.animationSpeed = max(0.56, animationSpeed * 0.88)
             copy.motionStyle = .balanced
         case 2:
-            copy.palette = ["#8AC926", "#FFD166", "#FF6A3D"]
             copy.glow = min(0.95, max(0.46, glow * 1.14))
             copy.pulseSpeed = min(2.2, max(0.72, pulseSpeed * 1.16))
             copy.waveform = min(1.0, max(0.44, waveform * 1.12))
@@ -4197,7 +4212,6 @@ private extension TrackVibeProfile {
             copy.animationSpeed = min(1.9, max(0.72, animationSpeed * 1.12))
             copy.motionStyle = .energetic
         default:
-            copy.palette = ["#FF2E63", "#A855F7", "#FFD166"]
             copy.glow = min(0.95, max(0.52, glow * 1.24))
             copy.pulseSpeed = min(2.2, max(0.88, pulseSpeed * 1.30))
             copy.waveform = min(1.0, max(0.52, waveform * 1.22))
@@ -4317,6 +4331,10 @@ private struct DJConnectWatchCompanionPages: View {
     private var context: DJConnectConversationContext { .init(sessionID: demoSession?.id ?? session?.id) }
     private var theme: DJConnectSessionMoodTheme { .init(sessionMood: demoSession?.mood ?? session?.selectedMood) }
     private var accent: Color { theme.watchColors[1] }
+    private var moreTitleColor: Color {
+        guard session != nil || demoSession != nil, theme != .brand else { return watchAccentPurple }
+        return theme.watchColors[0]
+    }
     private var visibleFlowRow: DJConnectWatchFlowRow? {
         guard page == 0, destination == nil, flowPosition > 0 else { return nil }
         let rows = currentFlowRows
@@ -4452,6 +4470,7 @@ private struct DJConnectWatchCompanionPages: View {
                     if demoSession?.id == id {
                         VStack(alignment: .leading, spacing: 8) {
                             DJConnectWatchMomentHeading(title: text(row.labelKey), color: accent)
+                            Text(row.date, style: .time).font(.caption2).foregroundStyle(.secondary)
                             if row.labelKey == "ui.session.history.playback" {
                                 demoTrackArtwork()
                                     .frame(width: 120, height: 120)
@@ -4472,6 +4491,7 @@ private struct DJConnectWatchCompanionPages: View {
         .scrollContentBackground(.hidden)
         .environment(\.watchSessionTheme, theme)
         .navigationTitle(page == 2 ? text("watch.v2.more") : page == 1 || page == 3 || demoSession != nil || needsSessionReadback || session != nil ? "" : "Ask DJ")
+        .toolbarForegroundStyle(page == 2 ? moreTitleColor : .white, for: .navigationBar)
         .onChange(of: model.watchHomeOpenSequence) { _, _ in page = 0; flowPosition = 0; destination = nil }
         .onChange(of: model.watchMomentOpenIntent, initial: true) { _, intent in
             if let intent { destination = .notification(intent) }
@@ -4563,6 +4583,18 @@ private struct DJConnectWatchCompanionPages: View {
             sessionReadbackPlaceholder
         } else if isLoadingSession || ((session != nil || demoSession != nil) && !dynamicTypeSize.isAccessibilitySize) {
             ZStack {
+                // This target shares the controls' layout bounds, beneath every action.
+                // A background outside home's ignored safe area can steal corner taps.
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        guard page == 0, destination == nil, !isLoadingSession,
+                              mainPageOrder.count > 1 else { return }
+                        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.15)) {
+                            pageIndicatorVisit = UUID()
+                        }
+                    }
+                    .accessibilityHidden(true)
                 if isLoadingSession {
                     DJConnectWatchGlassBrandIcon(size: Self.avatarSize, winksOnAppear: true)
                         .overlay(alignment: .top) {
@@ -4587,10 +4619,12 @@ private struct DJConnectWatchCompanionPages: View {
                     VStack(spacing: 0) {
                         homeHeading
                         Spacer(minLength: 0)
-                        homeActions
                     }
                     homePlaybackControls
                 }
+            }
+            .overlay(alignment: .bottom) {
+                if !isLoadingSession { homeActions }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, watchRowInset)
@@ -4737,25 +4771,23 @@ private struct DJConnectWatchCompanionPages: View {
     @ViewBuilder private var homeActions: some View {
         if session != nil || demoSession != nil {
             HStack {
-                if session != nil {
-                    NavigationLink {
-                        more
-                            .navigationTitle(text("watch.v2.more"))
-                            .watchStandardBackground()
-                    } label: {
-                        Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(text("watch.v2.more"))
+                NavigationLink { DJConnectWatchQueueView() } label: {
+                    Image(systemName: "list.number").frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(text("watch.queue"))
+                .accessibilityIdentifier("watch-home-queue")
 
                 Spacer(minLength: 0)
 
                 NavigationLink { DJConnectWatchCompanionSoundView() } label: {
                     Image(systemName: "speaker.wave.2").frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(text("watch.v2.sound"))
+                .accessibilityIdentifier("watch-home-volume")
             }
         }
     }
@@ -4935,6 +4967,7 @@ private struct DJConnectWatchCompanionPages: View {
                    flowRows?.contains(where: { $0.id == row.id && $0.text == row.text }) == true {
                     VStack(alignment: .leading, spacing: 8) {
                         DJConnectWatchMomentHeading(title: text(row.labelKey), color: accent)
+                        Text(row.date, style: .time).font(.caption2).foregroundStyle(.secondary)
                         if ["ui.session.history.playback", "ui.session.moment.music_announcement"].contains(row.labelKey), let reference = row.reference {
                             DJConnectWatchFlowArtworkView(reference: reference, binding: binding)
                         }
@@ -5331,6 +5364,9 @@ private struct DJConnectWatchCompanionMomentView: View {
             if available {
             VStack(alignment: .leading, spacing: 10) {
                 DJConnectWatchMomentHeading(title: watchLocalizedKey(model.language, moment.isMusicAnnouncementV1 ? "ui.session.moment.music_announcement" : "watch.v2.moments"), color: theme.watchColors[1])
+                if let date = DJConnectHistoryEntry.date(moment.createdAt) {
+                    Text(date, style: .time).font(.caption2).foregroundStyle(.secondary)
+                }
                 Text(moment.content).fixedSize(horizontal: false, vertical: true)
                 if moment.sourceAttribution?["provider"] == "Spotify",
                    moment.nativeSourceURLs.contains(where: { $0.host == "open.spotify.com" }) {
@@ -5657,7 +5693,7 @@ private struct DJConnectWatchCompanionTrackView: View {
                 }
                 if model.isDemoMode {
                     NavigationLink {
-                        DJConnectWatchRootView.DJConnectWatchTrackInsightView()
+                        DJConnectWatchRootView.DJConnectWatchTrackInsightView(session: model.foregroundSession)
                     } label: {
                         Label("Track Insight", systemImage: "waveform.path.ecg")
                     }
@@ -5862,7 +5898,7 @@ private struct DJConnectWatchRecordingInsightView: View {
                         DJConnectWatchRootView.DJConnectWatchTrackInsightVisualCard(
                             insight: insight,
                             language: model.language,
-                            moodStepIndex: model.askDJMoodStepIndex,
+                            moodTheme: model.trackInsightMoodTheme,
                             isPlaying: model.playback?.uri == recording && model.playback?.isPlaying == true,
                             fallbackArtworkURL: artworkURL,
                             fillsPage: true
@@ -5879,15 +5915,15 @@ private struct DJConnectWatchRecordingInsightView: View {
             .ignoresSafeArea(.container, edges: insight != nil && !isLoading ? .all : [])
             .navigationTitle(insight != nil && !isLoading ? "" : "Track Insight")
         }
-        .watchStandardBackground()
-        .task(id: canReadInsight) {
+        .watchStandardBackground(theme: model.trackInsightMoodTheme)
+        .task(id: model.trackInsightRefreshScope) {
             guard canReadInsight else {
                 result = nil
                 isLoading = false
                 return
             }
             while !Task.isCancelled {
-                isLoading = true
+                isLoading = result == nil
                 let fresh = await model.loadRecordingInsight(recording, binding: binding)
                 guard !Task.isCancelled else { return }
                 result = fresh

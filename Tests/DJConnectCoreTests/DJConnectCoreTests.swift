@@ -5250,6 +5250,14 @@ func watchPushRegisterPreservesOtherHTTPFailures(status: Int) async throws {
     #expect(activeRequest.value(forHTTPHeaderField: "Authorization") == "Bearer owner-device-token")
     #expect(activeQuery.first(where: { $0.name == "device_id" })?.value == "djconnect-ios-8F3A2C91B45D")
     #expect(activeQuery.first(where: { $0.name == "client_type" })?.value == "ios")
+    #expect(!activeQuery.contains { $0.name == "language" })
+    for language in ["nl", "en"] {
+        let localized = try client.activeSessionRequest(language: language)
+        let query = URLComponents(url: localized.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(query.first(where: { $0.name == "language" })?.value == language)
+        #expect(localized.httpMethod == "GET" && localized.httpBody == nil)
+        #expect(localized.value(forHTTPHeaderField: "Authorization") == "Bearer owner-device-token")
+    }
 }
 
 @Test(.isolatedClientResources) func vibeCastPiHandoffPromptsExistInAllFiveProductLanguages() {

@@ -7553,15 +7553,16 @@ public final class DJConnectAppModel: ObservableObject {
         guard !Task.isCancelled else { return false }
         if isDemoMode { return true }
         guard isAppInForeground, pairingStatus == .paired, !isLoadingDJSession else { return false }
+        let requestedLanguage = language
         let request = UUID()
         sessionRequestGeneration = request
         isLoadingDJSession = true
         defer { if request == sessionRequestGeneration { isLoadingDJSession = false } }
         do {
             let response = try await withHomeAssistantClient { client in
-                try await client.activeSession()
+                try await client.activeSession(language: requestedLanguage)
             }
-            guard !Task.isCancelled, request == sessionRequestGeneration, pairingStatus == .paired else { return false }
+            guard !Task.isCancelled, request == sessionRequestGeneration, pairingStatus == .paired, language == requestedLanguage else { return false }
             guard response.success else {
                 clearSessionProjection()
                 djSessionErrorMessage = localized(key: "ui.session.unavailable")
@@ -8399,6 +8400,8 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         guard pairingStatus == .paired, canUsePlaybackFeatures, !isLoadingDJSession else { return }
+        let startMood = mood ?? selectedSessionMood
+        let startLanguage = currentRequestLocale
         let request = UUID()
         sessionRequestGeneration = request
         isLoadingDJSession = true
@@ -8407,8 +8410,8 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) { client in
                 try await client.startSession(
                     DJConnectSessionStartRequest(
-                        mood: mood ?? selectedSessionMood,
-                        language: currentRequestLocale
+                        mood: startMood,
+                        language: startLanguage
                     )
                 )
             }
@@ -16494,7 +16497,10 @@ public final class DJConnectAppModel: ObservableObject {
                     self?.log(.warning, "Watch proxy message failed: \(error.localizedDescription)")
                 }
             }
-        } else {
+        }
+        // Pairing completion must survive a lost foreground message or a newer
+        // ready/demo context. The exact-intent receiver safely accepts duplicates.
+        if !WCSession.default.isReachable || message["type"] as? String == "watch_proxy_pair_result" {
             WCSession.default.transferUserInfo(message)
         }
     }

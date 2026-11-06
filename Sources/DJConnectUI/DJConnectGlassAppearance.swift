@@ -32,17 +32,25 @@ struct DJConnectPrimaryButtonSurface: View {
     }
 }
 
-/// A fixed brand gradient for the welcome start action, independent of Session mood.
+/// The welcome start action uses the shared mood palette for its glass gradient.
 struct DJConnectSessionStartButtonSurface: View {
     var shape: AnyShape = AnyShape(Capsule())
+    var mood: String? = nil
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    private let gradient = LinearGradient(colors: [
-        Color(red: 0.10, green: 0.84, blue: 0.84),
-        Color(red: 0.22, green: 0.46, blue: 1.00),
-        Color(red: 0.50, green: 0.17, blue: 0.98),
-        Color(red: 0.76, green: 0.10, blue: 0.86)
-    ], startPoint: .leading, endPoint: .trailing)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var colors: [Color] {
+        let theme = DJConnectSessionMoodTheme(sessionMood: mood)
+        // Calm keeps the deep blue/purple tones of the Session canvas.
+        let values: [UInt32] = theme == .chill ? [0x243A78, 0x422875, 0x5B2E86] : theme.colorValues
+        return values.map { rgb in
+            Color(red: Double((rgb >> 16) & 255) / 255,
+                  green: Double((rgb >> 8) & 255) / 255, blue: Double(rgb & 255) / 255)
+        }
+    }
+    private var gradient: LinearGradient {
+        LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing)
+    }
 
     var body: some View {
         Group {
@@ -57,7 +65,8 @@ struct DJConnectSessionStartButtonSurface: View {
             shape.stroke(LinearGradient(colors: [.white.opacity(0.75), .white.opacity(0.25)],
                                         startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
         }
-        .shadow(color: Color.blue.opacity(0.28), radius: 12)
+        .shadow(color: (colors.first ?? .blue).opacity(0.28), radius: 12)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: mood)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }

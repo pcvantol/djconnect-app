@@ -1062,7 +1062,7 @@
 // Native invitation when no DJ Session is active.
 "ui.session.welcome.eyebrow" = "Welkom bij DJConnect";
 "ui.session.welcome.title" = "Jouw DJ staat klaar.";
-"ui.session.welcome.subtitle" = "Ontdek muziek die bij je past en de verhalen achter wat je hoort. Vraag je DJ om meer, of laat je meenemen.";
+"ui.session.welcome.subtitle" = "Ontdek muziek die bij je past en de verhalen achter wat je hoort.\nVraag je DJ om meer, of laat je meenemen.";
 "ui.session.welcome.mood" = "Jouw stemming";
 
 "ui.session.music_duration" = "Verstreken tijd en totale duur";
@@ -1688,7 +1688,7 @@
 
 "ui.ha_speech.demo_unavailable" = "Home Assistant-configuratie is niet beschikbaar in demomodus.";
 
-"ui.pair.code.integration.label" = "Koppelcode Home Assistant DJConnect integratie";
+"ui.pair.code.integration.label" = "Home Assistant koppelcode";
 "ui.pair.code.integration.choice" = "Kies ‘DJConnect app koppelen iPhone/iPad, Apple Watch of macOS’.";
 
 "ui.pair.code.placeholder.six.digits" = "6 cijferige code";
@@ -1724,3 +1724,6 @@
 "ui.session.welcome.mood.explanation" = "Kies je vibe voor deze sessie";
 "ui.session.welcome.presence.explanation" = "Hoe vaak je DJ iets vertelt";
 "ui.session.welcome.persona.explanation" = "De stijl en toon van je DJ";
+"watch.game.resume" = "Hervat";
+"ui.for_you.choose_output" = "Kies waar je deze mix wilt afspelen.";
+"ui.for_you.preparing" = "Nieuwe mixkeuzes voor je stemming worden klaargezet…";

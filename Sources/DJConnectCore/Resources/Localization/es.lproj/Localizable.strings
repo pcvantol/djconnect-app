@@ -1062,7 +1062,7 @@
 // Native invitation when no DJ Session is active.
 "ui.session.welcome.eyebrow" = "Te damos la bienvenida a DJConnect";
 "ui.session.welcome.title" = "Tu DJ está listo.";
-"ui.session.welcome.subtitle" = "Descubre música para ti y las historias detrás de lo que escuchas. Pídele más a tu DJ o déjate llevar.";
+"ui.session.welcome.subtitle" = "Descubre música para ti y las historias detrás de lo que escuchas.\nPídele más a tu DJ o déjate llevar.";
 "ui.session.welcome.mood" = "Tu estado de ánimo";
 
 "ui.session.music_duration" = "Tiempo transcurrido y duración total";
@@ -1688,7 +1688,7 @@
 
 "ui.ha_speech.demo_unavailable" = "La configuración de Home Assistant no está disponible en el modo demo.";
 
-"ui.pair.code.integration.label" = "Código de vinculación de la integración DJConnect de Home Assistant";
+"ui.pair.code.integration.label" = "Código de vinculación de Home Assistant";
 "ui.pair.code.integration.choice" = "Elige ‘Vincular la app DJConnect: iPhone/iPad, Apple Watch o macOS’.";
 
 "ui.pair.code.placeholder.six.digits" = "Código de 6 dígitos";
@@ -1724,3 +1724,6 @@
 "ui.session.welcome.mood.explanation" = "Elige el ambiente de esta sesión";
 "ui.session.welcome.presence.explanation" = "Con qué frecuencia habla tu DJ";
 "ui.session.welcome.persona.explanation" = "El estilo y el tono de tu DJ";
+"watch.game.resume" = "Reanudar";
+"ui.for_you.choose_output" = "Elige dónde reproducir esta mezcla.";
+"ui.for_you.preparing" = "Preparando nuevas mezclas para tu estado de ánimo…";

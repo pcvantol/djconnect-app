@@ -397,6 +397,12 @@ status, commands, Ask DJ history, clear history, idle suggestions, voice upload,
 and push registration on behalf of the Watch while preserving
 `client_type:"watchos"` metadata.
 
+Pairing completion is delivered through both the reachable foreground channel
+and the WatchConnectivity user-info queue. On activation and foreground return,
+the Watch also reconciles a completion already in received application context
+before registering again. Every delivery retains the same device/intent/code
+and existing-token checks; duplicate delivery does not create a new pairing.
+
 No Apple target hosts a Home Assistant-callable inbound API, shows a callback address, or advertises a pairable discovery service.
 
 ## Battery And Responsiveness
@@ -680,14 +686,28 @@ startup DTO/model remains compatibility-only and is not mounted as a launcher.
 Three original opaque genre choices enter the existing Session conversation
 route with the supplied Session/thread context, a unique client-message ID and
 `audio_response:never`. A returned output choice renders in the ordinary Session
-speaker bubble and continues that same conversation, never the direct legacy
-playback command. Negative dismissal uses the same endpoint without a synthetic
+speaker bubble and, while still admitted, directly beneath the For-you choices.
+Both continue the same original conversation and share one consumed-action latch,
+never the direct legacy playback command. Negative dismissal uses the same endpoint without a synthetic
 user message. Unknown outcomes remain pending; neither ACK nor unrelated playback
 hides the card. Only the server's visible=false projection closes it. Cached
 active-session observations are read-only; expiry/settings changes disable old
-choices. Renewal is explicit, using the original server-supplied refresh prompt.
+choices. Legacy renewal remains explicit, using the original server-supplied
+refresh prompt. With supported `refresh_policy` schema1, the server prepares one
+replacement after a confirmed Mood revision; Apple only polls/adopts and hides
+the legacy renewal button. No client-side automatic Ask DJ request is generated.
+An additive `continuation` restores only the original admitted speaker result
+set/context for the current mood revision. Its wall/monotonic deadline may shrink
+but never renew, and a consumed action stays consumed across repeated polls.
+The NL/EN decoder fixtures derive from Core's actual paired-HA HTTP/Settings3/
+SQLite fixture on source `9bfd10d3`; Spotify/model transports in that run are
+synthetic. This is contract evidence, not provider or native acceptance.
 The client bounds both wall and monotonic lifetime and fences owner/session,
 transport origin, language and history generation across awaited work.
+Active Session reads carry the captured app language as the additive `language`
+presentation parameter, including the paired WebSocket read payload and HTTP
+recovery route. Language changes fence old responses. This localizes Core-owned
+presentation without issuing preparation or playback work.
 
 Only the bounded `visual_recipe` enters Foundation Models on supported devices.
 The generated numeric SceneSpec is clamped and rendered as a native decorative
@@ -695,9 +715,13 @@ landscape; no image, catalogue URI, action identity, history or Profile data is
 passed to that local model. An unavailable/refused model uses a procedural
 illustration and does not claim local generation or audio analysis. Session and
 recipe-revision caches keep polling from changing illustrations. These are
-visual illustrations, not music recommendations or acoustic facts. Source and
-fixture validation do not establish installed Core/Spotify/local-model/device
-acceptance.
+visual illustrations, not music recommendations or acoustic facts. Their palette
+and client-side terrain/motion follow the confirmed current Session mood rather
+than the recipe's older mood. Calm skies, Groove ribbons, Energy ridges and
+Party beams/confetti retain the three recipe directions and variation seeds.
+The local Canvas clock pauses outside the active scene and with Reduce Motion;
+frames never call Core or a local language model. Source and fixture validation
+do not establish installed Core/Spotify/local-model/device acceptance.
 
 ### Music announcement V1
 

@@ -33,6 +33,42 @@ public struct DJConnectForYou: Codable, Equatable, Sendable {
         public let prompt: String
         public let automatic: Bool
     }
+    public struct RefreshPolicy: Codable, Equatable, Sendable {
+        public let schema_version: Int
+        public let execution: String
+        public let trigger: String
+        public let mood_revision: Int
+        public let state: String
+        public let automatic_playback: Bool
+        public let retry_automatically: Bool
+        public var isSupported: Bool {
+            schema_version == 1 && execution == "server" && trigger == "confirmed_mood_revision" &&
+            mood_revision >= 0 && ["pending", "available", "unavailable"].contains(state) &&
+            !automatic_playback && !retry_automatically
+        }
+    }
+    public struct Continuation: Codable, Equatable, Sendable {
+        public let first_play: DJConnectFirstPlayState?
+        public let result_set: DJConnectResultSet?
+        public let playback_actions: [DJConnectAskDJPlaybackAction]?
+        public let conversation_context: DJConnectConversationContext
+        public let action_outcome: DJConnectJSONValue?
+        public let expires_in: Double
+        public let mood_revision: Int
+        public var admittedOutputActions: [DJConnectAskDJPlaybackAction] {
+            guard let first_play, first_play.isSupported, first_play.state == "output",
+                  let result_set, !result_set.admittedPlaybackActions.isEmpty,
+                  result_set.admittedPlaybackActions.allSatisfy({ $0.kind == "output" && $0.command == "set_output" }),
+                  let playback_actions, !playback_actions.isEmpty,
+                  playback_actions.count == result_set.admittedPlaybackActions.count,
+                  playback_actions.allSatisfy({ result_set.admittedPlaybackActions.contains($0) }),
+                  expires_in.isFinite, (0...60).contains(expires_in), mood_revision >= 0 else { return [] }
+            return result_set.admittedPlaybackActions
+        }
+    }
+    public let refresh_policy: RefreshPolicy?
+    public let continuation: Continuation?
+    public let language: String?
     public let schema_version: Int
     public let offer_id: String
     public let session_id: String
@@ -62,6 +98,14 @@ public struct DJConnectForYou: Codable, Equatable, Sendable {
               options.allSatisfy({ VisualRecipe.safe($0.id, 256) && VisualRecipe.safe($0.action_id, 256) &&
                   VisualRecipe.safe($0.label, 320) && $0.genre == $0.visual_recipe.genre && $0.visual_recipe.isSupported }),
               expires_in.map({ $0.isFinite && (0...60).contains($0) }) ?? true else { return false }
+        if let refresh_policy, !refresh_policy.isSupported { return false }
+        if let continuation {
+            guard continuation.conversation_context == conversation_context,
+                  continuation.conversation_context.sessionID == session_id,
+                  continuation.expires_in.isFinite, (0...60).contains(continuation.expires_in),
+                  continuation.mood_revision >= 0,
+                  refresh_policy.map({ $0.mood_revision == continuation.mood_revision }) ?? true else { return false }
+        }
         if let context = conversation_context {
             guard context.sessionID == session_id, context.selectedEntry == nil, context.selectedMoment == nil,
                   context.threadID.map({ VisualRecipe.safe($0, 256) }) == true else { return false }

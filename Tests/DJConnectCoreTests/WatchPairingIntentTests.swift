@@ -89,3 +89,20 @@ private let watchPairIntentB = "22222222-2222-4222-8222-222222222222"
     #expect(DJConnectWatchPairingIntent.load(defaults: defaults, deviceID: device, pairCode: "654321") == nil)
     #expect(defaults.string(forKey: "DJConnectWatchCompanionPairingIntent") == "malformed")
 }
+
+@Test func watchPairingCompletionCanReplayAfterForegroundDeliveryWithoutReplacingCredentials() throws {
+    let intent = try #require(DJConnectWatchPairingIntent(deviceID: "djconnect-watchos-replay",
+        identifier: watchPairIntentA, pairCode: "123456"))
+    var stored: String?
+    var accepted = 0
+    for _ in 0..<2 {
+        if try intent.receive(deviceID: intent.deviceID, identifier: intent.identifier, pairCode: intent.pairCode,
+                              token: "synthetic-current-token", existingToken: stored, save: { stored = $0 }) {
+            accepted += 1
+        }
+    }
+    #expect(accepted == 2 && stored == "synthetic-current-token")
+    #expect(try !intent.receive(deviceID: intent.deviceID, identifier: watchPairIntentB, pairCode: intent.pairCode,
+        token: "synthetic-stale-token", existingToken: stored, save: { stored = $0 }))
+    #expect(stored == "synthetic-current-token")
+}

@@ -18,7 +18,10 @@ import DJConnectCore
     private var captured: Scope?
     private var qualified = false
     private var ownedOutputs = Set<String>()
-    private var pendingOutputs: [DJConnectAskDJPlaybackAction] = []
+    @Published private var pendingOutputs: [DJConnectAskDJPlaybackAction] = []
+    private var outputResultSetID: String?
+    private var submittedOutputs = Set<String>()
+    private var outputContext: DJConnectConversationContext?
     private var outputDeadline: Date?
     private var outputInstant: ContinuousClock.Instant?
     private var generation = UUID()
@@ -62,6 +65,7 @@ import DJConnectCore
             captured = scope; generation = UUID(); qualified = false; readCompleted = false
             offer = nil; ownedOutputs = []; pendingOutputs = []; outputDeadline = nil; outputInstant = nil; busy = false; uncertain = false; expired = false
             wallDeadline = nil; monotonicDeadline = nil; settings = nil; settingsChanged = false
+            outputResultSetID = nil; submittedOutputs = []; outputContext = nil
             return
         }
         if let session = host?.activeDJSession, let settings,
@@ -82,7 +86,7 @@ import DJConnectCore
             guard current(captured, token), capabilities.forYouAvailable else { return }
             qualified = true
             let response = try await host.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
-                try await $0.activeSession()
+                try await $0.activeSession(language: captured.language)
             }
             guard current(captured, token), response.success, response.resolvedSession?.id == captured.session else { return }
             observe(response.forYou, session: response.resolvedSession)
@@ -103,7 +107,7 @@ import DJConnectCore
             if busy { continue }
             do {
                 let response = try await host.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
-                    try await $0.activeSession()
+                    try await $0.activeSession(language: captured.language)
                 }
                 guard current(captured, token), response.success, response.resolvedSession?.id == captured.session else { return }
                 observe(response.forYou, session: response.resolvedSession)
@@ -115,11 +119,14 @@ import DJConnectCore
         guard qualified, let captured, scope == captured, let incoming,
               incoming.isSupported, incoming.session_id == captured.session else { return }
         if let session, Self.settingsData(session) != host?.activeDJSession.flatMap(Self.settingsData) { return }
+        if let policy = incoming.refresh_policy, policy.mood_revision != host?.activeDJSession?.moodRevision { return }
         let replacement = offer?.offer_id != incoming.offer_id
         // A pending/unknown operation cannot be made executable by a normal poll.
         if replacement {
             uncertain = false; settingsChanged = false
             settings = host?.activeDJSession.flatMap(Self.settingsData)
+            pendingOutputs = []; outputContext = nil; outputResultSetID = nil
+            outputDeadline = nil; outputInstant = nil
         }
         offer = incoming
         let remaining = incoming.expires_in ?? 0
@@ -128,12 +135,25 @@ import DJConnectCore
         wallDeadline = replacement ? wall : min(wallDeadline ?? wall, wall)
         monotonicDeadline = replacement ? mono : min(monotonicDeadline ?? mono, mono)
         expired = settingsChanged || !withinDeadline
+        if let continuation = incoming.continuation, incoming.state == "awaiting_output", !settingsChanged,
+           continuation.mood_revision == host?.activeDJSession?.moodRevision,
+           let result = continuation.result_set, let first = continuation.first_play {
+            admitOutputs(continuation.admittedOutputActions, resultID: result.resultSetID,
+                         context: continuation.conversation_context,
+                         remaining: min(remaining, continuation.expires_in, first.expires_in, result.expiresIn))
+        } else if incoming.continuation != nil || ["confirmed", "closed", "dismissed", "uncertain", "attempted"].contains(incoming.state) {
+            pendingOutputs = []
+        }
         expiryTask?.cancel()
+        let wallRemaining = Duration.seconds(max(0, min(wallDeadline ?? now(), outputDeadline ?? wallDeadline ?? now()).timeIntervalSince(now())))
+        let monoEnd = min(monotonicDeadline ?? instant(), outputInstant ?? monotonicDeadline ?? instant())
+        let delay = min(wallRemaining, max(.zero, instant().duration(to: monoEnd)))
         let token = generation
         expiryTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(max(0, remaining)))
+            try? await Task.sleep(for: delay)
             guard !Task.isCancelled, let self, generation == token else { return }
             expired = true
+            pendingOutputs = []
         }
     }
     private var withinDeadline: Bool {
@@ -145,9 +165,15 @@ import DJConnectCore
         !settingsChanged && withinDeadline && scope == captured && host?.isSendingAskDJText == false
     }
     var canRefresh: Bool {
-        offer?.refresh_request?.automatic == false && !busy && !uncertain &&
+        offer?.refresh_policy == nil && offer?.refresh_request?.automatic == false && !busy && !uncertain &&
         scope == captured && host?.isSendingAskDJText == false &&
         !["attempted", "awaiting_output", "uncertain"].contains(offer?.state ?? "")
+    }
+    /// Present only the original, still-admitted speaker choices beside the offer.
+    var outputChoices: [DJConnectAskDJPlaybackAction] {
+        guard !busy, !settingsChanged, host?.isSendingAskDJText == false, scope == captured, withinDeadline,
+              let outputDeadline, outputDeadline > now(), let outputInstant, outputInstant > instant() else { return [] }
+        return pendingOutputs
     }
     func choose(_ option: DJConnectForYou.Option) {
         guard canChoose, let offer, offer.options.contains(option),
@@ -159,10 +185,11 @@ import DJConnectCore
     func handleOutput(_ action: DJConnectAskDJPlaybackAction) -> Bool {
         guard ownedOutputs.contains(action.id) else { return false }
         guard pendingOutputs.contains(action) else { return true }
-        guard !busy, scope == captured, withinDeadline,
+        guard !busy, !settingsChanged, host?.isSendingAskDJText == false, scope == captured, withinDeadline,
               let outputDeadline, outputDeadline > now(), let outputInstant, outputInstant > instant(),
-              let offer, let context = offer.conversation_context,
+              let context = outputContext,
               let result = action.resultSetID, let id = action.actionID else { return true }
+        submittedOutputs.insert(result + "|" + id)
         submit(text: action.buttonLabel ?? action.title,
                choice: .init(resultSetID: result, actionID: id), context: context)
         return true
@@ -172,9 +199,25 @@ import DJConnectCore
               let context = offer.conversation_context else { return }
         submit(text: prompt, choice: nil, context: context)
     }
+    private func admitOutputs(_ actions: [DJConnectAskDJPlaybackAction], resultID: String,
+                              context: DJConnectConversationContext, remaining: Double) {
+        guard remaining.isFinite, remaining > 0, remaining <= 60 else { pendingOutputs = []; return }
+        let wall = now().addingTimeInterval(remaining)
+        let mono = instant().advanced(by: .seconds(remaining))
+        let same = outputResultSetID == resultID && outputContext == context
+        outputDeadline = same ? min(outputDeadline ?? wall, wall) : wall
+        outputInstant = same ? min(outputInstant ?? mono, mono) : mono
+        outputResultSetID = resultID; outputContext = context
+        pendingOutputs = actions.filter { action in
+            guard let result = action.resultSetID, let id = action.actionID else { return false }
+            return !submittedOutputs.contains(result + "|" + id)
+        }
+        ownedOutputs.formUnion(actions.map(\.id))
+    }
     private func submit(text: String, choice: DJConnectConversationChoice?, context: DJConnectConversationContext) {
         guard let host, let captured else { return }
         let token = generation
+        let submittedSettings = host.activeDJSession.flatMap(Self.settingsData)
         busy = true
         pendingOutputs = [] // Consume the original speaker choice synchronously.
         // One synchronous latch; an unknown outcome is never replayed.
@@ -184,9 +227,10 @@ import DJConnectCore
             do {
                 let response = try await host.sessionHistory.sendStartupChoice(text: text, choice: choice,
                     sessionID: captured.session, suppliedContext: context, isCurrent: { [weak self] in
-                        self?.current(captured, token) == true && (choice == nil || self?.withinDeadline == true)
+                        self?.current(captured, token) == true && host.activeDJSession.flatMap(Self.settingsData) == submittedSettings &&
+                        (choice == nil || self?.withinDeadline == true)
                     })
-                guard current(captured, token) else { return }
+                guard current(captured, token), host.activeDJSession.flatMap(Self.settingsData) == submittedSettings else { return }
                 // The ordinary reducer renders an output choice as a Session speaker bubble.
                 // Only an authenticated projection may hide the card; an ACK cannot.
                 if let next = response.forYou { observe(next) }
@@ -194,11 +238,8 @@ import DJConnectCore
                    !result.admittedPlaybackActions.isEmpty,
                    result.admittedPlaybackActions.allSatisfy({ $0.kind == "output" && $0.command == "set_output" }),
                    let lease = host.resolveConversationPresentationDeadline(response), lease > now() {
-                    pendingOutputs = result.admittedPlaybackActions
-                    ownedOutputs.formUnion(pendingOutputs.map(\.id))
                     let remaining = min(result.expiresIn, lease.timeIntervalSince(now()), response.firstPlay?.expires_in ?? 0)
-                    outputDeadline = now().addingTimeInterval(remaining)
-                    outputInstant = instant().advanced(by: .seconds(remaining))
+                    admitOutputs(result.admittedPlaybackActions, resultID: result.resultSetID, context: context, remaining: remaining)
                 }
                 uncertain = response.forYou == nil || ["attempted", "uncertain", "awaiting_output"].contains(response.forYou?.state ?? "")
                 _ = await host.refreshActiveDJSession()
@@ -252,7 +293,8 @@ struct SessionForYouCard: View {
                             ForEach(offer.options) { option in
                                 Button { projection.choose(option) } label: {
                                     VStack(alignment: .leading, spacing: 6) {
-                                        ForYouLandscape(recipe: option.visual_recipe, sessionID: offer.session_id, language: model.language)
+                                        ForYouLandscape(recipe: option.visual_recipe, sessionID: offer.session_id, language: model.language,
+                                                        sessionMood: model.activeDJSession?.selectedMood)
                                             .frame(height: 92).clipShape(RoundedRectangle(cornerRadius: 14))
                                         Text(option.label).font(.subheadline.weight(.semibold))
                                             .fixedSize(horizontal: false, vertical: true)
@@ -262,7 +304,19 @@ struct SessionForYouCard: View {
                             }
                         }
                     }
-                    if projection.uncertain || ["attempted", "awaiting_output", "uncertain"].contains(offer.state) {
+                    if offer.refresh_policy?.state == "pending" {
+                        Text(text("ui.for_you.preparing")).font(.caption).foregroundStyle(.secondary)
+                    } else if !projection.outputChoices.isEmpty {
+                        Text(text("ui.for_you.choose_output")).font(.subheadline)
+                        ForEach(projection.outputChoices) { action in
+                            Button { _ = projection.handleOutput(action) } label: {
+                                Label(action.buttonLabel ?? action.title, systemImage: "speaker.wave.2")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .djConnectButtonStyle(DJConnectButtonStyle(expands: true))
+                            .accessibilityIdentifier("session-for-you-output-" + action.id)
+                        }
+                    } else if projection.uncertain || ["attempted", "awaiting_output", "uncertain"].contains(offer.state) {
                         Text(text("ui.for_you.pending")).font(.caption).foregroundStyle(.secondary)
                     } else if projection.expired || offer.state == "unavailable" {
                         Text(text("ui.for_you.unavailable")).font(.caption).foregroundStyle(.secondary)

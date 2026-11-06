@@ -1,0 +1,841 @@
+{
+  "source_commit": "9bfd10d3bbc7669c80d541db01d6a11158ee8d13",
+  "source_fixture_sha256": "dfb13090f330a9f80bb45e2ba94150749dc4ac0752d8630efbb182f9c1fd7039",
+  "fixture_only": true,
+  "examples": [
+    {
+      "language": "en",
+      "stage": "refreshed_offer",
+      "for_you": {
+        "actions_available": true,
+        "automatic_playback": false,
+        "conversation_context": {
+          "session_id": "session-6a8e37c0a42d4c90b29295deb0d15334",
+          "thread_id": "for-you-session-6a8e37c0a42d4c90b29295deb0d15334"
+        },
+        "expires_in": 59.99169063568115,
+        "intro": "I've picked three mixes with your taste in mind. Which shall we play?",
+        "intro_source": "runtime_acknowledgement",
+        "language": "en",
+        "mood_revision": 1,
+        "offer_id": "choices-8b98be6a433d4f15b9e8b9c9e8a6b6b0",
+        "options": [
+          {
+            "action_id": "7d5cdd01061e895f596198e09732f222",
+            "genre": "neo soul",
+            "label": "neo soul",
+            "option_id": "7d5cdd01061e895f596198e09732f222",
+            "visual_recipe": {
+              "artistic_direction": "layered_dunes",
+              "genre": "neo soul",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "9943ff515ac7d92985790e6909aa5b2061ccd6348350fd4e7d21d978ae310857"
+            }
+          },
+          {
+            "action_id": "3cd4c06812099173a85ce54032a39c76",
+            "genre": "r&b",
+            "label": "r&b",
+            "option_id": "3cd4c06812099173a85ce54032a39c76",
+            "visual_recipe": {
+              "artistic_direction": "misty_valley",
+              "genre": "r&b",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "11c6891e9538beaecfdca8eec184f19ceaab021e4baa029cc1ac195f29a03193"
+            }
+          },
+          {
+            "action_id": "74b77fd81f232e153d37af44e04f5e74",
+            "genre": "indie rock",
+            "label": "indie rock",
+            "option_id": "74b77fd81f232e153d37af44e04f5e74",
+            "visual_recipe": {
+              "artistic_direction": "mountain_horizon",
+              "genre": "indie rock",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "3db4a283472b8984fbc9a5079e3d67acbd64aa52d1ca5542e0bc91f7802d5dac"
+            }
+          }
+        ],
+        "queue_effect": "replace_on_explicit_selection",
+        "reason": null,
+        "refresh_policy": {
+          "automatic_playback": false,
+          "execution": "server",
+          "mood_revision": 1,
+          "reason": null,
+          "retry_automatically": false,
+          "schema_version": 1,
+          "state": "available",
+          "trigger": "confirmed_mood_revision"
+        },
+        "refresh_request": {
+          "automatic": false,
+          "prompt": "Surprise me with a mix for this session"
+        },
+        "result_set": {
+          "expires_in": 59.99169063568115,
+          "items": [
+            {
+              "action_id": "7d5cdd01061e895f596198e09732f222",
+              "backend": "source-spotify",
+              "button_label": "neo soul",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "neo soul",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "neo soul",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-8b98be6a433d4f15b9e8b9c9e8a6b6b0",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify tracks",
+              "title": "neo soul",
+              "uri": "spotify:track:d99e75eba015b972ea1a6c",
+              "uris": [
+                "spotify:track:d99e75eba015b972ea1a6c",
+                "spotify:track:e9f444c528d0bf4f3fca92",
+                "spotify:track:cd61e7c107faad876fba5c"
+              ]
+            },
+            {
+              "action_id": "3cd4c06812099173a85ce54032a39c76",
+              "backend": "source-spotify",
+              "button_label": "r&b",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "r&b",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "r&b",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-8b98be6a433d4f15b9e8b9c9e8a6b6b0",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify tracks",
+              "title": "r&b",
+              "uri": "spotify:track:86980d8e019cc0a3842470",
+              "uris": [
+                "spotify:track:86980d8e019cc0a3842470",
+                "spotify:track:966cd869d2411b812cab3b",
+                "spotify:track:96a249e60d1e16ad0c024e"
+              ]
+            },
+            {
+              "action_id": "74b77fd81f232e153d37af44e04f5e74",
+              "backend": "source-spotify",
+              "button_label": "indie rock",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "indie rock",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "indie rock",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-8b98be6a433d4f15b9e8b9c9e8a6b6b0",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify tracks",
+              "title": "indie rock",
+              "uri": "spotify:track:7000c10a9769bfb383dcea",
+              "uris": [
+                "spotify:track:7000c10a9769bfb383dcea",
+                "spotify:track:6abef8ca721534737530de",
+                "spotify:track:df9e4f804bd182d22b4b85"
+              ]
+            }
+          ],
+          "result_set_id": "choices-8b98be6a433d4f15b9e8b9c9e8a6b6b0",
+          "schema_version": 1
+        },
+        "schema_version": 1,
+        "session_id": "session-6a8e37c0a42d4c90b29295deb0d15334",
+        "state": "available",
+        "title": "For you",
+        "visible": true
+      }
+    },
+    {
+      "language": "en",
+      "stage": "original_speaker_continuation",
+      "for_you": {
+        "actions_available": false,
+        "automatic_playback": false,
+        "continuation": {
+          "conversation_context": {
+            "session_id": "session-6a8e37c0a42d4c90b29295deb0d15334",
+            "thread_id": "for-you-session-6a8e37c0a42d4c90b29295deb0d15334"
+          },
+          "expires_in": 59.986971616744995,
+          "first_play": {
+            "expires_in": 59.98850629199296,
+            "genre_basis": "music_dna",
+            "reason": null,
+            "schema_version": 2,
+            "selection_effect": "genre_starts_exact_mix",
+            "state": "output"
+          },
+          "mood_revision": 1,
+          "playback_actions": [
+            {
+              "action_id": "107d76b54841906f8f903f73ac9281b7",
+              "active": false,
+              "backend": "spotify",
+              "command": "set_output",
+              "device_id": "synthetic-first-play-output",
+              "device_name": "Synthetic speaker",
+              "id": "set_output:synthetic-first-play-output",
+              "kind": "output",
+              "label": "Activate",
+              "provider": "spotify",
+              "result_set_id": "choices-1d59214834124eae816f8bbe70d37ce4",
+              "subtitle": "Speaker",
+              "title": "Synthetic speaker",
+              "value": "synthetic-first-play-output"
+            }
+          ],
+          "result_set": {
+            "expires_in": 59.986971616744995,
+            "items": [
+              {
+                "action_id": "107d76b54841906f8f903f73ac9281b7",
+                "active": false,
+                "backend": "spotify",
+                "command": "set_output",
+                "device_id": "synthetic-first-play-output",
+                "device_name": "Synthetic speaker",
+                "id": "set_output:synthetic-first-play-output",
+                "kind": "output",
+                "label": "Activate",
+                "provider": "spotify",
+                "result_set_id": "choices-1d59214834124eae816f8bbe70d37ce4",
+                "subtitle": "Speaker",
+                "title": "Synthetic speaker",
+                "value": "synthetic-first-play-output"
+              }
+            ],
+            "result_set_id": "choices-1d59214834124eae816f8bbe70d37ce4",
+            "schema_version": 1
+          }
+        },
+        "conversation_context": {
+          "session_id": "session-6a8e37c0a42d4c90b29295deb0d15334",
+          "thread_id": "for-you-session-6a8e37c0a42d4c90b29295deb0d15334"
+        },
+        "expires_in": 59.98712895029166,
+        "intro": "I've picked three mixes with your taste in mind. Which shall we play?",
+        "intro_source": "runtime_acknowledgement",
+        "language": "en",
+        "mood_revision": 1,
+        "offer_id": "choices-8b98be6a433d4f15b9e8b9c9e8a6b6b0",
+        "options": [
+          {
+            "action_id": "7d5cdd01061e895f596198e09732f222",
+            "genre": "neo soul",
+            "label": "neo soul",
+            "option_id": "7d5cdd01061e895f596198e09732f222",
+            "visual_recipe": {
+              "artistic_direction": "layered_dunes",
+              "genre": "neo soul",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "9943ff515ac7d92985790e6909aa5b2061ccd6348350fd4e7d21d978ae310857"
+            }
+          },
+          {
+            "action_id": "3cd4c06812099173a85ce54032a39c76",
+            "genre": "r&b",
+            "label": "r&b",
+            "option_id": "3cd4c06812099173a85ce54032a39c76",
+            "visual_recipe": {
+              "artistic_direction": "misty_valley",
+              "genre": "r&b",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "11c6891e9538beaecfdca8eec184f19ceaab021e4baa029cc1ac195f29a03193"
+            }
+          },
+          {
+            "action_id": "74b77fd81f232e153d37af44e04f5e74",
+            "genre": "indie rock",
+            "label": "indie rock",
+            "option_id": "74b77fd81f232e153d37af44e04f5e74",
+            "visual_recipe": {
+              "artistic_direction": "mountain_horizon",
+              "genre": "indie rock",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "3db4a283472b8984fbc9a5079e3d67acbd64aa52d1ca5542e0bc91f7802d5dac"
+            }
+          }
+        ],
+        "queue_effect": "replace_on_explicit_selection",
+        "reason": null,
+        "refresh_policy": {
+          "automatic_playback": false,
+          "execution": "server",
+          "mood_revision": 1,
+          "reason": null,
+          "retry_automatically": false,
+          "schema_version": 1,
+          "state": "available",
+          "trigger": "confirmed_mood_revision"
+        },
+        "refresh_request": {
+          "automatic": false,
+          "prompt": "Surprise me with a mix for this session"
+        },
+        "result_set": {
+          "expires_in": 59.98712895029166,
+          "items": [
+            {
+              "action_id": "7d5cdd01061e895f596198e09732f222",
+              "backend": "source-spotify",
+              "button_label": "neo soul",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "neo soul",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "neo soul",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-8b98be6a433d4f15b9e8b9c9e8a6b6b0",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify tracks",
+              "title": "neo soul",
+              "uri": "spotify:track:d99e75eba015b972ea1a6c",
+              "uris": [
+                "spotify:track:d99e75eba015b972ea1a6c",
+                "spotify:track:e9f444c528d0bf4f3fca92",
+                "spotify:track:cd61e7c107faad876fba5c"
+              ]
+            },
+            {
+              "action_id": "3cd4c06812099173a85ce54032a39c76",
+              "backend": "source-spotify",
+              "button_label": "r&b",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "r&b",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "r&b",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-8b98be6a433d4f15b9e8b9c9e8a6b6b0",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify tracks",
+              "title": "r&b",
+              "uri": "spotify:track:86980d8e019cc0a3842470",
+              "uris": [
+                "spotify:track:86980d8e019cc0a3842470",
+                "spotify:track:966cd869d2411b812cab3b",
+                "spotify:track:96a249e60d1e16ad0c024e"
+              ]
+            },
+            {
+              "action_id": "74b77fd81f232e153d37af44e04f5e74",
+              "backend": "source-spotify",
+              "button_label": "indie rock",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "indie rock",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "indie rock",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-8b98be6a433d4f15b9e8b9c9e8a6b6b0",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify tracks",
+              "title": "indie rock",
+              "uri": "spotify:track:7000c10a9769bfb383dcea",
+              "uris": [
+                "spotify:track:7000c10a9769bfb383dcea",
+                "spotify:track:6abef8ca721534737530de",
+                "spotify:track:df9e4f804bd182d22b4b85"
+              ]
+            }
+          ],
+          "result_set_id": "choices-8b98be6a433d4f15b9e8b9c9e8a6b6b0",
+          "schema_version": 1
+        },
+        "schema_version": 1,
+        "session_id": "session-6a8e37c0a42d4c90b29295deb0d15334",
+        "state": "awaiting_output",
+        "title": "For you",
+        "visible": true
+      }
+    },
+    {
+      "language": "en",
+      "stage": "exact_mix_confirmed_once",
+      "for_you": {
+        "actions_available": false,
+        "automatic_playback": false,
+        "conversation_context": {
+          "session_id": "session-6a8e37c0a42d4c90b29295deb0d15334",
+          "thread_id": "for-you-session-6a8e37c0a42d4c90b29295deb0d15334"
+        },
+        "expires_in": 59.978806257247925,
+        "intro": "I've picked three mixes with your taste in mind. Which shall we play?",
+        "intro_source": "runtime_acknowledgement",
+        "language": "en",
+        "mood_revision": 1,
+        "offer_id": "choices-8b98be6a433d4f15b9e8b9c9e8a6b6b0",
+        "options": [],
+        "queue_effect": "replace_on_explicit_selection",
+        "reason": null,
+        "refresh_policy": {
+          "automatic_playback": false,
+          "execution": "server",
+          "mood_revision": 1,
+          "reason": null,
+          "retry_automatically": false,
+          "schema_version": 1,
+          "state": "available",
+          "trigger": "confirmed_mood_revision"
+        },
+        "schema_version": 1,
+        "session_id": "session-6a8e37c0a42d4c90b29295deb0d15334",
+        "state": "confirmed",
+        "title": "For you",
+        "visible": false
+      }
+    },
+    {
+      "language": "nl",
+      "stage": "refreshed_offer",
+      "for_you": {
+        "actions_available": true,
+        "automatic_playback": false,
+        "conversation_context": {
+          "session_id": "session-124406261d084216ba407be6e5ff96ec",
+          "thread_id": "for-you-session-124406261d084216ba407be6e5ff96ec"
+        },
+        "expires_in": 59.99218112499511,
+        "intro": "Ik heb drie mixen voor je uitgezocht, met jouw smaak als vertrekpunt. Welke zetten we op?",
+        "intro_source": "runtime_acknowledgement",
+        "language": "nl",
+        "mood_revision": 1,
+        "offer_id": "choices-19289f29cecd410091c5431ec9760975",
+        "options": [
+          {
+            "action_id": "7eea25bd377904ec65e74e7031528778",
+            "genre": "neo soul",
+            "label": "neo soul",
+            "option_id": "7eea25bd377904ec65e74e7031528778",
+            "visual_recipe": {
+              "artistic_direction": "layered_dunes",
+              "genre": "neo soul",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "c45e2654f0aff1e3fc2942a5b09e940e9a43a8f0d675d888cfeb9c1836678596"
+            }
+          },
+          {
+            "action_id": "b7217df3a988da0e503bc6384c294f45",
+            "genre": "r&b",
+            "label": "r&b",
+            "option_id": "b7217df3a988da0e503bc6384c294f45",
+            "visual_recipe": {
+              "artistic_direction": "misty_valley",
+              "genre": "r&b",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "be266cb4070afb233d16f10b763e7492d9b7f540c8e65f1f00f0fec935d9dbc4"
+            }
+          },
+          {
+            "action_id": "5cbb26fd40796c012e6297eab3fcf591",
+            "genre": "indie rock",
+            "label": "indierock",
+            "option_id": "5cbb26fd40796c012e6297eab3fcf591",
+            "visual_recipe": {
+              "artistic_direction": "mountain_horizon",
+              "genre": "indie rock",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "dbde4032bcaff6cb0f0d7935279cc30b7e28d49e18cc2e9a36b5627619b1101d"
+            }
+          }
+        ],
+        "queue_effect": "replace_on_explicit_selection",
+        "reason": null,
+        "refresh_policy": {
+          "automatic_playback": false,
+          "execution": "server",
+          "mood_revision": 1,
+          "reason": null,
+          "retry_automatically": false,
+          "schema_version": 1,
+          "state": "available",
+          "trigger": "confirmed_mood_revision"
+        },
+        "refresh_request": {
+          "automatic": false,
+          "prompt": "Verras me met een mix voor deze sessie"
+        },
+        "result_set": {
+          "expires_in": 59.99218112499511,
+          "items": [
+            {
+              "action_id": "7eea25bd377904ec65e74e7031528778",
+              "backend": "source-spotify",
+              "button_label": "neo soul",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "neo soul",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "neo soul",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-19289f29cecd410091c5431ec9760975",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify-nummers",
+              "title": "neo soul",
+              "uri": "spotify:track:d99e75eba015b972ea1a6c",
+              "uris": [
+                "spotify:track:d99e75eba015b972ea1a6c",
+                "spotify:track:e9f444c528d0bf4f3fca92",
+                "spotify:track:cd61e7c107faad876fba5c"
+              ]
+            },
+            {
+              "action_id": "b7217df3a988da0e503bc6384c294f45",
+              "backend": "source-spotify",
+              "button_label": "r&b",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "r&b",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "r&b",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-19289f29cecd410091c5431ec9760975",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify-nummers",
+              "title": "r&b",
+              "uri": "spotify:track:86980d8e019cc0a3842470",
+              "uris": [
+                "spotify:track:86980d8e019cc0a3842470",
+                "spotify:track:966cd869d2411b812cab3b",
+                "spotify:track:96a249e60d1e16ad0c024e"
+              ]
+            },
+            {
+              "action_id": "5cbb26fd40796c012e6297eab3fcf591",
+              "backend": "source-spotify",
+              "button_label": "indierock",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "indie rock",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "indierock",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-19289f29cecd410091c5431ec9760975",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify-nummers",
+              "title": "indierock",
+              "uri": "spotify:track:7000c10a9769bfb383dcea",
+              "uris": [
+                "spotify:track:7000c10a9769bfb383dcea",
+                "spotify:track:6abef8ca721534737530de",
+                "spotify:track:df9e4f804bd182d22b4b85"
+              ]
+            }
+          ],
+          "result_set_id": "choices-19289f29cecd410091c5431ec9760975",
+          "schema_version": 1
+        },
+        "schema_version": 1,
+        "session_id": "session-124406261d084216ba407be6e5ff96ec",
+        "state": "available",
+        "title": "Voor jou",
+        "visible": true
+      }
+    },
+    {
+      "language": "nl",
+      "stage": "original_speaker_continuation",
+      "for_you": {
+        "actions_available": false,
+        "automatic_playback": false,
+        "continuation": {
+          "conversation_context": {
+            "session_id": "session-124406261d084216ba407be6e5ff96ec",
+            "thread_id": "for-you-session-124406261d084216ba407be6e5ff96ec"
+          },
+          "expires_in": 59.987576961517334,
+          "first_play": {
+            "expires_in": 59.98903650000284,
+            "genre_basis": "music_dna",
+            "reason": null,
+            "schema_version": 2,
+            "selection_effect": "genre_starts_exact_mix",
+            "state": "output"
+          },
+          "mood_revision": 1,
+          "playback_actions": [
+            {
+              "action_id": "3cd67e5b6f2668cb1b1c8405122b4674",
+              "active": false,
+              "backend": "spotify",
+              "command": "set_output",
+              "device_id": "synthetic-first-play-output",
+              "device_name": "Synthetic speaker",
+              "id": "set_output:synthetic-first-play-output",
+              "kind": "output",
+              "label": "Activeer",
+              "provider": "spotify",
+              "result_set_id": "choices-c654fc1ddec94c66b97ca102e2d94087",
+              "subtitle": "Speaker",
+              "title": "Synthetic speaker",
+              "value": "synthetic-first-play-output"
+            }
+          ],
+          "result_set": {
+            "expires_in": 59.987576961517334,
+            "items": [
+              {
+                "action_id": "3cd67e5b6f2668cb1b1c8405122b4674",
+                "active": false,
+                "backend": "spotify",
+                "command": "set_output",
+                "device_id": "synthetic-first-play-output",
+                "device_name": "Synthetic speaker",
+                "id": "set_output:synthetic-first-play-output",
+                "kind": "output",
+                "label": "Activeer",
+                "provider": "spotify",
+                "result_set_id": "choices-c654fc1ddec94c66b97ca102e2d94087",
+                "subtitle": "Speaker",
+                "title": "Synthetic speaker",
+                "value": "synthetic-first-play-output"
+              }
+            ],
+            "result_set_id": "choices-c654fc1ddec94c66b97ca102e2d94087",
+            "schema_version": 1
+          }
+        },
+        "conversation_context": {
+          "session_id": "session-124406261d084216ba407be6e5ff96ec",
+          "thread_id": "for-you-session-124406261d084216ba407be6e5ff96ec"
+        },
+        "expires_in": 59.987727642059326,
+        "intro": "Ik heb drie mixen voor je uitgezocht, met jouw smaak als vertrekpunt. Welke zetten we op?",
+        "intro_source": "runtime_acknowledgement",
+        "language": "nl",
+        "mood_revision": 1,
+        "offer_id": "choices-19289f29cecd410091c5431ec9760975",
+        "options": [
+          {
+            "action_id": "7eea25bd377904ec65e74e7031528778",
+            "genre": "neo soul",
+            "label": "neo soul",
+            "option_id": "7eea25bd377904ec65e74e7031528778",
+            "visual_recipe": {
+              "artistic_direction": "layered_dunes",
+              "genre": "neo soul",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "c45e2654f0aff1e3fc2942a5b09e940e9a43a8f0d675d888cfeb9c1836678596"
+            }
+          },
+          {
+            "action_id": "b7217df3a988da0e503bc6384c294f45",
+            "genre": "r&b",
+            "label": "r&b",
+            "option_id": "b7217df3a988da0e503bc6384c294f45",
+            "visual_recipe": {
+              "artistic_direction": "misty_valley",
+              "genre": "r&b",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "be266cb4070afb233d16f10b763e7492d9b7f540c8e65f1f00f0fec935d9dbc4"
+            }
+          },
+          {
+            "action_id": "5cbb26fd40796c012e6297eab3fcf591",
+            "genre": "indie rock",
+            "label": "indierock",
+            "option_id": "5cbb26fd40796c012e6297eab3fcf591",
+            "visual_recipe": {
+              "artistic_direction": "mountain_horizon",
+              "genre": "indie rock",
+              "illustrative_not_audio_analysis": true,
+              "mood": "party",
+              "persona": "home_dj",
+              "revision": 1,
+              "schema_version": 1,
+              "variation_id": "dbde4032bcaff6cb0f0d7935279cc30b7e28d49e18cc2e9a36b5627619b1101d"
+            }
+          }
+        ],
+        "queue_effect": "replace_on_explicit_selection",
+        "reason": null,
+        "refresh_policy": {
+          "automatic_playback": false,
+          "execution": "server",
+          "mood_revision": 1,
+          "reason": null,
+          "retry_automatically": false,
+          "schema_version": 1,
+          "state": "available",
+          "trigger": "confirmed_mood_revision"
+        },
+        "refresh_request": {
+          "automatic": false,
+          "prompt": "Verras me met een mix voor deze sessie"
+        },
+        "result_set": {
+          "expires_in": 59.987727642059326,
+          "items": [
+            {
+              "action_id": "7eea25bd377904ec65e74e7031528778",
+              "backend": "source-spotify",
+              "button_label": "neo soul",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "neo soul",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "neo soul",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-19289f29cecd410091c5431ec9760975",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify-nummers",
+              "title": "neo soul",
+              "uri": "spotify:track:d99e75eba015b972ea1a6c",
+              "uris": [
+                "spotify:track:d99e75eba015b972ea1a6c",
+                "spotify:track:e9f444c528d0bf4f3fca92",
+                "spotify:track:cd61e7c107faad876fba5c"
+              ]
+            },
+            {
+              "action_id": "b7217df3a988da0e503bc6384c294f45",
+              "backend": "source-spotify",
+              "button_label": "r&b",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "r&b",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "r&b",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-19289f29cecd410091c5431ec9760975",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify-nummers",
+              "title": "r&b",
+              "uri": "spotify:track:86980d8e019cc0a3842470",
+              "uris": [
+                "spotify:track:86980d8e019cc0a3842470",
+                "spotify:track:966cd869d2411b812cab3b",
+                "spotify:track:96a249e60d1e16ad0c024e"
+              ]
+            },
+            {
+              "action_id": "5cbb26fd40796c012e6297eab3fcf591",
+              "backend": "source-spotify",
+              "button_label": "indierock",
+              "fit_basis": "catalog_genre_query",
+              "fit_qualified": false,
+              "genre": "indie rock",
+              "genre_basis": "music_dna",
+              "kind": "track_mix",
+              "label": "indierock",
+              "queue_effect": "start_context_now",
+              "result_set_id": "choices-19289f29cecd410091c5431ec9760975",
+              "selection_source": "spotify_genre_search",
+              "subtitle": "3 Spotify-nummers",
+              "title": "indierock",
+              "uri": "spotify:track:7000c10a9769bfb383dcea",
+              "uris": [
+                "spotify:track:7000c10a9769bfb383dcea",
+                "spotify:track:6abef8ca721534737530de",
+                "spotify:track:df9e4f804bd182d22b4b85"
+              ]
+            }
+          ],
+          "result_set_id": "choices-19289f29cecd410091c5431ec9760975",
+          "schema_version": 1
+        },
+        "schema_version": 1,
+        "session_id": "session-124406261d084216ba407be6e5ff96ec",
+        "state": "awaiting_output",
+        "title": "Voor jou",
+        "visible": true
+      }
+    },
+    {
+      "language": "nl",
+      "stage": "exact_mix_confirmed_once",
+      "for_you": {
+        "actions_available": false,
+        "automatic_playback": false,
+        "conversation_context": {
+          "session_id": "session-124406261d084216ba407be6e5ff96ec",
+          "thread_id": "for-you-session-124406261d084216ba407be6e5ff96ec"
+        },
+        "expires_in": 59.97960901260376,
+        "intro": "Ik heb drie mixen voor je uitgezocht, met jouw smaak als vertrekpunt. Welke zetten we op?",
+        "intro_source": "runtime_acknowledgement",
+        "language": "nl",
+        "mood_revision": 1,
+        "offer_id": "choices-19289f29cecd410091c5431ec9760975",
+        "options": [],
+        "queue_effect": "replace_on_explicit_selection",
+        "reason": null,
+        "refresh_policy": {
+          "automatic_playback": false,
+          "execution": "server",
+          "mood_revision": 1,
+          "reason": null,
+          "retry_automatically": false,
+          "schema_version": 1,
+          "state": "available",
+          "trigger": "confirmed_mood_revision"
+        },
+        "schema_version": 1,
+        "session_id": "session-124406261d084216ba407be6e5ff96ec",
+        "state": "confirmed",
+        "title": "Voor jou",
+        "visible": false
+      }
+    }
+  ]
+}

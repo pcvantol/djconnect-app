@@ -90,7 +90,7 @@ private actor HybridTestWire: DJConnectHybridWire {
     func openedSockets() -> [URL] { socketURLs }
 }
 private actor HybridTestSocket: DJConnectHybridSocket {
-    enum Mode { case reverseTwo, silent, wrongConnection, rejectRouteAuth, withdrawAfterSend }
+    enum Mode { case reverseTwo, silent, wrongConnection, rejectRouteAuth, withdrawAfterSend, immediateResult }
     let mode: Mode
     let localContext: HybridObject?
     var frames: [Data] = []
@@ -127,7 +127,8 @@ private actor HybridTestSocket: DJConnectHybridSocket {
             ["type": .string("result"), "connection_id": .string(connection), "id": id, "status": .int(200),
              "result": .object(["request": id])]
         }
-        if mode == .reverseTwo, sent.count == 2 {
+        if mode == .immediateResult { try enqueue(result(body["id"]!)) }
+        else if mode == .reverseTwo, sent.count == 2 {
             try enqueue(result(sent[1]["id"]!)); try enqueue(result(sent[0]["id"]!))
         } else if mode == .wrongConnection { try enqueue(result(body["id"]!, connection: "old-connection")) }
     }
@@ -139,6 +140,7 @@ private actor HybridTestSocket: DJConnectHybridSocket {
     func ping() async throws { if closed { throw URLError(.networkConnectionLost) } }
     func close() async { closed = true; waiter?.resume(throwing: URLError(.networkConnectionLost)); waiter = nil }
     func count() -> Int { sent.count }
+    func messages() -> [HybridObject] { sent }
     func operationEnvelope() -> HybridObject? { sent.first }
 }
 private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = nil) -> DJConnectHybridTransport {
@@ -782,4 +784,32 @@ private actor AskDJDelayedContextWire: DJConnectHybridWire {
     let requests = await wire.recorded()
     #expect(requests.filter { $0.url!.path.hasSuffix("/operation") }.count == 1)
     #expect(requests.filter { $0.url!.path.hasSuffix("/status") }.count == 2)
+}
+
+@Test(.isolatedClientResources, arguments: ["nl", "en"])
+func hybridActiveReadRetainsPresentationLanguageOverHTTP(_ language: String) async throws {
+    let wire = HybridTestWire()
+    let coordinator = hybridCoordinator(wire)
+    let request = URLRequest(url: URL(string: "https://remote.example/api/djconnect/v1/session/active?language=" + language)!)
+    #expect(try await coordinator.perform(request).1 == 200)
+    let requests = await wire.recorded()
+    let read = try #require(requests.first { $0.url?.path.hasSuffix("/session/active") == true })
+    let query = URLComponents(url: read.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+    #expect(query.first(where: { $0.name == "language" })?.value == language)
+    #expect(read.httpMethod == "GET" && read.httpBody == nil)
+    #expect(!requests.contains { $0.url?.path.hasSuffix("/operation") == true })
+}
+
+@Test(.isolatedClientResources, arguments: ["nl", "en"])
+func hybridActiveReadRetainsPresentationLanguageOverWebSocket(_ language: String) async throws {
+    let socket = HybridTestSocket(.immediateResult)
+    let wire = HybridTestWire(socket: socket)
+    let coordinator = hybridCoordinator(wire, local: URL(string: "https://ha.local"))
+    let request = URLRequest(url: URL(string: "https://ha.local/api/djconnect/v1/session/active?language=" + language)!)
+    #expect(try await coordinator.perform(request).1 == 200)
+    let messages = await socket.messages()
+    #expect(messages.count == 1)
+    #expect(messages.first?["type"] == .string("djconnect/read"))
+    #expect(messages.first?["payload"] == .object(["language": .string(language)]))
+    #expect(!messages.contains { $0["type"] == .string("djconnect/operation/execute") })
 }
