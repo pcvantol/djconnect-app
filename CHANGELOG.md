@@ -4,6 +4,8 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+- Keep demo widgets in the active Session mood when the mood changes after startup.
+
 ### Apple build 40478
 
 - Add Core-owned Voor jou choices to start a personalized Session, with bounded

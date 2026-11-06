@@ -11933,6 +11933,17 @@ public final class DJConnectAppModel: ObservableObject {
 
     // Only the existing local demo playback is projected. Production grants and
     // caches remain independent, including their withdrawal/suppression logic.
+    func demoWidgetSnapshot(at now: Date) -> DJConnectDemoWidgetSnapshot? {
+        guard isDemoMode else { return nil }
+        let session = activeDJSession
+        let active = session?.runtimeState == "active"
+        // Match the active session palette, rather than its pre-start defaults.
+        let mood = active ? session?.selectedMood ?? selectedSessionMood : selectedSessionMood
+        return DJConnectDemoWidgetSnapshot(theme: .init(sessionMood: mood),
+            track: active ? playback?.trackName : nil, artist: active ? playback?.artistName : nil,
+            album: active ? playback?.albumName : nil, isPlaying: active && playback?.isPlaying == true, at: now)
+    }
+
     private func syncDemoWidget() {
         guard startBackgroundTasks, !monkeyTestingMode, !DJConnectLocalization.isQualificationProcess,
               let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else { return }
@@ -11950,10 +11961,7 @@ public final class DJConnectAppModel: ObservableObject {
             return // Last foreground observation expires; background never renews it.
         }
         let now = Date()
-        let active = activeDJSession?.runtimeState == "active"
-        let value = DJConnectDemoWidgetSnapshot(theme: .init(sessionMood: selectedSessionMood),
-            track: active ? playback?.trackName : nil, artist: active ? playback?.artistName : nil,
-            album: active ? playback?.albumName : nil, isPlaying: active && playback?.isPlaying == true, at: now)
+        guard let value = demoWidgetSnapshot(at: now) else { return }
         let previous = DJConnectDemoWidgetSnapshot.load(from: shared, at: now)
         let changed = previous.map { !value.sameContent(as: $0) } ?? true
         if changed || previous.map({ now.timeIntervalSince($0.observedAt) >= 55 }) == true {
