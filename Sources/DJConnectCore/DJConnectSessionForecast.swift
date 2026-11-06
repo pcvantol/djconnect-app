@@ -217,3 +217,29 @@ public struct DJConnectForecastCursor: Sendable {
         return projection
     }
 }
+
+/// Presentation-only structure; every word remains the producer-authored text.
+public struct DJConnectForecastQueueGuidance: Equatable, Sendable {
+    public let intro: String
+    public let tracks: [String]
+    public let note: String
+    // Queue guidance v1 is authored as prose. Recognize only its quoted-track
+    // format and keep unrecognized producer text intact.
+    public init?(text value: String) {
+        guard let firstTrack = value.range(of: ": “"),
+              let noteStart = value.range(
+                of: #"\. (?=(?:De rode draad zoek ik|Zo ziet de wachtrij|I’ll look for a musical thread|That is the queue|Den musikalischen Faden|So sieht die Warteschlange|Je chercherai le fil musical|Voilà la file actuelle|Buscaré el hilo musical|Así está la cola))"#,
+                options: .regularExpression, range: firstTrack.upperBound..<value.endIndex
+              ) else { return nil }
+        let start = value.index(before: firstTrack.upperBound)
+        let tracks = value[start..<noteStart.lowerBound]
+            .replacingOccurrences(of: #"(?:, | (?:and|en|und|et|y) )(?=“[^”]+” — )"#,
+                                  with: "\n", options: .regularExpression)
+            .components(separatedBy: "\n")
+        guard (1...5).contains(tracks.count),
+              tracks.allSatisfy({ $0.range(of: #"^“[^”]+” — .+$"#, options: .regularExpression) != nil }) else { return nil }
+        intro = String(value[..<start]).trimmingCharacters(in: .whitespaces)
+        self.tracks = tracks
+        note = String(value[noteStart.upperBound...])
+    }
+}

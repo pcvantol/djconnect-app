@@ -122,7 +122,6 @@ struct DJConnectWatchRootView: View {
                 ProgressView()
                     .tint(.white)
                     .padding(10)
-                    .background(.black.opacity(0.55), in: Circle())
                     .accessibilityLabel(watchLocalizedKey(model.language, "watch.session.loading"))
                     .allowsHitTesting(false)
             }
@@ -5092,9 +5091,21 @@ private struct DJConnectWatchHorizonCard: View {
             Text(watchLocalizedKey(language, "ui.session.forecast.claim." + section.claim_type))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            Text(section.text)
-                .font(.caption)
-                .lineSpacing(3)
+            Group {
+                if section.id == "guidance", let guidance = DJConnectForecastQueueGuidance(text: section.text) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(guidance.intro)
+                        ForEach(guidance.tracks.indices, id: \.self) { index in
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text("•").accessibilityHidden(true)
+                                Text(guidance.tracks[index])
+                            }
+                        }
+                        Text(guidance.note)
+                    }
+                } else { Text(section.text).lineSpacing(3) }
+            }
+            .font(.caption)
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
