@@ -9240,9 +9240,8 @@ private struct IdleSessionProfileChoices: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            let moods = ["chill", "groove", "energy", "party"].filter {
-                model.isDemoMode || (state.response?.allowed_values.mood.contains($0) ?? true)
-            }
+            // This is a local start draft, not an edit of Profile defaults.
+            let moods = ["chill", "groove", "energy", "party"]
             SessionGlassChoiceSelector(
                 steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
                 selectedIndex: moods.firstIndex(of: mood) ?? -1,
@@ -9256,7 +9255,6 @@ private struct IdleSessionProfileChoices: View {
                 guard moods.indices.contains(index) else { return }
                 mood = moods[index]
             }
-            .disabled(!model.isDemoMode && (!state.canEdit || state.response?.requiresSelection == true))
 
             SessionGlassChoiceSelector(
                 steps: presences.enumerated().map { (text($0.element.localizationKey), $0.offset) },
