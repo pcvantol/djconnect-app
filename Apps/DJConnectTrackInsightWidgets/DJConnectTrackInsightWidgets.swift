@@ -342,8 +342,10 @@ private struct SessionActivityPresentation: View {
                     DJConnectSessionWatchObservationView(observation: observation)
                 } else if let playback {
                     HStack(spacing: 8) {
-                        VStack(spacing: 4) {
-                            SessionSurfaceAvatar(theme: snapshot.renderingTheme(at: now), side: 28)
+                        ActivityArtworkIdentity(snapshot: snapshot, stale: stale, side: 44)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(playback.track).font(.headline).foregroundStyle(.white)
+                                .lineLimit(2).minimumScaleFactor(0.8)
                             if playback.attribution["mark"] == "spotify",
                                let source = playback.attribution["url"], let url = URL(string: source) {
                                 Link(destination: url) {
@@ -353,9 +355,7 @@ private struct SessionActivityPresentation: View {
                                 }
                             }
                         }
-                        PassiveSessionContentView(contribution: nil, playback: playback, cache: nil,
-                            compact: true, activity: true, showsSpotifyCredit: false, showsHeader: false,
-                            theme: snapshot.renderingTheme(at: now), watchActivity: true, date: now)
+                        Spacer(minLength: 0)
                     }
                 } else {
                     HStack(spacing: 8) {
