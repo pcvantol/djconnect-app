@@ -1,5 +1,8 @@
 import SwiftUI
 import DJConnectCore
+
+/// One edge-to-edge gap from the mode bar through all active Flow cards.
+let djConnectSessionFlowSpacing: CGFloat = 18
 #if os(iOS)
 import UIKit
 #elseif os(macOS)
@@ -614,7 +617,7 @@ struct SessionTimelineScreen: View {
                     GeometryReader { viewport in
                     ScrollView {
                         DJSessionGlassGroup {
-                        LazyVStack(alignment: .leading, spacing: 18) {
+                        LazyVStack(alignment: .leading, spacing: djConnectSessionFlowSpacing) {
                             if let activeSession {
                                 SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language,
                                     openVibeScape: {
@@ -799,12 +802,12 @@ struct SessionTimelineScreen: View {
                         }
                     }
                     }
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        if usesFloatingComposer && !searching && !showsForecast {
-                            Color.clear.frame(height: floatingComposerHeight + composerBottomPadding + 8)
-                                .allowsHitTesting(false)
-                        }
-                    }
+                    // Reserve the final scroll position, not a full-width strip
+                    // outside the viewport, beneath the floating composer.
+                    .contentMargins(.bottom,
+                        usesFloatingComposer && !searching && !showsForecast
+                            ? floatingComposerHeight + composerBottomPadding + 8 : 0,
+                        for: .scrollContent)
                     .overlay(alignment: .bottomTrailing) {
                         if !displayingForecast && !currentHeaderVisible {
                             Button {
@@ -1267,7 +1270,7 @@ struct SessionTimelineScreen: View {
     }
 
     private func currentHeader(_ session: DJConnectSessionRuntime) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: djConnectSessionFlowSpacing) {
             SessionForYouCard(model: model)
             NativeSessionMomentsView(session: session, language: model.language,
             isRecovering: model.djSessionIsRecovering,
@@ -1291,15 +1294,7 @@ struct SessionTimelineScreen: View {
         .onChange(of: hasSessionPlayback, initial: true) { _, observed in
             if observed { history.rememberObservedPlayback(sessionID: sessionID) }
         }
-        #if os(macOS)
         .padding(.horizontal, 20)
-        .padding(.top, djConnectScreenVerticalPadding)
-        .padding(.bottom, 20)
-        #else
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .padding(.bottom, 20)
-        #endif
         .fixedSize(horizontal: false, vertical: true)
     }
 

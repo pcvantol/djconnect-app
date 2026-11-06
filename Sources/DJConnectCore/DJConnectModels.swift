@@ -51,6 +51,10 @@ public enum DJConnectWatchProxyOperation: String, Codable, Sendable {
     case sessionFlow = "session_flow"
     case sessionFlowArtwork = "session_flow_artwork"
     case foregroundSession = "foreground_session"
+    case watchWidgetAvailable = "watch_widget_available"
+    case watchWidgetAuthorize = "watch_widget_authorize"
+    case watchWidgetRead = "watch_widget_read"
+    case watchWidgetImage = "watch_widget_image"
     case startSession = "start_session"
     case endSession = "end_session"
     case replaySessionSpeech = "replay_session_speech"
@@ -8703,6 +8707,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     /// RAM-only decoding evidence for optional UI confirmation; legacy success defaults remain unchanged.
     public private(set) var hasExplicitSuccess = false
     public var error: String?
+    public var command: String?
+    public var errorScope: String?
+    public var capability: String?
     public var message: String?
     public var text: String?
     public var djText: String?
@@ -8756,6 +8763,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public init(
         success: Bool,
         error: String? = nil,
+        command: String? = nil,
+        errorScope: String? = nil,
+        capability: String? = nil,
         message: String? = nil,
         text: String? = nil,
         djText: String? = nil,
@@ -8797,6 +8807,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.success = success
         self.hasExplicitSuccess = success
         self.error = error
+        self.command = command
+        self.errorScope = errorScope
+        self.capability = capability
         self.message = message
         self.text = text
         self.djText = djText
@@ -8844,6 +8857,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         hasExplicitSuccess = try container.decodeIfPresent(Bool.self, forKey: .success) == true
         success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? true
         error = try container.decodeIfPresent(String.self, forKey: .error)
+        command = try container.decodeIfPresent(String.self, forKey: .command)
+        errorScope = try container.decodeIfPresent(String.self, forKey: .errorScope)
+        capability = try container.decodeIfPresent(String.self, forKey: .capability)
         message = try container.decodeIfPresent(String.self, forKey: .message)
         text = try container.decodeIfPresent(String.self, forKey: .text)
             ?? data?.decodeIfPresentIgnoringErrors(String.self, forKey: .text)
@@ -9013,6 +9029,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(success, forKey: .success)
         try container.encodeIfPresent(error, forKey: .error)
+        try container.encodeIfPresent(command, forKey: .command)
+        try container.encodeIfPresent(errorScope, forKey: .errorScope)
+        try container.encodeIfPresent(capability, forKey: .capability)
         try container.encodeIfPresent(message, forKey: .message)
         try container.encodeIfPresent(text, forKey: .text)
         try container.encodeIfPresent(djText, forKey: .djText)
@@ -9126,6 +9145,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case success
         case error
+        case command
+        case errorScope = "error_scope"
+        case capability
         case message
         case text
         case djText = "dj_text"

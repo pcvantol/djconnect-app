@@ -165,7 +165,7 @@ import DJConnectCore
         !settingsChanged && withinDeadline && scope == captured && host?.isSendingAskDJText == false
     }
     var canRefresh: Bool {
-        offer?.refresh_policy == nil && offer?.refresh_request?.automatic == false && !busy && !uncertain &&
+        offer?.refresh_request?.automatic == false && !busy && !uncertain &&
         scope == captured && host?.isSendingAskDJText == false &&
         !["attempted", "awaiting_output", "uncertain"].contains(offer?.state ?? "")
     }
@@ -283,6 +283,15 @@ struct SessionForYouCard: View {
                         Text(offer.title).font(.headline).accessibilityAddTraits(.isHeader)
                         Spacer()
                         if projection.busy { ProgressView() }
+                        if offer.refresh_request?.automatic == false {
+                            Button(action: projection.renew) {
+                                Image(systemName: "arrow.clockwise").frame(width: 44, height: 44)
+                            }
+                            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
+                            .disabled(!projection.canRefresh)
+                            .accessibilityLabel(text("ui.for_you.refresh"))
+                            .accessibilityIdentifier("session-for-you-refresh")
+                        }
                         Button(action: projection.dismiss) { Image(systemName: "xmark") }
                             .buttonStyle(.plain).frame(width: 44, height: 44)
                             .disabled(projection.busy).accessibilityLabel(text("ui.close"))
@@ -320,10 +329,6 @@ struct SessionForYouCard: View {
                         Text(text("ui.for_you.pending")).font(.caption).foregroundStyle(.secondary)
                     } else if projection.expired || offer.state == "unavailable" {
                         Text(text("ui.for_you.unavailable")).font(.caption).foregroundStyle(.secondary)
-                        if projection.canRefresh {
-                            Button(action: projection.renew) { Label(text("ui.for_you.refresh"), systemImage: "arrow.clockwise") }
-                                .djConnectButtonStyle(DJConnectButtonStyle())
-                        }
                     }
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading).djSessionFrostedSurface()
                     .accessibilityElement(children: .contain)

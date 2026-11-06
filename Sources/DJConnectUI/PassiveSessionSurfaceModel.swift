@@ -12,10 +12,17 @@ import DJConnectCore
         public var authorize: (String, DJConnectPassiveSurface, Bool) async throws -> DJConnectPassiveSurfaceResponse?
         public var read: (String, DJConnectPassiveSurface, String) async throws -> DJConnectPassiveSurfaceResponse
         public var image: (DJConnectPassiveSession.Artwork, DJConnectPassiveSurfaceResponse) async throws -> Data
+        public var negotiate: (() async throws -> Int?)?
+        public var authorizeVersioned: ((String, DJConnectPassiveSurface, Bool, Int) async throws -> DJConnectPassiveSurfaceResponse?)?
+        public var readVersioned: ((String, DJConnectPassiveSurface, String, Int) async throws -> DJConnectPassiveSurfaceResponse)?
         public init(available: @escaping () async throws -> Bool,
                     authorize: @escaping (String, DJConnectPassiveSurface, Bool) async throws -> DJConnectPassiveSurfaceResponse?,
                     read: @escaping (String, DJConnectPassiveSurface, String) async throws -> DJConnectPassiveSurfaceResponse,
-                    image: @escaping (DJConnectPassiveSession.Artwork, DJConnectPassiveSurfaceResponse) async throws -> Data) {
+                    image: @escaping (DJConnectPassiveSession.Artwork, DJConnectPassiveSurfaceResponse) async throws -> Data,
+                    negotiate: (() async throws -> Int?)? = nil,
+                    authorizeVersioned: ((String, DJConnectPassiveSurface, Bool, Int) async throws -> DJConnectPassiveSurfaceResponse?)? = nil,
+                    readVersioned: ((String, DJConnectPassiveSurface, String, Int) async throws -> DJConnectPassiveSurfaceResponse)? = nil) {
+            self.negotiate = negotiate; self.authorizeVersioned = authorizeVersioned; self.readVersioned = readVersioned
             self.available = available; self.authorize = authorize; self.read = read; self.image = image
         }
     }
@@ -27,6 +34,7 @@ import DJConnectCore
     public var onDiagnostic: ((String) -> Void)?
     public private(set) var renderingRevision = UUID()
     private func notify() { renderingRevision = UUID(); onChange?() }
+    private var projectionVersion = 1
     private var owner: String?
     private var sessionID: String?
     private var settingsRevision: Int?
@@ -37,7 +45,9 @@ import DJConnectCore
         let id: String
         let binding: String
         let generation: String
+        let projectionVersion: Int
         init(_ response: DJConnectPassiveSurfaceResponse) {
+            projectionVersion = response.passive_session.schema_version
             id = response.grant_id; binding = response.passive_session.binding_id; generation = response.passive_session.generation
         }
     }
@@ -140,8 +150,14 @@ import DJConnectCore
         let captured = epoch; discovering = true
         defer { if captured == epoch { discovering = false } }
         do {
-            let supported = try await services.available()
+            let negotiated: Int?
+            if let negotiate = services.negotiate { negotiated = try await negotiate() }
+            else { negotiated = nil }
+            let supported: Bool
+            if services.negotiate != nil { supported = negotiated == 1 || negotiated == 3 }
+            else { supported = try await services.available() }
             guard captured == epoch, active else { return }
+            projectionVersion = negotiated ?? 1
             available = supported
             if !supported { grants = [:]; caches = [:]; nativeCaptures = [:]; notify() }
         } catch { if captured == epoch { available = false } }
@@ -150,7 +166,7 @@ import DJConnectCore
     /// uncertain writes are never replayed here.
     public func setEnabled(_ enabled: Bool, surface: DJConnectPassiveSurface, services: Services) async {
         guard active, (!enabled || available), !busy(surface), let sessionID else { return }
-        let captured = epoch, version = UUID(); versions[surface] = version
+        let captured = epoch, version = UUID(), selectedProjection = projectionVersion; versions[surface] = version
         // Local revocation is immediate even when the server is unreachable.
         if !enabled { grants[surface] = nil; caches[surface] = nil; nativeCaptures[surface] = nil; invalidatedPlayback[surface] = nil; notify() }
         phases[surface] = .loading
@@ -161,12 +177,18 @@ import DJConnectCore
             defer { finish(surface, captured: captured, version: version, services: services) }
             do {
                 guard current(captured, version, surface), !Task.isCancelled else { return }
-                let result = try await services.authorize(sessionID, surface, enabled)
+                let result: DJConnectPassiveSurfaceResponse?
+                if let authorize = services.authorizeVersioned {
+                    result = try await authorize(sessionID, surface, enabled, selectedProjection)
+                } else {
+                    guard selectedProjection == 1 else { throw DJConnectError.invalidResponse }
+                    result = try await services.authorize(sessionID, surface, enabled)
+                }
                 guard current(captured, version, surface), !Task.isCancelled else { return }
                 if enabled {
                     // The DTO enforces locked display for Live Activities only.
                     // A home-screen widget grant is independently valid without it.
-                    guard let result, result.validates(sessionID: sessionID, surface: surface) else { throw DJConnectError.invalidResponse }
+                    guard let result, result.validates(sessionID: sessionID, surface: surface, projectionVersion: selectedProjection) else { throw DJConnectError.invalidResponse }
                     grants[surface] = Grant(result)
                     invalidatedPlayback[surface] = nil
                     try await accept(result, surface: surface, captured: captured, version: version, originalClock: originalClock, services: services)
@@ -254,7 +276,13 @@ import DJConnectCore
                 defer { finish(surface, captured: captured, version: version, services: services) }
                 do {
                     guard current(captured, version, surface), !Task.isCancelled else { return }
-                    let result = try await services.read(sessionID, surface, grant.id)
+                    let result: DJConnectPassiveSurfaceResponse
+                    if let read = services.readVersioned {
+                        result = try await read(sessionID, surface, grant.id, grant.projectionVersion)
+                    } else {
+                        guard grant.projectionVersion == 1 else { throw DJConnectError.invalidResponse }
+                        result = try await services.read(sessionID, surface, grant.id)
+                    }
                     guard current(captured, version, surface), !Task.isCancelled else { return }
                     guard result.passive_session.binding_id == grant.binding,
                           result.passive_session.generation == grant.generation else { throw DJConnectError.invalidResponse }
@@ -312,7 +340,7 @@ import DJConnectCore
                         captured: UUID, version: UUID, originalClock: DJConnectNativeSurfaceClockCapture, services: Services) async throws {
         let p = result.passive_session, now = Date()
         guard current(captured, version, surface), !Task.isCancelled, let sessionID,
-              result.validates(sessionID: sessionID, surface: surface), grants[surface]?.id == result.grant_id,
+              result.validates(sessionID: sessionID, surface: surface, projectionVersion: grants[surface]?.projectionVersion ?? 1), grants[surface]?.id == result.grant_id,
               let asOf = DJConnectHistoryEntry.date(p.as_of), abs(asOf.timeIntervalSince(now)) <= 30 else { throw DJConnectError.invalidResponse }
         if let previous = caches[surface]?.projection ?? invalidatedPlayback[surface] {
             guard p.binding_id == previous.binding_id, p.generation == previous.generation,

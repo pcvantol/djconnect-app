@@ -40,7 +40,14 @@ profile, unmodified policy thresholds and non-blocking Observe mode. A completed
 analysis may produce a genuine policy FAIL; green workflow status is separate.
 See `docs/feedback/APPLE_TDE_1_1_2_ADOPTION_20261101.md`.
 
-Current Apple release candidate (2026-11-06): version 4.0.0, build 40478.
+Latest installed Apple Release (2026-11-06): version 4.0.0, build 40493, on
+iPhone, iPad, Watch, MacBook and Mac mini; source #322/main502a9255. Native
+installation receipts are separate from physical pairing/audio acceptance.
+Manual, provider-free Help regressions use
+`Tools/qualification/contextual-help/run_native_help.py`; do not add the slow
+native suite or paid/provider Golden execution to ordinary per-PR CI.
+
+Earlier Apple release candidate: version 4.0.0, build 40478.
 Includes Voor jou (#318), Music announcement V1 (#319) and regression recovery
 (#317), integrated on main 569007101524f242f6605ca8b669e56047cb825d.
 The cumulative UI/demo/diagnostics changes require ordinary PR qualification,

@@ -982,7 +982,7 @@ private struct SessionCurrentColumns: Layout {
             let width = max(0, proposal.width ?? 400)
             let top = subviews[0].sizeThatFits(.init(width: width, height: nil))
             let bottom = subviews[1].sizeThatFits(.init(width: width, height: nil))
-            return CGSize(width: width, height: top.height + 16 + bottom.height)
+            return CGSize(width: width, height: top.height + djConnectSessionFlowSpacing + bottom.height)
         }
         let (music, card, gap) = widths(proposal)
         let left = subviews[0].sizeThatFits(.init(width: music, height: nil))
@@ -995,7 +995,7 @@ private struct SessionCurrentColumns: Layout {
         if stacked {
             let top = subviews[0].sizeThatFits(.init(width: bounds.width, height: nil))
             subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: .init(width: bounds.width, height: nil))
-            subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.minY + top.height + 16), anchor: .topLeading,
+            subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.minY + top.height + djConnectSessionFlowSpacing), anchor: .topLeading,
                               proposal: .init(width: bounds.width, height: nil))
             return
         }

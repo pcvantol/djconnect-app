@@ -2785,6 +2785,8 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
     private let session = AVCaptureSession()
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private weak var captureDevice: AVCaptureDevice?
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
+    private var previewRotationObservation: NSKeyValueObservation?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -2852,37 +2854,23 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
         layer.frame = view.bounds
         view.layer.insertSublayer(layer, at: 0)
         previewLayer = layer
+        let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: layer)
+        rotationCoordinator = coordinator
+        previewRotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview,
+            options: [.initial, .new]) { [weak self] _, _ in
+                Task { @MainActor [weak self] in self?.updatePreviewOrientation() }
+            }
         updatePreviewOrientation()
         configureFocusAndExposure()
     }
 
     private func updatePreviewOrientation() {
         guard let connection = previewLayer?.connection,
-              let angle = captureVideoRotationAngle,
+              let angle = rotationCoordinator?.videoRotationAngleForHorizonLevelPreview,
               connection.isVideoRotationAngleSupported(angle) else {
             return
         }
         connection.videoRotationAngle = angle
-    }
-
-    private var captureVideoRotationAngle: CGFloat? {
-        guard let interfaceOrientation = view.window?.windowScene?.effectiveGeometry.interfaceOrientation else {
-            return nil
-        }
-        switch interfaceOrientation {
-        case .portrait:
-            return 90
-        case .portraitUpsideDown:
-            return 270
-        case .landscapeLeft:
-            return 0
-        case .landscapeRight:
-            return 180
-        case .unknown:
-            return nil
-        @unknown default:
-            return nil
-        }
     }
 
     private func configureFocusAndExposure() {
@@ -11305,12 +11293,12 @@ private struct AskDJView: View {
                                 .frame(maxWidth: .infinity, alignment: .top)
                                 .contentShape(Rectangle())
                             }
-                            .safeAreaInset(edge: .bottom, spacing: 0) {
-                                if usesFloatingComposer && !isSearchVisible {
-                                    Color.clear.frame(height: floatingComposerHeight + composerBottomPadding + 8)
-                                        .allowsHitTesting(false)
-                                }
-                            }
+                            // Keep the last bubble reachable above the floating bar without
+                            // shrinking the viewport: bubbles scroll behind it and its side gaps.
+                            .contentMargins(.bottom,
+                                usesFloatingComposer && !isSearchVisible
+                                    ? floatingComposerHeight + composerBottomPadding + 8 : 0,
+                                for: .scrollContent)
                             .onScrollPhaseChange { _, phase in
                                 if phase == .tracking || phase == .interacting { followsSubmittedQuestion = false }
                             }

@@ -22,17 +22,19 @@ def prepare(destination: Path, jose: Path, platform: str) -> None:
     project["name"] = "NativeHelpQualification"
     project["targets"] = {k: v for k, v in project["targets"].items() if k in ("ConsentCore", "ConsentUI")}
     fixture = {"path": str(root / "Tests/Fixtures/askdj-catalogue-selector-golden-v1.json"), "buildPhase": "resources"}
+    current_wire = {"path": str(root / "Tests/Fixtures/askdj-help-r5-core-wire.json"), "buildPhase": "resources"}
+    current_catalogue = {"path": str(root / "Sources/DJConnectCore/Resources/ask_dj_examples_v1.json"), "buildPhase": "resources"}
     host_settings = {"PRODUCT_BUNDLE_IDENTIFIER": "dev.djconnect.qualification.help." + platform.lower(),
                      "GENERATE_INFOPLIST_FILE": "YES"}
     if platform == "iOS":
         host_settings.update(INFOPLIST_KEY_UILaunchScreen_Generation="YES", INFOPLIST_KEY_UIApplicationSceneManifest_Generation="YES")
     project["targets"]["NativeHelpUIHost"] = {
         "type": "application", "platform": platform,
-        "sources": [{"path": str(root / "Tools/qualification/contextual-help/NativeHelpUIHost.swift")}, fixture],
+        "sources": [{"path": str(root / "Tools/qualification/contextual-help/NativeHelpUIHost.swift")}, fixture, current_wire],
         "dependencies": [{"target": "ConsentCore"}, {"target": "ConsentUI"}], "settings": {"base": host_settings}}
     project["targets"]["NativeHelpUITests"] = {
         "type": "bundle.ui-testing", "platform": platform,
-        "sources": [{"path": str(root / "Tools/qualification/contextual-help/NativeHelpUITests.swift")}, fixture],
+        "sources": [{"path": str(root / "Tools/qualification/contextual-help/NativeHelpUITests.swift")}, fixture, current_catalogue],
         "dependencies": [{"target": "NativeHelpUIHost"}],
         "settings": {"base": {"PRODUCT_BUNDLE_IDENTIFIER": "dev.djconnect.qualification.help.uitests." + platform.lower(),
                               "GENERATE_INFOPLIST_FILE": "YES"}}}

@@ -359,6 +359,14 @@ not a playable output. Unknown/non-controllable volume displays a dash and does
 not expose a writable slider. A Bluetooth glyph requires a reliable route signal;
 a device name alone never establishes Bluetooth capability.
 
+A rejected `set_volume`/`volume_delta` write is action-local and is never replayed
+on transport fallback. It does not replace Session/DJ text or set global backend
+or voice availability; independent status observations retain that authority.
+An explicit Core command-scoped `unsupported_backend_capability` response with
+`capability:supports_volume` hides the control only for the same current output.
+A generic `volume_command_failed` does not establish a capability restriction.
+Both use localized client notices; machine/provider errors are not DJ content.
+
 On iOS, one model-owned, in-memory audio-route snapshot observes
 `AVAudioSession.routeChangeNotification` and refreshes on foreground entry.
 For the current, connected, non-cached phone/tablet playback output only, its
@@ -402,6 +410,12 @@ and the WatchConnectivity user-info queue. On activation and foreground return,
 the Watch also reconciles a completion already in received application context
 before registering again. Every delivery retains the same device/intent/code
 and existing-token checks; duplicate delivery does not create a new pairing.
+The Watch's receiver correlation code and the Home Assistant setup-QR code are
+stored separately. Only the HA request consumes the setup code; the completion
+echoes the original Watch code. The old mixed-code representation can be
+recovered only for the exact same confirmed device/intent with an existing
+bearer, followed by the ordinary authenticated Core status readback. A reset or
+replacement intent cannot use this recovery.
 
 No Apple target hosts a Home Assistant-callable inbound API, shows a callback address, or advertises a pairable discovery service.
 
@@ -497,8 +511,10 @@ private owner export or Watch replication are inferred.
 The passive owner fence follows the independently confirmed settings3 binding,
 not conversation history's suspension epoch. Backgrounding preserves already
 granted cache only to its original deadlines. Automatic preparation uses the
-existing foreground coordinator, throttles OS configuration queries to30seconds,
-and never blindly replays uncertain authorization. OS removal revokes the surface
+existing foreground coordinator and throttles unchanged OS configuration queries
+to30seconds. A changed confirmed settings revision/generation or Session mood
+starts immediate configuration reconciliation because the old grant was withdrawn.
+It never blindly replays uncertain authorization. OS removal revokes the surface
 and fences late pixels. Activity bookkeeping separates confirmed dismissal from
 app retirement and build updates; confirmed user dismissal remains respected.
 Qualification processes cannot publish real AppGroup/ActivityKit content.
@@ -694,8 +710,10 @@ hides the card. Only the server's visible=false projection closes it. Cached
 active-session observations are read-only; expiry/settings changes disable old
 choices. Legacy renewal remains explicit, using the original server-supplied
 refresh prompt. With supported `refresh_policy` schema1, the server prepares one
-replacement after a confirmed Mood revision; Apple only polls/adopts and hides
-the legacy renewal button. No client-side automatic Ask DJ request is generated.
+replacement after a confirmed Mood revision; Apple only polls/adopts. A manual
+refresh remains available as a round header icon before Close whenever Core
+supplies its explicit refresh prompt, including after expiry. It cannot replay
+a pending or uncertain action. No client-side automatic Ask DJ request is generated.
 An additive `continuation` restores only the original admitted speaker result
 set/context for the current mood revision. Its wall/monotonic deadline may shrink
 but never renew, and a consumed action stays consumed across repeated polls.
@@ -719,7 +737,12 @@ visual illustrations, not music recommendations or acoustic facts. Their palette
 and client-side terrain/motion follow the confirmed current Session mood rather
 than the recipe's older mood. Calm skies, Groove ribbons, Energy ridges and
 Party beams/confetti retain the three recipe directions and variation seeds.
-The local Canvas clock pauses outside the active scene and with Reduce Motion;
+Genre cues choose distinct large-scale silhouettes within that mood, including
+valleys, pointed ridges and terraces for alternative rock, rock and classic rock.
+These are decorative choices, not inferred musical characteristics.
+The local Canvas clock runs for two seconds on entry into the scroll viewport,
+then freezes its final frame. Leaving the viewport or scene stops the visit;
+returning starts a new bounded visit. Reduce Motion disables the animation;
 frames never call Core or a local language model. Source and fixture validation
 do not establish installed Core/Spotify/local-model/device acceptance.
 
@@ -740,3 +763,37 @@ payload: Core must return the exact original reference and a typed
 voice, source/text, expiry and owner checks still apply. Both on-device TTS and
 HA-configured local audio use their existing routes. Automatic, speaker and
 other Moment/Ask DJ routes keep their previous output policy.
+
+### Shared Session widget geometry
+
+The iOS and macOS widget use the same three family layouts. Small shows only an
+admitted current cover inside a rounded glass card (a neutral icon if absent).
+Medium places that cover beside track/artist/album metadata. Large reserves its
+upper half for that row and the lower half for the current admitted contribution,
+with a tail truncation based on the available height. Missing data never falls
+back to private foreground caches or extends a field deadline. Covers fit whole
+inside the rounded card, preserving the original no-crop grant.
+Live Activity art uses the same treatment; compact/minimal Island cover pixels
+must join the exact current Live Activity binding/generation/sequence and fields.
+
+Foreground passive projection v3 is explicitly negotiated from capabilities;
+the default v1 wire remains unchanged. Its progress uses the original sample
+position, state and expiry, never a new sample produced by a mood change or
+widget render. A v3 track Live Activity omits unrendered contribution text and
+retains the original outer lease, while each track/cover/progress deadline still
+applies. This does not extend a contribution's shorter publication lease.
+
+Watch Smart Stack uses the separate `paired_watch_widget_v1` projection1 with
+the paired Watch identity and bearer through the existing typed companion
+broker. A foreground Watch configuration read must show a rectangular DJConnect
+widget before its own authorization. A separate Watch Settings toggle explicitly
+selects title/cover display including the locked screen. Its local choice is
+bound to the own Watch, pairing intent, Profile binding and exact purpose;
+legacy launcher placement and phone settings cannot enable it. Disabling clears
+local pixels immediately, even offline. The Watch stores only that purpose's
+title, whole cover and confirmed Session palette in its own App Group cache.
+It never reads a phone widget cache or a foreground Flow contribution. Session,
+owner, pairing and mood changes fence in-flight results; unknown authorization
+is not replayed. Source deadlines and the receive wall/uptime pair survive image
+staging. Background transport remains unavailable; expiry returns the launcher.
+Rectangular Smart Stack displays no artist, album, progress or DJ prose.

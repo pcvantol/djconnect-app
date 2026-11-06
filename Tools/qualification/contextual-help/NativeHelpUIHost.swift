@@ -17,7 +17,8 @@ import DJConnectCore
         #endif
     }
     @ViewBuilder private var host: some View {
-        if ProcessInfo.processInfo.environment["HELP_COMPOSER_POPOUT"] == "1" { HelpComposerPopoutProbe() }
+        if ProcessInfo.processInfo.environment["FOR_YOU_ANIMATION_PROBE"] == "1" { ForYouAnimationProbe() }
+        else if ProcessInfo.processInfo.environment["HELP_COMPOSER_POPOUT"] == "1" { HelpComposerPopoutProbe() }
         else { HelpProbe() }
     }
 }
@@ -38,12 +39,13 @@ import DJConnectCore
     @State private var composerDismissal = UUID()
     private let interaction = ProcessInfo.processInfo.environment["HELP_INTERACTION"] == "1"
     private let fullCatalogue = ProcessInfo.processInfo.environment["HELP_FULL_CATALOGUE"] == "1"
+    private let currentCatalogue = ProcessInfo.processInfo.environment["HELP_CURRENT_CATALOGUE"] == "1"
     init() {
         let url = Bundle.main.url(forResource: "askdj-catalogue-selector-golden-v1", withExtension: "json")!
         let root = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
-        eligibleIDs = Set(((root["synthetic_catalogue"] as? [String: Any])?["entries"] as? [[String: Any]] ?? []).compactMap { $0["id"] as? String })
+        var ids = Set(((root["synthetic_catalogue"] as? [String: Any])?["entries"] as? [[String: Any]] ?? []).compactMap { $0["id"] as? String })
         let qualified = ProcessInfo.processInfo.environment["HELP_SYNTHETIC"] == "1"
-        catalogue = qualified ? try! JSONDecoder().decode(DJConnectAskDJCatalogue.self,
+        catalogue = qualified && !currentCatalogue ? try! JSONDecoder().decode(DJConnectAskDJCatalogue.self,
             from: JSONSerialization.data(withJSONObject: root["synthetic_catalogue"]!)) : .bundled
         let raw = (root["cases"] as! [[String: Any]])[0]["context"] as! [String: Any]
         var value = DJConnectAskDJCatalogue.Context()
@@ -63,6 +65,21 @@ import DJConnectCore
             }
         }
         value.ownerEpoch = "synthetic-owner"; value.sessionID = "synthetic-session"; value.trackID = "synthetic-track"
+        if currentCatalogue {
+            // An original Core wire projection drives presentation only. This
+            // disposable host still cannot send commands or admit live effects.
+            let wireURL = Bundle.main.url(forResource: "askdj-help-r5-core-wire", withExtension: "json")!
+            let wire = try! JSONSerialization.jsonObject(with: Data(contentsOf: wireURL)) as! [String: Any]
+            let cases = wire["cases"] as! [[String: Any]]
+            let response = cases.first { ($0["eligible_entry_ids"] as? [String])?.count == 14 }!["response_body"] as! [String: Any]
+            ids = Set(response["eligible_entry_ids"] as! [String])
+            value.descriptor = try! JSONDecoder().decode(DJConnectAskDJCatalogue.Descriptor.self,
+                from: JSONSerialization.data(withJSONObject: response["catalogue"]!))
+            value.serverEligibleIDs = ids
+            value.sessionID = response["session_id"] as? String
+            value.trackID = response["track_id"] as? String
+        }
+        eligibleIDs = ids
         original = value
     }
     private func context(at now: Date) -> DJConnectAskDJCatalogue.Context {
@@ -79,7 +96,7 @@ import DJConnectCore
         VStack(spacing: 12) {
             Text("Synthetic reference qualification — no commands or HTTP").font(.caption)
             if fullCatalogue {
-                AskDJHelpEntry(surface: surface, language: language, presented: $presented, showsMoreLabel: true, onDismissed: {
+                HelpProbeEntry(surface: surface, language: language, presented: $presented, showsMoreLabel: true, onDismissed: {
                     composerDismissal = UUID()
                 }) {
                     AskDJFullCatalogueReference(sections: catalogue?.catalogueSections(context(at: Date()), surface: surface,
@@ -95,7 +112,7 @@ import DJConnectCore
                     HelpComposerProbe(item: composerChoice, dismissal: composerDismissal)
                 }
             } else if interaction {
-                AskDJHelpEntry(surface: surface, language: language, presented: $presented) { reference }
+                HelpProbeEntry(surface: surface, language: language, presented: $presented) { reference }
                 AskDJSuggestionRows(suggestions: catalogue?.select(context(at: Date()), surface: surface,
                     language: language, epoch: "fixed-native-visit") ?? [], surface: surface, disabled: presented) {
                     selected = $0.prompt
@@ -117,6 +134,29 @@ import DJConnectCore
     private var reference: some View {
         AskDJHelpReference(catalogue: catalogue, surface: surface, language: language,
                            trackExpiresAt: expiry, context: { context(at: $0) })
+    }
+}
+
+/// Test-only entry adapter around the current production panel. It has no model
+/// and deliberately makes no claim about production entry/reader availability.
+private struct HelpProbeEntry<Content: View>: View {
+    let surface: DJConnectAskDJCatalogue.Surface
+    let language: String
+    @Binding var presented: Bool
+    var showsMoreLabel = false
+    var onDismissed: () -> Void = {}
+    @ViewBuilder let content: () -> Content
+    var body: some View {
+        Button(showsMoreLabel ? "More" : "Help") { presented = true }
+            .accessibilityIdentifier((showsMoreLabel ? "ask-dj-more-" : "ask-dj-help-") + surface.rawValue)
+            .popover(isPresented: $presented) {
+                AskDJHelpPanel(expanded: .constant(true), maximumHeight: 620,
+                    title: DJConnectLocalization.localized(key: "ui.askdj.help.catalogue.title", language: language),
+                    backLabel: "Back", closeLabel: "Close", close: { presented = false },
+                    compact: { EmptyView() }, catalogue: content)
+                    .frame(minWidth: 300, idealWidth: 500)
+            }
+            .onChange(of: presented) { _, value in if !value { onDismissed() } }
     }
 }
 
@@ -197,5 +237,38 @@ import DJConnectCore
         }
         .preferredColorScheme(.dark)
         .onDisappear { UserDefaults(suiteName: domain)?.removePersistentDomain(forName: domain) }
+    }
+}
+
+/// Viewport lifecycle probe only: renders the shipping landscape without a
+/// Session, credentials, network or playback. Buttons simulate scrolling/navigation.
+@MainActor private struct ForYouAnimationProbe: View {
+    @State private var pageVisible = true
+    private let recipe = try! JSONDecoder().decode(DJConnectForYou.VisualRecipe.self, from: Data(#"{"schema_version":1,"revision":1,"variation_id":"viewport-test","genre":"rock","mood":"party","persona":"home","artistic_direction":"mountain_horizon","illustrative_not_audio_analysis":true}"#.utf8))
+    var body: some View {
+        VStack {
+            if pageVisible {
+                ScrollViewReader { proxy in
+                    VStack {
+                        ScrollView {
+                            VStack {
+                                ForYouLandscape(recipe: recipe, sessionID: "viewport-probe", language: "nl", sessionMood: "party")
+                                    .frame(height: 180)
+                                    .accessibilityIdentifier("for-you-animation-landscape")
+                                    .id("panel")
+                                Color.clear.frame(height: 1400)
+                                Text("Offscreen destination").id("bottom")
+                            }
+                        }
+                        HStack {
+                            Button("Scroll away") { proxy.scrollTo("bottom", anchor: .bottom) }.accessibilityIdentifier("animation-scroll-away")
+                            Button("Scroll back") { proxy.scrollTo("panel", anchor: .top) }.accessibilityIdentifier("animation-scroll-back")
+                        }
+                    }
+                }
+            } else { Spacer(); Text("Another page"); Spacer() }
+            Button(pageVisible ? "Leave page" : "Return to page") { pageVisible.toggle() }
+                .accessibilityIdentifier("animation-toggle-page")
+        }.padding()
     }
 }

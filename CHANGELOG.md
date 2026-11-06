@@ -4,6 +4,40 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+- Negotiate passive projection v3 for original-sample progress without renewing
+  source deadlines; keep track Live Activities through a shorter DJ-text expiry.
+- Use the separate paired-Watch widget purpose for Smart Stack title, rounded
+  glass cover and Session palette; preserve foreground-only transport and expiry.
+
+- Let Ask DJ bubbles scroll behind the floating composer and through its side
+  margins, while keeping the final bubble fully reachable above the composer.
+
+- Reveal Watch page dots when tapping blank space on the general Ask DJ home
+  without a Session, in demo and normal mode; render its Ask DJ title in purple.
+
+- Share one iOS/macOS widget layout: small shows only the glass-framed cover,
+  medium places cover beside track details, and large reserves its lower half
+  for the current admitted DJ contribution with bounded text.
+- Frame Live Activity artwork in the same rounded glass card and use current
+  admitted cover pixels in compact/minimal Dynamic Island presentations.
+- Reconcile configured passive surfaces immediately after a confirmed settings
+  or mood change instead of waiting for the usual inventory throttle.
+
+- Keep rejected volume writes local to that action instead of marking the whole
+  music backend and Ask DJ unavailable; never replay a volume write on fallback.
+- Remove the redundant Now Playing label above the track in a playing Live Activity.
+
+- Preserve the Watch receiver code separately from the Home Assistant QR code,
+  including guarded readback recovery of a previously confirmed mixed-code setup.
+- Rotate the pairing camera preview using the actual camera/preview coordinator
+  rather than fixed interface-orientation angles on iPad.
+- Give each For-you genre a distinct landscape in the selected mood, animate
+  for two seconds on visibility, and retain an explicit round refresh control.
+- Use one vertical gap between the Session mode bar, For-you, current playback
+  and Flow contribution cards.
+- Add explicit native NL/EN Help and suggestion regression runs for iPhone,
+  iPad and Mac; keep provider execution and physical Watch acceptance separate.
+
 - Match the Session welcome card to the active Session mood gradients, retain fixed vinyl artwork, and use a frosted-glass start action; start at Rustig while keeping Profile defaults intact.
 - Use matching proportional input fonts and neutral hints for pairing URL and code.
 

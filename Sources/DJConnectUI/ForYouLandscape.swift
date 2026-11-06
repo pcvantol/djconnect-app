@@ -61,6 +61,40 @@ private struct ForYouScene: Sendable {
 }
 
 /// Decorative local motion only; never derives music facts or playback choices.
+struct ForYouGenreLandscapeStyle: Equatable {
+    enum Terrain { case dunes, valley, peaks, terraces }
+    let terrain: Terrain
+    let frequency: Double
+    let offset: Double
+    init(genre: String, direction: String) {
+        let genre = genre.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let hash = genre.utf8.reduce(UInt64(0)) { ($0 &* 31) &+ UInt64($1) }
+        frequency = 1.4 + Double(hash % 7) * 0.23
+        offset = Double(hash % 101) / 101
+        // Illustrative genre cues only, never an analysis of the offered music.
+        if genre.contains("classic rock") { terrain = .terraces }
+        else if genre.contains("alternative") { terrain = .valley }
+        else if genre == "rock" { terrain = .peaks }
+        else {
+            switch direction {
+            case "mountain_horizon": terrain = .peaks
+            case "misty_valley": terrain = .valley
+            default: terrain = .dunes
+            }
+        }
+    }
+    func elevation(x: Double, layer: Int, phase: Double) -> Double {
+        let drift = Double(layer) * 0.13 + offset * 0.18 + sin(phase * 0.2) * 0.02
+        switch terrain {
+        case .dunes: return (sin(x * .pi * frequency + drift) + 1) * 0.105
+        case .valley: return pow(min(1, abs(x - (0.4 + offset * 0.2)) * 2), 1.6) * 0.29
+        case .peaks:
+            return abs((x * (frequency + 1) + drift).truncatingRemainder(dividingBy: 1) - 0.5) * 0.62
+        case .terraces: return floor((sin(x * .pi * frequency + drift) + 1) * 2.5) * 0.052
+        }
+    }
+}
+
 struct ForYouMoodLandscapeStyle: Equatable {
     let theme: DJConnectSessionMoodTheme
     var speed: Double {
@@ -71,7 +105,7 @@ struct ForYouMoodLandscapeStyle: Equatable {
         case .party: 1.20
         }
     }
-    func elevation(x: Double, layer: Int, seed: Double, direction: String, horizon: Double, depth: Double, phase: Double) -> Double {
+    func elevation(x: Double, layer: Int, seed: Double, direction: String, genre: String = "", horizon: Double, depth: Double, phase: Double) -> Double {
         let offset = Double(layer) * 0.7 + seed * 4
         let wave: Double
         switch theme {
@@ -81,17 +115,13 @@ struct ForYouMoodLandscapeStyle: Equatable {
             wave = sin(x * .pi * (2 + seed) + offset + phase) * 0.12
                 + sin(x * 14 - phase * 0.7 + offset) * 0.025
         case .energy:
-            wave = abs(sin(x * .pi * (4 + seed * 2) + offset + phase * 0.35)) * 0.28
+            wave = abs(sin(x * .pi * (4 + seed * 2) + offset + phase * 0.35)) * 0.07
         case .party:
             wave = sin(x * 10 + offset + phase) * 0.13
                 + cos(x * 18 - offset - phase * 1.4) * 0.07
         }
-        let terrain: Double
-        switch direction {
-        case "mountain_horizon": terrain = abs(sin(x * 13 + offset)) * 0.08
-        case "misty_valley": terrain = pow(abs(x - 0.5) * 2, 1.4) * 0.13
-        default: terrain = sin(x * 3 + seed * 5) * 0.035
-        }
+        let terrain = ForYouGenreLandscapeStyle(genre: genre, direction: direction)
+            .elevation(x: x, layer: layer, phase: phase)
         return min(0.94, max(0.16, horizon + depth * 0.38 - (wave + terrain) * (1 - depth * 0.5)))
     }
 }
@@ -104,9 +134,14 @@ struct ForYouLandscape: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var scene = ForYouScene(horizon: 0.44, haze: 0.25, layers: 5, generated: false)
+    @State private var isVisible = false
+    @State private var animationStartedAt: Date?
+    @State private var animationRunning = false
+    @State private var frozenElapsed = 0.0
     private var theme: DJConnectSessionMoodTheme { .init(sessionMood: sessionMood ?? recipe.mood) }
     private var style: ForYouMoodLandscapeStyle { .init(theme: theme) }
-    private var animates: Bool { !reduceMotion && scenePhase == .active }
+    private var animates: Bool { animationRunning && isVisible && !reduceMotion && scenePhase == .active }
+    private var animationVisit: String { "\(isVisible):\(scenePhase == .active):\(reduceMotion):\(recipe.variation_id):\(theme)" }
     private var colors: [Color] {
         theme.colorValues.map { rgb in
             Color(red: Double((rgb >> 16) & 255) / 255,
@@ -119,12 +154,26 @@ struct ForYouLandscape: View {
     }
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !animates)) { clock in
-            let phase = animates ? clock.date.timeIntervalSinceReferenceDate * style.speed : 0
+            let elapsed = animates ? min(2, max(0, clock.date.timeIntervalSince(animationStartedAt ?? clock.date))) : frozenElapsed
+            let phase = elapsed * style.speed
             Canvas { context, size in
                 draw(in: &context, size: size, phase: phase)
             }
         }
         .accessibilityLabel(DJConnectLocalization.localized(key: scene.generated ? "ui.for_you.art.local" : "ui.for_you.art.procedural", language: language))
+        .onScrollVisibilityChange(threshold: 0.01) { isVisible = $0 }
+        .onDisappear { isVisible = false; animationRunning = false }
+        .task(id: animationVisit) {
+            animationRunning = false
+            guard isVisible, !reduceMotion, scenePhase == .active else { return }
+            frozenElapsed = 0
+            animationStartedAt = Date()
+            animationRunning = true
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            guard !Task.isCancelled else { return }
+            frozenElapsed = 2
+            animationRunning = false
+        }
         .task(id: sessionID + recipe.variation_id + String(recipe.revision)) {
             scene = await ForYouSceneCache.shared.scene(recipe: recipe, sessionID: sessionID)
         }
@@ -182,7 +231,7 @@ struct ForYouLandscape: View {
             for step in 0...60 {
                 let x = Double(step) / 60
                 let y = style.elevation(x: x, layer: layer, seed: seed, direction: recipe.artistic_direction,
-                                        horizon: scene.horizon, depth: depth, phase: phase)
+                                        genre: recipe.genre, horizon: scene.horizon, depth: depth, phase: phase)
                 path.addLine(to: CGPoint(x: width * x, y: height * y))
             }
             path.addLine(to: CGPoint(x: width, y: height)); path.closeSubpath()

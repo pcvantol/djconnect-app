@@ -38,6 +38,28 @@ public struct DJConnectWatchPairingIntent: Equatable, Sendable, CustomStringConv
     }
 }
 
+/// The HA setup secret and the Watch's installation-local correlation are
+/// independent. A QR code must never overwrite the receiver's original intent.
+public struct DJConnectWatchPairingSetup: Sendable, CustomStringConvertible, CustomDebugStringConvertible {
+    public let receiver: DJConnectWatchPairingIntent
+    public let homeAssistantPairCode: String
+    public var description: String { "WatchPairingSetup(redacted)" }
+    public var debugDescription: String { description }
+    public init?(receiver: DJConnectWatchPairingIntent, homeAssistantPairCode: String) {
+        guard homeAssistantPairCode.utf8.count == 6,
+              homeAssistantPairCode.utf8.allSatisfy({ (48...57).contains($0) }) else { return nil }
+        self.receiver = receiver
+        self.homeAssistantPairCode = homeAssistantPairCode
+    }
+    public static func recoverLegacyConfirmed(receiver: DJConnectWatchPairingIntent,
+        stored: DJConnectWatchPairingIntent, separatedCode: String?, confirmed: Bool, hasStoredToken: Bool) -> Self? {
+        guard confirmed, hasStoredToken, separatedCode == nil,
+              receiver.deviceID == stored.deviceID, receiver.identifier == stored.identifier,
+              receiver.pairCode != stored.pairCode else { return nil }
+        return Self(receiver: receiver, homeAssistantPairCode: stored.pairCode)
+    }
+}
+
 /// The commit is synchronous on the same actor as the final owner check. A late
 /// success/error after cancellation or context ABA cannot mutate UI or emit a token.
 @MainActor public enum DJConnectWatchPairingReadback {

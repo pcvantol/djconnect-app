@@ -1,26 +1,39 @@
 import DJConnectCore
 import SwiftUI
 import WidgetKit
+import ImageIO
 
 private struct SessionEntry: TimelineEntry {
     let date: Date
     let destination: DJConnectWatchStackEntry.Destination?
+    var playback: DJConnectWatchWidgetCache? = nil
 }
 private struct SessionProvider: TimelineProvider {
     func placeholder(in context: Context) -> SessionEntry { .init(date: Date(), destination: nil) }
     func getSnapshot(in context: Context, completion: @escaping (SessionEntry) -> Void) {
         let now = Date()
-        completion(.init(date: now, destination: confirmedEntry(at: now)?.destination))
+        completion(.init(date: now, destination: confirmedEntry(at: now)?.destination, playback: playback(at: now)))
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<SessionEntry>) -> Void) {
         let now = Date()
         let confirmed = confirmedEntry(at: now)
-        var entries = [SessionEntry(date: now, destination: confirmed?.destination)]
-        if let confirmed {
-            entries.append(.init(date: confirmed.expiresAt, destination: nil))
+        let cache = playback(at: now)
+        var entries = [SessionEntry(date: now, destination: confirmed?.destination, playback: cache)]
+        let deadlines = [confirmed?.expiresAt, cache.flatMap { DJConnectHistoryEntry.date($0.projection.expires_at) },
+            cache?.projection.now_playing.flatMap { DJConnectHistoryEntry.date($0.expires_at) },
+            cache?.projection.artwork.first.flatMap { DJConnectHistoryEntry.date($0.expires_at) }]
+            .compactMap { $0 }.filter { $0 > now }
+        for deadline in Set(deadlines).sorted() {
+            entries.append(.init(date: deadline,
+                destination: confirmed.map { deadline < $0.expiresAt ? $0.destination : nil } ?? nil,
+                playback: cache.flatMap { $0.isCurrent(at: deadline) ? $0 : nil }))
         }
-        let refresh = confirmed?.expiresAt ?? now.addingTimeInterval(15 * 60)
+        let refresh = deadlines.min() ?? now.addingTimeInterval(15 * 60)
         completion(Timeline(entries: entries, policy: .after(refresh)))
+    }
+    private func playback(at now: Date) -> DJConnectWatchWidgetCache? {
+        UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
+            .flatMap { DJConnectWatchWidgetCache.load(from: $0, at: now) }
     }
     private func confirmedEntry(at now: Date) -> DJConnectWatchStackEntry? {
         UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
@@ -51,6 +64,20 @@ private struct SessionComplicationView: View {
     var body: some View {
         Group {
             if family == .accessoryRectangular {
+                if let cache = entry.playback, cache.isCurrent(at: entry.date),
+                   let track = cache.projection.currentTrack(at: entry.date) {
+                    HStack(spacing: 8) {
+                        WatchWidgetCover(cache: cache, date: entry.date)
+                            .frame(width: 46, height: 46)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(track.track).font(.headline).lineLimit(2)
+                                .truncationMode(.tail)
+                            Text("Spotify").font(.system(size: 8)).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .accessibilityElement(children: .combine)
+                } else {
                 HStack(spacing: 6) {
                     Image("BrandHeadset")
                         .resizable()
@@ -68,15 +95,46 @@ private struct SessionComplicationView: View {
                         .accessibilityHidden(true)
                 }
                 .accessibilityElement(children: .combine)
+                }
             } else if family == .accessoryInline {
                 Label(entry.destination == .session ? subtitle : title, systemImage: icon)
             } else {
                 Image(systemName: icon).accessibilityLabel(entry.destination == .session ? subtitle : title)
             }
         }
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) {
+            let mood = entry.playback.flatMap { $0.isCurrent(at: entry.date) ? $0.projection.mood.value : nil }
+            let colors = DJConnectSessionMoodTheme(sessionMood: mood).colorValues.map { value in
+                Color(red: Double((value >> 16) & 255) / 255,
+                    green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255).opacity(0.35)
+            }
+            LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+        }
         // The app confirms the current destination again; this URL carries no Session authority.
         .widgetURL(entry.destination?.url ?? URL(string: "djconnect://"))
+    }
+}
+private struct WatchWidgetCover: View {
+    let cache: DJConnectWatchWidgetCache
+    let date: Date
+    private var cover: CGImage? {
+        guard cache.projection.currentArtwork(at: date) != nil, let bytes = cache.image,
+              bytes.count <= 24_000, let source = CGImageSourceCreateWithData(bytes as CFData, nil) else { return nil }
+        return CGImageSourceCreateThumbnailAtIndex(source, 0,
+            [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 160] as CFDictionary)
+    }
+    var body: some View {
+        Group {
+            if let cover {
+                Image(decorative: cover, scale: 1).resizable()
+                    .widgetAccentedRenderingMode(.fullColor).scaledToFit()
+            } else { Image(systemName: "music.note").foregroundStyle(.secondary) }
+        }
+        .padding(3)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 9))
+        .overlay { RoundedRectangle(cornerRadius: 9).stroke(.white.opacity(0.35), lineWidth: 1) }
+        .accessibilityHidden(true)
     }
 }
 @MainActor

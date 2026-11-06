@@ -3,6 +3,45 @@ import XCTest
 
 @MainActor final class NativeHelpUITests: XCTestCase {
     override func setUp() { super.setUp(); continueAfterFailure = false }
+    /// Explicit pixel regression for the shipping renderer's visibility lifecycle.
+    /// No provider calls; not part of ordinary PR CI.
+    func testForYouAnimationStopsAndReplaysAfterViewportAndPageReturn() {
+        let app = XCUIApplication()
+        app.launchEnvironment = ["FOR_YOU_ANIMATION_PROBE": "1"]
+        app.launch()
+        let landscape = app.descendants(matching: .any)["for-you-animation-landscape"].firstMatch
+        XCTAssertTrue(landscape.waitForExistence(timeout: 10))
+        func wait(_ seconds: TimeInterval) {
+            let done = expectation(description: "Animation observation window")
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { done.fulfill() }
+            self.wait(for: [done], timeout: seconds + 2)
+        }
+        func image() -> Data { landscape.screenshot().pngRepresentation }
+        wait(2.5)
+        let frozen = image()
+        wait(0.6)
+        XCTAssertEqual(frozen, image(), "Landscape must stop after two seconds")
+        activate(app.buttons["animation-scroll-away"])
+        wait(0.3)
+        XCTAssertFalse(landscape.isHittable)
+        activate(app.buttons["animation-scroll-back"])
+        let returned = image()
+        XCTAssertNotEqual(returned, frozen, "Scrolling back must restart animation")
+        wait(0.4)
+        XCTAssertNotEqual(returned, image(), "Returned landscape must move")
+        wait(2.3)
+        let frozenAgain = image()
+        wait(0.5)
+        XCTAssertEqual(frozenAgain, image(), "Replay must also stop")
+        activate(app.buttons["animation-toggle-page"])
+        XCTAssertTrue(landscape.waitForNonExistence(timeout: 5))
+        activate(app.buttons["animation-toggle-page"])
+        XCTAssertTrue(landscape.waitForExistence(timeout: 5))
+        let pageReturn = image()
+        wait(0.4)
+        XCTAssertNotEqual(pageReturn, image(), "Returning to the page must animate again")
+        app.terminate()
+    }
     private func launch(language: String = "en", surface: String = "ask_dj", large: Bool = false, synthetic: Bool = true) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment = ["HELP_LANGUAGE": language, "HELP_SURFACE": surface,
@@ -17,6 +56,84 @@ import XCTest
         #else
         element.tap()
         #endif
+    }
+    /// Real published catalogue and Core wire; verifies every native selection,
+    /// not a backend/provider verdict. Run explicitly, outside ordinary PR CI.
+    func testEveryPublishedNLENHelpOptionForwardsItsOriginalPromptOnBothSurfaces() throws {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "ask_dj_examples_v1", withExtension: "json"))
+        let catalogue = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let entries = try XCTUnwrap(catalogue["entries"] as? [[String: Any]])
+        XCTAssertEqual(entries.count, 14)
+        for language in ["nl", "en"] {
+            for surface in ["ask_dj", "active_session"] {
+                let app = XCUIApplication()
+                app.launchEnvironment = ["HELP_LANGUAGE": language, "HELP_SURFACE": surface,
+                    "HELP_CURRENT_CATALOGUE": "1", "HELP_FULL_CATALOGUE": "1"]
+                app.launch()
+                let more = app.buttons["ask-dj-more-" + surface]
+                XCTAssertTrue(more.waitForExistence(timeout: 10))
+                for entry in entries {
+                    let id = try XCTUnwrap(entry["id"] as? String)
+                    let template = try XCTUnwrap((entry["templates"] as? [String: String])?[language])
+                    let slots = try XCTUnwrap(entry["slots"] as? [String])
+                    var expected = template
+                    for slot in slots {
+                        let label = try XCTUnwrap(((catalogue["slot_labels"] as? [String: [String: String]])?[slot])?[language])
+                        expected = expected.replacingOccurrences(of: "{" + slot + "}", with: label)
+                    }
+                    activate(more)
+                    let scroll = app.scrollViews["ask-dj-full-catalogue"]
+                    XCTAssertTrue(scroll.waitForExistence(timeout: 5))
+                    let visible = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in scroll.isHittable }, object: nil)
+                    XCTAssertEqual(XCTWaiter.wait(for: [visible], timeout: 5), .completed)
+                    let item = app.buttons["ask-dj-catalogue-" + id]
+                    for _ in 0..<12 {
+                        if item.exists && item.isHittable { break }
+                        #if os(macOS)
+                        scroll.scroll(byDeltaX: 0, deltaY: -180)
+                        #else
+                        scroll.swipeUp()
+                        #endif
+                    }
+                    XCTAssertTrue(item.isHittable, "Missing option: \(language)/\(surface)/\(id)")
+                    XCTAssertTrue(item.isEnabled)
+                    activate(item)
+                    let selected = app.staticTexts["help-selected-prompt"]
+                    let expectedSelection = (slots.isEmpty ? "send:" : "draft:") + expected
+                    let forwarded = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                        selected.exists && selected.label == expectedSelection
+                    }, object: nil)
+                    XCTAssertEqual(XCTWaiter.wait(for: [forwarded], timeout: 5), .completed,
+                        "Wrong forwarded prompt: \(language)/\(surface)/\(id)")
+                    XCTAssertTrue(scroll.waitForNonExistence(timeout: 5))
+                }
+                app.terminate()
+            }
+        }
+    }
+    func testCurrentCatalogueSuggestionsForwardExactlyTheDisplayedText() {
+        for language in ["nl", "en"] {
+            for surface in ["ask_dj", "active_session"] {
+                let app = XCUIApplication()
+                app.launchEnvironment = ["HELP_LANGUAGE": language, "HELP_SURFACE": surface,
+                    "HELP_CURRENT_CATALOGUE": "1", "HELP_INTERACTION": "1"]
+                app.launch()
+                let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ask-dj-suggestion-" + surface + "-"))
+                XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+                XCTAssertEqual(rows.count, 3)
+                let ids = (0..<3).map { rows.element(boundBy: $0).identifier }
+                XCTAssertEqual(Set(ids).count, 3)
+                for id in ids {
+                    let row = app.buttons[id]
+                    let prompt = row.label
+                    XCTAssertFalse(prompt.contains("{"))
+                    activate(row)
+                    XCTAssertEqual(app.staticTexts["help-selected-prompt"].label, prompt)
+                    XCTAssertEqual((0..<3).map { rows.element(boundBy: $0).identifier }, ids)
+                }
+                app.terminate()
+            }
+        }
     }
     func testFullCatalogueMoreScrollAndCompleteVersusPlaceholderSelection() {
         let app = XCUIApplication()
@@ -232,7 +349,7 @@ import XCTest
         XCTAssertFalse(app.staticTexts["ask-dj-help-group-play"].exists)
         app.terminate()
     }
-    func testSessionEndsAndShippingDraftNeverAdvertisesCommands() {
+    func testSessionEndsAndMissingCurrentObservationNeverAdvertisesCommands() {
         let app = launch(surface: "active_session")
         activate(app.buttons["help-end-session"])
         XCTAssertTrue(app.staticTexts["ask-dj-help-unavailable"].waitForExistence(timeout: 5))

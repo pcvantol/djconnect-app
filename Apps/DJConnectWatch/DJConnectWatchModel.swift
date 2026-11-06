@@ -456,6 +456,21 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var voiceActivationStatus: VoiceActivationStatus = .paused
     @Published private(set) var settingsOperationConfirmation: String?
     @Published private(set) var isAppForeground = true
+    private struct WatchWidgetScope: Equatable {
+        let owner: String
+        let binding: String
+        let session: String
+        let moodRevision: Int?
+    }
+    private var watchWidgetScope: WatchWidgetScope?
+    private var watchWidgetGrant: String?
+    private var watchWidgetEpoch = UUID()
+    private var watchWidgetRefreshing = false
+    @Published private(set) var watchWidgetDisplayEnabled = false
+    var canChooseWatchWidgetDisplay: Bool {
+        isAppForeground && canUseBackend && !isDemoMode && companionPairingIntent != nil &&
+            foregroundSession.current()?.settings.requiresSelection == false
+    }
     @Published var deviceSpeechPreferences = DJConnectDeviceSpeechPreferences.load(from: .standard) {
         didSet {
             guard deviceSpeechPreferences != oldValue else { return }
@@ -686,7 +701,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if !foreground { settingsOperationConfirmation = nil }
         foregroundSession.bind(owner: canUseBackend && !isDemoMode ? stableInstallID : nil, active: foreground)
         profileDJSettings.bind(owner: profileDJSettings.response?.binding, active: foreground && canUseBackend)
-        if !foreground { companionRequests.cancelAll() }
+        if !foreground { watchWidgetEpoch = UUID(); companionRequests.cancelAll() }
         if foreground {
             if !isDemoMode {
                 startNetworkMonitor()
@@ -987,6 +1002,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 })
             await profileDJSettings.refresh(services)
         }
+        await refreshOwnWatchWidget()
     }
 
     @Published private(set) var isUpdatingSessionMood = false
@@ -1019,9 +1035,158 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             defaults.set(data, forKey: DJConnectWatchStackEntry.storageKey)
         } else {
             defaults.removeObject(forKey: DJConnectWatchStackEntry.storageKey)
+            clearOwnWatchWidget()
         }
         if previous?.destination != entry?.destination {
             WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+
+    private func clearOwnWatchWidget() {
+        watchWidgetEpoch = UUID(); watchWidgetScope = nil; watchWidgetGrant = nil
+        guard let defaults = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier),
+              defaults.object(forKey: DJConnectWatchWidgetCache.storageKey) != nil else { return }
+        defaults.removeObject(forKey: DJConnectWatchWidgetCache.storageKey)
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private func reconcileWatchWidgetConsent() {
+        guard canChooseWatchWidgetDisplay, let current = foregroundSession.current(),
+              let pairing = companionPairingIntent?.identifier else {
+            watchWidgetDisplayEnabled = false; return
+        }
+        let consent = UserDefaults.standard.data(forKey: DJConnectWatchWidgetConsent.storageKey)
+            .flatMap { try? JSONDecoder().decode(DJConnectWatchWidgetConsent.self, from: $0) }
+        watchWidgetDisplayEnabled = consent?.matches(owner: stableInstallID,
+            binding: current.settings.binding, pairing: pairing) == true
+        if !watchWidgetDisplayEnabled {
+            UserDefaults.standard.removeObject(forKey: DJConnectWatchWidgetConsent.storageKey)
+        }
+    }
+
+    func setWatchWidgetDisplayEnabled(_ enabled: Bool) {
+        if !enabled {
+            let previous = watchWidgetScope, hadGrant = watchWidgetGrant != nil
+            let pairing = companionPairingIntent?.identifier
+            clearOwnWatchWidget()
+            UserDefaults.standard.removeObject(forKey: DJConnectWatchWidgetConsent.storageKey)
+            watchWidgetDisplayEnabled = false
+            Task {
+                guard hadGrant, let previous, isAppForeground, canUseBackend,
+                      stableInstallID == previous.owner, companionPairingIntent?.identifier == pairing,
+                      foregroundSession.current()?.settings.binding == previous.binding else { return }
+                let _: DJConnectWatchWidgetResponse? = try? await sendCompanionHARequest(.watchWidgetAuthorize,
+                    payload: DJConnectWatchWidgetAction(sessionID: previous.session, binding: previous.binding, enabled: false))
+            }
+            return
+        }
+        guard canChooseWatchWidgetDisplay, let current = foregroundSession.current(),
+              let pairing = companionPairingIntent?.identifier else { return }
+        clearOwnWatchWidget()
+        let consent = DJConnectWatchWidgetConsent(owner: stableInstallID,
+            binding: current.settings.binding, pairing: pairing)
+        UserDefaults.standard.set(try? JSONEncoder().encode(consent), forKey: DJConnectWatchWidgetConsent.storageKey)
+        watchWidgetDisplayEnabled = true
+        Task { await refreshOwnWatchWidget() }
+    }
+
+    /// Foreground transport using this Watch's own bearer via the existing
+    /// companion broker. No phone widget cache or background delivery is used.
+    private func refreshOwnWatchWidget() async {
+        guard !watchWidgetRefreshing, isAppForeground else { return }
+        reconcileWatchWidgetConsent()
+        guard watchWidgetDisplayEnabled else { clearOwnWatchWidget(); return }
+        guard canUseBackend, !isDemoMode, let current = foregroundSession.current(),
+              !current.settings.requiresSelection, let session = current.session else {
+            clearOwnWatchWidget(); return
+        }
+        let scope = WatchWidgetScope(owner: stableInstallID, binding: current.settings.binding,
+            session: session.id, moodRevision: session.confirmedMoodRevision)
+        if watchWidgetScope != scope { clearOwnWatchWidget() }
+        let epoch = watchWidgetEpoch
+        func valid() -> Bool {
+            guard !Task.isCancelled, isAppForeground, canUseBackend, !isDemoMode,
+                  watchWidgetEpoch == epoch, watchWidgetDisplayEnabled, stableInstallID == scope.owner,
+                  let current = foregroundSession.current() else { return false }
+            return current.settings.binding == scope.binding && current.session?.id == scope.session &&
+                current.session?.confirmedMoodRevision == scope.moodRevision
+        }
+        watchWidgetRefreshing = true
+        defer { watchWidgetRefreshing = false }
+        do {
+            let kinds = Set(["DJConnectComplication", "DJConnectNowPlayingComplication", "DJConnectQueueComplication",
+                "DJConnectPlaylistsComplication", "DJConnectTrackInsightComplication", "DJConnectAskDJComplication"])
+            let configurations = try await WidgetCenter.shared.currentConfigurations()
+            guard valid() else { return }
+            guard configurations.contains(where: { kinds.contains($0.kind) && $0.family == .accessoryRectangular }) else {
+                let hadGrant = watchWidgetGrant != nil
+                clearOwnWatchWidget()
+                if hadGrant {
+                    let _: DJConnectWatchWidgetResponse? = try? await sendCompanionHARequest(.watchWidgetAuthorize,
+                        payload: DJConnectWatchWidgetAction(sessionID: scope.session, binding: scope.binding, enabled: false))
+                }
+                return
+            }
+            let response: DJConnectWatchWidgetResponse
+            if let grant = watchWidgetGrant {
+                response = try await sendCompanionHARequest(.watchWidgetRead,
+                    payload: DJConnectWatchWidgetAction(sessionID: scope.session, binding: scope.binding, grantID: grant))
+            } else {
+                // Mark before dispatch: an uncertain authorization is never replayed
+                // during subsequent status refreshes in this same scope.
+                guard watchWidgetScope == nil else { return }
+                let available: Bool = try await sendCompanionHARequest(.watchWidgetAvailable)
+                guard valid(), available else { return }
+                watchWidgetScope = scope
+                let authorized: DJConnectWatchWidgetResponse? = try await sendCompanionHARequest(.watchWidgetAuthorize,
+                    payload: DJConnectWatchWidgetAction(sessionID: scope.session, binding: scope.binding))
+                guard let authorized else { return }
+                response = authorized
+            }
+            guard valid(), response.validates(sessionID: scope.session),
+                  watchWidgetGrant == nil || watchWidgetGrant == response.grant_id else { return }
+            watchWidgetGrant = response.grant_id
+            let now = Date(), uptime = ProcessInfo.processInfo.systemUptime
+            guard response.passive_session.isCurrent(at: now) else { clearOwnWatchWidget(); return }
+            var cache = try DJConnectWatchWidgetCache(projection: response.passive_session, at: now, uptime: uptime)
+            guard let defaults = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else { return }
+            if let old = DJConnectWatchWidgetCache.load(from: defaults, at: now) {
+                guard old.projection.generation != cache.projection.generation ||
+                    old.projection.delivery_sequence <= cache.projection.delivery_sequence else { return }
+                if old.projection == cache.projection { cache = old }
+            }
+            func publish(_ cache: DJConnectWatchWidgetCache) throws {
+                guard valid(), cache.isCurrent(at: Date()) else { return }
+                let bytes = try JSONEncoder().encode(cache)
+                guard bytes.count <= 40_000 else { throw DJConnectError.invalidResponse }
+                if defaults.data(forKey: DJConnectWatchWidgetCache.storageKey) != bytes {
+                    defaults.set(bytes, forKey: DJConnectWatchWidgetCache.storageKey)
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+            }
+            try publish(cache)
+            if cache.image == nil, let art = cache.projection.currentArtwork(at: now),
+               let end = DJConnectHistoryEntry.date(art.expires_at) {
+                let pixels: DJConnectWatchFlowArtwork = try await sendCompanionHARequest(.watchWidgetImage,
+                    payload: DJConnectWatchWidgetAction(sessionID: scope.session, binding: scope.binding,
+                        grantID: response.grant_id, response: response))
+                guard valid(), pixels.expiresAt == end, pixels.jpeg.count <= 24_000,
+                      cache.projection.currentArtwork(at: Date())?.asset_id == art.asset_id else { return }
+                cache.image = pixels.jpeg
+                try publish(cache)
+            }
+        } catch let error as DJConnectError {
+            guard valid() else { return }
+            switch error {
+            case .authStale, .missingToken, .profile, .invalidResponse:
+                // A learned denial or invalid projection invalidates local pixels;
+                // keep the attempted scope so authorization is not retried.
+                clearOwnWatchWidget(); watchWidgetScope = scope
+            default: break
+            }
+        } catch {
+            // Retain only the already admitted, original bounded lease. No retry
+            // of an uncertain write, and no global backend-error side effect.
         }
     }
 
@@ -1479,7 +1644,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             guard try intent.receive(deviceID: message["device_id"] as? String,
                 identifier: message["pairing_intent_id"] as? String, pairCode: message["pair_code"] as? String,
                 token: message["device_token"] as? String, existingToken: try tokenStore.loadToken(),
-                save: { try tokenStore.saveToken($0) }) else { return }
+                save: { try tokenStore.saveToken($0) }) else {
+                appendDiagnosticLog("Companion pairing result rejected: receiver correlation or existing credential did not match", level: .warning)
+                return
+            }
         } catch {
             companionPairingStatus = "Watch kon device-token niet opslaan"
             statusMessage = companionPairingStatus
@@ -1599,6 +1767,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return .routeMissing(message: response.message)
         case "missing_token":
             return .missingToken
+        case "watch_widget_invalidated":
+            return .invalidResponse
         case "not_configured":
             return .notConfigured(message: response.message)
         case "invalid_configuration", "iphone_unreachable":
@@ -2555,6 +2725,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func resetPairing() {
         needsCompanionPairingRepair = false
+        UserDefaults.standard.removeObject(forKey: DJConnectWatchWidgetConsent.storageKey)
+        watchWidgetDisplayEnabled = false
         publishStackEntry(nil)
         cancelWatchQuestionRecording()
         foregroundSession.bind(owner: nil, active: false)

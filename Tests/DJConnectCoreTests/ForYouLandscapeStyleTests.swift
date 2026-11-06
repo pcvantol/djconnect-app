@@ -2,6 +2,24 @@ import Testing
 @testable import DJConnectCore
 @testable import DJConnectUI
 
+@Test(arguments: [DJConnectSessionMoodTheme.chill, .groove, .energy, .party])
+func forYouRelatedRockGenresKeepDifferentSilhouettesWithinTheSameMood(_ theme: DJConnectSessionMoodTheme) {
+    let genres = ["alternative rock", "rock", "classic rock"]
+    let style = ForYouMoodLandscapeStyle(theme: theme)
+    let profiles = genres.map { genre in
+        (0...24).map { step in
+            style.elevation(x: Double(step) / 24, layer: 1, seed: 0.3,
+                direction: "mountain_horizon", genre: genre, horizon: 0.44, depth: 0.2, phase: 0)
+        }
+    }
+    #expect(Set(profiles).count == 3)
+    // A phase/seed-only difference is not enough: large-scale silhouettes differ.
+    for pair in [(0, 1), (0, 2), (1, 2)] {
+        let difference = zip(profiles[pair.0], profiles[pair.1]).map { abs($0 - $1) }.reduce(0, +) / 25
+        #expect(difference > 0.025)
+    }
+}
+
 @Test func forYouMoodsHaveDistinctTerrainAndMotion() {
     let themes: [DJConnectSessionMoodTheme] = [.chill, .groove, .energy, .party]
     let signatures = themes.map { theme in
