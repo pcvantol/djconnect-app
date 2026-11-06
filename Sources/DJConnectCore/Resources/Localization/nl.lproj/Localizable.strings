@@ -1064,7 +1064,7 @@
 "ui.session.welcome.title" = "Jouw muziek.\nJouw DJ.";
 "ui.session.welcome.subtitle" = "Start een DJ-sessie en beleef je muziek op een nieuwe manier.";
 "ui.session.welcome.promise" = "Ontdek de verhalen achter je muziek. Praat met je DJ. Laat je verrassen.";
-"ui.session.welcome.mood" = "Stemming";
+"ui.session.welcome.mood" = "Jouw stemming";
 
 "ui.session.music_duration" = "Verstreken tijd en totale duur";
 "ui.session.music_remaining" = "Resterende tijd";

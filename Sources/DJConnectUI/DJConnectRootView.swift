@@ -13361,7 +13361,13 @@ struct SessionGlassChoiceSelector: View {
     var optionIDs: [String]? = nil
     var selectionColor: Color = djConnectAccent
     var sessionTheme: DJConnectSessionMoodTheme? = nil
-    private var resolvedSelectionColor: Color { sessionTheme?.controlSelectionColor ?? selectionColor }
+    private var resolvedSelectionColor: Color {
+        sessionTheme == .chill ? djConnectAccent : (sessionTheme?.controlSelectionColor ?? selectionColor)
+    }
+    private var selectionFill: Color? {
+        guard let sessionTheme, sessionTheme != .chill else { return nil }
+        return resolvedSelectionColor.opacity(0.80)
+    }
     var preservesAppearanceWhileDisabled = true
     var selectedLabelIdentifier = "session-popover-selected-mood"
     @FocusState private var focusedOption: Int?
@@ -13401,7 +13407,7 @@ struct SessionGlassChoiceSelector: View {
                         shape: .segmented, expands: true, usesLiveGlass: true,
                         showsFocusIndicator: false, foregroundColor: .white.opacity(index == selectedIndex ? 1 : 0.78),
                         selectionTint: resolvedSelectionColor,
-                        selectionFill: sessionTheme != nil ? resolvedSelectionColor.opacity(0.80) : nil,
+                        selectionFill: selectionFill,
                         dimsWhenDisabled: !preservesAppearanceWhileDisabled
                     ))
                     .focused($focusedOption, equals: index)
