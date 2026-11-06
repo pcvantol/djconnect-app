@@ -248,7 +248,7 @@ struct DJConnectWatchRootView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 38, weight: .semibold))
                     .foregroundStyle(.green)
-                Text(watchLocalizedKey(model.language, "watch.apple.watch.paired"))
+                Text(watchLocalizedKey(model.language, "ui.paired"))
                     .font(.headline)
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
@@ -262,7 +262,6 @@ struct DJConnectWatchRootView: View {
                 .buttonStyle(DJConnectWatchFlatActionRowStyle())
             }
             .padding(watchListItemPadding)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .strokeBorder(.white.opacity(0.18), lineWidth: 1)
