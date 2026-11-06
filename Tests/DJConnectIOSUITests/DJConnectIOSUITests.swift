@@ -1577,6 +1577,14 @@ extension DJConnectIOSUITests {
         app.terminate(); app.launch()
         let tab = app.tabBars.buttons["DJ-sessie"]
         if tab.exists { tab.tap() }
+        let start = app.buttons["Start DJ-sessie"].firstMatch
+        if start.waitForExistence(timeout: 2) {
+            if !start.isHittable { app.swipeUp() }
+            start.tap()
+        }
+        let introduction = app.buttons["session-introduction-skip"]
+        if introduction.waitForExistence(timeout: 2) { introduction.tap() }
+        XCTAssertTrue(app.buttons["session-end-button"].waitForExistence(timeout: 10))
         return app
     }
 
@@ -1863,16 +1871,70 @@ extension DJConnectIOSUITests {
         attachment.name = "session-refresh-rightmost"; attachment.lifetime = .keepAlways; add(attachment)
     }
 
+    func testPlaybackSlidersKeepTouchDragThroughStatusTicks() {
+        let app = launchRuntimeFixtureApp("review_demo", screen: "dj-session")
+        let start = app.buttons["Start DJ-sessie"].firstMatch
+        if start.waitForExistence(timeout: 2) {
+            if !start.isHittable { app.swipeUp() }
+            start.tap()
+        }
+        let introduction = app.buttons["session-introduction-skip"]
+        if introduction.waitForExistence(timeout: 2) { introduction.tap() }
+        openSessionPlayback(app)
+        func drag(_ slider: XCUIElement) {
+            XCTAssertTrue(slider.waitForExistence(timeout: 5))
+            let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let frame = slider.frame
+                return slider.exists && slider.isHittable && frame.minX.isFinite && frame.minY.isFinite && frame.width > 100 && frame.height > 20
+            }, object: slider)
+            guard XCTWaiter.wait(for: [settled], timeout: 5) == .completed else {
+                XCTFail("Playback slider must be visible and hittable before touching it"); return
+            }
+            let frame = slider.frame
+            guard frame.minX.isFinite, frame.minY.isFinite, frame.width > 100 else { XCTFail("Slider layout changed to invalid frame: \(frame)"); return }
+            XCTAssertTrue(slider.isHittable)
+            let before = XCTAttachment(screenshot: app.screenshot())
+            before.name = "slider-before-drag"; before.lifetime = .keepAlways; add(before)
+            let percentBefore = Double((slider.value as? String ?? "").split(separator: "%").first ?? "0") ?? 0
+            let startFraction = min(0.96, max(0.04, percentBefore / 100))
+            let thumb = slider.coordinate(withNormalizedOffset: CGVector(dx: startFraction, dy: 0.5))
+            let destination = slider.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.5))
+            thumb.press(forDuration: 0.15, thenDragTo: destination, withVelocity: .slow, thenHoldForDuration: 1.2)
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = "slider-after-drag"; attachment.lifetime = .keepAlways; add(attachment)
+            let percent = Int((slider.value as? String ?? "").split(separator: "%").first ?? "")
+            XCTAssertNotNil(percent)
+            if let percent { XCTAssertGreaterThan(percent, 60); XCTAssertLessThan(percent, 90) }
+        }
+        drag(app.sliders.firstMatch)
+        dismissSessionPopover(app)
+        let volume = app.buttons["session-playback-volume"].firstMatch
+        XCTAssertTrue(volume.waitForExistence(timeout: 5)); volume.tap()
+        drag(app.sliders.firstMatch)
+    }
+
     func testOneTapOutputChoiceUpdatesConfirmedRowAndKeepsControlsAvailable() {
         let app = launchRuntimeFixtureApp("review_demo", screen: "dj-session")
+        let start = app.buttons["Start DJ-sessie"].firstMatch
+        if start.waitForExistence(timeout: 2) {
+            if !start.isHittable { app.swipeUp() }
+            start.tap()
+        }
+        let introduction = app.buttons["session-introduction-skip"]
+        if introduction.waitForExistence(timeout: 2) { introduction.tap() }
         XCTAssertTrue(app.descendants(matching: .any)["screen-dj-session"].waitForExistence(timeout: 10))
         app.buttons["session-playback-output"].firstMatch.tap()
         let kitchen = app.buttons["output-device-demo-kitchen"]
         guard kitchen.waitForExistence(timeout: 10) else { XCTFail("Speaker row is missing in the Session output popover"); return }
-        for _ in 0..<5 where !kitchen.isHittable { app.swipeUp() }
-        XCTAssertTrue(kitchen.isHittable)
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frame = kitchen.frame
+            return kitchen.exists && frame.minX.isFinite && frame.minY.isFinite && frame.width > 100 && frame.height > 30
+        }, object: kitchen)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
         XCTAssertFalse(kitchen.isSelected)
-        kitchen.tap()
+        let row = kitchen.frame
+        guard row.minX.isFinite, row.minY.isFinite, row.width > 100 else { XCTFail("Output row has invalid touch geometry"); return }
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: row.midX, dy: row.midY)).tap()
         let confirmed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "selected == true"), object: kitchen)
         XCTAssertEqual(XCTWaiter.wait(for: [confirmed], timeout: 5), .completed)
         XCTAssertTrue(kitchen.isEnabled)
@@ -1882,6 +1944,55 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.buttons["Pauze"].firstMatch.isEnabled)
         let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         shot.name = "one-tap-confirmed-output-choice"; shot.lifetime = .keepAlways; add(shot)
+    }
+
+    func testSpeechPopoverScrollsDuringPlaybackTicks() {
+        let app = launchRuntimeFixtureApp("review_demo", screen: "dj-session")
+        let start = app.buttons["Start DJ-sessie"].firstMatch
+        if start.waitForExistence(timeout: 2) {
+            if !start.isHittable { app.swipeUp() }
+            start.tap()
+        }
+        let introduction = app.buttons["session-introduction-skip"]
+        if introduction.waitForExistence(timeout: 2) { introduction.tap() }
+        XCTAssertTrue(app.buttons["session-end-button"].waitForExistence(timeout: 10))
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            let more = app.buttons["session-more-menu"]
+            XCTAssertTrue(more.waitForExistence(timeout: 5)); more.tap()
+        }
+        let voice = app.buttons["session-voice-toggle"].firstMatch
+        XCTAssertTrue(voice.waitForExistence(timeout: 5)); voice.tap()
+        let panel = app.scrollViews["screen-profile-your-dj"].firstMatch
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        let initial = XCTAttachment(screenshot: app.screenshot())
+        initial.name = "speech-popover-initial"; initial.lifetime = .keepAlways; add(initial)
+        let appleInput = app.switches["Gebruik Apple STT op dit apparaat"].firstMatch
+        XCTAssertTrue(appleInput.waitForExistence(timeout: 5))
+        let bottom = app.staticTexts["Stemactivatie-status"].firstMatch
+        func scroll(up: Bool) {
+            let frame = panel.frame
+            guard frame.minX.isFinite, frame.minY.isFinite, frame.width > 100, frame.height > 100 else {
+                XCTFail("Speech scroll viewport has invalid touch geometry"); return
+            }
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: frame.minY + frame.height * (up ? 0.75 : 0.25)))
+            let end = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: frame.minY + frame.height * (up ? 0.25 : 0.75)))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        for _ in 0..<6 {
+            if bottom.exists && bottom.isHittable { break }
+            scroll(up: true)
+        }
+        XCTAssertTrue(bottom.exists && bottom.isHittable, "Last speech section must be reachable by touch")
+        let frame = bottom.frame
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        XCTAssertTrue(bottom.isHittable)
+        XCTAssertEqual(bottom.frame, frame, "Playback ticks must preserve the scroll position")
+        for _ in 0..<6 {
+            if appleInput.isHittable { break }
+            scroll(up: false)
+        }
+        XCTAssertTrue(appleInput.isHittable, "The menu must also scroll back to its first control")
+        dismissSessionPopover(app)
     }
 
     func testPrimaryQueueTabAndAskDJInMore() {

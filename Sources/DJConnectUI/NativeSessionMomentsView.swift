@@ -61,8 +61,15 @@ extension View {
                     .environment(\.djConnectScrollingSurface, false)
             }
             #else
-            self.djSessionFrostedSurface()
-                .environment(\.djConnectScrollingSurface, false)
+            if nativePresentation {
+                // UIKit owns the native popover's glass and touch plane. Inner
+                // scrolling controls use material, not another glass lens node.
+                self.djConnectPresentationSurface()
+                    .environment(\.djConnectScrollingSurface, true)
+            } else {
+                self.djSessionFrostedSurface()
+                    .environment(\.djConnectScrollingSurface, false)
+            }
             #endif
         } else { self }
     }
@@ -408,6 +415,8 @@ struct SessionCurrentDJCard<Avatar: View, Detail: View>: View {
 }
 
 /// One native projection shared by Compact and Expanded Apple surfaces.
+enum SessionPlaybackMenu { case playback, outputs, volume }
+
 struct NativeSessionMomentsView: View {
     let session: DJConnectSessionRuntime
     let language: String
@@ -420,6 +429,7 @@ struct NativeSessionMomentsView: View {
     var onPlaybackOutputQuestion: () -> Void = {}
     var onContributionQuestion: () -> Void = {}
     var contributionQuestion: String? = nil
+    var requestPlaybackPresentation: ((SessionPlaybackMenu, CGRect) -> Void)? = nil
     @Environment(\.scenePhase) private var scenePhase
     @State private var artworkFeedback: ArtworkFeedback?
     @State private var artworkActionGeneration = UUID()
@@ -804,7 +814,8 @@ struct NativeSessionMomentsView: View {
                 if let duration = playback.durationMS, duration > 0, let position = playbackModel?.displayedSessionPositionMS(session) ?? playback.positionMS {
                     let current = max(0, min(position, duration))
                     if let model = playbackModel {
-                        SessionPlaybackCardButton(model: model, session: session, position: current, duration: duration)
+                        SessionPlaybackCardButton(model: model, session: session, position: current, duration: duration,
+                            requestPresentation: requestPlaybackPresentation.map { present in { present(.playback, $0) } })
                             .id(session.id)
                     } else {
                         SessionMusicProgress(position: current, duration: duration, isPlaying: playback.state == "playing")
@@ -825,7 +836,8 @@ struct NativeSessionMomentsView: View {
                 if let playbackOutputName {
                     HStack(alignment: .center, spacing: 8) {
                         if let model = playbackModel {
-                            SessionPlaybackOutputButton(model: model, name: playbackOutputName)
+                            SessionPlaybackOutputButton(model: model, name: playbackOutputName,
+                                requestPresentation: requestPlaybackPresentation.map { present in { present(.outputs, $0) } })
                                 .id(session.id)
                         } else {
                             Label(playbackOutputName, systemImage: "hifispeaker.fill")
@@ -833,7 +845,8 @@ struct NativeSessionMomentsView: View {
                         }
                         Spacer(minLength: 0)
                         if let model = playbackModel {
-                            SessionPlaybackVolumeButton(model: model).id(session.id)
+                            SessionPlaybackVolumeButton(model: model,
+                                requestPresentation: requestPlaybackPresentation.map { present in { present(.volume, $0) } }).id(session.id)
                         } else { Text("-").fixedSize() }
                     }
                     .font(usesLargePlaybackTypography ? .callout : .caption).foregroundStyle(.secondary)
@@ -1014,11 +1027,16 @@ private struct SessionCurrentColumns: Layout {
 struct SessionPlaybackOutputButton: View {
     @ObservedObject var model: DJConnectAppModel
     let name: String
+    var requestPresentation: ((CGRect) -> Void)? = nil
+    @State private var sourceRect: CGRect = .zero
     @State private var showsOutputs = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        Button { showsOutputs.toggle() } label: {
+        Button {
+            if let requestPresentation { requestPresentation(sourceRect) }
+            else { showsOutputs.toggle() }
+        } label: {
             Label(name, systemImage: "hifispeaker.fill")
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(minHeight: 44, alignment: .leading)
@@ -1029,6 +1047,7 @@ struct SessionPlaybackOutputButton: View {
         .accessibilityLabel(DJConnectLocalization.localized(key: "ui.output.device", language: model.language))
         .accessibilityValue(name)
         .accessibilityIdentifier("session-playback-output")
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sourceRect = $0 }
         .popover(isPresented: $showsOutputs) {
             OutputSelectorView(scrollsOutputs: true, model: model)
                 .padding(16)
@@ -1038,7 +1057,7 @@ struct SessionPlaybackOutputButton: View {
                 // AppKit owns the glass, arrow and rounded rim. No inner card.
                 .djConnectPresentationSurface()
                 #else
-                .djConnectGlassPopoutSurface()
+                .djConnectGlassPopoutSurface(nativePresentation: true)
                 .djConnectPresentationSurface()
                 #endif
                 .presentationCompactAdaptation(.popover)
@@ -1054,6 +1073,8 @@ struct SessionPlaybackOutputButton: View {
 
 struct SessionPlaybackVolumeButton: View {
     @ObservedObject var model: DJConnectAppModel
+    var requestPresentation: ((CGRect) -> Void)? = nil
+    @State private var sourceRect: CGRect = .zero
     @State private var showsVolume = false
     @Environment(\.scenePhase) private var scenePhase
     var canPresentVolume: Bool {
@@ -1062,7 +1083,10 @@ struct SessionPlaybackVolumeButton: View {
             model.pendingOutputSelectionID == nil
     }
     var body: some View {
-        Button { showsVolume.toggle() } label: {
+        Button {
+            if let requestPresentation { requestPresentation(sourceRect) }
+            else { showsVolume.toggle() }
+        } label: {
             Group {
                 if model.currentPlaybackUsesLocalBluetooth {
                     BluetoothOutputSymbol()
@@ -1079,6 +1103,7 @@ struct SessionPlaybackVolumeButton: View {
         .accessibilityLabel(DJConnectLocalization.localized(key: "watch.volume", language: model.language))
         .accessibilityValue(model.currentPlaybackUsesLocalBluetooth ? "Bluetooth" : model.currentPlaybackVolumePercent.map { "\($0)%" } ?? "-")
         .accessibilityIdentifier("session-playback-volume")
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sourceRect = $0 }
         .popover(isPresented: $showsVolume) {
             SessionPlaybackVolumePanel(model: model)
                 .padding(20).frame(width: 320)
@@ -1086,7 +1111,7 @@ struct SessionPlaybackVolumeButton: View {
                 #if os(macOS)
                 .djConnectPresentationSurface()
                 #else
-                .djConnectGlassPopoutSurface().djConnectPresentationSurface()
+                .djConnectGlassPopoutSurface(nativePresentation: true).djConnectPresentationSurface()
                 #endif
                 .presentationCompactAdaptation(.popover)
         }
@@ -1109,7 +1134,8 @@ struct SessionPlaybackVolumePanel: View {
             if let name = model.playback?.device?.name { Text(name).font(.callout).foregroundStyle(.secondary) }
             HStack(spacing: 12) {
                 Image(systemName: value == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                Slider(value: Binding(get: { value }, set: { draft = $0 }), in: 0...100) { editing in
+                DJConnectPlaybackSlider(value: Binding(get: { value }, set: { draft = $0 }), in: 0...100,
+                                        onEditingCancelled: { draft = nil; editingOutput = nil }) { editing in
                     if editing { editingOutput = model.volumeOutputKey }
                     else {
                         defer { draft = nil; editingOutput = nil }
@@ -1175,6 +1201,8 @@ struct SessionPlaybackCardButton: View {
     let session: DJConnectSessionRuntime
     let position: Int
     let duration: Int
+    var requestPresentation: ((CGRect) -> Void)? = nil
+    @State private var sourceRect: CGRect = .zero
     @State private var showsPlayback = false
     @Environment(\.scenePhase) private var scenePhase
     var canOpenPlayback: Bool { model.canToggleSessionFavorite(session) }
@@ -1183,7 +1211,10 @@ struct SessionPlaybackCardButton: View {
          session.broadcast.playback?.title, session.broadcast.playback?.artist]
     }
     var body: some View {
-        Button { showsPlayback.toggle() } label: {
+        Button {
+            if let requestPresentation { requestPresentation(sourceRect) }
+            else { showsPlayback.toggle() }
+        } label: {
             SessionMusicProgress(position: position, duration: duration,
                                  isPlaying: model.playback?.isPlaying ?? (session.broadcast.playback?.state == "playing"))
                 .frame(minHeight: 44).contentShape(Rectangle())
@@ -1193,18 +1224,19 @@ struct SessionPlaybackCardButton: View {
         .accessibilityLabel(DJConnectLocalization.localized(key: "ui.playback", language: model.language))
         .accessibilityValue("\(sessionPlaybackTime(position)) / \(sessionPlaybackTime(duration))")
         .accessibilityIdentifier("session-playback-card-open")
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sourceRect = $0 }
         .popover(isPresented: $showsPlayback) {
             ScrollView {
                 NowPlayingPlaybackCardContent(model: model).padding(20)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .frame(minWidth: 280, idealWidth: 380, maxWidth: 440, maxHeight: 460)
+            .frame(minWidth: 280, idealWidth: 380, maxWidth: 440, idealHeight: 460, maxHeight: 460)
             .environment(\.djConnectScrollingSurface, false)
             #if os(macOS)
             // Let AppKit draw the single native glass rim and corner radius.
             .djConnectPresentationSurface()
             #else
-            .djConnectGlassPopoutSurface().djConnectPresentationSurface()
+            .djConnectGlassPopoutSurface(nativePresentation: true).djConnectPresentationSurface()
             #endif
             .presentationCompactAdaptation(.popover)
         }

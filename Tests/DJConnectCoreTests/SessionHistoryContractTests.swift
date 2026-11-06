@@ -10095,3 +10095,44 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(defaults.string(forKey: "DJConnectHAInstallID") == "different-phone-install")
     if state == "matching" { #expect(defaults.string(forKey: key) == "original-watch-install") }
 }
+
+// Synthetic contract data only: no copied pairing, profile, provider or runtime values.
+@Test(.isolatedClientResources, arguments: [false, true])
+@MainActor func transientArtistChoicesRenderWithoutChangingStoredHistory(inSession: Bool) async throws {
+    let context = DJConnectConversationContext(sessionID: inSession ? "synthetic-session" : nil)
+    let actions: [[String: Any]] = (0..<10).map { index in
+        ["id": "synthetic-choice-\(index)", "title": "Fixture collection \(index)",
+         "kind": index < 5 ? "album" : "playlist", "command": "play_context",
+         "uri": "spotify:playlist:synthetic\(index)"]
+    }
+    let body = try historyData(["success": true, "owner_profile_id": "synthetic-owner", "client_message_id": "synthetic-request",
+        "history_persisted": false, "text": "Synthetic artist choices", "dj_text": "Synthetic artist choices",
+        "playback_actions": actions,
+        "result_set": ["schema_version": 1, "result_set_id": "synthetic-result", "expires_in": 600, "items": actions],
+        "conversation": ["schema_version": 1, "turn_id": "synthetic-turn", "entry_ids": [], "input_type": "text",
+            "history_scope": "private_ephemeral", "context": inSession ? ["session_id": "synthetic-session"] : [:]]])
+    let caps = try historyData(["capabilities": ["session_conversation_history": true], "contract_versions": ["session_conversation_history": 1]])
+    let history = try historyData(["success": true, "owner_profile_id": "synthetic-owner", "history_revision": 42, "clear_revision": 3, "messages": []])
+    let fixture = HistoryWireFixture { request in
+        if request.httpMethod == "POST" {
+            #expect(request.url?.path == "/api/djconnect/v1/ask_dj/message")
+            return (200, body, 0)
+        }
+        return (200, request.url!.path.hasSuffix("/capabilities") ? caps : history, 0)
+    }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    #expect(model.sessionHistory.profileScopeActive)
+    let payload = model.profileConversationPayload(text: "Synthetic artist", clientMessageID: "synthetic-request", context: context)
+    let response = try await fixture.client(historyContractVersion: 2).sendSessionConversation(payload)
+    #expect(response.base.isPrivateEphemeralResponse && response.conversation.entryIDs.isEmpty)
+    #expect(model.applyProfileConversationResponse(response.base, fallback: nil, sessionID: context.sessionID))
+    let rendered = try #require(model.askDJMessages.last)
+    #expect(rendered.text == "Synthetic artist choices")
+    #expect(rendered.playbackActions.count == 10)
+    #expect(!model.applyProfileConversationHistory(.init(historyRevision: 41, clearRevision: 3, messages: [])))
+    #expect(defaults.data(forKey: "DJConnectAskDJMessages") == nil)
+    #expect(fixture.requests.filter { $0.httpMethod == "POST" }.count == 1)
+    model.sessionHistory.suspend()
+    #expect(!model.askDJMessages.contains(where: { $0.id == rendered.id }))
+}
