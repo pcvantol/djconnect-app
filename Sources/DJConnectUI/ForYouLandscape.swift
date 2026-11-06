@@ -63,6 +63,8 @@ private struct ForYouScene: Sendable {
 /// Decorative local motion only; never derives music facts or playback choices.
 struct ForYouGenreLandscapeStyle: Equatable {
     enum Terrain { case dunes, valley, peaks, terraces }
+    enum Motif { case ribbons, ridges, grid, bubbles }
+    let motif: Motif
     let terrain: Terrain
     let frequency: Double
     let offset: Double
@@ -71,8 +73,14 @@ struct ForYouGenreLandscapeStyle: Equatable {
         let hash = genre.utf8.reduce(UInt64(0)) { ($0 &* 31) &+ UInt64($1) }
         frequency = 1.4 + Double(hash % 7) * 0.23
         offset = Double(hash % 101) / 101
+        // Clearly different decorative compositions, not claims about the music.
+        if genre.contains("child") || genre.contains("kinder") { motif = .bubbles }
+        else if genre.contains("house") || genre.contains("techno") || genre.contains("trance") || genre.contains("electro") { motif = .grid }
+        else if genre.contains("rock") || genre.contains("metal") { motif = .ridges }
+        else { motif = .ribbons }
         // Illustrative genre cues only, never an analysis of the offered music.
-        if genre.contains("classic rock") { terrain = .terraces }
+        if motif == .grid { terrain = .terraces }
+        else if genre.contains("classic rock") { terrain = .terraces }
         else if genre.contains("alternative") { terrain = .valley }
         else if genre == "rock" { terrain = .peaks }
         else {
@@ -122,7 +130,7 @@ struct ForYouMoodLandscapeStyle: Equatable {
         }
         let terrain = ForYouGenreLandscapeStyle(genre: genre, direction: direction)
             .elevation(x: x, layer: layer, phase: phase)
-        return min(0.94, max(0.16, horizon + depth * 0.38 - (wave + terrain) * (1 - depth * 0.5)))
+        return min(0.94, max(0.16, horizon + depth * 0.38 - (wave * 0.22 + terrain * 1.45) * (1 - depth * 0.5)))
     }
 }
 
@@ -237,6 +245,44 @@ struct ForYouLandscape: View {
             path.addLine(to: CGPoint(x: width, y: height)); path.closeSubpath()
             context.fill(path, with: .color(colors[layer % colors.count].opacity(0.24 + depth * 0.40)))
             context.stroke(path, with: .color(.white.opacity((1 - depth) * 0.15)), lineWidth: 0.6)
+        }
+        let genreStyle = ForYouGenreLandscapeStyle(genre: recipe.genre, direction: recipe.artistic_direction)
+        switch genreStyle.motif {
+        case .grid:
+            // A neon perspective floor, distinct from the rock ridges and round islands.
+            for index in 0...8 {
+                var line = Path()
+                line.move(to: CGPoint(x: width * (0.45 + seed * 0.1), y: height * 0.35))
+                line.addLine(to: CGPoint(x: width * (Double(index) / 4 - 0.5), y: height))
+                context.stroke(line, with: .color(colors[0].opacity(0.8)), lineWidth: 1.3)
+            }
+            for index in 0..<4 {
+                let y = height * (0.48 + pow(Double(index) / 4, 1.5) * 0.5)
+                context.stroke(Path(CGRect(x: 0, y: y, width: width, height: 0.5)),
+                               with: .color(.white.opacity(0.35)), lineWidth: 0.8)
+            }
+        case .bubbles:
+            for index in 0..<6 {
+                let radius = height * (0.10 + Double(index % 3) * 0.035)
+                let x = width * (0.08 + Double(index) * 0.16)
+                let y = height * (0.30 + Double(index % 2) * 0.35 + sin(phase + Double(index)) * 0.035)
+                let circle = Path(ellipseIn: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2))
+                context.fill(circle, with: .color(colors[index % 3].opacity(0.65)))
+                context.stroke(circle, with: .color(.white.opacity(0.48)), lineWidth: 1.5)
+            }
+        case .ridges:
+            // Angular faces make the genre silhouette readable even in tiny tiles.
+            for index in 0..<3 {
+                let x = width * (0.12 + Double(index) * 0.34)
+                var face = Path()
+                face.move(to: CGPoint(x: x, y: height * 0.9))
+                face.addLine(to: CGPoint(x: x + width * 0.12, y: height * (0.18 + Double(index % 2) * 0.13)))
+                face.addLine(to: CGPoint(x: x + width * 0.30, y: height * 0.9))
+                face.closeSubpath()
+                context.fill(face, with: .color(colors[index % 3].opacity(0.55)))
+                context.stroke(face, with: .color(.white.opacity(0.32)), lineWidth: 1)
+            }
+        case .ribbons: break
         }
         if theme == .party {
             for index in 0..<15 {

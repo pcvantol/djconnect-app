@@ -101,7 +101,7 @@ import DJConnectCore
         await refresh()
         guard let host, let captured, qualified else { return }
         let token = generation
-        while current(captured, token), offer?.visible == true, !Task.isCancelled {
+        while current(captured, token), isPresented, !Task.isCancelled {
             do { try await Task.sleep(for: .seconds(8)) } catch { return }
             guard current(captured, token), !Task.isCancelled else { return }
             if busy { continue }
@@ -159,6 +159,11 @@ import DJConnectCore
     private var withinDeadline: Bool {
         guard let wallDeadline, let monotonicDeadline else { return false }
         return now() < wallDeadline && instant() < monotonicDeadline
+    }
+    /// Terminal Core states close presentation, even if an older server leaves
+    /// its visible bit set. An unknown/unavailable outcome is never success.
+    var isPresented: Bool {
+        offer?.visible == true && !["confirmed", "closed", "dismissed"].contains(offer?.state ?? "")
     }
     var canChoose: Bool {
         offer?.visible == true && offer?.actions_available == true && !busy && !uncertain &&
@@ -277,7 +282,7 @@ struct SessionForYouCard: View {
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     var body: some View {
         VStack(spacing: 0) {
-            if let offer = projection.offer, offer.visible {
+            if let offer = projection.offer, projection.isPresented {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text(offer.title).font(.headline).accessibilityAddTraits(.isHeader)
