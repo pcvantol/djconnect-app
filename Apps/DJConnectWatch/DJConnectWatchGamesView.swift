@@ -154,20 +154,27 @@ struct DJConnectWatchGameView: View {
                 state.advance(by: 1.0 / 30)
             }
         }
+        .onChange(of: state.soundSequence) { _, _ in
+            guard scenePhase == .active else { return }
+            DJConnectArcadeAudio.shared.play(state.sound, game: game)
+        }
         .onChange(of: state.score) { _, score in
             if score > 0 { WKInterfaceDevice.current().play(.click) }
         }
         .onChange(of: state.playing) { _, playing in
-            if !playing { highScore = max(highScore, state.score) }
+            if !playing {
+                highScore = max(highScore, state.score)
+                if !state.gameOver { DJConnectArcadeAudio.shared.stop() }
+            }
         }
         .onChange(of: state.gameOver) { _, over in
             if over { WKInterfaceDevice.current().play(.failure) }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { state.pause(); focused = false }
+            if phase != .active { state.pause(); focused = false; DJConnectArcadeAudio.shared.stop() }
             else { focused = true }
         }
-        .onDisappear { highScore = max(highScore, state.score); state.pause(); focused = false }
+        .onDisappear { highScore = max(highScore, state.score); state.pause(); focused = false; DJConnectArcadeAudio.shared.stop() }
     }
 
     private func draw(in context: inout GraphicsContext, size: CGSize) {

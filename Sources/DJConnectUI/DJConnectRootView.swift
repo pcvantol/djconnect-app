@@ -523,122 +523,11 @@ final class DJConnectGameAudioWorker<Event: Sendable>: @unchecked Sendable {
     static func error() { scheduler.enqueue(.error) }
 }
 
-private enum DJConnectGameSoundEffect: Hashable, CaseIterable, Sendable {
-    case start
-    case move
-    case fire
-    case bounce
-    case hit
-    case collect
-    case power
-    case explosion
-    case crash
-    case gameOver
-}
-
 private enum DJConnectGameSounds {
-    private enum Job: Sendable { case warmup; case play(DJConnectGameSoundEffect) }
-    /// The bank is accessed exclusively by the audio worker's serial queue.
-    private final class PlayerBank: @unchecked Sendable {
-        #if canImport(AVFoundation)
-        private var players: [DJConnectGameSoundEffect: AVAudioPlayer] = [:]
-        private func player(for effect: DJConnectGameSoundEffect) throws -> AVAudioPlayer {
-            if let player = players[effect] { return player }
-            let created = try AVAudioPlayer(data: wavData(for: effect))
-            created.prepareToPlay(); created.volume = 0.24
-            players[effect] = created
-            return created
-        }
-        #endif
-        func perform(_ job: Job) {
-            #if canImport(AVFoundation)
-            switch job {
-            case .warmup:
-                for effect in DJConnectGameSoundEffect.allCases { _ = try? player(for: effect) }
-            case .play(let effect):
-                guard let player = try? player(for: effect) else { return }
-                player.currentTime = 0; player.play()
-            }
-            #endif
-        }
-    }
-    private static let bank = PlayerBank()
-    private static let worker = DJConnectGameAudioWorker<Job> { bank.perform($0) }
-    static func prepare() { worker.submit(.warmup) }
-    static func cancel() { worker.cancelPending() }
-    static func play(_ effect: DJConnectGameSoundEffect) { worker.submit(.play(effect)) }
-
-    #if canImport(AVFoundation)
-    private static func wavData(for effect: DJConnectGameSoundEffect) -> Data {
-        let notes: [(Double, Double)] = switch effect {
-        case .start:
-            [(523, 0.05), (784, 0.07)]
-        case .move:
-            [(392, 0.035)]
-        case .fire:
-            [(880, 0.045), (660, 0.035)]
-        case .bounce:
-            [(330, 0.04)]
-        case .hit:
-            [(660, 0.035), (880, 0.045)]
-        case .collect:
-            [(740, 0.035)]
-        case .power:
-            [(523, 0.04), (659, 0.04), (784, 0.06)]
-        case .explosion:
-            [(160, 0.04), (110, 0.04), (82, 0.06)]
-        case .crash:
-            [(196, 0.04), (130, 0.05), (92, 0.08)]
-        case .gameOver:
-            [(330, 0.06), (247, 0.07), (165, 0.10)]
-        }
-        return makeSquareWaveWAV(notes: notes)
-    }
-
-    private static func makeSquareWaveWAV(notes: [(frequency: Double, duration: Double)]) -> Data {
-        let sampleRate = 22_050
-        var samples: [Int16] = []
-        for note in notes {
-            let count = max(1, Int(note.duration * Double(sampleRate)))
-            for index in 0..<count {
-                let phase = (Double(index) * note.frequency / Double(sampleRate)).truncatingRemainder(dividingBy: 1)
-                let envelope = min(1, Double(count - index) / Double(max(1, count / 4)))
-                let amplitude = Int16(8_500 * envelope)
-                samples.append(phase < 0.5 ? amplitude : -amplitude)
-            }
-            samples.append(contentsOf: Array(repeating: 0, count: sampleRate / 200))
-        }
-
-        var data = Data()
-        data.append("RIFF".data(using: .ascii)!)
-        data.appendLittleEndian(UInt32(36 + samples.count * 2))
-        data.append("WAVEfmt ".data(using: .ascii)!)
-        data.appendLittleEndian(UInt32(16))
-        data.appendLittleEndian(UInt16(1))
-        data.appendLittleEndian(UInt16(1))
-        data.appendLittleEndian(UInt32(sampleRate))
-        data.appendLittleEndian(UInt32(sampleRate * 2))
-        data.appendLittleEndian(UInt16(2))
-        data.appendLittleEndian(UInt16(16))
-        data.append("data".data(using: .ascii)!)
-        data.appendLittleEndian(UInt32(samples.count * 2))
-        for sample in samples {
-            data.appendLittleEndian(UInt16(bitPattern: sample))
-        }
-        return data
-    }
-    #endif
-}
-
-private extension Data {
-    mutating func appendLittleEndian(_ value: UInt16) {
-        var littleEndian = value.littleEndian
-        Swift.withUnsafeBytes(of: &littleEndian) { append(contentsOf: $0) }
-    }
-
-    mutating func appendLittleEndian(_ value: UInt32) {
-        var littleEndian = value.littleEndian
-        Swift.withUnsafeBytes(of: &littleEndian) { append(contentsOf: $0) }
+    static func cancel() { DJConnectArcadeAudio.shared.stop() }
+    static func play(_ effect: DJConnectArcadeSound, game: LocalGameMode = .pong) {
+        guard let kind = DJConnectWatchArcadeGame(rawValue: game.rawValue) else { return }
+        DJConnectArcadeAudio.shared.play(effect, game: kind)
     }
 }
 
@@ -15640,8 +15529,13 @@ private struct LocalGameSurface: View {
         .onAppear {
             isSurfaceVisible = true
             DJConnectGameHaptics.prepare()
-            DJConnectGameSounds.prepare()
             reset()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { DJConnectGameSounds.cancel(); isPlaying = false }
+        }
+        .onChange(of: isPlaying) { _, playing in
+            if !playing { DJConnectGameSounds.cancel() }
         }
         .onDisappear {
             isSurfaceVisible = false
@@ -16356,14 +16250,14 @@ private struct LocalGameSurface: View {
             break
         case .asteroids:
             if !asteroidBulletActive {
-                DJConnectGameSounds.play(.fire)
+                DJConnectGameSounds.play(.fire, game: game)
                 asteroidBulletActive = true
                 cannonRecoilTicks = 6
                 asteroidBulletY = logicalCanvasSize.height - 50
             }
         case .fly:
             if !flyShotActive {
-                DJConnectGameSounds.play(.fire)
+                DJConnectGameSounds.play(.fire, game: game)
                 flyShotActive = true
                 flyShotX = 58
             }
@@ -16374,7 +16268,7 @@ private struct LocalGameSurface: View {
 
     private func startGame() {
         DJConnectGameHaptics.selection()
-        DJConnectGameSounds.play(.start)
+        DJConnectGameSounds.play(.start, game: game)
         isPlaying = true
         isGameFocused = true
     }
@@ -16414,27 +16308,27 @@ private struct LocalGameSurface: View {
         ballVY *= -1
         ballWallBounceTicks = 8
         DJConnectGameHaptics.selection()
-        DJConnectGameSounds.play(.bounce)
+        DJConnectGameSounds.play(.bounce, game: game)
     }
 
     private func bouncePongBallFromRightWall() {
         ballVX = -abs(ballVX)
         ballWallBounceTicks = 8
         DJConnectGameHaptics.selection()
-        DJConnectGameSounds.play(.bounce)
+        DJConnectGameSounds.play(.bounce, game: game)
     }
 
     private func resolvePongPaddleContact() {
         if ballY >= paddleY - 20 && ballY <= paddleY + 20 {
             ballVX = abs(ballVX)
             DJConnectGameHaptics.impact()
-            DJConnectGameSounds.play(.hit)
+            DJConnectGameSounds.play(.hit, game: game)
             setScore(score + 1)
             return
         }
         flash()
         DJConnectGameHaptics.error()
-        DJConnectGameSounds.play(.gameOver)
+        DJConnectGameSounds.play(.gameOver, game: game)
         setScore(0)
         paddleMissTicks = 24
         ballVX = 0
@@ -16458,7 +16352,7 @@ private struct LocalGameSurface: View {
             asteroidBulletActive = false
             startMeteorExplosion()
             DJConnectGameHaptics.success()
-            DJConnectGameSounds.play(.explosion)
+            DJConnectGameSounds.play(.explosion, game: game)
             setScore(score + 1)
             resetAsteroid()
         }
@@ -16467,7 +16361,7 @@ private struct LocalGameSurface: View {
     private func finishAsteroidRun() {
         flash()
         DJConnectGameHaptics.warning()
-        DJConnectGameSounds.play(.gameOver)
+        DJConnectGameSounds.play(.gameOver, game: game)
         setScore(0)
         resetAsteroid()
     }
@@ -16479,6 +16373,7 @@ private struct LocalGameSurface: View {
         obstacleX -= 4 + CGFloat(min(score / 6, 4))
         updateFlyShot()
         if obstacleX < 24 {
+            DJConnectGameSounds.play(.collect, game: game)
             setScore(score + 1)
             resetObstacle()
         }
@@ -16501,7 +16396,7 @@ private struct LocalGameSurface: View {
             flyShotActive = false
             startSkyObstacleExplosion()
             DJConnectGameHaptics.success()
-            DJConnectGameSounds.play(.explosion)
+            DJConnectGameSounds.play(.explosion, game: game)
             setScore(score + 1)
             resetObstacle()
         }
@@ -16511,7 +16406,7 @@ private struct LocalGameSurface: View {
         flash()
         startSkyCrash()
         DJConnectGameHaptics.error()
-        DJConnectGameSounds.play(.crash)
+        DJConnectGameSounds.play(.crash, game: game)
         setScore(0)
     }
 
@@ -16550,11 +16445,11 @@ private struct LocalGameSurface: View {
             setScore(score + 1)
             if pacmanPowerPellets.contains(pellet) {
                 DJConnectGameHaptics.success()
-                DJConnectGameSounds.play(.power)
+                DJConnectGameSounds.play(.power, game: game)
                 ghostVulnerableTicks = pacmanPowerTicks
             } else {
                 DJConnectGameHaptics.selection()
-                DJConnectGameSounds.play(.collect)
+                DJConnectGameSounds.play(.collect, game: game)
             }
             return
         }
@@ -16574,7 +16469,7 @@ private struct LocalGameSurface: View {
         if isGhostVulnerable {
             flash()
             DJConnectGameHaptics.success()
-            DJConnectGameSounds.play(.explosion)
+            DJConnectGameSounds.play(.explosion, game: game)
             setScore(score + 5)
             ghostX = logicalCanvasSize.width - 70
             ghostY = logicalCanvasSize.height / 2
@@ -16582,7 +16477,7 @@ private struct LocalGameSurface: View {
             flash()
             startPacmanDeath()
             DJConnectGameHaptics.error()
-            DJConnectGameSounds.play(.gameOver)
+            DJConnectGameSounds.play(.gameOver, game: game)
             setScore(0)
         }
     }

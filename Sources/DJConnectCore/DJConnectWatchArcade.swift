@@ -35,6 +35,9 @@ public struct DJConnectWatchArcadeState: Sendable {
     public private(set) var playing = false
     public private(set) var started = false
     public private(set) var gameOver = false
+    public private(set) var soundSequence: UInt64 = 0
+    public private(set) var sound: DJConnectArcadeSound = .start
+    private mutating func emit(_ cue: DJConnectArcadeSound) { sound = cue; soundSequence &+= 1 }
     public private(set) var score = 0
     public private(set) var elapsed: Double = 0
     public private(set) var control: Double = 0.5
@@ -57,7 +60,10 @@ public struct DJConnectWatchArcadeState: Sendable {
         pellets.remove(player)
     }
     public mutating func restart() {
+        let previousSequence = soundSequence
         self = Self(game: game)
+        soundSequence = previousSequence
+        emit(.start)
         playing = true
         started = true
     }
@@ -79,9 +85,9 @@ public struct DJConnectWatchArcadeState: Sendable {
         case .pong:
             control = min(0.9, max(0.1, location.y))
         case .asteroids:
-            if shot == nil { shot = CGPoint(x: control, y: 0.84) }
+            if shot == nil { shot = CGPoint(x: control, y: 0.84); emit(.fire) }
         case .fly:
-            if shot == nil { shot = CGPoint(x: 0.22, y: control) }
+            if shot == nil { shot = CGPoint(x: 0.22, y: control); emit(.fire) }
         case .pacman:
             let x = location.x - 0.5, y = location.y - 0.5
             direction = abs(x) > abs(y) ? (x > 0 ? 1 : 3) : (y > 0 ? 2 : 0)
@@ -98,7 +104,7 @@ public struct DJConnectWatchArcadeState: Sendable {
         case .pacman: advanceMaze(dt)
         }
     }
-    private mutating func finish() { playing = false; gameOver = true }
+    private mutating func finish() { playing = false; gameOver = true; emit(game == .fly ? .crash : .gameOver) }
     private mutating func randomUnit() -> Double {
         seed = seed &* 6364136223846793005 &+ 1
         return Double(seed >> 32) / Double(UInt32.max)
@@ -111,14 +117,14 @@ public struct DJConnectWatchArcadeState: Sendable {
         ball.x += velocity.x * dt
         ball.y += velocity.y * dt
         if ball.y <= 0.03 || ball.y >= 0.97 {
-            ball.y = min(0.97, max(0.03, ball.y)); velocity.y *= -1
+            ball.y = min(0.97, max(0.03, ball.y)); velocity.y *= -1; emit(.bounce)
         }
-        if ball.x >= 0.97 { ball.x = 0.97; velocity.x = -abs(velocity.x) }
+        if ball.x >= 0.97 { ball.x = 0.97; velocity.x = -abs(velocity.x); emit(.bounce) }
         if ball.x <= 0.09 && velocity.x < 0 {
             if abs(ball.y - control) < 0.15 {
                 ball.x = 0.09; velocity.x = min(0.7, abs(velocity.x) + 0.015)
                 velocity.y = (ball.y - control) * 2.6
-                score += 1
+                score += 1; emit(.hit)
             } else { finish() }
         }
     }
@@ -128,7 +134,7 @@ public struct DJConnectWatchArcadeState: Sendable {
             bullet.y -= dt * 1.1
             shot = bullet.y < -0.04 ? nil : bullet
             if hypot(bullet.x - obstacle.x, bullet.y - obstacle.y) < 0.10 {
-                score += 1; shot = nil; resetObstacle()
+                score += 1; shot = nil; resetObstacle(); emit(.explosion)
             }
         }
         if obstacle.y > 0.94 { finish() }
@@ -139,10 +145,10 @@ public struct DJConnectWatchArcadeState: Sendable {
             bullet.x += dt * 1.2
             shot = bullet.x > 1.05 ? nil : bullet
             if abs(bullet.x - obstacle.x) < 0.09 && abs(bullet.y - obstacle.y) < 0.14 {
-                score += 1; shot = nil; resetObstacle()
+                score += 1; shot = nil; resetObstacle(); emit(.explosion)
             }
         }
-        if obstacle.x < -0.1 { score += 1; resetObstacle() }
+        if obstacle.x < -0.1 { score += 1; resetObstacle(); emit(.collect) }
         if abs(obstacle.x - 0.18) < 0.10 && abs(obstacle.y - control) < 0.15 { finish() }
     }
     public static func mazeStep(_ cell: Int, direction: Int) -> Int {
@@ -162,10 +168,10 @@ public struct DJConnectWatchArcadeState: Sendable {
             moveClock -= 0.20
             player = Self.mazeStep(player, direction: direction)
             if pellets.remove(player) != nil {
-                score += 1
-                if [0, 6, 42, 48].contains(player) { powerRemaining = 6 }
+                score += 1; emit(.collect)
+                if [0, 6, 42, 48].contains(player) { powerRemaining = 6; emit(.power) }
             }
-            if pellets.isEmpty { pellets = Set(0..<49); pellets.remove(player); score += 10 }
+            if pellets.isEmpty { pellets = Set(0..<49); pellets.remove(player); score += 10; emit(.power) }
         }
         if ghostClock >= 0.48 {
             ghostClock -= 0.48
@@ -175,7 +181,7 @@ public struct DJConnectWatchArcadeState: Sendable {
             ghost = Self.mazeStep(ghost, direction: heading)
         }
         if player == ghost {
-            if powerRemaining > 0 { ghost = player < 24 ? 48 : 0; score += 5 }
+            if powerRemaining > 0 { ghost = player < 24 ? 48 : 0; score += 5; emit(.explosion) }
             else { finish() }
         }
     }
