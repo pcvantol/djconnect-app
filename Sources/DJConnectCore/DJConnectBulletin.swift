@@ -15,8 +15,12 @@ public struct DJConnectBulletinSource: Codable, Equatable, Sendable {
     }
     /// Compact visible attribution; VoiceOver also names the supplied headline
     /// so multiple links from one publisher remain distinguishable.
-    public var attributionLabel: String { provider + " · " + license }
-    public var accessibilityLabel: String { provider + " · " + title + " · " + license }
+    private var visibleLicense: String? {
+        // These are internal feed-processing identifiers, not publisher credits.
+        ["private_feed_headlines_v1", "private_feed_headline_v1"].contains(license) ? nil : license
+    }
+    public var attributionLabel: String { [provider, visibleLicense].compactMap { $0 }.joined(separator: " · ") }
+    public var accessibilityLabel: String { [provider, title, visibleLicense].compactMap { $0 }.joined(separator: " · ") }
     var isValid: Bool {
         [provider, license, title].allSatisfy { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.utf8.count <= 4096 }
             && destination != nil && DJConnectHistoryEntry.date(publishedAt) != nil
