@@ -15341,3 +15341,26 @@ import CoreAudio
     model.receiveWatchDiagnosticBatch(batch)
     #expect(model.watchDiagnosticLogLines.isEmpty)
 }
+
+@MainActor
+@Test(.isolatedClientResources) func demoWidgetFollowsActiveMoodInsteadOfStartupDefault() async throws {
+    let name = "demo-widget-mood-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode()
+    model.selectedSessionMood = "groove"
+    await model.startDJSession()
+    let initial = try #require(model.demoWidgetSnapshot(at: Date()))
+    for mood in ["party", "energy", "chill", "groove"] {
+        await model.changeActiveSessionMood(mood)
+        let widget = try #require(model.demoWidgetSnapshot(at: Date()))
+        #expect(widget.theme == DJConnectSessionMoodTheme(sessionMood: mood))
+        #expect(widget.track == model.playback?.trackName)
+        #expect(widget.isPlaying == model.playback?.isPlaying)
+        #expect(model.selectedSessionMood == "groove")
+        if mood == "party" { #expect(!widget.sameContent(as: initial)) }
+    }
+    model.stopDemoMode()
+    #expect(model.demoWidgetSnapshot(at: Date()) == nil)
+}
