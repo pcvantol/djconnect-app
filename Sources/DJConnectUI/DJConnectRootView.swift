@@ -6919,15 +6919,6 @@ private struct MusicDiscoveryDetailView: View {
                     MusicDiscoveryFeedbackMenu(model: model, language: model.language, sectionID: sectionID, item: item)
                         .equatable()
                 }
-
-                Button {
-                    dismiss()
-                } label: {
-                    Text(localizedKey(model.language, "ui.close"))
-                        .frame(maxWidth: .infinity)
-                }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
-                .padding(.top, -4)
             }
             .padding(22)
         }
