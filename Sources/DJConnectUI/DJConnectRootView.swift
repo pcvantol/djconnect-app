@@ -9935,7 +9935,7 @@ private struct IOSPlaybackSurface: View {
                 HStack(spacing: 12) {
                     Image(systemName: "speaker.wave.1.fill")
                         .foregroundStyle(.secondary)
-                    Slider(value: $model.volume, in: 0...100) { editing in
+                    DJConnectPlaybackSlider(value: $model.volume, in: 0...100) { editing in
                         if !editing {
                             DJConnectHaptics.selection()
                             model.commitVolumeChange()
@@ -10176,9 +10176,40 @@ struct NowPlayingPlaybackCardContent: View {
     }
 }
 
+/// Keeps cancellation separate from releasing a native slider's draft.
+struct DJConnectPlaybackSlider: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    var onEditingCancelled: () -> Void
+    var onEditingChanged: (Bool) -> Void
+    @Environment(\.isEnabled) private var enabled
+    @State private var tracking = false
+    init(value: Binding<Double>, in range: ClosedRange<Double>,
+         onEditingCancelled: @escaping () -> Void = {}, onEditingChanged: @escaping (Bool) -> Void) {
+        _value = value; self.range = range
+        self.onEditingCancelled = onEditingCancelled; self.onEditingChanged = onEditingChanged
+    }
+    var body: some View {
+        Slider(value: $value, in: range) { editing in
+            tracking = editing
+            onEditingChanged(editing)
+        }
+        .accessibilityValue(Text("\(Int((min(1, max(0, (value - range.lowerBound) / max(1, range.upperBound - range.lowerBound))) * 100).rounded()))%"))
+        .onChange(of: enabled) { _, enabled in
+            if !enabled && tracking { tracking = false; onEditingCancelled() }
+        }
+        .onDisappear { if tracking { tracking = false; onEditingCancelled() } }
+    }
+}
+
 private struct ProgressScrubberView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var seekTargetMS: Int?
+    @State private var editingContext: [String?]?
+    private var context: [String?] {
+        [model.sessionHistory.authorizedProfileID, model.activeDJSession?.id,
+         model.playback?.uri, model.playback?.trackName, model.playback?.artistName, model.playback?.device?.id]
+    }
 
     private var durationMS: Int {
         max(model.playback?.durationMS ?? 0, 0)
@@ -10194,7 +10225,7 @@ private struct ProgressScrubberView: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            Slider(
+            DJConnectPlaybackSlider(
                 value: Binding(
                     get: { Double(currentMS) },
                     set: { newValue in
@@ -10202,11 +10233,14 @@ private struct ProgressScrubberView: View {
                     }
                 ),
                 in: 0...Double(max(durationMS, 1)),
+                onEditingCancelled: { seekTargetMS = nil; editingContext = nil },
                 onEditingChanged: { isEditing in
-                    if !isEditing {
+                    if isEditing { editingContext = context }
+                    else {
                         let target = seekTargetMS ?? currentMS
-                        seekTargetMS = nil
-                        guard abs(target - (model.playback?.progressMS ?? 0)) >= 500 else {
+                        defer { seekTargetMS = nil; editingContext = nil }
+                        guard canSeek, editingContext == context,
+                              abs(target - (model.playback?.progressMS ?? 0)) >= 500 else {
                             return
                         }
                         DJConnectHaptics.selection()
@@ -10218,6 +10252,7 @@ private struct ProgressScrubberView: View {
             .disabled(!canSeek)
             .opacity(canSeek ? 1 : 0.55)
             .accessibilityLabel(localizedKey(model.language, "ui.playback.position"))
+            .onChange(of: context) { _, _ in seekTargetMS = nil; editingContext = nil }
 
             Text("\(formatPlaybackTime(currentMS)) / \(formatPlaybackTime(durationMS))")
                 .font(.caption.monospacedDigit())
@@ -10533,6 +10568,7 @@ private extension View {
 struct OutputSelectorView: View {
     var scrollsOutputs = false
     @StateObject private var manualRefresh = DJConnectManualRefreshController()
+    @State private var didLoadOutputs = false
     @ObservedObject var model: DJConnectAppModel
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
@@ -10576,7 +10612,7 @@ struct OutputSelectorView: View {
             } else {
                 if scrollsOutputs {
                     ScrollView { outputChoices }
-                        .frame(maxHeight: 360)
+                        .frame(idealHeight: 360, maxHeight: 360)
                         .accessibilityIdentifier("output-devices-scroll")
                 } else { outputChoices }
             }
@@ -10584,10 +10620,12 @@ struct OutputSelectorView: View {
         .djStatusToastOverlay(manualRefresh.notice, screenImage: "speaker.wave.2")
         .opacity(canUsePlayback ? 1 : 0.55)
         .tint(djConnectAccent)
-        .task(id: canUsePlayback) {
-            if model.canUsePlaybackFeatures {
-                model.loadOutputs()
-            }
+        .task {
+            // One inventory read per presentation. Availability changes from a
+            // read must not schedule another read and rebuild this scrolling menu.
+            guard !didLoadOutputs, canUsePlayback else { return }
+            didLoadOutputs = true
+            model.loadOutputs()
         }
         #if os(iOS)
         .padding(14)

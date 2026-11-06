@@ -1269,6 +1269,22 @@ struct SessionTimelineScreen: View {
         sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.clearSearch()
     }
 
+    private var playbackPresenter: ((SessionPlaybackMenu, CGRect) -> Void)? {
+        #if os(iOS)
+        return { menu, rect in
+            guard activeSession?.id == sessionID else { return }
+            let kind: SessionControlIntent.Kind = switch menu {
+            case .playback: .playbackControls
+            case .outputs: .playbackOutputs
+            case .volume: .playbackVolume
+            }
+            sessionControlIntent = SessionControlIntent(kind: kind, sessionID: sessionID,
+                epoch: history.responseEpoch, sourceRect: rect)
+        }
+        #else
+        return nil
+        #endif
+    }
     private func currentHeader(_ session: DJConnectSessionRuntime) -> some View {
         VStack(alignment: .leading, spacing: djConnectSessionFlowSpacing) {
             SessionForYouCard(model: model)
@@ -1288,7 +1304,7 @@ struct SessionTimelineScreen: View {
                 if let question = model.askDJMessages.last(where: { $0.role == .user }) {
                     submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
                 }
-            }, contributionQuestion: history.contributionQuestion)
+            }, contributionQuestion: history.contributionQuestion, requestPlaybackPresentation: playbackPresenter)
         }
         .task(id: model.sessionForYou.scope) { await model.sessionForYou.observeWhileVisible() }
         .onChange(of: hasSessionPlayback, initial: true) { _, observed in
@@ -2127,7 +2143,7 @@ enum SessionArchiveSummary {
 
 /// Native presentation only: all writes, pending intent and confirmation belong to AppModel.
 struct SessionControlIntent: Identifiable {
-    enum Kind: Hashable { case mood, presence, persona, voice, connection, more, visualMood }
+    enum Kind: Hashable { case mood, presence, persona, voice, connection, more, visualMood, playbackControls, playbackOutputs, playbackVolume }
     let id = UUID()
     let kind: Kind
     let sessionID: String
@@ -2136,6 +2152,71 @@ struct SessionControlIntent: Identifiable {
 }
 
 #if os(iOS)
+/// Mount the content once per explicit presentation, independently of status ticks.
+private struct SessionControlNativePopover<Content: View>: UIViewRepresentable {
+    @Binding var intent: SessionControlIntent?
+    let anchor: CGRect
+    @ViewBuilder var content: (SessionControlIntent) -> Content
+    func makeCoordinator() -> Coordinator { Coordinator(intent: $intent) }
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(); view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false; view.accessibilityElementsHidden = true
+        return view
+    }
+    func updateUIView(_ source: UIView, context: Context) {
+        let coordinator = context.coordinator
+        coordinator.intent = $intent
+        guard let requested = intent else {
+            coordinator.host?.dismiss(animated: true)
+            coordinator.host = nil; coordinator.id = nil
+            return
+        }
+        if coordinator.id == requested.id {
+            coordinator.host?.popoverPresentationController?.sourceRect = anchor
+            return
+        }
+        let host = UIHostingController(rootView: AnyView(content(requested).djConnectGlassPreferences()))
+        host.sizingOptions = [.preferredContentSize]
+        host.modalPresentationStyle = .popover
+        host.view.backgroundColor = .clear
+        host.popoverPresentationController?.sourceView = source
+        host.popoverPresentationController?.sourceRect = anchor
+        host.popoverPresentationController?.permittedArrowDirections = [.up, .down]
+        host.popoverPresentationController?.delegate = coordinator
+        if !context.environment.djConnectGlassEffectsEnabled || context.environment.accessibilityReduceTransparency {
+            host.popoverPresentationController?.backgroundColor = UIColor(DJConnectGlassAppearance.opaqueSurface)
+        }
+        let width = min(requested.kind == .playbackControls ? 380 : requested.kind == .playbackVolume ? 320 : 360,
+                        (source.window?.bounds.width ?? 402) - 32)
+        host.preferredContentSize = host.sizeThatFits(in: CGSize(width: width, height: 620))
+        coordinator.host = host; coordinator.id = requested.id
+        Task { @MainActor [weak source, weak host] in
+            guard let source, let host, source.window != nil,
+                  coordinator.intent.wrappedValue?.id == requested.id, coordinator.host === host,
+                  var presenter = source.window?.rootViewController else { return }
+            while let presented = presenter.presentedViewController { presenter = presented }
+            presenter.present(host, animated: true)
+        }
+    }
+    static func dismantleUIView(_ source: UIView, coordinator: Coordinator) {
+        coordinator.host?.dismiss(animated: false); coordinator.host = nil; coordinator.id = nil
+    }
+    @MainActor final class Coordinator: NSObject, UIPopoverPresentationControllerDelegate {
+        var intent: Binding<SessionControlIntent?>
+        var host: UIHostingController<AnyView>?
+        var id: UUID?
+        init(intent: Binding<SessionControlIntent?>) { self.intent = intent }
+        func adaptivePresentationStyle(for controller: UIPresentationController) -> UIModalPresentationStyle { .none }
+        func adaptivePresentationStyle(for controller: UIPresentationController,
+                                       traitCollection: UITraitCollection) -> UIModalPresentationStyle { .none }
+        func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+            guard presentationController.presentedViewController === host else { return }
+            let dismissed = id; host = nil; id = nil
+            if intent.wrappedValue?.id == dismissed { intent.wrappedValue = nil }
+        }
+    }
+}
+
 struct SessionControlPopoverHost: View {
     @ObservedObject var model: DJConnectAppModel
     @Binding var intent: SessionControlIntent?
@@ -2184,10 +2265,21 @@ struct SessionControlPopoverHost: View {
             let anchor = source.isEmpty
                 ? CGRect(x: max(0, geometry.size.width - 24), y: 0, width: 1, height: 1)
                 : CGRect(x: source.midX - frame.minX, y: source.maxY - frame.minY + 4, width: 1, height: 1)
-            Color.clear.frame(width: 1, height: 1)
-            .popover(item: $intent, attachmentAnchor: .rect(.rect(anchor)), arrowEdge: .top) { captured in
+            // The anchor is in this host's coordinates. A 1×1 source view made
+            // most anchors fall outside UIKit's source bounds, causing invalid
+            // hit-test geometry and repeated popover relayout on iPad.
+            SessionControlNativePopover(intent: $intent, anchor: anchor) { captured in
                 Group {
-                    if captured.kind == .voice {
+                    if captured.kind == .playbackControls {
+                        ScrollView { NowPlayingPlaybackCardContent(model: model).padding(20) }
+                            .scrollBounceBehavior(.basedOnSize)
+                            .frame(idealWidth: 380, maxWidth: 380, idealHeight: 460, maxHeight: 460)
+                    } else if captured.kind == .playbackOutputs {
+                        OutputSelectorView(scrollsOutputs: true, model: model)
+                            .padding(16).frame(idealWidth: 360, maxWidth: 360, idealHeight: 420, maxHeight: 420)
+                    } else if captured.kind == .playbackVolume {
+                        SessionPlaybackVolumePanel(model: model).padding(20).frame(idealWidth: 320, maxWidth: 320).fixedSize(horizontal: false, vertical: true)
+                    } else if captured.kind == .voice {
                         ProfileDJSettingsEditor(model: model).equatable().frame(idealWidth: 360)
                     } else if captured.kind == .connection {
                         SessionConnectionPopoverContent(model: model) { intent = nil }
@@ -2212,6 +2304,8 @@ struct SessionControlPopoverHost: View {
                                     }, selectedIndex: visualMoodSelection.wrappedValue, language: model.language
                                 ) { visualMoodSelection.wrappedValue = $0 }
                             }
+                        case .playbackControls, .playbackOutputs, .playbackVolume:
+                            EmptyView() // Stable, independently scrolling content above.
                         case .voice:
                             EmptyView()
                         case .connection:
@@ -2256,15 +2350,19 @@ struct SessionControlPopoverHost: View {
                 .frame(idealWidth: 360, maxHeight: 620)
                     }
                 }
-                .background(SessionPopoverDismissalObserver { finishDismissal(captured.id) }
-                    .allowsHitTesting(false).accessibilityHidden(true))
+                .background {
+                    if captured.kind == .more {
+                        SessionPopoverDismissalObserver { finishDismissal(captured.id) }
+                            .allowsHitTesting(false).accessibilityHidden(true)
+                    }
+                }
                 .presentationCompactAdaptation(.popover)
                 // The voice editor owns its own surface on iOS and Mac.
                 .djConnectGlassPopoutSurface(enabled: captured.kind != .voice, nativePresentation: true)
                 .djConnectPresentationSurface()
             }
             .task(id: intent?.id) {
-                guard let captured = intent, captured.kind != .connection, captured.kind != .more, captured.kind != .visualMood, !Task.isCancelled, scenePhase == .active,
+                guard let captured = intent, captured.kind != .connection, captured.kind != .more, captured.kind != .visualMood, captured.kind != .playbackControls, captured.kind != .playbackOutputs, captured.kind != .playbackVolume, !Task.isCancelled, scenePhase == .active,
                       model.isDemoMode || model.pairingStatus == .paired else { return }
                 model.recordPresentationState("screen-menu-open")
                 await model.refreshActiveDJSession()
@@ -2273,6 +2371,12 @@ struct SessionControlPopoverHost: View {
                 await model.refreshActiveMoodCapability()
             }
             .onChange(of: intent?.id) { if intent == nil { model.recordPresentationState("screen-menu-dismissed") } }
+            .onChange(of: model.playback?.uri) { _, _ in
+                if intent?.kind == .playbackControls { intent = nil }
+            }
+            .onChange(of: model.volumeOutputKey) { _, _ in
+                if intent?.kind == .playbackVolume { intent = nil }
+            }
             .onChange(of: history.responseEpoch) { model.recordPresentationState("screen-menu-epoch-changed"); intent = nil; pendingAction = nil }
             .onChange(of: model.activeDJSession?.id) { model.recordPresentationState("screen-menu-session-changed"); intent = nil; pendingAction = nil }
             .onChange(of: scenePhase) { if scenePhase != .active { model.recordPresentationState("screen-menu-scene-inactive"); intent = nil; pendingAction = nil } }
