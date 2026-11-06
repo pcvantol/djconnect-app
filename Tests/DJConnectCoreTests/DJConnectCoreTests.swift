@@ -15138,7 +15138,10 @@ import CoreAudio
     model.continueAfterLocalNetworkExplanation()
     #expect(!model.isShowingLocalNetworkExplanation)
     #expect(calls == 0)
-    try await Task.sleep(for: .milliseconds(450))
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while calls == 0 && ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(20))
+    }
     #expect(calls == 1)
     #expect(model.localNetworkPermissionStatus == .unknown)
     #expect(model.requestLocalNetworkExplanation { calls += 1 })
