@@ -8388,9 +8388,12 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    public func startDJSession() async {
+    public func startDJSession(mood: String? = nil) async {
         if isDemoMode {
-            if activeDJSession == nil { applyDemoSessionExamples() }
+            if activeDJSession == nil {
+                if let mood { demoSessionMood = mood }
+                applyDemoSessionExamples()
+            }
             presentSessionIntroductionIfNeeded()
             return
         }
@@ -8403,7 +8406,7 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) { client in
                 try await client.startSession(
                     DJConnectSessionStartRequest(
-                        mood: selectedSessionMood,
+                        mood: mood ?? selectedSessionMood,
                         language: currentRequestLocale
                     )
                 )

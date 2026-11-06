@@ -9135,6 +9135,13 @@ private struct DJSessionView: View {
 
 private struct IdleDJSessionView: View {
     @ObservedObject var model: DJConnectAppModel
+    @State private var selectedMood = "chill"
+    private var welcomeTint: Color? {
+        guard selectedMood != "chill" else { return nil }
+        let rgb = DJConnectSessionMoodTheme(sessionMood: selectedMood).colorValues[0]
+        return Color(red: Double((rgb >> 16) & 255) / 255,
+                     green: Double((rgb >> 8) & 255) / 255, blue: Double(rgb & 255) / 255)
+    }
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 42
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
@@ -9142,13 +9149,13 @@ private struct IdleDJSessionView: View {
                 HStack(spacing: 36) {
                     welcomeCopy(compactArtwork: false).frame(width: 380, alignment: .leading)
                     Spacer(minLength: 0)
-                    DJSessionWelcomeArtwork().frame(width: 280, height: 280)
+                    DJSessionWelcomeArtwork(mood: selectedMood).frame(width: 280, height: 280)
                 }
                 welcomeCopy(compactArtwork: true)
             }
             VStack(alignment: .leading, spacing: 16) {
-                IdleSessionProfileChoices(model: model)
-                Button { Task { await model.startDJSession() } } label: {
+                IdleSessionProfileChoices(model: model, mood: $selectedMood)
+                Button { Task { await model.startDJSession(mood: selectedMood) } } label: {
                     HStack(spacing: 12) {
                         if model.isLoadingDJSession { ProgressView().tint(.white) }
                         else { Image(systemName: "play.fill") }
@@ -9170,7 +9177,7 @@ private struct IdleDJSessionView: View {
             }
         }
         .padding(28)
-        .djConnectHeroCard()
+        .djSessionFrostedSurface(mood: selectedMood, surfaceTint: welcomeTint)
         .frame(maxWidth: 960)
         .frame(maxWidth: .infinity, alignment: .top)
         #if !os(macOS)
@@ -9190,7 +9197,7 @@ private struct IdleDJSessionView: View {
                     .foregroundStyle(Color(red: 0.89, green: 0.65, blue: 1))
                 if compactArtwork {
                     Spacer(minLength: 0)
-                    DJSessionWelcomeArtwork().frame(width: 84, height: 84)
+                    DJSessionWelcomeArtwork(mood: selectedMood).frame(width: 84, height: 84)
                 }
             }
             Text(localizedKey(model.language, "ui.session.welcome.title"))
@@ -9210,13 +9217,15 @@ private struct IdleDJSessionView: View {
 
 }
 
-/// Uses Profile defaults in live sessions and local defaults in Demo Mode.
+/// Mood is a temporary start choice; presence and persona retain Profile authority.
 private struct IdleSessionProfileChoices: View {
     @ObservedObject var model: DJConnectAppModel
+    @Binding var mood: String
     @StateObject private var presentation: ProfileDJSettingsEditorState
     @State private var showingReview = false
-    init(model: DJConnectAppModel) {
+    init(model: DJConnectAppModel, mood: Binding<String>) {
         self.model = model
+        _mood = mood
         _presentation = StateObject(wrappedValue: ProfileDJSettingsEditorState(model.profileDJSettings))
     }
     private var state: ProfileDJSettingsEditorState.Value { presentation.value }
@@ -9238,7 +9247,7 @@ private struct IdleSessionProfileChoices: View {
             }
             SessionGlassChoiceSelector(
                 steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
-                selectedIndex: moods.firstIndex(of: model.selectedSessionMood) ?? -1,
+                selectedIndex: moods.firstIndex(of: mood) ?? -1,
                 language: model.language,
                 glyphs: moods.map { ["chill": "moon.stars", "groove": "waveform", "energy": "bolt", "party": askDJMoodIcon(for: 3)][$0]! },
                 optionIDs: moods.map { "session-welcome-mood-" + $0 },
@@ -9246,7 +9255,7 @@ private struct IdleSessionProfileChoices: View {
                 selectedLabelIdentifier: "session-welcome-selected-mood"
             ) { index in
                 guard moods.indices.contains(index) else { return }
-                model.selectedSessionMood = moods[index]
+                mood = moods[index]
             }
             .disabled(!model.isDemoMode && (!state.canEdit || state.response?.requiresSelection == true))
 
@@ -9299,6 +9308,20 @@ private struct IdleSessionProfileChoices: View {
 
 /// Decorative native artwork; it carries no playback or Session state.
 struct DJSessionWelcomeArtwork: View {
+    var mood = "chill"
+    private var colors: [Color] {
+        DJConnectSessionMoodTheme(sessionMood: mood).colorValues.map { rgb in
+            Color(red: Double((rgb >> 16) & 255) / 255,
+                  green: Double((rgb >> 8) & 255) / 255, blue: Double(rgb & 255) / 255)
+        }
+    }
+    private var accentGradient: LinearGradient {
+        mood == "chill" ? djConnectIconGradient
+            : LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+    private var recordTint: Color {
+        mood == "chill" ? Color(red: 0.19, green: 0.14, blue: 0.33) : colors[0].opacity(0.55)
+    }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -9306,14 +9329,14 @@ struct DJSessionWelcomeArtwork: View {
         GeometryReader { geometry in
             let size = min(geometry.size.width, geometry.size.height)
             ZStack {
-                Circle().fill(djConnectIconGradient).blur(radius: size * 0.13).opacity(0.45)
+                Circle().fill(accentGradient).blur(radius: size * 0.13).opacity(0.45)
                     .frame(width: size * 0.85, height: size * 0.85)
                 animatedRecord(size: size)
                 artworkGlyph("music.note", size: size).offset(x: size * 0.35, y: -size * 0.25)
                 artworkGlyph("bubble.left.and.bubble.right", size: size).offset(x: -size * 0.35, y: size * 0.13)
                 HStack(spacing: size * 0.012) {
                     ForEach(Array([10.0, 18, 28, 15, 34, 23, 12, 27, 17].enumerated()), id: \.offset) { bar in
-                        Capsule().fill(djConnectIconGradient)
+                        Capsule().fill(accentGradient)
                             .frame(width: size * 0.015, height: size * 0.10 * bar.element / 34)
                     }
                 }
@@ -9344,7 +9367,7 @@ struct DJSessionWelcomeArtwork: View {
     private func record(size: CGFloat, rotation: Angle) -> some View {
         ZStack {
             Circle().fill(LinearGradient(
-                colors: [.black.opacity(0.85), Color(red: 0.19, green: 0.14, blue: 0.33)],
+                colors: [.black.opacity(0.85), recordTint],
                 startPoint: .topLeading, endPoint: .bottomTrailing))
                 .frame(width: size * 0.79, height: size * 0.79)
                 .overlay { Circle().stroke(.white.opacity(0.2)) }
@@ -9361,7 +9384,7 @@ struct DJSessionWelcomeArtwork: View {
                 .init(color: .clear, location: 1)
             ], center: .center), lineWidth: size * 0.13)
                 .frame(width: size * 0.60, height: size * 0.60)
-            Circle().fill(djConnectIconGradient).frame(width: size * 0.32, height: size * 0.32)
+            Circle().fill(accentGradient).frame(width: size * 0.32, height: size * 0.32)
             Circle().fill(Color(red: 0.04, green: 0.03, blue: 0.10)).frame(width: size * 0.07, height: size * 0.07)
         }
         .rotationEffect(rotation)
@@ -9369,7 +9392,7 @@ struct DJSessionWelcomeArtwork: View {
 
     private func artworkGlyph(_ glyph: String, size: CGFloat) -> some View {
         Image(systemName: glyph).font(.system(size: size * 0.07, weight: .medium))
-            .foregroundStyle(djConnectIconGradient)
+            .foregroundStyle(accentGradient)
             .frame(width: size * 0.18, height: size * 0.18)
             .background(DJConnectMaterial(.ultraThin), in: RoundedRectangle(cornerRadius: size * 0.06))
             .overlay { RoundedRectangle(cornerRadius: size * 0.06).stroke(.white.opacity(0.22)) }

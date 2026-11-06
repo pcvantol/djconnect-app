@@ -15364,3 +15364,16 @@ import CoreAudio
     model.stopDemoMode()
     #expect(model.demoWidgetSnapshot(at: Date()) == nil)
 }
+
+@MainActor
+@Test(.isolatedClientResources, arguments: ["chill", "groove", "energy", "party"])
+func welcomeMoodStartsTheSelectedSessionWithoutChangingAnAlreadyActiveSession(mood: String) async throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode()
+    await model.startDJSession(mood: mood)
+    let session = try #require(model.activeDJSession)
+    #expect(session.selectedMood == mood)
+    await model.startDJSession(mood: mood == "party" ? "chill" : "party")
+    #expect(model.activeDJSession?.id == session.id)
+    #expect(model.activeDJSession?.selectedMood == mood)
+}
