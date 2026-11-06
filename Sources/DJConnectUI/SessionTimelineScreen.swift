@@ -2,7 +2,7 @@ import SwiftUI
 import DJConnectCore
 
 /// One edge-to-edge gap from the mode bar through all active Flow cards.
-let djConnectSessionFlowSpacing: CGFloat = 18
+let djConnectSessionFlowSpacing: CGFloat = 26
 #if os(iOS)
 import UIKit
 #elseif os(macOS)
@@ -1828,7 +1828,7 @@ struct SessionEntryView: View, Equatable {
                 }
             }
         }
-        .padding(4)
+        .padding(.horizontal, 4)
         .djContentDeletion(model: artworkModel, target: entry.isRetained() &&
             [DJConnectHistoryEntry.Kind.djMoment, .conversationUser, .conversationDJ].contains(entry.kind)
             ? .init(kind: "entry", sessionID: entry.sessionID, targetID: entry.id) : nil,

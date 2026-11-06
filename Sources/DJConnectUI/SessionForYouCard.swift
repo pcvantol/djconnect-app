@@ -333,7 +333,7 @@ struct SessionForYouCard: View {
                         Text(text("ui.for_you.choose_output")).font(.subheadline)
                         ForEach(projection.outputChoices) { action in
                             Button { _ = projection.handleOutput(action) } label: {
-                                Label(action.buttonLabel ?? action.title, systemImage: "speaker.wave.2")
+                                Label(action.deviceName.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? action.title, systemImage: "speaker.wave.2")
                                     .frame(maxWidth: .infinity)
                             }
                             .djConnectButtonStyle(DJConnectButtonStyle(expands: true))
