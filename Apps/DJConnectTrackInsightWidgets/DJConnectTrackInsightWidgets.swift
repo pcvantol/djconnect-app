@@ -511,7 +511,9 @@ private struct PassiveSessionContentView: View {
             if let cover = decodedCover(slot: "now_playing", side: side - 8) {
                 // Fit the entire image inside the rounded card: no source crop.
                 Image(cover.image, scale: 3, label: Text(cover.label)).resizable()
-                    .widgetAccentedRenderingMode(.fullColor).scaledToFit().padding(4)
+                    .widgetAccentedRenderingMode(.fullColor).scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .padding(4)
             } else {
                 Image(systemName: "music.note").font(.system(size: side * 0.35))
                     .foregroundStyle(.white.opacity(0.5)).accessibilityHidden(true)
@@ -674,7 +676,9 @@ private struct PassiveSessionContentView: View {
     @ViewBuilder private func cover(slot: String) -> some View {
         if let cover = decodedCover(slot: slot, side: activity ? 64 : large ? 104 : compact ? 32 : 56) {
             Image(cover.image, scale: 3, label: Text(cover.label))
-                .resizable().widgetAccentedRenderingMode(.fullColor).scaledToFit().padding(4)
+                .resizable().widgetAccentedRenderingMode(.fullColor).scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .padding(4)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.28), lineWidth: 0.7) }
         }
