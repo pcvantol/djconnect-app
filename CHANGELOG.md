@@ -4,7 +4,8 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
-- Give primary actions the selected DJ settings purple fill and visible outline, with glass enabled or disabled.
+- Use one opaque, reference-matched purple surface for every primary action and default selected DJ setting, independent of Glass or surrounding backgrounds.
+- Restore the blue/purple app canvas on camera-access and local-network pairing explanations.
 
 - Keep demo widgets in the active Session mood when the mood changes after startup.
 

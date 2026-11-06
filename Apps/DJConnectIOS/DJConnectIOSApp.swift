@@ -37,7 +37,7 @@ struct DJConnectIOSApp: App {
                     Button(DJConnectLocalization.localized(key: "ui.host.wake.reviewed.device.test")) {
                         model.operatorRequestsOriginalHostWake(using: hostWakeFirstKey)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .djConnectPrimaryActionStyle()
                 }
             }
             .onChange(of: hostWakeFirstKey.state) {

@@ -209,8 +209,6 @@ private struct DJConnectCardOutline: ViewModifier {
             .overlay { DJConnectCardAppearance.shape.stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth) }
     }
 }
-private let djConnectButtonBlue = Color(red: 0.16, green: 0.56, blue: 1.0)
-private let djConnectButtonPurple = Color(red: 0.84, green: 0.18, blue: 1.0)
 let djConnectCardSpacing: CGFloat = 16
 private let djConnectScreenHorizontalPadding = djConnectCardSpacing
 let djConnectScreenVerticalPadding = djConnectCardSpacing
@@ -2604,6 +2602,8 @@ private struct PairingLocalNetworkExplanation: View {
             .frame(maxWidth: .infinity)
         }
         .interactiveDismissDisabled()
+        .background(DJConnectCanvasBackground())
+        .presentationBackground { DJConnectCanvasBackground() }
         .accessibilityIdentifier("pairing-local-network-explanation")
     }
 }
@@ -2654,6 +2654,8 @@ private struct PairingCameraConsentSheet: View {
             .frame(maxWidth: .infinity)
         }
         .frame(idealWidth: 360, idealHeight: 520, maxHeight: 620)
+        .background(DJConnectCanvasBackground())
+        .presentationBackground { DJConnectCanvasBackground() }
     }
 
     private var message: String {
@@ -3621,9 +3623,6 @@ enum DJConnectButtonAppearance {
     static let iconFont: Font = .system(size: 18, weight: .semibold)
     static let textFont: Font = .headline.weight(.semibold)
     static let pressedScale: CGFloat = 0.98
-    static let selectedFill = djConnectAccent.opacity(0.22)
-    static let primaryGradient = LinearGradient(colors: [djConnectButtonBlue, djConnectButtonPurple],
-                                                startPoint: .leading, endPoint: .trailing)
 }
 
 struct DJConnectButtonStyle: ButtonStyle {
@@ -3640,7 +3639,6 @@ struct DJConnectButtonStyle: ButtonStyle {
     var selectionTint: Color? = nil
     /// Applied after label padding/expansion, over the complete button shape.
     var selectionFill: Color? = nil
-    var primaryFill: Color? = nil
     var dimsWhenDisabled = true
     @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
@@ -3659,9 +3657,11 @@ struct DJConnectButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let role: Emphasis = configuration.role == .destructive ? .destructive : emphasis
         let pressed = configuration.isPressed && isEnabled
+        let usesPrimarySurface = role == .primary || (role == .selected && selectionFill == nil
+            && (selectionTint == nil || selectionTint == djConnectAccent))
         configuration.label
             .font(shape == .icon ? DJConnectButtonAppearance.iconFont : DJConnectButtonAppearance.textFont)
-            .foregroundStyle(foregroundColor ?? (role == .destructive ? Color.red : Color.white.opacity(role == .tertiary ? 0.72 : 1)))
+            .foregroundStyle(role == .primary ? Color.white : (foregroundColor ?? (role == .destructive ? Color.red : Color.white.opacity(role == .tertiary ? 0.72 : 1))))
             .symbolRenderingMode(.monochrome)
             .padding(.horizontal, shape == .icon ? 0 : 16)
             .padding(.vertical, shape == .capsule ? 10 : 0)
@@ -3670,37 +3670,37 @@ struct DJConnectButtonStyle: ButtonStyle {
             .frame(minHeight: DJConnectButtonAppearance.iconSize)
             .frame(maxWidth: expands ? .infinity : nil)
             .background {
-                // Isolate button glass from surrounding card compositors so
-                // the label remains above the material on macOS.
-                GlassEffectContainer(spacing: 0) {
-                    switch role {
-                    case .primary:
-                        if let primaryFill {
-                            // Explicit game/playback colors retain their own semantics.
+                if usesPrimarySurface {
+                    DJConnectPrimaryButtonSurface(shape: outline)
+                } else {
+                    GlassEffectContainer(spacing: 0) {
+                        switch role {
+                        case .primary:
+                            EmptyView() // Handled outside the glass compositor.
+                        case .selected:
                             if usesLiveGlass && glassEnabled && !reduceTransparency {
-                                outline.fill(primaryFill).glassEffect(.regular.interactive(), in: outline)
-                            } else { outline.fill(primaryFill) }
-                        } else {
-                            DJConnectPrimaryButtonSurface(shape: outline, usesLiveGlass: usesLiveGlass)
+                                outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.10))
+                                    .glassEffect(.regular.tint((selectionTint ?? djConnectAccent).opacity(0.22)).interactive(), in: outline)
+                            } else { outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.22)) }
+                        case .destructive:
+                            if usesDestructiveGlass && usesLiveGlass && glassEnabled && !reduceTransparency {
+                                outline.fill(Color.red.opacity(0.04))
+                                    .glassEffect(.regular.tint(.red.opacity(0.12)).interactive(), in: outline)
+                            } else { outline.fill(Color.red.opacity(0.12)) }
+                        case .secondary:
+                            if usesLiveGlass && glassEnabled && !reduceTransparency { outline.fill(.white.opacity(0.04)).glassEffect(.regular.interactive(), in: outline) }
+                            else { outline.fill(glassEnabled && !reduceTransparency ? Color.white.opacity(0.10) : DJConnectGlassAppearance.opaqueSurface) }
+                        case .tertiary: Color.clear
                         }
-                    case .selected:
-                        if usesLiveGlass && glassEnabled && !reduceTransparency {
-                            outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.10))
-                                .glassEffect(.regular.tint((selectionTint ?? djConnectAccent).opacity(0.22)).interactive(), in: outline)
-                        } else { outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.22)) }
-                    case .destructive:
-                        if usesDestructiveGlass && usesLiveGlass && glassEnabled && !reduceTransparency {
-                            outline.fill(Color.red.opacity(0.04))
-                                .glassEffect(.regular.tint(.red.opacity(0.12)).interactive(), in: outline)
-                        } else { outline.fill(Color.red.opacity(0.12)) }
-                    case .secondary:
-                        if usesLiveGlass && glassEnabled && !reduceTransparency { outline.fill(.white.opacity(0.04)).glassEffect(.regular.interactive(), in: outline) }
-                        else { outline.fill(glassEnabled && !reduceTransparency ? Color.white.opacity(0.10) : DJConnectGlassAppearance.opaqueSurface) }
-                    case .tertiary: Color.clear
                     }
                 }
             }
-            .overlay { outline.stroke(role == .selected ? (selectionTint ?? djConnectAccent).opacity(0.55) : .white.opacity(role == .tertiary || (role == .primary && primaryFill == nil) ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false) }
+            .overlay {
+                if !usesPrimarySurface {
+                    outline.stroke(role == .selected ? (selectionTint ?? djConnectAccent).opacity(0.55)
+                        : .white.opacity(role == .tertiary ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false)
+                }
+            }
             .overlay { outline.fill(.white.opacity(pressed ? 0.10 : 0)).allowsHitTesting(false) }
             .overlay { outline.stroke(.white.opacity(showsFocusIndicator && isFocused ? 0.95 : 0), lineWidth: 3).allowsHitTesting(false) }
             .contentShape(outline)
@@ -9998,7 +9998,7 @@ private struct IOSPlaybackSurface: View {
                 .frame(width: size, height: size)
                 .foregroundStyle(.white)
         }
-        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: prominent ? .primary : .secondary, shape: .icon, iconDiameter: size, primaryFill: djConnectAccent))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: prominent ? .primary : .secondary, shape: .icon, iconDiameter: size))
         .disabled(!canUsePlayback)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -10320,7 +10320,7 @@ struct PlaybackControlsView: View {
                         .frame(width: 44, height: 44)
                         .foregroundStyle(.white)
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon, primaryFill: djConnectAccent))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon))
                 .help(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .accessibilityLabel(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .disabled(!canUsePlayback)
@@ -15574,10 +15574,9 @@ private struct LocalGameSurface: View {
                 } label: {
                     Label(localizedKey(language, "ui.tap.to.play"), systemImage: "play.fill")
                         .font(.headline)
-                        .foregroundStyle(game.mood == .energy ? .black : .white)
                         .frame(minWidth: 180)
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, showsFocusIndicator: false, foregroundColor: game.mood == .energy ? .black : .white, primaryFill: game.tint))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, showsFocusIndicator: false))
                 .focusEffectDisabled()
                 .controlSize(.large)
             }

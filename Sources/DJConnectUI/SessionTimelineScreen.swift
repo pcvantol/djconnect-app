@@ -2873,7 +2873,7 @@ struct ConnectionRePairButton: View {
             Label(DJConnectLocalization.localized(key: "ui.connection.pair.again", language: language), systemImage: "link")
                 .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.glass)
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
         .controlSize(.large)
         .accessibilityIdentifier("connection-pair-again")
     }

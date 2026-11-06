@@ -10,26 +10,23 @@ enum DJConnectGlassAppearance {
 }
 
 #if os(iOS) || os(macOS)
-/// Primary actions keep the purple fill and outline of selected DJ settings.
-/// Disabling glass removes transparency without removing the button surface.
+/// One opaque, reference-matched surface for every primary action and default
+/// selected DJ choice. Live glass must not recolor it from the surrounding page.
 struct DJConnectPrimaryButtonSurface: View {
     var shape: AnyShape = AnyShape(Capsule())
-    var usesLiveGlass = true
-    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    private static let fill = Color(.displayP3, red: 93.0 / 255, green: 47.0 / 255, blue: 124.0 / 255)
+    private static let edgeFill = Color(.displayP3, red: 102.0 / 255, green: 53.0 / 255, blue: 135.0 / 255)
+    private static let border = Color(.displayP3, red: 190.0 / 255, green: 87.0 / 255, blue: 231.0 / 255)
 
     var body: some View {
-        Group {
-            if usesLiveGlass && glassEnabled && !reduceTransparency {
-                shape.fill(djConnectAccent.opacity(0.10))
-                    .glassEffect(.regular.tint(djConnectAccent.opacity(0.22)).interactive(), in: shape)
-            } else {
-                shape.fill(DJConnectGlassAppearance.opaqueSurface)
-                    .overlay { shape.fill(DJConnectButtonAppearance.selectedFill) }
-            }
-        }
-        .overlay { shape.stroke(djConnectAccent.opacity(0.55), lineWidth: 1) }
-        .clipShape(shape)
+        shape.fill(LinearGradient(stops: [
+            .init(color: Self.edgeFill, location: 0),
+            .init(color: Self.fill, location: 0.20),
+            .init(color: Self.fill, location: 0.80),
+            .init(color: Self.edgeFill, location: 1)
+        ], startPoint: .top, endPoint: .bottom))
+        .overlay { shape.stroke(Self.border, lineWidth: 1) }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
