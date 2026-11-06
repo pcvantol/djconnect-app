@@ -209,8 +209,6 @@ private struct DJConnectCardOutline: ViewModifier {
             .overlay { DJConnectCardAppearance.shape.stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth) }
     }
 }
-private let djConnectButtonBlue = Color(red: 0.16, green: 0.56, blue: 1.0)
-private let djConnectButtonPurple = Color(red: 0.84, green: 0.18, blue: 1.0)
 let djConnectCardSpacing: CGFloat = 16
 private let djConnectScreenHorizontalPadding = djConnectCardSpacing
 let djConnectScreenVerticalPadding = djConnectCardSpacing
@@ -1991,7 +1989,7 @@ private struct PairingSheetView: View {
                             .font(.subheadline.weight(.semibold))
                             .rotationEffect(.degrees(isManualPairingVisible ? 180 : 0))
                     }
-                    .foregroundStyle(djConnectAccent)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
                 }
@@ -2135,6 +2133,8 @@ private struct PairingSheetView: View {
             .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
             .controlSize(.large)
         }
+        .padding(24)
+        .djSessionFrostedSurface()
     }
 
     private var statusTitle: String {
@@ -2412,12 +2412,12 @@ private struct PairingEditableURLCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.62))
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
             HStack(spacing: 8) {
-                TextField("", text: $text, prompt: Text("http://homeassistant.local:8123").foregroundColor(.gray))
+                TextField("", text: $text, prompt: Text(verbatim: "http://homeassistant.local:8123").foregroundColor(.gray))
                     .foregroundColor(trimmedText == "http://homeassistant.local:8123" ? .gray : .primary)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.body)
                     #if os(iOS)
                     .textContentType(.URL)
                     #endif
@@ -2517,11 +2517,11 @@ private struct PairingCodeEntryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(localizedKey(language, "ui.pair.code.integration.label"))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.62))
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
             TextField("", text: $text, prompt: Text(localizedKey(language, "ui.pair.code.placeholder.six.digits")).foregroundColor(.gray))
                 .foregroundColor(text.isEmpty ? .gray : .primary)
-                .font(.system(.title3, design: .monospaced).weight(.bold))
+                .font(.body)
                 .textContentType(.oneTimeCode)
                 .focused($isCodeFocused)
                 #if os(iOS)
@@ -2604,6 +2604,8 @@ private struct PairingLocalNetworkExplanation: View {
             .frame(maxWidth: .infinity)
         }
         .interactiveDismissDisabled()
+        .background(DJConnectCanvasBackground())
+        .presentationBackground { DJConnectCanvasBackground() }
         .accessibilityIdentifier("pairing-local-network-explanation")
     }
 }
@@ -2654,6 +2656,8 @@ private struct PairingCameraConsentSheet: View {
             .frame(maxWidth: .infinity)
         }
         .frame(idealWidth: 360, idealHeight: 520, maxHeight: 620)
+        .background(DJConnectCanvasBackground())
+        .presentationBackground { DJConnectCanvasBackground() }
     }
 
     private var message: String {
@@ -3621,13 +3625,10 @@ enum DJConnectButtonAppearance {
     static let iconFont: Font = .system(size: 18, weight: .semibold)
     static let textFont: Font = .headline.weight(.semibold)
     static let pressedScale: CGFloat = 0.98
-    static let selectedFill = djConnectAccent.opacity(0.22)
-    static let primaryGradient = LinearGradient(colors: [djConnectButtonBlue, djConnectButtonPurple],
-                                                startPoint: .leading, endPoint: .trailing)
 }
 
 struct DJConnectButtonStyle: ButtonStyle {
-    enum Emphasis { case primary, secondary, tertiary, selected, destructive }
+    enum Emphasis { case primary, sessionStart, secondary, tertiary, selected, destructive }
     enum ShapeKind { case capsule, icon, segmented }
     var emphasis: Emphasis = .secondary
     var shape: ShapeKind = .capsule
@@ -3640,7 +3641,7 @@ struct DJConnectButtonStyle: ButtonStyle {
     var selectionTint: Color? = nil
     /// Applied after label padding/expansion, over the complete button shape.
     var selectionFill: Color? = nil
-    var primaryFill: Color? = nil
+    var sessionStartMood: String? = nil
     var dimsWhenDisabled = true
     @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
@@ -3659,9 +3660,12 @@ struct DJConnectButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let role: Emphasis = configuration.role == .destructive ? .destructive : emphasis
         let pressed = configuration.isPressed && isEnabled
+        let usesPrimarySurface = role == .primary || (role == .selected && selectionFill == nil
+            && (selectionTint == nil || selectionTint == djConnectAccent))
+        let usesOwnSurface = usesPrimarySurface || role == .sessionStart
         configuration.label
             .font(shape == .icon ? DJConnectButtonAppearance.iconFont : DJConnectButtonAppearance.textFont)
-            .foregroundStyle(foregroundColor ?? (role == .destructive ? Color.red : Color.white.opacity(role == .tertiary ? 0.72 : 1)))
+            .foregroundStyle(role == .primary || role == .sessionStart ? Color.white : (foregroundColor ?? (role == .destructive ? Color.red : Color.white.opacity(role == .tertiary ? 0.72 : 1))))
             .symbolRenderingMode(.monochrome)
             .padding(.horizontal, shape == .icon ? 0 : 16)
             .padding(.vertical, shape == .capsule ? 10 : 0)
@@ -3670,37 +3674,39 @@ struct DJConnectButtonStyle: ButtonStyle {
             .frame(minHeight: DJConnectButtonAppearance.iconSize)
             .frame(maxWidth: expands ? .infinity : nil)
             .background {
-                // Isolate button glass from surrounding card compositors so
-                // the label remains above the material on macOS.
-                GlassEffectContainer(spacing: 0) {
-                    switch role {
-                    case .primary:
-                        if let primaryFill {
-                            // Explicit game/playback colors retain their own semantics.
+                if role == .sessionStart {
+                    DJConnectSessionStartButtonSurface(shape: outline, mood: sessionStartMood)
+                } else if usesPrimarySurface {
+                    DJConnectPrimaryButtonSurface(shape: outline)
+                } else {
+                    GlassEffectContainer(spacing: 0) {
+                        switch role {
+                        case .primary, .sessionStart:
+                            EmptyView() // Handled outside the glass compositor.
+                        case .selected:
                             if usesLiveGlass && glassEnabled && !reduceTransparency {
-                                outline.fill(primaryFill).glassEffect(.regular.interactive(), in: outline)
-                            } else { outline.fill(primaryFill) }
-                        } else {
-                            DJConnectPrimaryButtonSurface(shape: outline)
+                                outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.10))
+                                    .glassEffect(.regular.tint((selectionTint ?? djConnectAccent).opacity(0.22)).interactive(), in: outline)
+                            } else { outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.22)) }
+                        case .destructive:
+                            if usesDestructiveGlass && usesLiveGlass && glassEnabled && !reduceTransparency {
+                                outline.fill(Color.red.opacity(0.04))
+                                    .glassEffect(.regular.tint(.red.opacity(0.12)).interactive(), in: outline)
+                            } else { outline.fill(Color.red.opacity(0.12)) }
+                        case .secondary:
+                            if usesLiveGlass && glassEnabled && !reduceTransparency { outline.fill(.white.opacity(0.04)).glassEffect(.regular.interactive(), in: outline) }
+                            else { outline.fill(glassEnabled && !reduceTransparency ? Color.white.opacity(0.10) : DJConnectGlassAppearance.opaqueSurface) }
+                        case .tertiary: Color.clear
                         }
-                    case .selected:
-                        if usesLiveGlass && glassEnabled && !reduceTransparency {
-                            outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.10))
-                                .glassEffect(.regular.tint((selectionTint ?? djConnectAccent).opacity(0.22)).interactive(), in: outline)
-                        } else { outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.22)) }
-                    case .destructive:
-                        if usesDestructiveGlass && usesLiveGlass && glassEnabled && !reduceTransparency {
-                            outline.fill(Color.red.opacity(0.04))
-                                .glassEffect(.regular.tint(.red.opacity(0.12)).interactive(), in: outline)
-                        } else { outline.fill(Color.red.opacity(0.12)) }
-                    case .secondary:
-                        if usesLiveGlass && glassEnabled && !reduceTransparency { outline.fill(.white.opacity(0.04)).glassEffect(.regular.interactive(), in: outline) }
-                        else { outline.fill(glassEnabled && !reduceTransparency ? Color.white.opacity(0.10) : DJConnectGlassAppearance.opaqueSurface) }
-                    case .tertiary: Color.clear
                     }
                 }
             }
-            .overlay { outline.stroke(role == .selected ? (selectionTint ?? djConnectAccent).opacity(0.55) : .white.opacity(role == .tertiary || (role == .primary && primaryFill == nil) ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false) }
+            .overlay {
+                if !usesOwnSurface {
+                    outline.stroke(role == .selected ? (selectionTint ?? djConnectAccent).opacity(0.55)
+                        : .white.opacity(role == .tertiary ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false)
+                }
+            }
             .overlay { outline.fill(.white.opacity(pressed ? 0.10 : 0)).allowsHitTesting(false) }
             .overlay { outline.stroke(.white.opacity(showsFocusIndicator && isFocused ? 0.95 : 0), lineWidth: 3).allowsHitTesting(false) }
             .contentShape(outline)
@@ -4116,6 +4122,7 @@ struct DJConnectSessionMoodPalette {
 /// The pinned Session surface follows confirmed mood; the conversation canvas stays unchanged.
 struct DJSessionPinnedMoodBackground: View {
     let mood: String
+    var extendsIntoTopSafeArea = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var stepIndex: Int { ["chill", "groove", "energy", "party"].firstIndex(of: mood) ?? 0 }
@@ -4144,7 +4151,7 @@ struct DJSessionPinnedMoodBackground: View {
             }
         }
         .clipped()
-        .ignoresSafeArea(.container, edges: .top)
+        .ignoresSafeArea(.container, edges: extendsIntoTopSafeArea ? .top : [])
         .animation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.28), value: stepIndex)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -5432,6 +5439,7 @@ private struct MusicDNADisabledView: View {
         }
         .padding(24)
         .djSessionFrostedSurface()
+        .djConnectStandardHeroWidth()
     }
 }
 
@@ -6919,15 +6927,6 @@ private struct MusicDiscoveryDetailView: View {
                     MusicDiscoveryFeedbackMenu(model: model, language: model.language, sectionID: sectionID, item: item)
                         .equatable()
                 }
-
-                Button {
-                    dismiss()
-                } label: {
-                    Text(localizedKey(model.language, "ui.close"))
-                        .frame(maxWidth: .infinity)
-                }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
-                .padding(.top, -4)
             }
             .padding(22)
         }
@@ -9144,6 +9143,7 @@ private struct DJSessionView: View {
 
 private struct IdleDJSessionView: View {
     @ObservedObject var model: DJConnectAppModel
+    @State private var selectedMood = "chill"
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 42
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
@@ -9155,21 +9155,46 @@ private struct IdleDJSessionView: View {
                 }
                 welcomeCopy(compactArtwork: true)
             }
+            DJSessionWelcomeFeatures(language: model.language)
             VStack(alignment: .leading, spacing: 16) {
-                IdleSessionProfileChoices(model: model)
-                Button { Task { await model.startDJSession() } } label: {
+                IdleSessionProfileChoices(model: model, mood: $selectedMood)
+                Button {
+                    let startMood = selectedMood
+                    Task { await model.startDJSession(mood: startMood) }
+                } label: {
                     HStack(spacing: 12) {
-                        if model.isLoadingDJSession { ProgressView().tint(.white) }
-                        else { Image(systemName: "play.fill") }
+                        Group {
+                            if model.isLoadingDJSession {
+                                ProgressView().tint(.white)
+                            } else {
+                                DJPersonaMark()
+                                    .fill(.white)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .frame(width: 28, height: 28)
                         Text(localizedKey(model.language, "ui.session.start"))
                             .font(.headline)
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true,
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .sessionStart, expands: true,
+                    sessionStartMood: selectedMood,
                     dimsWhenDisabled: !model.isSchedulingProfileDJChoice && model.profileDJSettings.phase != .saving))
                 .disabled(model.isLoadingDJSession || (!model.isDemoMode && model.pairingStatus != .paired) || !model.canUsePlaybackFeatures || model.isSchedulingProfileDJChoice || (!model.isDemoMode && [.saving, .uncertain].contains(model.profileDJSettings.phase)))
                 .accessibilityIdentifier("session-welcome-start")
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .font(.body.weight(.semibold))
+                        .accessibilityHidden(true)
+                    Text(localizedKey(model.language, "ui.session.welcome.for_you_tip"))
+                        .font(.footnote)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(maxWidth: .infinity, alignment: .center)
+                .accessibilityElement(children: .combine)
                 if !model.isDemoMode && (model.pairingStatus != .paired || !model.canUsePlaybackFeatures) {
                     Text(localizedKey(model.language, "ui.session.requires_connection")).font(.footnote).foregroundStyle(.secondary)
                 }
@@ -9179,7 +9204,10 @@ private struct IdleDJSessionView: View {
             }
         }
         .padding(28)
-        .djConnectHeroCard()
+        .background {
+            DJSessionPinnedMoodBackground(mood: selectedMood, extendsIntoTopSafeArea: false)
+        }
+        .modifier(DJConnectCardOutline())
         .frame(maxWidth: 960)
         .frame(maxWidth: .infinity, alignment: .top)
         #if !os(macOS)
@@ -9196,7 +9224,7 @@ private struct IdleDJSessionView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
                     .layoutPriority(1)
-                    .foregroundStyle(Color(red: 0.89, green: 0.65, blue: 1))
+                    .foregroundStyle(.white)
                 if compactArtwork {
                     Spacer(minLength: 0)
                     DJSessionWelcomeArtwork().frame(width: 84, height: 84)
@@ -9205,27 +9233,94 @@ private struct IdleDJSessionView: View {
             Text(localizedKey(model.language, "ui.session.welcome.title"))
                 .font(.system(size: titleSize, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(1)
+                .minimumScaleFactor(0.50)
+                .allowsTightening(true)
                 .accessibilityAddTraits(.isHeader)
-            Text(localizedKey(model.language, "ui.session.welcome.subtitle"))
-                .font(.body).foregroundStyle(.white.opacity(0.82))
-                .fixedSize(horizontal: false, vertical: true)
-            Text(localizedKey(model.language, "ui.session.welcome.promise"))
-                .font(.subheadline).foregroundStyle(.white.opacity(0.65))
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(localizedKey(model.language, "ui.session.welcome.subtitle")
+                    .split(separator: "\n").enumerated()), id: \.offset) { _, line in
+                    Text(String(line))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.1)
+                        .allowsTightening(true)
+                }
+            }
+            .font(.body)
+            .foregroundStyle(.white.opacity(0.82))
+            .accessibilityElement(children: .combine)
         }
     }
 
 
 }
 
-/// Uses Profile defaults in live sessions and local defaults in Demo Mode.
+/// Short introduction shared by compact and wide Session welcome layouts.
+private struct DJSessionWelcomeFeatures: View {
+    let language: String
+    private func text(_ key: String) -> String { localizedKey(language, key) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 20) { features }
+                VStack(alignment: .leading, spacing: 16) { features }
+            }
+            HStack(spacing: 12) {
+                Image(systemName: "play.circle")
+                    .font(.title2)
+                    .foregroundStyle(.white)
+                    .accessibilityHidden(true)
+                Text(text("ui.session.welcome.instruction"))
+                    .font(.callout)
+                    .foregroundStyle(.white.opacity(0.92))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
+                    .allowsHitTesting(false)
+            }
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    @ViewBuilder private var features: some View {
+        feature("ui.session.welcome.feature.music", symbol: "music.note", color: .mint)
+        feature("ui.session.welcome.feature.stories", symbol: "book", color: .indigo)
+        feature("ui.session.welcome.feature.discovery", symbol: "sparkles", color: .pink)
+    }
+
+    private func feature(_ key: String, symbol: String, color: Color) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 23, weight: .medium))
+                .foregroundStyle(color)
+                .frame(width: 44, height: 44)
+                .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .shadow(color: color.opacity(0.28), radius: 10)
+                .accessibilityHidden(true)
+            Text(text(key))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.90))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(minWidth: 180, maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Mood is a temporary start choice; presence and persona retain Profile authority.
 private struct IdleSessionProfileChoices: View {
     @ObservedObject var model: DJConnectAppModel
+    @Binding var mood: String
     @StateObject private var presentation: ProfileDJSettingsEditorState
     @State private var showingReview = false
-    init(model: DJConnectAppModel) {
+    init(model: DJConnectAppModel, mood: Binding<String>) {
         self.model = model
+        _mood = mood
         _presentation = StateObject(wrappedValue: ProfileDJSettingsEditorState(model.profileDJSettings))
     }
     private var state: ProfileDJSettingsEditorState.Value { presentation.value }
@@ -9242,22 +9337,22 @@ private struct IdleSessionProfileChoices: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            let moods = ["chill", "groove", "energy", "party"].filter {
-                model.isDemoMode || (state.response?.allowed_values.mood.contains($0) ?? true)
-            }
+            // This is a local start draft, not an edit of Profile defaults.
+            let moods = ["chill", "groove", "energy", "party"]
             SessionGlassChoiceSelector(
                 steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
-                selectedIndex: moods.firstIndex(of: model.selectedSessionMood) ?? -1,
+                selectedIndex: moods.firstIndex(of: mood) ?? -1,
                 language: model.language,
                 glyphs: moods.map { ["chill": "moon.stars", "groove": "waveform", "energy": "bolt", "party": askDJMoodIcon(for: 3)][$0]! },
                 optionIDs: moods.map { "session-welcome-mood-" + $0 },
+                sessionTheme: DJConnectSessionMoodTheme(sessionMood: mood),
                 preservesAppearanceWhileDisabled: true,
-                selectedLabelIdentifier: "session-welcome-selected-mood"
+                selectedLabelIdentifier: "session-welcome-selected-mood",
+                explanationKey: "ui.session.welcome.mood.explanation"
             ) { index in
                 guard moods.indices.contains(index) else { return }
-                model.selectedSessionMood = moods[index]
+                mood = moods[index]
             }
-            .disabled(!model.isDemoMode && (!state.canEdit || state.response?.requiresSelection == true))
 
             SessionGlassChoiceSelector(
                 steps: presences.enumerated().map { (text($0.element.localizationKey), $0.offset) },
@@ -9266,7 +9361,9 @@ private struct IdleSessionProfileChoices: View {
                 glyphs: presences.map(\.choiceGlyph),
                 titleKey: "ui.dj_settings.presence", accessibilityLabelKey: "ui.session.presence.title",
                 optionIDs: presences.map { "session-welcome-presence-" + $0.rawValue },
-                preservesAppearanceWhileDisabled: true
+                sessionTheme: DJConnectSessionMoodTheme(sessionMood: mood),
+                preservesAppearanceWhileDisabled: true,
+                explanationKey: "ui.session.welcome.presence.explanation"
             ) { index in
                 guard model.isDemoMode || state.canEdit, presences.indices.contains(index) else { return }
                 let value = presences[index]
@@ -9280,7 +9377,9 @@ private struct IdleSessionProfileChoices: View {
                 glyphs: personas.map(\.choiceGlyph),
                 titleKey: "ui.dj_settings.persona", accessibilityLabelKey: "ui.session.persona.title",
                 optionIDs: personas.map { "session-welcome-persona-" + $0.rawValue },
-                preservesAppearanceWhileDisabled: true
+                sessionTheme: DJConnectSessionMoodTheme(sessionMood: mood),
+                preservesAppearanceWhileDisabled: true,
+                explanationKey: "ui.session.welcome.persona.explanation"
             ) { index in
                 guard model.isDemoMode || state.canEdit, personas.indices.contains(index) else { return }
                 let value = personas[index]
@@ -10007,7 +10106,7 @@ private struct IOSPlaybackSurface: View {
                 .frame(width: size, height: size)
                 .foregroundStyle(.white)
         }
-        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: prominent ? .primary : .secondary, shape: .icon, iconDiameter: size, primaryFill: djConnectAccent))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: prominent ? .primary : .secondary, shape: .icon, iconDiameter: size))
         .disabled(!canUsePlayback)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -10329,7 +10428,7 @@ struct PlaybackControlsView: View {
                         .frame(width: 44, height: 44)
                         .foregroundStyle(.white)
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon, primaryFill: djConnectAccent))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon))
                 .help(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .accessibilityLabel(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .disabled(!canUsePlayback)
@@ -13360,19 +13459,37 @@ struct SessionGlassChoiceSelector: View {
     var optionIDs: [String]? = nil
     var selectionColor: Color = djConnectAccent
     var sessionTheme: DJConnectSessionMoodTheme? = nil
-    private var resolvedSelectionColor: Color { sessionTheme?.controlSelectionColor ?? selectionColor }
+    private var resolvedSelectionColor: Color {
+        sessionTheme?.controlSelectionButtonTint ?? selectionColor
+    }
+    private var selectedForegroundColor: Color {
+        sessionTheme?.controlSelectionForegroundColor ?? .white
+    }
+    private var selectionFill: Color? {
+        sessionTheme?.controlSelectionButtonFill
+    }
     var preservesAppearanceWhileDisabled = true
     var selectedLabelIdentifier = "session-popover-selected-mood"
+    var explanationKey: String? = nil
     @FocusState private var focusedOption: Int?
     var onSelect: (Int) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(localizedKey(language, titleKey))
-                .font(.headline)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(localizedKey(language, titleKey))
+                    .font(.headline)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let explanationKey {
+                    Text(localizedKey(language, explanationKey))
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.62))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
             optionButtons
             Text(steps[safe: selectedIndex]?.label ?? "")
                 .font(.subheadline.weight(.semibold))
@@ -13392,15 +13509,15 @@ struct SessionGlassChoiceSelector: View {
                             .font(.title3.weight(.semibold))
                             // Equal intrinsic width keeps HStack allocation independent of the symbol.
                             .frame(width: 24, height: 28)
-                            .foregroundStyle(.white.opacity(index == selectedIndex ? 1 : 0.78))
+                            .foregroundStyle(index == selectedIndex ? selectedForegroundColor : .white.opacity(0.78))
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(
                         emphasis: index == selectedIndex ? .selected : .secondary,
                         shape: .segmented, expands: true, usesLiveGlass: true,
-                        showsFocusIndicator: false, foregroundColor: .white.opacity(index == selectedIndex ? 1 : 0.78),
+                        showsFocusIndicator: false, foregroundColor: index == selectedIndex ? selectedForegroundColor : .white.opacity(0.78),
                         selectionTint: resolvedSelectionColor,
-                        selectionFill: sessionTheme != nil ? resolvedSelectionColor.opacity(0.80) : nil,
+                        selectionFill: selectionFill,
                         dimsWhenDisabled: !preservesAppearanceWhileDisabled
                     ))
                     .focused($focusedOption, equals: index)
@@ -15583,10 +15700,9 @@ private struct LocalGameSurface: View {
                 } label: {
                     Label(localizedKey(language, "ui.tap.to.play"), systemImage: "play.fill")
                         .font(.headline)
-                        .foregroundStyle(game.mood == .energy ? .black : .white)
                         .frame(minWidth: 180)
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, showsFocusIndicator: false, foregroundColor: game.mood == .energy ? .black : .white, primaryFill: game.tint))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, showsFocusIndicator: false))
                 .focusEffectDisabled()
                 .controlSize(.large)
             }

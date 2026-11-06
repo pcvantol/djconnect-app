@@ -713,10 +713,14 @@ public actor DJConnectHybridTransport {
         return result
     }
     private func activeRead(_ original: URLRequest, route: Route, epoch: UUID) async throws -> (Data, Int) {
+        let language = URLComponents(url: original.url!, resolvingAgainstBaseURL: false)?.queryItems?
+            .first(where: { $0.name == "language" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        var presentation: HybridObject = [:]
+        if let language, !language.isEmpty { presentation["language"] = .string(language) }
         if canUseActions(route), route.context["read_operations"]?.hybridStrings.contains("session/active") == true {
             do {
                 let socket = try await connection(route)
-                let result = try await socket.request(type: "djconnect/read", body: ["operation": .string("session/active"), "payload": .object([:])])
+                let result = try await socket.request(type: "djconnect/read", body: ["operation": .string("session/active"), "payload": .object(presentation)])
                 guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
                 diagnostics.websocketConnected = true; report?(diagnostics)
                 return result
@@ -732,6 +736,7 @@ public actor DJConnectHybridTransport {
         r.httpMethod = "GET"; r.httpBody = nil
         var url = URLComponents(url: r.url!, resolvingAgainstBaseURL: false)!
         url.queryItems = [URLQueryItem(name: "device_id", value: identity.deviceID), URLQueryItem(name: "client_type", value: identity.clientType.rawValue)]
+        if let language, !language.isEmpty { url.queryItems?.append(.init(name: "language", value: language)) }
         r.url = url.url
         let result = try await wire.http(r)
         guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }

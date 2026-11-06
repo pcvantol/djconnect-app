@@ -346,7 +346,7 @@
 "ui.down" = "Down";
 "ui.move.the.paddle.and.keep.the.ball.alive" = "Move the paddle and keep the ball alive.";
 "ui.move.left.and.right.fire.to.hit.meteors" = "Move left and right. Fire to hit meteors.";
-"ui.fly.through.the.gaps.fire.clears.an.obstacle" = "Fly through the gaps. Fire clears an obstacle.";
+"ui.fly.through.the.gaps.fire.clears.an.obstacle" = "Flieg und schieß Hindernisse weg.";
 "ui.eat.dots.and.dodge.the.ghost" = "Eat dots and dodge the ghost.";
 "ui.fire" = "Fire";
 "ui.reset" = "Reset";
@@ -1061,10 +1061,9 @@
 
 // Native invitation when no DJ Session is active.
 "ui.session.welcome.eyebrow" = "Willkommen bei DJConnect";
-"ui.session.welcome.title" = "Deine Musik.\nDein DJ.";
-"ui.session.welcome.subtitle" = "Starte eine DJ-Session und erlebe deine Musik auf eine neue Art.";
-"ui.session.welcome.promise" = "Entdecke die Geschichten hinter deiner Musik. Sprich mit deinem DJ. Lass dich überraschen.";
-"ui.session.welcome.mood" = "Stimmung";
+"ui.session.welcome.title" = "Dein DJ ist bereit.";
+"ui.session.welcome.subtitle" = "Entdecke Musik, die zu dir passt, und die Geschichten hinter dem, was du hörst.\nFrag deinen DJ nach mehr oder lass dich mitnehmen.";
+"ui.session.welcome.mood" = "Deine Stimmung";
 
 "ui.session.music_duration" = "Verstrichene Zeit und Gesamtdauer";
 "ui.session.music_remaining" = "Verbleibende Zeit";
@@ -1105,7 +1104,7 @@
 "ui.session.presence.occasional" = "Gelegentlich";
 "ui.session.presence.balanced" = "Ausgewogen";
 "ui.session.presence.talkative" = "Gesprächig";
-"ui.session.presence.presenter" = "Moderator";
+"ui.session.presence.presenter" = "Erzählend";
 "ui.session.presence.title" = "DJ-Präsenz";
 "ui.session.presence.explanation" = "Wie viel erzählt der DJ während deiner Session?";
 "ui.session.presence.confirmed" = "Bestätigt";
@@ -1689,7 +1688,7 @@
 
 "ui.ha_speech.demo_unavailable" = "Die Home Assistant-Konfiguration ist im Demomodus nicht verfügbar.";
 
-"ui.pair.code.integration.label" = "Kopplungscode der Home Assistant DJConnect-Integration";
+"ui.pair.code.integration.label" = "Home Assistant-Kopplungscode";
 "ui.pair.code.integration.choice" = "Wähle ‘DJConnect-App koppeln: iPhone/iPad, Apple Watch oder macOS’.";
 
 "ui.pair.code.placeholder.six.digits" = "6-stelliger Code";
@@ -1717,3 +1716,14 @@
 "ui.for_you.art.procedural" = "Prozedurale Landschaftsillustration; keine Audioanalyse.";
 
 "ui.session.moment.music_announcement" = "Musikankündigung";
+"ui.session.welcome.feature.music" = "Persönliche\nMusik";
+"ui.session.welcome.feature.stories" = "Musikgeschichten\nund Highlights";
+"ui.session.welcome.feature.discovery" = "Jede Session\neine Entdeckung";
+"ui.session.welcome.instruction" = "Du kannst direkt starten oder zuerst deine Auswahl anpassen.";
+"ui.session.welcome.for_you_tip" = "Danach findest du unter „Für dich“ drei persönliche Mixvorschläge.";
+"ui.session.welcome.mood.explanation" = "Wähle deinen Vibe für diese Session";
+"ui.session.welcome.presence.explanation" = "Wie oft dein DJ etwas erzählt";
+"ui.session.welcome.persona.explanation" = "Stil und Ton deines DJs";
+"watch.game.resume" = "Fortsetzen";
+"ui.for_you.choose_output" = "Wähle, wo du diesen Mix abspielen möchtest.";
+"ui.for_you.preparing" = "Neue Mix-Auswahl für deine Stimmung wird vorbereitet…";

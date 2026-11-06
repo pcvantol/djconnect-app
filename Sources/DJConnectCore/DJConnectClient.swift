@@ -423,8 +423,8 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request, using: sessionProjectionSession)
     }
 
-    public func activeSession() async throws -> DJConnectSessionResponse {
-        let request = try activeSessionRequest()
+    public func activeSession(language: String? = nil) async throws -> DJConnectSessionResponse {
+        let request = try activeSessionRequest(language: language)
         return try await decodedResponse(for: request, using: sessionProjectionSession)
     }
 
@@ -1650,12 +1650,15 @@ public final class DJConnectClient: Sendable {
         try jsonRequest(path: Self.apiV1Path("session/start"), payload: payload)
     }
 
-    public func activeSessionRequest() throws -> URLRequest {
+    public func activeSessionRequest(language: String? = nil) throws -> URLRequest {
         var components = URLComponents(url: endpoint(path: Self.apiV1Path("session/active")), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "device_id", value: identity.deviceID),
             URLQueryItem(name: "client_type", value: identity.clientType.rawValue)
         ]
+        if let language = Self.nonBlankLanguage(language) {
+            components?.queryItems?.append(URLQueryItem(name: "language", value: language))
+        }
         guard let url = components?.url else {
             throw DJConnectError.invalidConfiguration("Invalid Session URL.")
         }

@@ -76,7 +76,7 @@ struct DJConnectWatchGameView: View {
                     .overlay {
                         if !state.playing {
                             Button { state.togglePlaying(); focused = true } label: {
-                                Label(state.started && !state.gameOver ? text("watch.play") : text("ui.tap.to.play"),
+                                Label(state.started && !state.gameOver ? text("watch.game.resume") : text("ui.tap.to.play"),
                                       systemImage: "play.fill")
                                     .font(.caption.weight(.semibold))
                                     .multilineTextAlignment(.center)
@@ -106,8 +106,21 @@ struct DJConnectWatchGameView: View {
                     .font(.system(size: 10)).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
+            Button { state.togglePlaying(); focused = true } label: {
+                Image(systemName: state.playing ? "pause.fill" : "play.fill")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(text(state.playing ? "ui.pause" : (state.started && !state.gameOver ? "watch.game.resume" : "watch.play")))
+            .accessibilityIdentifier("watch-game-pause-resume")
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .padding(watchListItemPadding)
+        .padding(.horizontal, watchListItemPadding)
+        .padding(.top, watchListItemPadding)
+        .padding(.bottom, watchRowInset)
+        .ignoresSafeArea(.container, edges: .bottom)
         .background {
             LinearGradient(colors: theme.watchColors.map { $0.opacity(0.22) },
                            startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -117,10 +130,6 @@ struct DJConnectWatchGameView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 4) {
-                    Button { state.togglePlaying(); focused = true } label: {
-                        Image(systemName: state.playing ? "pause.fill" : "play.fill")
-                    }
-                    .accessibilityLabel(text(state.playing ? "ui.pause" : "watch.play"))
                     Button { highScore = max(highScore, state.score); state.restart(); focused = true } label: {
                         Image(systemName: "arrow.counterclockwise")
                     }

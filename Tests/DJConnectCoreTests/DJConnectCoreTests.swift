@@ -5250,6 +5250,14 @@ func watchPushRegisterPreservesOtherHTTPFailures(status: Int) async throws {
     #expect(activeRequest.value(forHTTPHeaderField: "Authorization") == "Bearer owner-device-token")
     #expect(activeQuery.first(where: { $0.name == "device_id" })?.value == "djconnect-ios-8F3A2C91B45D")
     #expect(activeQuery.first(where: { $0.name == "client_type" })?.value == "ios")
+    #expect(!activeQuery.contains { $0.name == "language" })
+    for language in ["nl", "en"] {
+        let localized = try client.activeSessionRequest(language: language)
+        let query = URLComponents(url: localized.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(query.first(where: { $0.name == "language" })?.value == language)
+        #expect(localized.httpMethod == "GET" && localized.httpBody == nil)
+        #expect(localized.value(forHTTPHeaderField: "Authorization") == "Bearer owner-device-token")
+    }
 }
 
 @Test(.isolatedClientResources) func vibeCastPiHandoffPromptsExistInAllFiveProductLanguages() {
@@ -15363,4 +15371,33 @@ import CoreAudio
     }
     model.stopDemoMode()
     #expect(model.demoWidgetSnapshot(at: Date()) == nil)
+}
+
+@MainActor
+@Test(.isolatedClientResources, arguments: ["chill", "groove", "energy", "party"])
+func welcomeMoodStartsTheSelectedSessionWithoutChangingAnAlreadyActiveSession(mood: String) async throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode()
+    await model.startDJSession(mood: mood)
+    let session = try #require(model.activeDJSession)
+    #expect(session.selectedMood == mood)
+    await model.startDJSession(mood: mood == "party" ? "chill" : "party")
+    #expect(model.activeDJSession?.id == session.id)
+    #expect(model.activeDJSession?.selectedMood == mood)
+}
+
+@MainActor
+@Test(.isolatedClientResources, arguments: [false, true])
+func demoEntryClearsPriorSessionFailureAfterOptionalRePairing(rePair: Bool) async throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    await model.recoverAfterPairedAuthorityWithdrawal("profile_changed")
+    #expect(model.djSessionErrorMessage != nil)
+    if rePair { model.resetPairing() }
+    model.startDemoMode()
+    #expect(model.isDemoMode)
+    #expect(model.activeDJSession == nil)
+    #expect(model.djSessionErrorMessage == nil)
+    await model.startDJSession(mood: "chill")
+    #expect(model.activeDJSession?.selectedMood == "chill")
+    #expect(model.djSessionErrorMessage == nil)
 }

@@ -4,6 +4,11 @@ import AppKit
 #endif
 
 extension View {
+    /// The app-wide primary action appearance, including app-hosted surfaces.
+    public func djConnectPrimaryActionStyle() -> some View {
+        buttonStyle(DJConnectButtonStyle(emphasis: .primary))
+    }
+
     func djConnectMouseBackNavigation() -> some View {
         modifier(DJConnectMouseBackNavigation())
     }

@@ -210,6 +210,7 @@ extension DJConnectWatchModel: WCSessionDelegate {
             applyLoggingConfiguration(session.receivedApplicationContext[DJConnectWatchLoggingConfiguration.contextKey] as? Data)
             readCompanionDemoSession()
             requestCompanionDemoSession()
+            readReceivedCompanionPairingResult()
             sendCompanionPairingRegistration()
         }
     }
@@ -221,6 +222,7 @@ extension DJConnectWatchModel: WCSessionDelegate {
             if session.isReachable {
                 requestCompanionDemoSession()
                 scheduleDiagnosticTransfer()
+                readReceivedCompanionPairingResult()
                 sendCompanionPairingRegistration()
                 if isAppForeground, paired {
                     Task { await refreshStatus() }
@@ -368,6 +370,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
     private var analyzedPlaybackIdentity: String?
+    private var trackInsightRefreshID = UUID()
     @Published private(set) var isRefreshingStatus = false
     @Published private(set) var isRefreshingTrackInsight = false
     @Published private(set) var queueItems: [DJConnectQueueItem] = []
@@ -690,6 +693,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 startRuntimeDiagnosticsMonitor()
             }
             activateCompanionSession()
+            readReceivedCompanionPairingResult()
             readCompanionDemoSession()
             requestCompanionDemoSession()
             sendCompanionPairingRegistration()
@@ -1117,6 +1121,31 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         await refreshForegroundSession(force: true)
     }
 
+    // Render only the confirmed foreground Session, or the explicit phone demo snapshot.
+    var trackInsightMoodTheme: DJConnectSessionMoodTheme {
+        .init(sessionMood: isDemoMode ? companionDemoSession?.mood : foregroundSession.current()?.session?.selectedMood)
+    }
+
+    struct TrackInsightRefreshScope: Hashable {
+        let recording: String?
+        let sessionID: String?
+        let binding: String?
+        let owner: String
+        let mood: String
+        let language: String
+        let demo: Bool
+        let available: Bool
+    }
+
+    var trackInsightRefreshScope: TrackInsightRefreshScope {
+        let live = isDemoMode ? nil : foregroundSession.current()
+        return .init(recording: Self.trackInsightPlaybackIdentity(playback),
+                     sessionID: isDemoMode ? companionDemoSession?.id : live?.session?.id,
+                     binding: live?.settings.binding, owner: stableInstallID,
+                     mood: trackInsightMoodTheme.rawValue, language: language,
+                     demo: isDemoMode, available: isAppForeground && (isDemoMode || canUseBackend))
+    }
+
     var askDJMoodInt: Int {
         max(0, min(100, Int(askDJMood.rounded())))
     }
@@ -1260,6 +1289,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         WCSession.default.activate()
         isCompanionReachable = WCSession.default.isReachable
         companionPairingStatus = WCSession.default.isReachable ? "iPhone verbonden" : "Open DJConnect op je iPhone"
+        #endif
+    }
+
+    private func readReceivedCompanionPairingResult() {
+        #if canImport(WatchConnectivity)
+        guard !isDemoMode, WCSession.default.activationState == .activated else { return }
+        let context = WCSession.default.receivedApplicationContext
+        guard context["type"] as? String == "watch_proxy_pair_result" else { return }
+        // The receiver still validates device, intent, code and existing token.
+        applyCompanionPairingResult(context)
         #endif
     }
 
@@ -1716,14 +1755,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard DJConnectCurrentInsightSubject.isRecordingURI(recording), playback?.uri == recording,
               canUseBackend, isAppForeground, !isDemoMode,
               foregroundSession.current()?.settings.binding == binding else { return nil }
-        let owner = stableInstallID
+        let scope = trackInsightRefreshScope
         let requestedAt = Date()
         var request = DJConnectTrackInsightRequest(clientType: identity.clientType.rawValue,
-                                                  locale: language, mood: backendMoodHint)
+                                                  forceRefresh: true, locale: language, mood: backendMoodHint)
         request.trackInsightSubject = .init()
         do {
             let detail: DJConnectCurrentInsightDetail = try await sendCompanionHARequest(.trackInsight, payload: request)
-            guard !Task.isCancelled, canUseBackend, isAppForeground, stableInstallID == owner,
+            guard !Task.isCancelled, !isDemoMode, canUseBackend, isAppForeground,
+                  trackInsightRefreshScope == scope, playback?.uri == recording,
                   foregroundSession.current()?.settings.binding == binding,
                   let deadline = detail.subject.deadline(recording: recording, requestedAt: requestedAt, at: Date()) else { return nil }
             return (detail.insight, deadline)
@@ -1733,9 +1773,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func refreshTrackInsight() async {
-        guard !isRefreshingTrackInsight else {
-            return
-        }
+        let refreshID = UUID()
+        trackInsightRefreshID = refreshID
+        isRefreshingTrackInsight = false
+        let scope = trackInsightRefreshScope
         if isDemoMode {
             if !hasAppliedDemoState {
                 applyDemoState()
@@ -1759,7 +1800,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         guard let recording = Self.trackInsightPlaybackIdentity(playback) else { return }
         isRefreshingTrackInsight = true
-        defer { isRefreshingTrackInsight = false }
+        defer {
+            if trackInsightRefreshID == refreshID { isRefreshingTrackInsight = false }
+        }
         appendDiagnosticLog("Track Insight vernieuwen")
         do {
             let request = DJConnectTrackInsightRequest(
@@ -1779,12 +1822,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 includeRawResponse: true
             )
             let insight: TrackInsight = try await sendCompanionHARequest(.trackInsight, payload: request)
-            guard recording == Self.trackInsightPlaybackIdentity(playback) else { return }
+            guard !Task.isCancelled, trackInsightRefreshID == refreshID,
+                  trackInsightRefreshScope == scope,
+                  recording == Self.trackInsightPlaybackIdentity(playback) else { return }
             analyzedPlaybackIdentity = recording
             currentTrackInsight = insight
             statusMessage = "Track Insight bijgewerkt"
             appendDiagnosticLog("Track Insight vernieuwd")
         } catch {
+            guard !Task.isCancelled, trackInsightRefreshID == refreshID, trackInsightRefreshScope == scope else { return }
             statusMessage = Self.userMessage(for: error)
             appendDiagnosticLog("Track Insight vernieuwen mislukt: \(statusMessage)", level: .error)
         }

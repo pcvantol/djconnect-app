@@ -52,3 +52,49 @@ private func forYouData(_ wire: [String: Any]) throws -> Data { try JSONSerializ
         from: forYouData(["success": true, "for_you": ["schema_version": 1, "state": "dismissed", "visible": false]]))
     #expect(response.forYouDismissed && response.forYou == nil)
 }
+
+private func actualForYouMoodExamples() throws -> [[String: Any]] {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let fixture = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-mood-refresh-v1.json"))) as? [String: Any])
+    return try #require(fixture["examples"] as? [[String: Any]])
+}
+
+@Test func forYouAdoptsActualHALocalesRefreshStatusAndOriginalSpeakerContinuation() throws {
+    let examples = try actualForYouMoodExamples()
+    #expect(examples.count == 6)
+    for example in examples {
+        let offer = try JSONDecoder().decode(DJConnectForYou.self, from: forYouData(example["for_you"] as! [String: Any]))
+        #expect(offer.isSupported)
+        #expect(offer.language == example["language"] as? String)
+        #expect(offer.refresh_policy?.isSupported == true)
+        #expect(offer.refresh_request?.automatic != true)
+        if example["stage"] as? String == "original_speaker_continuation" {
+            let continuation = try #require(offer.continuation)
+            #expect(continuation.conversation_context == offer.conversation_context)
+            #expect(continuation.admittedOutputActions.count == 1)
+            #expect(continuation.admittedOutputActions.first?.resultSetID == continuation.result_set?.resultSetID)
+            #expect(continuation.admittedOutputActions.first?.resultSetID != offer.offer_id)
+        }
+        if example["stage"] as? String == "exact_mix_confirmed_once" { #expect(!offer.visible) }
+    }
+}
+
+@Test func forYouRejectsForeignContinuationAndAutomaticClientAuthority() throws {
+    let example = try #require(try actualForYouMoodExamples().first { $0["stage"] as? String == "original_speaker_continuation" })
+    let original = example["for_you"] as! [String: Any]
+    for field in ["execution", "automatic_playback", "retry_automatically"] {
+        var wire = original, policy = wire["refresh_policy"] as! [String: Any]
+        policy[field] = field == "execution" ? "client" : true
+        wire["refresh_policy"] = policy
+        #expect(try !JSONDecoder().decode(DJConnectForYou.self, from: forYouData(wire)).isSupported)
+    }
+    var wire = original, continuation = wire["continuation"] as! [String: Any]
+    var context = continuation["conversation_context"] as! [String: Any]
+    context["session_id"] = "foreign-session"; continuation["conversation_context"] = context
+    wire["continuation"] = continuation
+    #expect(try !JSONDecoder().decode(DJConnectForYou.self, from: forYouData(wire)).isSupported)
+    wire = original; continuation = wire["continuation"] as! [String: Any]
+    var first = continuation["first_play"] as! [String: Any]; first["state"] = "uncertain"
+    continuation["first_play"] = first; wire["continuation"] = continuation
+    #expect(try JSONDecoder().decode(DJConnectForYou.self, from: forYouData(wire)).continuation?.admittedOutputActions.isEmpty == true)
+}

@@ -25,30 +25,40 @@ struct TrackInsightSharePreviewView: View {
             DJConnectCanvasBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(localizedKey("trackInsight.share.share.track.insight"))
-                            .font(.title.bold())
+                    VStack(alignment: .leading, spacing: 16) {
+                        VStack(spacing: 16) {
+                            DJConnectHeroGlyph(systemImage: "square.and.arrow.up")
+                                .shadow(color: djConnectAccent.opacity(0.30), radius: 10)
+                            Text(localizedKey("trackInsight.share.share.track.insight"))
+                                .font(.title2.bold())
+                                .foregroundStyle(.white)
+                                .multilineTextAlignment(.center)
+                                .accessibilityAddTraits(.isHeader)
+                        }
+                        .frame(maxWidth: .infinity)
                         Text(localizedKey("trackInsight.share.create.a.share.card.or.short.animated.clip.from.this"))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
 
                     VStack(spacing: 14) {
-                TrackInsightShareSegmentControl(
-                    title: localizedKey("trackInsight.share.media"),
-                    options: TrackInsightShareMediaKind.allCases,
-                    selection: $mediaKind
-                ) { mediaKind in
-                    mediaKind.title(language: language)
-                }
+                        Grid(alignment: .trailing, horizontalSpacing: 12, verticalSpacing: 14) {
+                            TrackInsightShareSegmentControl(
+                                title: localizedKey("trackInsight.share.media"),
+                                options: TrackInsightShareMediaKind.allCases,
+                                selection: $mediaKind
+                            ) { mediaKind in
+                                mediaKind.title(language: language)
+                            }
 
-                TrackInsightShareSegmentControl(
-                    title: localizedKey("trackInsight.share.format"),
-                    options: TrackInsightShareFormat.allCases,
-                    selection: $format
-                ) { format in
-                    format.title(language: language)
-                }
+                            TrackInsightShareSegmentControl(
+                                title: localizedKey("trackInsight.share.format"),
+                                options: TrackInsightShareFormat.allCases,
+                                selection: $format
+                            ) { format in
+                                format.title(language: language)
+                            }
+                        }
 
                 previewCard
 
@@ -87,10 +97,10 @@ struct TrackInsightSharePreviewView: View {
                 }
                     }
                 }
-                .padding(djConnectCardSpacing)
+                .padding(24)
                 .djSessionFrostedSurface()
                 .frame(maxWidth: contentMaxWidth)
-                .padding(djConnectCardSpacing)
+                .padding(28)
                 .frame(maxWidth: .infinity, alignment: .top)
             }
             .defaultScrollAnchor(.top)
@@ -392,11 +402,10 @@ private struct TrackInsightShareSegmentControl<Option: Hashable & Identifiable>:
     let label: (Option) -> String
 
     var body: some View {
-        HStack(spacing: 12) {
+        GridRow(alignment: .center) {
             Text(title)
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.86))
-                .frame(width: 92, alignment: .trailing)
 
             HStack(spacing: 8) {
                 ForEach(options) { option in
@@ -424,7 +433,6 @@ private struct TrackInsightShareSegmentControl<Option: Hashable & Identifiable>:
                     .allowsHitTesting(false)
             }
         }
-        .frame(maxWidth: .infinity)
     }
 }
 

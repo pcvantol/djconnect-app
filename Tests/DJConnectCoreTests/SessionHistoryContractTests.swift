@@ -9838,7 +9838,7 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/command") })
 }
 
-@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss"])
+@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss", "server_refresh", "output_expiry", "output_replacement"])
 @MainActor func forYouUsesOriginalOfferWithoutPlaybackOrAutomaticRenewal(_ scenario: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let fixtureEnvelope = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-v1.json"))) as? [String: Any])
@@ -9900,6 +9900,27 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(projection.offer?.options.count == 3 && projection.canChoose)
     #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
     let option = try #require(projection.offer?.options.first)
+    if scenario == "server_refresh" {
+        let data = try Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-mood-refresh-v1.json"))
+        let envelope = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let examples = envelope["examples"] as! [[String: Any]]
+        let example = try #require(examples.first { $0["language"] as? String == "nl" && $0["stage"] as? String == "refreshed_offer" })
+        var incoming = example["for_you"] as! [String: Any]
+        incoming["session_id"] = sessionID; incoming["conversation_context"] = context
+        var policy = incoming["refresh_policy"] as! [String: Any]
+        policy["mood_revision"] = model.activeDJSession?.moodRevision ?? 0
+        incoming["refresh_policy"] = policy
+        let replacement = try JSONDecoder().decode(DJConnectForYou.self, from: historyData(incoming))
+        projection.observe(replacement, session: model.activeDJSession)
+        #expect(projection.offer?.offer_id == replacement.offer_id && projection.canChoose && !projection.canRefresh)
+        projection.renew(); await projection.refresh()
+        policy["mood_revision"] = (model.activeDJSession?.moodRevision ?? 0) + 1
+        incoming["refresh_policy"] = policy; incoming["offer_id"] = "wrong-revision"
+        projection.observe(try JSONDecoder().decode(DJConnectForYou.self, from: historyData(incoming)))
+        #expect(projection.offer?.offer_id == replacement.offer_id)
+        #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+        return
+    }
     if scenario == "expired" {
         projection.now = { Date().addingTimeInterval(61) }
         projection.choose(option); await projection.refresh()
@@ -9918,15 +9939,57 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(model.askDJDraft == "Mijn concept")
     if scenario == "dismiss" { #expect(projection.offer == nil) }
     else { #expect(projection.offer?.visible == true && !projection.canChoose) }
-    if scenario == "output" {
+    if ["output", "output_expiry", "output_replacement"].contains(scenario) {
         let result = try JSONDecoder().decode(DJConnectResultSet.self, from: historyData((old["output"] as! [String: Any])["result_set"]!))
         let speaker = try #require(result.admittedPlaybackActions.first)
+        #expect(projection.outputChoices.contains(speaker))
+        var polledOffer = offer
+        polledOffer["state"] = "awaiting_output"; polledOffer["actions_available"] = false
+        polledOffer["continuation"] = ["first_play": (old["output"] as! [String: Any])["first_play"]!,
+            "result_set": (old["output"] as! [String: Any])["result_set"]!,
+            "playback_actions": (old["output"] as! [String: Any])["playback_actions"]!,
+            "conversation_context": context, "expires_in": 60,
+            "mood_revision": model.activeDJSession?.moodRevision ?? 0] as [String: Any]
+        let readback = try JSONDecoder().decode(DJConnectForYou.self, from: historyData(polledOffer))
+        projection.observe(readback)
+        #expect(projection.outputChoices.contains(speaker))
+        if scenario == "output_replacement" {
+            var replacement = offer
+            replacement["offer_id"] = "replacement-offer"
+            var result = replacement["result_set"] as! [String: Any]
+            result["result_set_id"] = "replacement-offer"
+            result["items"] = (result["items"] as! [[String: Any]]).map { item in
+                var item = item; item["result_set_id"] = "replacement-offer"; return item
+            }
+            replacement["result_set"] = result
+            let next = try JSONDecoder().decode(DJConnectForYou.self, from: historyData(replacement))
+            #expect(next.isSupported)
+            projection.observe(next)
+            #expect(projection.outputChoices.isEmpty && projection.canChoose)
+            #expect(projection.handleOutput(speaker)) // The retired original bubble cannot use the legacy player.
+            #expect(fixture.requests.filter { $0.httpMethod == "POST" }.count == 1)
+            return
+        }
+        if scenario == "output_expiry" {
+            var wall = Date(), mono = ContinuousClock.now
+            projection.now = { wall }; projection.instant = { mono }
+            wall = wall.addingTimeInterval(50); mono = mono.advanced(by: .seconds(50))
+            projection.observe(readback) // Even a repeated 60-second lease cannot extend the original.
+            wall = wall.addingTimeInterval(11); mono = mono.advanced(by: .seconds(11))
+            #expect(projection.outputChoices.isEmpty)
+            #expect(projection.handleOutput(speaker))
+            #expect(fixture.requests.filter { $0.httpMethod == "POST" }.count == 1)
+            return
+        }
         let originalEntries = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timeline).entries
         let replyEntry = try #require(originalEntries.first { $0.originMessageID == assistant["id"] as? String })
         let bubble = try #require(model.sessionHistory.liveMessage(for: replyEntry, activeSessionID: sessionID))
         #expect(bubble.playbackActions.contains(speaker))
-        model.playAskDJRecommendation(speaker)
-        model.playAskDJRecommendation(speaker) // Duplicate consumes no additional effect.
+        #expect(projection.handleOutput(speaker)) // The inline card uses the same original action.
+        #expect(projection.outputChoices.isEmpty) // Consume immediately, before another tap.
+        projection.observe(readback) // A delayed poll cannot re-enable a consumed output action.
+        #expect(projection.outputChoices.isEmpty)
+        model.playAskDJRecommendation(speaker) // Duplicate from the Session bubble consumes no additional effect.
         for _ in 0..<200 where projection.busy { try await Task.sleep(for: .milliseconds(10)) }
     }
     let posts = fixture.requests.filter { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }

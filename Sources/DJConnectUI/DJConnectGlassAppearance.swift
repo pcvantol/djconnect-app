@@ -10,23 +10,63 @@ enum DJConnectGlassAppearance {
 }
 
 #if os(iOS) || os(macOS)
-/// Default actions use the same native glass as unselected Session choices.
-/// The surrounding app canvas supplies the purple tint, without painted gloss.
+/// One opaque, reference-matched surface for every primary action and default
+/// selected DJ choice. Live glass must not recolor it from the surrounding page.
 struct DJConnectPrimaryButtonSurface: View {
     var shape: AnyShape = AnyShape(Capsule())
+
+    private static let fill = Color(.displayP3, red: 93.0 / 255, green: 47.0 / 255, blue: 124.0 / 255)
+    private static let edgeFill = Color(.displayP3, red: 102.0 / 255, green: 53.0 / 255, blue: 135.0 / 255)
+    private static let border = Color(.displayP3, red: 190.0 / 255, green: 87.0 / 255, blue: 231.0 / 255)
+
+    var body: some View {
+        shape.fill(LinearGradient(stops: [
+            .init(color: Self.edgeFill, location: 0),
+            .init(color: Self.fill, location: 0.20),
+            .init(color: Self.fill, location: 0.80),
+            .init(color: Self.edgeFill, location: 1)
+        ], startPoint: .top, endPoint: .bottom))
+        .overlay { shape.stroke(Self.border, lineWidth: 1) }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The welcome start action uses the shared mood palette for its glass gradient.
+struct DJConnectSessionStartButtonSurface: View {
+    var shape: AnyShape = AnyShape(Capsule())
+    var mood: String? = nil
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var colors: [Color] {
+        let theme = DJConnectSessionMoodTheme(sessionMood: mood)
+        // Calm keeps the deep blue/purple tones of the Session canvas.
+        let values: [UInt32] = theme == .chill ? [0x243A78, 0x422875, 0x5B2E86] : theme.colorValues
+        return values.map { rgb in
+            Color(red: Double((rgb >> 16) & 255) / 255,
+                  green: Double((rgb >> 8) & 255) / 255, blue: Double(rgb & 255) / 255)
+        }
+    }
+    private var gradient: LinearGradient {
+        LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing)
+    }
 
     var body: some View {
         Group {
             if glassEnabled && !reduceTransparency {
-                shape.fill(.white.opacity(0.04))
-                    .glassEffect(.regular.interactive(), in: shape)
+                shape.fill(gradient)
+                    .glassEffect(.clear.interactive(), in: shape)
             } else {
-                shape.fill(DJConnectGlassAppearance.opaqueSurface)
+                shape.fill(gradient)
             }
         }
-        .clipShape(shape)
+        .overlay {
+            shape.stroke(LinearGradient(colors: [.white.opacity(0.75), .white.opacity(0.25)],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+        }
+        .shadow(color: (colors.first ?? .blue).opacity(0.28), radius: 12)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: mood)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }

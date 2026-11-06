@@ -1553,10 +1553,21 @@ struct SessionTimelineScreen: View {
 /// Shared by the mode picker and active Session preference selectors.
 extension DJConnectSessionMoodTheme {
     var controlSelectionColor: Color {
-        let rgb = colorValues[self == .groove ? 1 : 2]
-        return Color(red: Double((rgb >> 16) & 255) / 255 * 0.35,
-                     green: Double((rgb >> 8) & 255) / 255 * 0.35,
-                     blue: Double(rgb & 255) / 255 * 0.35)
+        let rgb = colorValues[self == .party || self == .energy || self == .groove ? 0 : 2]
+        let brightness = self == .energy || self == .groove ? 1.0 : (self == .party ? 0.86 : 0.35)
+        return Color(red: Double((rgb >> 16) & 255) / 255 * brightness,
+                     green: Double((rgb >> 8) & 255) / 255 * brightness,
+                     blue: Double(rgb & 255) / 255 * brightness)
+    }
+
+    var controlSelectionTint: Color { controlSelectionColor }
+
+    var controlSelectionButtonTint: Color { self == .chill ? djConnectAccent : controlSelectionTint }
+    var controlSelectionButtonFill: Color? { self == .chill ? nil : controlSelectionColor.opacity(0.90) }
+
+
+    var controlSelectionForegroundColor: Color {
+        self == .energy ? Color(red: 0.06, green: 0.08, blue: 0.20) : .white
     }
 }
 
@@ -1566,9 +1577,7 @@ struct SessionModeToggleButtons: View {
     var openVibeScape: (() -> Void)? = nil
     var isVibeScape = false
     var mood: String? = nil
-    private var selectionColor: Color {
-        DJConnectSessionMoodTheme(sessionMood: mood).controlSelectionColor
-    }
+    private var selectionTheme: DJConnectSessionMoodTheme { .init(sessionMood: mood) }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -1601,19 +1610,19 @@ struct SessionModeToggleButtons: View {
 
     private func modeButton(title: String, selected: Bool, identifier: String,
                             action: @escaping () -> Void) -> some View {
-        Button(title, action: action)
+        let foreground = selected ? selectionTheme.controlSelectionForegroundColor : Color.white.opacity(0.78)
+        return Button(title, action: action)
         .font(.headline)
-        .foregroundStyle(.white.opacity(selected ? 1 : 0.78))
+        .foregroundStyle(foreground)
         .lineLimit(1)
         .minimumScaleFactor(0.74)
         .frame(maxWidth: .infinity, minHeight: 48)
-        .background(selected ? selectionColor.opacity(0.80) : .clear,
-                    in: DJConnectCardAppearance.segmentedItemShape)
         .djConnectButtonStyle(DJConnectButtonStyle(
             emphasis: selected ? .selected : .secondary,
             shape: .segmented, expands: true, usesLiveGlass: true,
-            foregroundColor: .white.opacity(selected ? 1 : 0.78),
-            selectionTint: selectionColor
+            foregroundColor: foreground,
+            selectionTint: selectionTheme.controlSelectionButtonTint,
+            selectionFill: selectionTheme.controlSelectionButtonFill
         ))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier(identifier)
@@ -2873,7 +2882,7 @@ struct ConnectionRePairButton: View {
             Label(DJConnectLocalization.localized(key: "ui.connection.pair.again", language: language), systemImage: "link")
                 .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.glass)
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
         .controlSize(.large)
         .accessibilityIdentifier("connection-pair-again")
     }

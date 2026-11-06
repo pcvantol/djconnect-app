@@ -4,6 +4,12 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+- Match the Session welcome card to the active Session mood gradients, retain fixed vinyl artwork, and use a frosted-glass start action; start at Rustig while keeping Profile defaults intact.
+- Use matching proportional input fonts and neutral hints for pairing URL and code.
+
+- Use one opaque, reference-matched purple surface for every primary action and default selected DJ setting, independent of Glass or surrounding backgrounds.
+- Restore the blue/purple app canvas on camera-access and local-network pairing explanations.
+
 - Keep demo widgets in the active Session mood when the mood changes after startup.
 
 ### Apple build 40478
