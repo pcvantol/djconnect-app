@@ -1104,7 +1104,7 @@
 "ui.session.presence.occasional" = "Af en toe";
 "ui.session.presence.balanced" = "Gebalanceerd";
 "ui.session.presence.talkative" = "Praatgraag";
-"ui.session.presence.presenter" = "Presentator";
+"ui.session.presence.presenter" = "Vertellend";
 "ui.session.presence.title" = "DJ aanwezigheid";
 "ui.session.presence.explanation" = "Hoeveel vertelt de DJ tijdens je sessie?";
 "ui.session.presence.confirmed" = "Bevestigd";

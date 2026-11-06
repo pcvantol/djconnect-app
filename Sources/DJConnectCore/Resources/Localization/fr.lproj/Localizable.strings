@@ -1104,7 +1104,7 @@
 "ui.session.presence.occasional" = "De temps en temps";
 "ui.session.presence.balanced" = "Équilibré";
 "ui.session.presence.talkative" = "Bavard";
-"ui.session.presence.presenter" = "Présentateur";
+"ui.session.presence.presenter" = "Narratif";
 "ui.session.presence.title" = "Présence du DJ";
 "ui.session.presence.explanation" = "Combien le DJ raconte-t-il pendant votre session ?";
 "ui.session.presence.confirmed" = "Confirmé";
