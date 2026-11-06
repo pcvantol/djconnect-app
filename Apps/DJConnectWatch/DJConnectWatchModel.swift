@@ -5062,10 +5062,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             guard settings.allowsSpeech(.local, manualMomentType: replay.speech.momentType),
                   replay.speech.effectiveVoice?.processor == .haConfigured, replay.speech.audioState == "ready",
                   let audio = replay.audio, !audio.isEmpty else { throw DJConnectError.invalidResponse }
+            // watchOS establishes the route asynchronously. The original tap
+            // remains preparing until activation completes; SessionSpeech then
+            // rechecks its original ticket, source and deadline before output.
+            try await self.activateSessionReplayAudio()
             return (min(deadline, replay.expiresAt), { [weak self] finished in
                 guard let self else { return false }
-                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
-                try AVAudioSession.sharedInstance().setActive(true)
                 let fileType = audio.starts(with: Data("RIFF".utf8)) ? AVFileType.wav : .mp3
                 let player = try AVAudioPlayer(data: audio, fileTypeHint: fileType.rawValue)
                 guard player.prepareToPlay(), player.play() else {
@@ -5095,6 +5097,18 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             }
             return true
         })
+    }
+
+    private func activateSessionReplayAudio() async throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playback, mode: .spokenAudio)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            session.activate(options: []) { activated, error in
+                if let error { continuation.resume(throwing: error) }
+                else if activated { continuation.resume() }
+                else { continuation.resume(throwing: DJConnectError.invalidResponse) }
+            }
+        }
     }
 
     func previewDeviceSpeech() {

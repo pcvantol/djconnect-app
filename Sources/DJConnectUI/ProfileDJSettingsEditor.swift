@@ -124,8 +124,13 @@ struct ProfileDJSettingsEditor: View, Equatable {
         voice.kind == .providerDefault ? "default" : "voice/\((voice.provider_id ?? "").utf8.count):\(voice.provider_id ?? "")/\(voice.voice_id ?? "")"
     }
     var body: some View {
-        ScrollView { content }
-        .frame(height: min(620, max(1, contentHeight)))
+        ScrollView {
+            content.fixedSize(horizontal: false, vertical: true)
+        }
+        // The native popover can be shorter than our ideal height (iPad rotation,
+        // keyboard, large text). Its actual viewport must shrink so all rows scroll.
+        .frame(idealHeight: min(620, max(1, contentHeight)), maxHeight: 620)
+        .scrollBounceBehavior(.basedOnSize)
         .djConnectGlassPopoutSurface(nativePresentation: true)
         .tint(.white)
         .accentColor(.white)

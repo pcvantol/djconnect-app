@@ -353,3 +353,19 @@ func bulletinShared1328RejectsMixedDeliveryAndMissingOriginalAuthority(_ mutatio
     }
     #expect(value.nativeCurrentMoment(at: now) == nil && value.nativeFlowMoments(at: now).isEmpty)
 }
+
+@Test func bulletinPublisherCreditsHideOnlyInternalFeedIdentifiers() throws {
+    func source(_ license: String) throws -> DJConnectBulletinSource {
+        try bulletinDecode(["provider": "Publisher", "url": "https://example.org/news", "license": license,
+                            "title": "Headline", "published_at": "2026-11-06T18:00:00Z"])
+    }
+    for identifier in ["private_feed_headlines_v1", "private_feed_headline_v1"] {
+        let value = try source(identifier)
+        #expect(value.attributionLabel == "Publisher")
+        #expect(value.accessibilityLabel == "Publisher · Headline")
+        #expect(value.license == identifier) // preserve the authenticated provenance
+    }
+    let credited = try source("CC BY 4.0")
+    #expect(credited.attributionLabel == "Publisher · CC BY 4.0")
+    #expect(credited.accessibilityLabel == "Publisher · Headline · CC BY 4.0")
+}

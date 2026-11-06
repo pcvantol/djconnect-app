@@ -50,3 +50,17 @@ func forYouLandscapeMovesLocallyAndKeepsEveryTerrainBounded(_ theme: DJConnectSe
         }
     }
 }
+
+@Test func forYouPartyGenresHaveDifferentCompositionsNotJustDifferentWavePhases() {
+    let genres = ["progressive house", "rock", "children's music"]
+    let designs = genres.map { ForYouGenreLandscapeStyle(genre: $0, direction: "layered_dunes") }
+    #expect(designs[0].motif == .grid)
+    #expect(designs[1].motif == .ridges)
+    #expect(designs[2].motif == .bubbles)
+    let style = ForYouMoodLandscapeStyle(theme: .party)
+    let profiles = genres.map { genre in (0...24).map {
+        style.elevation(x: Double($0) / 24, layer: 1, seed: 0.3, direction: "layered_dunes",
+                        genre: genre, horizon: 0.44, depth: 0.2, phase: 0)
+    } }
+    #expect(Set(profiles).count == 3)
+}

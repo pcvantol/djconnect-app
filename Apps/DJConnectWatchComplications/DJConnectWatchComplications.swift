@@ -128,6 +128,7 @@ private struct WatchWidgetCover: View {
             if let cover {
                 Image(decorative: cover, scale: 1).resizable()
                     .widgetAccentedRenderingMode(.fullColor).scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             } else { Image(systemName: "music.note").foregroundStyle(.secondary) }
         }
         .padding(3)

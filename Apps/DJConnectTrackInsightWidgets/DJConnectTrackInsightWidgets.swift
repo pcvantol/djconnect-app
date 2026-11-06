@@ -342,8 +342,10 @@ private struct SessionActivityPresentation: View {
                     DJConnectSessionWatchObservationView(observation: observation)
                 } else if let playback {
                     HStack(spacing: 8) {
-                        VStack(spacing: 4) {
-                            SessionSurfaceAvatar(theme: snapshot.renderingTheme(at: now), side: 28)
+                        ActivityArtworkIdentity(snapshot: snapshot, stale: stale, side: 44)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(playback.track).font(.headline).foregroundStyle(.white)
+                                .lineLimit(2).minimumScaleFactor(0.8)
                             if playback.attribution["mark"] == "spotify",
                                let source = playback.attribution["url"], let url = URL(string: source) {
                                 Link(destination: url) {
@@ -353,9 +355,7 @@ private struct SessionActivityPresentation: View {
                                 }
                             }
                         }
-                        PassiveSessionContentView(contribution: nil, playback: playback, cache: nil,
-                            compact: true, activity: true, showsSpotifyCredit: false, showsHeader: false,
-                            theme: snapshot.renderingTheme(at: now), watchActivity: true, date: now)
+                        Spacer(minLength: 0)
                     }
                 } else {
                     HStack(spacing: 8) {
@@ -511,7 +511,9 @@ private struct PassiveSessionContentView: View {
             if let cover = decodedCover(slot: "now_playing", side: side - 8) {
                 // Fit the entire image inside the rounded card: no source crop.
                 Image(cover.image, scale: 3, label: Text(cover.label)).resizable()
-                    .widgetAccentedRenderingMode(.fullColor).scaledToFit().padding(4)
+                    .widgetAccentedRenderingMode(.fullColor).scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .padding(4)
             } else {
                 Image(systemName: "music.note").font(.system(size: side * 0.35))
                     .foregroundStyle(.white.opacity(0.5)).accessibilityHidden(true)
@@ -674,7 +676,9 @@ private struct PassiveSessionContentView: View {
     @ViewBuilder private func cover(slot: String) -> some View {
         if let cover = decodedCover(slot: slot, side: activity ? 64 : large ? 104 : compact ? 32 : 56) {
             Image(cover.image, scale: 3, label: Text(cover.label))
-                .resizable().widgetAccentedRenderingMode(.fullColor).scaledToFit().padding(4)
+                .resizable().widgetAccentedRenderingMode(.fullColor).scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .padding(4)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.28), lineWidth: 0.7) }
         }

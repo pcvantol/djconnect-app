@@ -68,7 +68,7 @@ struct SessionForecastTextView: View {
     }
 
     @ViewBuilder private func sectionText(_ section: DJConnectSessionForecast.Section) -> some View {
-        if section.id == "guidance", let guidance = queueGuidance(section.text) {
+        if section.id == "guidance", let guidance = DJConnectForecastQueueGuidance(text: section.text) {
             VStack(alignment: .leading, spacing: 12) {
                 Text(guidance.intro)
                 VStack(alignment: .leading, spacing: 7) {
@@ -86,24 +86,7 @@ struct SessionForecastTextView: View {
         }
     }
 
-    // Queue guidance v1 is authored as prose. Recognize only its quoted-track
-    // format and keep unrecognized producer text intact.
-    private func queueGuidance(_ value: String) -> (intro: String, tracks: [String], note: String)? {
-        guard let firstTrack = value.range(of: ": “"),
-              let noteStart = value.range(
-                of: #"\. (?=(?:De rode draad zoek ik|Zo ziet de wachtrij|I’ll look for a musical thread|That is the queue|Den musikalischen Faden|So sieht die Warteschlange|Je chercherai le fil musical|Voilà la file actuelle|Buscaré el hilo musical|Así está la cola))"#,
-                options: .regularExpression, range: firstTrack.upperBound..<value.endIndex
-              ) else { return nil }
-        let start = value.index(before: firstTrack.upperBound)
-        let tracks = value[start..<noteStart.lowerBound]
-            .replacingOccurrences(of: #"(?:, | (?:and|en|und|et|y) )(?=“[^”]+” — )"#,
-                                  with: "\n", options: .regularExpression)
-            .components(separatedBy: "\n")
-        guard (1...5).contains(tracks.count),
-              tracks.allSatisfy({ $0.range(of: #"^“[^”]+” — .+$"#, options: .regularExpression) != nil }) else { return nil }
-        return (String(value[..<start]).trimmingCharacters(in: .whitespaces),
-                tracks, String(value[noteStart.upperBound...]))
-    }
+
 }
 
 /// Standalone scroll host used by isolated component qualification.
