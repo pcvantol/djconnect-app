@@ -62,8 +62,9 @@ to Home Assistant policy; clients should avoid adding durable local personal
 cache for those request results.
 
 The idle Session welcome card owns a temporary start-mood choice, initially
-`chill`. Its background and vinyl illustration follow that choice; `chill`
-retains the original blue/purple welcome artwork. Starting passes the choice
+`chill`. Its card background uses the same mood-gradient renderer as the
+active Session. The vinyl illustration retains its fixed blue/purple artwork;
+the welcome start button uses the shared frosted-glass action surface. Starting passes the choice
 through the existing Session start mood field. Opening the card or changing
 this preview does not write Profile defaults. Presence and persona choices
 retain their existing backend Profile authority.

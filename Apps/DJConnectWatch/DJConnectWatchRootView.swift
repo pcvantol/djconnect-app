@@ -4382,21 +4382,30 @@ private struct DJConnectWatchCompanionPages: View {
             }
             .environment(\.layoutDirection, .leftToRight)
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .overlay(alignment: .bottom) {
-                if !isLoadingSession && visibleFlowRow == nil && mainPageOrder.count > 1 && pageIndicatorVisit != nil {
-                    HStack(spacing: 5) {
-                        ForEach(mainPageOrder, id: \.self) { mainPage in
-                            Circle()
-                                .fill(Color.white.opacity(page == mainPage ? 1 : 0.3))
-                                .frame(width: 6, height: 6)
+            .overlay {
+                // Pin the dots to the screen edge, below the home volume control,
+                // rather than to the TabView's bottom safe-area boundary.
+                GeometryReader { _ in
+                    VStack {
+                        Spacer(minLength: 0)
+                        if !isLoadingSession && visibleFlowRow == nil && mainPageOrder.count > 1 && pageIndicatorVisit != nil {
+                            HStack(spacing: 5) {
+                                ForEach(mainPageOrder, id: \.self) { mainPage in
+                                    Circle()
+                                        .fill(Color.white.opacity(page == mainPage ? 1 : 0.3))
+                                        .frame(width: 6, height: 6)
+                                }
+                            }
+                            .environment(\.layoutDirection, .leftToRight)
+                            .padding(.bottom, watchRowInset)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("\((mainPageOrder.firstIndex(of: page) ?? 0) + 1) / \(mainPageOrder.count)")
                         }
                     }
-                    .environment(\.layoutDirection, .leftToRight)
-                    .padding(.bottom, 5)
-                    .allowsHitTesting(false)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\((mainPageOrder.firstIndex(of: page) ?? 0) + 1) / \(mainPageOrder.count)")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 }
+                .ignoresSafeArea(.container, edges: .bottom)
+                .allowsHitTesting(false)
             }
             .onChange(of: page) { pageIndicatorVisit = UUID() }
             .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { drag in
