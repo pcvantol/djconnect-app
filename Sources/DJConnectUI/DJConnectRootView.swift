@@ -11029,13 +11029,9 @@ private struct AskDJView: View {
         #endif
     }
 
-    private var usesFloatingComposer: Bool {
-        #if os(iOS)
-        true
-        #else
-        false
-        #endif
-    }
+    // Ask DJ uses the same overlay/scroll-content inset as the Session on Mac
+    // too: the composer must not reserve a separate full-width row below the feed.
+    private var usesFloatingComposer: Bool { true }
     private func sendComposerQuestion() {
         guard canSend else { return }
         let previous = model.askDJMessages.last(where: { $0.role == .user })?.id
