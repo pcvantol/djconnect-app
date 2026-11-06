@@ -9156,8 +9156,15 @@ private struct IdleDJSessionView: View {
                 IdleSessionProfileChoices(model: model, mood: $selectedMood)
                 Button { Task { await model.startDJSession(mood: selectedMood) } } label: {
                     HStack(spacing: 12) {
-                        if model.isLoadingDJSession { ProgressView().tint(.white) }
-                        else { Image(systemName: "play.fill") }
+                        Group {
+                            if model.isLoadingDJSession {
+                                ProgressView().tint(.white)
+                            } else {
+                                DJPersonaAvatarView(confirmedMood: nil, language: model.language, activity: .resting)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .frame(width: 28, height: 28)
                         Text(localizedKey(model.language, "ui.session.start"))
                             .font(.headline)
                     }
