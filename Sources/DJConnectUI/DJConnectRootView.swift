@@ -2413,9 +2413,9 @@ private struct PairingEditableURLCard: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.62))
             HStack(spacing: 8) {
-                TextField("", text: $text, prompt: Text("http://homeassistant.local:8123").foregroundColor(.gray))
+                TextField("", text: $text, prompt: Text(verbatim: "http://homeassistant.local:8123").foregroundColor(.gray))
                     .foregroundColor(trimmedText == "http://homeassistant.local:8123" ? .gray : .primary)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.body)
                     #if os(iOS)
                     .textContentType(.URL)
                     #endif
@@ -2519,7 +2519,7 @@ private struct PairingCodeEntryCard: View {
                 .foregroundStyle(.white.opacity(0.62))
             TextField("", text: $text, prompt: Text(localizedKey(language, "ui.pair.code.placeholder.six.digits")).foregroundColor(.gray))
                 .foregroundColor(text.isEmpty ? .gray : .primary)
-                .font(.system(.title3, design: .monospaced).weight(.bold))
+                .font(.body)
                 .textContentType(.oneTimeCode)
                 .focused($isCodeFocused)
                 #if os(iOS)
