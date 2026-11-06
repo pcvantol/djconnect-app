@@ -2252,7 +2252,8 @@ public final class DJConnectClient: Sendable {
 
 // MARK: - Explicit passive Session presentation (frozen v1)
 public extension DJConnectClient {
-    func passiveSurfaceAvailable() async throws -> Bool {
+    func passiveSurfaceAvailable() async throws -> Bool { try await passiveSurfaceProjectionVersion() != nil }
+    func passiveSurfaceProjectionVersion() async throws -> Int? {
         struct Capability: Decodable {
             struct Descriptor: Decodable {
                 let version: Int
@@ -2266,27 +2267,36 @@ public extension DJConnectClient {
                 let read_side_effects: Bool
                 let background_delivery: Bool
                 let watch_replication: Bool
+                let projection_versions: [Int]?
+                let default_projection_version: Int?
             }
             let success: Bool
             let passive_session_surface: Descriptor?
         }
         let request = try sessionHistoryReadRequest(route: "capabilities")
         let response = try decoder.decode(Capability.self, from: await sessionArtworkTransport.prepare(request))
-        guard response.success, let c = response.passive_session_surface else { return false }
-        return c.version == 1 && c.owner_only && c.authentication == "paired_device_bearer" &&
+        guard response.success, let c = response.passive_session_surface else { return nil }
+        guard c.version == 1 && c.owner_only && c.authentication == "paired_device_bearer" &&
             c.authorize_path == "/api/djconnect/v1/session/surface/authorize" &&
             c.read_path == "/api/djconnect/v1/session/surface/read" &&
-            Set(c.surfaces) == Set(DJConnectPassiveSurface.allCases.map(\.rawValue)) && c.explicit_consent_required &&
-            c.max_cache_seconds == 120 && !c.read_side_effects && !c.background_delivery && !c.watch_replication
+            Set(c.surfaces).isSuperset(of: Set(DJConnectPassiveSurface.allCases.map(\.rawValue))) &&
+            Set(c.surfaces).isSubset(of: ["widget", "live_activity", "watch_widget"]) && c.explicit_consent_required &&
+            c.max_cache_seconds == 120 && !c.read_side_effects && !c.background_delivery && !c.watch_replication else { return nil }
+        if let versions = c.projection_versions {
+            guard c.default_projection_version == 1, versions.contains(1) else { return nil }
+            return versions.contains(3) ? 3 : 1
+        }
+        return 1
     }
 
     /// Call only for an explicit foreground choice bound to the current Session.
     /// A lost authorize response must not be replayed: it replaces the generation.
-    func authorizePassiveSurface(sessionID: String, surface: DJConnectPassiveSurface, enabled: Bool) async throws -> DJConnectPassiveSurfaceResponse? {
-        guard DJConnectPassiveSession.identifier(sessionID), [.ios, .macos].contains(identity.clientType) else { throw DJConnectError.invalidResponse }
-        let body: [String: Any] = ["contract_version": 1, "device_id": identity.deviceID, "client_type": identity.clientType.rawValue,
+    func authorizePassiveSurface(sessionID: String, surface: DJConnectPassiveSurface, enabled: Bool, projectionVersion: Int = 1) async throws -> DJConnectPassiveSurfaceResponse? {
+        guard [1, 3].contains(projectionVersion), DJConnectPassiveSession.identifier(sessionID), [.ios, .macos].contains(identity.clientType) else { throw DJConnectError.invalidResponse }
+        var body: [String: Any] = ["contract_version": 1, "device_id": identity.deviceID, "client_type": identity.clientType.rawValue,
             "session_id": sessionID, "surface": surface.rawValue, "enabled": enabled,
             "os_snapshot_cache": enabled, "locked_display": enabled && surface == .liveActivity]
+        if projectionVersion == 3 { body["projection_version"] = 3 }
         let request = try passiveSurfacePOST(path: "authorize", body: body)
         let data = try await sessionArtworkTransport.prepare(request)
         if !enabled {
@@ -2296,26 +2306,84 @@ public extension DJConnectClient {
             return nil
         }
         let r = try decoder.decode(DJConnectPassiveSurfaceResponse.self, from: data)
-        guard r.validates(sessionID: sessionID, surface: surface) else { throw DJConnectError.invalidResponse }
+        guard r.validates(sessionID: sessionID, surface: surface, projectionVersion: projectionVersion) else { throw DJConnectError.invalidResponse }
         return r
     }
 
-    func readPassiveSurface(sessionID: String, surface: DJConnectPassiveSurface, grantID: String) async throws -> DJConnectPassiveSurfaceResponse {
-        guard DJConnectPassiveSession.identifier(sessionID), DJConnectPassiveSession.identifier(grantID) else { throw DJConnectError.invalidResponse }
-        let request = try passiveSurfacePOST(path: "read", body: ["contract_version": 1, "device_id": identity.deviceID,
-            "client_type": identity.clientType.rawValue, "session_id": sessionID, "surface": surface.rawValue, "grant_id": grantID])
+    func readPassiveSurface(sessionID: String, surface: DJConnectPassiveSurface, grantID: String, projectionVersion: Int = 1) async throws -> DJConnectPassiveSurfaceResponse {
+        guard [1, 3].contains(projectionVersion), DJConnectPassiveSession.identifier(sessionID), DJConnectPassiveSession.identifier(grantID) else { throw DJConnectError.invalidResponse }
+        var body: [String: Any] = ["contract_version": 1, "device_id": identity.deviceID,
+            "client_type": identity.clientType.rawValue, "session_id": sessionID, "surface": surface.rawValue, "grant_id": grantID]
+        if projectionVersion == 3 { body["projection_version"] = 3 }
+        let request = try passiveSurfacePOST(path: "read", body: body)
         let r = try decoder.decode(DJConnectPassiveSurfaceResponse.self, from: await sessionArtworkTransport.prepare(request))
-        guard r.validates(sessionID: sessionID, surface: surface), r.grant_id == grantID else { throw DJConnectError.invalidResponse }
+        guard r.validates(sessionID: sessionID, surface: surface, projectionVersion: projectionVersion), r.grant_id == grantID else { throw DJConnectError.invalidResponse }
         return r
     }
 
     func passiveSurfaceImage(_ artwork: DJConnectPassiveSession.Artwork, response: DJConnectPassiveSurfaceResponse) async throws -> DJConnectSessionArtworkImage {
         let p = response.passive_session
-        guard response.validates(sessionID: p.session_id, surface: p.surface), p.isCurrent(at: Date()),
+        guard response.validates(sessionID: p.session_id, surface: p.surface, projectionVersion: p.schema_version), p.isCurrent(at: Date()),
               p.currentArtwork(slot: artwork.slot, at: Date()) == artwork else { throw DJConnectError.invalidResponse }
+        var query: [URLQueryItem] = [.init(name: "contract_version", value: "1"), .init(name: "surface", value: p.surface.rawValue),
+            .init(name: "grant_id", value: response.grant_id)]
+        if p.schema_version == 3 { query.append(.init(name: "projection_version", value: "3")) }
+        let request = try pairedOwnerReadRequest(path: artwork.image_path, queryItems: query)
+        return try await sessionArtworkTransport.load(request, width: artwork.width, height: artwork.height)
+    }
+
+    func watchWidgetAvailable() async throws -> Bool {
+        guard identity.clientType == .watchos else { return false }
+        struct Capabilities: Decodable {
+            struct Descriptor: Decodable {
+                struct Watch: Decodable {
+                    let scope: String; let surface: String; let client_type: String
+                    let contract_version: Int; let projection_version: Int
+                    let explicit_consent_required: Bool; let locked_display_required: Bool; let background_delivery: Bool
+                }
+                let version: Int; let owner_only: Bool; let authentication: String
+                let max_cache_seconds: Int; let read_side_effects: Bool; let background_delivery: Bool; let watch_replication: Bool
+                let watch_widget: Watch?
+            }
+            let success: Bool; let passive_session_surface: Descriptor?
+        }
+        let request = try sessionHistoryReadRequest(route: "capabilities")
+        let r = try decoder.decode(Capabilities.self, from: await sessionArtworkTransport.prepare(request))
+        guard r.success, let c = r.passive_session_surface, let w = c.watch_widget else { return false }
+        return c.version == 1 && c.owner_only && c.authentication == "paired_device_bearer" && c.max_cache_seconds == 120 &&
+            !c.read_side_effects && !c.background_delivery && !c.watch_replication &&
+            w.scope == "paired_watch_widget_v1" && w.surface == "watch_widget" && w.client_type == "watchos" &&
+            w.contract_version == 1 && w.projection_version == 1 && w.explicit_consent_required && w.locked_display_required && !w.background_delivery
+    }
+    func authorizeWatchWidget(sessionID: String, enabled: Bool) async throws -> DJConnectWatchWidgetResponse? {
+        guard identity.clientType == .watchos, DJConnectPassiveSession.identifier(sessionID) else { throw DJConnectError.invalidResponse }
+        let body: [String: Any] = ["contract_version": 1, "projection_version": 1, "device_id": identity.deviceID,
+            "client_type": "watchos", "session_id": sessionID, "surface": "watch_widget", "enabled": enabled,
+            "os_snapshot_cache": enabled, "locked_display": true]
+        let bytes = try await sessionArtworkTransport.prepare(passiveSurfacePOST(path: "authorize", body: body))
+        if !enabled {
+            struct Disabled: Decodable { let success: Bool; let contract_version: Int; let state: String }
+            let value = try decoder.decode(Disabled.self, from: bytes)
+            guard value.success, value.contract_version == 1, value.state == "disabled" else { throw DJConnectError.invalidResponse }
+            return nil
+        }
+        let r = try decoder.decode(DJConnectWatchWidgetResponse.self, from: bytes)
+        guard r.validates(sessionID: sessionID) else { throw DJConnectError.invalidResponse }; return r
+    }
+    func readWatchWidget(sessionID: String, grantID: String) async throws -> DJConnectWatchWidgetResponse {
+        guard identity.clientType == .watchos, [sessionID, grantID].allSatisfy(DJConnectPassiveSession.identifier) else { throw DJConnectError.invalidResponse }
+        let request = try passiveSurfacePOST(path: "read", body: ["contract_version": 1, "projection_version": 1,
+            "device_id": identity.deviceID, "client_type": "watchos", "session_id": sessionID, "surface": "watch_widget", "grant_id": grantID])
+        let r = try decoder.decode(DJConnectWatchWidgetResponse.self, from: await sessionArtworkTransport.prepare(request))
+        guard r.validates(sessionID: sessionID), r.grant_id == grantID else { throw DJConnectError.invalidResponse }; return r
+    }
+    func watchWidgetImage(_ response: DJConnectWatchWidgetResponse) async throws -> DJConnectSessionArtworkImage {
+        let p = response.passive_session
+        guard identity.clientType == .watchos, response.validates(sessionID: p.session_id),
+              let artwork = p.currentArtwork(at: Date()) else { throw DJConnectError.invalidResponse }
         let request = try pairedOwnerReadRequest(path: artwork.image_path, queryItems: [
-            .init(name: "contract_version", value: "1"), .init(name: "surface", value: p.surface.rawValue),
-            .init(name: "grant_id", value: response.grant_id)])
+            .init(name: "contract_version", value: "1"), .init(name: "projection_version", value: "1"),
+            .init(name: "surface", value: "watch_widget"), .init(name: "grant_id", value: response.grant_id)])
         return try await sessionArtworkTransport.load(request, width: artwork.width, height: artwork.height)
     }
 

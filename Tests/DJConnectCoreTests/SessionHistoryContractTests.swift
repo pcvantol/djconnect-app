@@ -9838,7 +9838,7 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/command") })
 }
 
-@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss", "server_refresh", "output_expiry", "output_replacement"])
+@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss", "server_refresh", "manual_refresh", "output_expiry", "output_replacement"])
 @MainActor func forYouUsesOriginalOfferWithoutPlaybackOrAutomaticRenewal(_ scenario: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let fixtureEnvelope = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-v1.json"))) as? [String: Any])
@@ -9900,7 +9900,7 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(projection.offer?.options.count == 3 && projection.canChoose)
     #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
     let option = try #require(projection.offer?.options.first)
-    if scenario == "server_refresh" {
+    if scenario == "server_refresh" || scenario == "manual_refresh" {
         let data = try Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-mood-refresh-v1.json"))
         let envelope = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let examples = envelope["examples"] as! [[String: Any]]
@@ -9912,8 +9912,22 @@ private final class StartupReadFailure: @unchecked Sendable {
         incoming["refresh_policy"] = policy
         let replacement = try JSONDecoder().decode(DJConnectForYou.self, from: historyData(incoming))
         projection.observe(replacement, session: model.activeDJSession)
-        #expect(projection.offer?.offer_id == replacement.offer_id && projection.canChoose && !projection.canRefresh)
-        projection.renew(); await projection.refresh()
+        #expect(projection.offer?.offer_id == replacement.offer_id && projection.canChoose && projection.canRefresh)
+        if scenario == "manual_refresh" {
+            projection.now = { Date().addingTimeInterval(61) }
+            #expect(!projection.canChoose && projection.canRefresh)
+            projection.renew(); projection.renew()
+            for _ in 0..<200 where projection.busy { try await Task.sleep(for: .milliseconds(10)) }
+            let posts = fixture.requests.filter { $0.httpMethod == "POST" }
+            #expect(posts.count == 1)
+            let sent = try #require(posts.first)
+            let bodyData = try presenceRequestBody(sent)
+            let body = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+            #expect(body["text"] as? String == replacement.refresh_request?.prompt)
+            #expect(body["choice_action"] == nil)
+            return
+        }
+        await projection.refresh()
         policy["mood_revision"] = (model.activeDJSession?.moodRevision ?? 0) + 1
         incoming["refresh_policy"] = policy; incoming["offer_id"] = "wrong-revision"
         projection.observe(try JSONDecoder().decode(DJConnectForYou.self, from: historyData(incoming)))

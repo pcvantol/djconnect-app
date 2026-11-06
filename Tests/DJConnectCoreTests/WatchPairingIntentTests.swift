@@ -2,6 +2,40 @@ import Foundation
 import Testing
 @testable import DJConnectCore
 
+@Test func watchQRSetupKeepsReceiverCorrelationSeparateFromHomeAssistantCode() throws {
+    let receiver = try #require(DJConnectWatchPairingIntent(deviceID: "djconnect-watchos-qr-regression",
+        identifier: "11111111-1111-4111-8111-111111111111", pairCode: "123456"))
+    let setup = try #require(DJConnectWatchPairingSetup(receiver: receiver, homeAssistantPairCode: "654321"))
+    #expect(setup.homeAssistantPairCode == "654321" && setup.receiver == receiver)
+    var token: String?
+    // This is the old phone bug: echoing the HA QR code is rejected by the Watch.
+    #expect(try !receiver.receive(deviceID: receiver.deviceID, identifier: receiver.identifier,
+        pairCode: setup.homeAssistantPairCode, token: "synthetic-token", save: { token = $0 }))
+    #expect(token == nil)
+    for _ in 0..<2 {
+        #expect(try receiver.receive(deviceID: setup.receiver.deviceID, identifier: setup.receiver.identifier,
+            pairCode: setup.receiver.pairCode, token: "synthetic-token", existingToken: token, save: { token = $0 }))
+    }
+    let reset = try #require(DJConnectWatchPairingIntent(deviceID: receiver.deviceID,
+        identifier: "22222222-2222-4222-8222-222222222222", pairCode: "123456"))
+    #expect(try !reset.receive(deviceID: setup.receiver.deviceID, identifier: setup.receiver.identifier,
+        pairCode: setup.receiver.pairCode, token: "synthetic-token", save: { _ in Issue.record("Stale completion stored") }))
+    #expect(DJConnectWatchPairingSetup(receiver: receiver, homeAssistantPairCode: "bad") == nil)
+    #expect(!String(reflecting: setup).contains("654321"))
+    let legacy = try #require(DJConnectWatchPairingIntent(deviceID: receiver.deviceID,
+        identifier: receiver.identifier, pairCode: setup.homeAssistantPairCode))
+    let recovered = try #require(DJConnectWatchPairingSetup.recoverLegacyConfirmed(receiver: receiver,
+        stored: legacy, separatedCode: nil, confirmed: true, hasStoredToken: true))
+    #expect(recovered.receiver == receiver && recovered.homeAssistantPairCode == "654321")
+    for (target, confirmed, tokenPresent, separated) in [
+        (reset, true, true, nil as String?), (receiver, false, true, nil),
+        (receiver, true, false, nil), (receiver, true, true, "654321")
+    ] {
+        #expect(DJConnectWatchPairingSetup.recoverLegacyConfirmed(receiver: target, stored: legacy,
+            separatedCode: separated, confirmed: confirmed, hasStoredToken: tokenPresent) == nil)
+    }
+}
+
 private let watchPairIntentA = "11111111-1111-4111-8111-111111111111"
 private let watchPairIntentB = "22222222-2222-4222-8222-222222222222"
 

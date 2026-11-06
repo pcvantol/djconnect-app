@@ -349,9 +349,9 @@ private final class PassiveWire: @unchecked Sendable {
         self.handler = handler; Self.lock.withLock { Self.wires[host] = self }
     }
     func close() { _ = Self.lock.withLock { Self.wires.removeValue(forKey: host) } }
-    func client() -> DJConnectClient {
+    func client(identity: DJConnectIdentity? = nil) -> DJConnectClient {
         let c = URLSessionConfiguration.ephemeral; c.protocolClasses = [PassiveURLProtocol.self]
-        return DJConnectClient(baseURL: URL(string: "https://" + host)!, identity: .init(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios), tokenStore: DJConnectInMemoryTokenStore(token: "fixture-passive-token"), session: URLSession(configuration: c))
+        return DJConnectClient(baseURL: URL(string: "https://" + host)!, identity: identity ?? .init(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios), tokenStore: DJConnectInMemoryTokenStore(token: "fixture-passive-token"), session: URLSession(configuration: c))
     }
 }
 private final class PassiveURLProtocol: URLProtocol, @unchecked Sendable {
@@ -816,4 +816,198 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
     }
     #expect(samples == 2)
     #expect(defaults.data(forKey: DJConnectPassiveSurfaceCache.key(.widget)) == nil)
+}
+
+private func passiveProgressV3Fixture() throws -> [String: Any] {
+    let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/passive-progress-v3-core-wire.json")
+    return try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+}
+
+@Test(.isolatedClientResources) func passiveV3ActivityTrackOutlivesOnlyTheShorterContributionWithinItsOwnLease() throws {
+    let fixture = try passiveProgressV3Fixture()
+    let examples = try #require(fixture["examples"] as? [[String: Any]])
+    let root = try #require(examples[1]["passive_session"] as? [String: Any])
+    let p = try JSONDecoder().decode(DJConnectPassiveSession.self, from: JSONSerialization.data(withJSONObject: root))
+    let now = try #require(DJConnectHistoryEntry.date(p.as_of))
+    let cache = try DJConnectPassiveSurfaceCache(projection: p, at: now)
+    let activity = try #require(DJConnectPassiveActivityContent(cache: cache, at: now))
+    #expect(activity.foregroundProjectionVersion == 3 && activity.directLocalVersion == nil)
+    #expect(activity.contribution == nil && activity.nowPlaying == p.now_playing)
+    #expect(activity.expiresAt == DJConnectHistoryEntry.date(p.expires_at))
+    let later = try #require(DJConnectHistoryEntry.date(p.contribution!.expires_at)).addingTimeInterval(1)
+    #expect(activity.isCurrent(at: later))
+    #expect(p.currentPlayback(at: later) != nil && p.currentContribution(at: later) == nil)
+    #expect(!activity.isCurrent(at: activity.expiresAt))
+    let decoded = try JSONDecoder().decode(DJConnectPassiveActivityContent.self, from: JSONEncoder().encode(activity))
+    #expect(decoded == activity)
+}
+
+@Test(.isolatedClientResources) func watchWidgetAcceptsOnlyItsMinimalOwnPurposeAndOriginalLease() throws {
+    let fixture = try passiveProgressV3Fixture()
+    let examples = try #require(fixture["examples"] as? [[String: Any]])
+    let root = try #require(examples[2]["passive_session"] as? [String: Any])
+    func decode(_ root: [String: Any]) throws -> DJConnectWatchWidgetProjection {
+        try JSONDecoder().decode(DJConnectWatchWidgetProjection.self, from: JSONSerialization.data(withJSONObject: root))
+    }
+    let p = try decode(root), changed = try decode(try #require(examples[4]["passive_session"] as? [String: Any]))
+    let now = try #require(DJConnectHistoryEntry.date(p.as_of))
+    #expect(p.isValid && changed.isValid)
+    #expect(p.mood.value != changed.mood.value && changed.mood.revision > p.mood.revision)
+    let cache = try DJConnectWatchWidgetCache(projection: p, at: now, uptime: 100)
+    #expect(cache.isCurrent(at: now, uptime: 100))
+    #expect(!cache.isCurrent(at: now, uptime: 99))
+    #expect(!cache.isCurrent(at: try #require(DJConnectHistoryEntry.date(p.expires_at)), uptime: 220))
+    var wrong = root; wrong["surface"] = "widget"
+    #expect(try !decode(wrong).isValid)
+    wrong = root; wrong["contribution"] = ["text": "Phone data must not be admitted"]
+    #expect(throws: (any Error).self) { try decode(wrong) }
+    wrong = root
+    var track = try #require(root["now_playing"] as? [String: Any]); track["artist"] = "Not in Watch contract"
+    wrong["now_playing"] = track
+    #expect(throws: (any Error).self) { try decode(wrong) }
+    wrong = root
+    var artwork = try #require(root["artwork"] as? [[String: Any]])
+    var rights = try #require(artwork[0]["rights"] as? [String: Any]); rights["paired_watch_cache"] = false
+    artwork[0]["rights"] = rights; wrong["artwork"] = artwork
+    #expect(try !decode(wrong).isValid)
+    wrong = root; wrong["state"] = "withdrawn"
+    #expect(try !decode(wrong).isValid)
+}
+
+@Test func watchWidgetLocalChoiceCannotMigrateAcrossOwnerProfilePairingOrPurpose() throws {
+    let choice = DJConnectWatchWidgetConsent(owner: "own-watch", binding: "profile-A", pairing: "pair-A")
+    let bytes = try JSONEncoder().encode(choice)
+    let saved = try JSONDecoder().decode(DJConnectWatchWidgetConsent.self, from: bytes)
+    #expect(saved.matches(owner: "own-watch", binding: "profile-A", pairing: "pair-A"))
+    #expect(!saved.matches(owner: "phone", binding: "profile-A", pairing: "pair-A"))
+    #expect(!saved.matches(owner: "own-watch", binding: "profile-B", pairing: "pair-A"))
+    #expect(!saved.matches(owner: "own-watch", binding: "profile-A", pairing: "pair-reset"))
+    var old = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+    old["purpose"] = "legacy-launcher"
+    let legacy = try JSONDecoder().decode(DJConnectWatchWidgetConsent.self, from: JSONSerialization.data(withJSONObject: old))
+    #expect(!legacy.matches(owner: "own-watch", binding: "profile-A", pairing: "pair-A"))
+    #expect(old["grant_id"] == nil && old["token"] == nil)
+}
+
+@Test(.isolatedClientResources) func watchWidgetTransportPinsOwnIdentityPurposeGrantAndVersion() async throws {
+    let fixture = try passiveProgressV3Fixture()
+    let examples = try #require(fixture["examples"] as? [[String: Any]])
+    let original = try #require(examples[2]["passive_session"] as? [String: Any])
+    let old = try #require((original["as_of"] as? String).flatMap(DJConnectHistoryEntry.date))
+    let shift = Date().timeIntervalSince(old) - 0.05
+    let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    func shifted(_ value: Any) -> Any {
+        if let object = value as? [String: Any] { return object.mapValues(shifted) }
+        if let array = value as? [Any] { return array.map(shifted) }
+        if let string = value as? String, let date = DJConnectHistoryEntry.date(string) {
+            return formatter.string(from: date.addingTimeInterval(shift))
+        }
+        return value
+    }
+    let projection = try #require(shifted(original) as? [String: Any])
+    let sessionID = try #require(projection["session_id"] as? String)
+    let root: [String: Any] = ["success": true, "contract_version": 1, "grant_id": "own-watch-fixture-grant", "passive_session": projection]
+    let bytes = try JSONSerialization.data(withJSONObject: root), png = try passivePNG()
+    let caps = try JSONSerialization.data(withJSONObject: ["success": true, "passive_session_surface": fixture["capabilities"]!])
+    let wire = PassiveWire { request in
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-passive-token")
+        if request.url?.path.hasSuffix("capabilities") == true { return (200, "application/json", caps) }
+        if request.httpMethod == "GET" {
+            let q = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+            #expect(q.contains(.init(name: "projection_version", value: "1")))
+            #expect(q.contains(.init(name: "surface", value: "watch_widget")))
+            #expect(q.contains(.init(name: "grant_id", value: "own-watch-fixture-grant")))
+            return (200, "image/png", png)
+        }
+        let body = try passiveBody(request)
+        #expect(body["device_id"] as? String == "djconnect-watchos-ABCDEF123456")
+        #expect(body["client_type"] as? String == "watchos")
+        #expect(body["surface"] as? String == "watch_widget" && body["projection_version"] as? Int == 1)
+        #expect(body["session_id"] as? String == sessionID)
+        if request.url?.path.hasSuffix("read") == true {
+            #expect(body["grant_id"] as? String == "own-watch-fixture-grant")
+        } else { #expect(body["locked_display"] as? Bool == true && body["os_snapshot_cache"] as? Bool == true) }
+        return (200, "application/json", bytes)
+    }
+    defer { wire.close() }
+    let client = wire.client(identity: .init(deviceID: "djconnect-watchos-ABCDEF123456", deviceName: "Watch fixture",
+        clientType: .watchos, firmware: "4.0.0", platform: .watchos))
+    #expect(try await client.watchWidgetAvailable())
+    #expect(try await wire.client().watchWidgetAvailable() == false)
+    let authorized = try #require(await client.authorizeWatchWidget(sessionID: sessionID, enabled: true))
+    let read = try await client.readWatchWidget(sessionID: sessionID, grantID: authorized.grant_id)
+    #expect(read.passive_session.currentTrack(at: Date()) != nil)
+    let image = try await client.watchWidgetImage(read)
+    #expect(image.image.width > 0)
+    await #expect(throws: (any Error).self) { try await wire.client().readWatchWidget(sessionID: sessionID, grantID: authorized.grant_id) }
+}
+private func passiveProgressV3Response(at now: Date? = nil) throws -> DJConnectPassiveSurfaceResponse {
+    let fixture = try passiveProgressV3Fixture()
+    let examples = try #require(fixture["examples"] as? [[String: Any]])
+    var projection = try #require(examples.first?["passive_session"] as? [String: Any])
+    if let now {
+        let old = try #require(DJConnectHistoryEntry.date(projection["as_of"] as! String))
+        let shift = now.timeIntervalSince(old)
+        let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        func shifted(_ value: Any) -> Any {
+            if let dictionary = value as? [String: Any] { return dictionary.mapValues(shifted) }
+            if let array = value as? [Any] { return array.map(shifted) }
+            if let value = value as? String, let date = DJConnectHistoryEntry.date(value) {
+                return formatter.string(from: date.addingTimeInterval(shift))
+            }
+            return value
+        }
+        projection = shifted(projection) as! [String: Any]
+    }
+    return try passiveDecode(["success": true, "contract_version": 1,
+        "grant_id": "synthetic-v3-grant", "passive_session": projection])
+}
+@Test(.isolatedClientResources) func passiveV3ProgressRequiresSelectedVersionAndStopsAtOriginalSampleExpiry() throws {
+    let response = try passiveProgressV3Response(), p = response.passive_session
+    #expect(p.isValid)
+    #expect(!response.validates(sessionID: p.session_id, surface: .widget))
+    #expect(response.validates(sessionID: p.session_id, surface: .widget, projectionVersion: 3))
+    let track = try #require(p.now_playing), progress = try #require(track.progress)
+    let start = try #require(DJConnectHistoryEntry.date(progress.observed_at))
+    let fraction = try #require(progress.fraction(at: start.addingTimeInterval(1), playback: track, state: "playing"))
+    #expect(abs(fraction - Double(progress.position_ms + 1000) / Double(progress.duration_ms)) < 0.000001)
+    #expect(progress.fraction(at: start.addingTimeInterval(-1), playback: track, state: "playing") == nil)
+    #expect(progress.fraction(at: start, playback: track, state: "paused") == nil)
+    #expect(progress.fraction(at: try #require(DJConnectHistoryEntry.date(progress.expires_at)), playback: track, state: "playing") == nil)
+    let afterContribution = try #require(DJConnectHistoryEntry.date(p.contribution!.expires_at)).addingTimeInterval(1)
+    let trimmed = p.removingExpiredFields(at: afterContribution)
+    #expect(trimmed.isValid && trimmed.currentContribution(at: afterContribution) == nil)
+    #expect(trimmed.currentPlayback(at: afterContribution)?.item_id == track.item_id)
+    #expect(trimmed.expires_at == p.expires_at && trimmed.now_playing?.progress == progress)
+}
+@Test(.isolatedClientResources) func passiveV3TransportNegotiatesAndPinsProjectionOnAuthorizeReadAndImage() async throws {
+    let fixture = try passiveProgressV3Fixture(), r = try passiveProgressV3Response(at: Date()), p = r.passive_session
+    let response = try JSONEncoder().encode(p)
+    let root: [String: Any] = ["success": true, "contract_version": 1, "grant_id": r.grant_id,
+        "passive_session": try JSONSerialization.jsonObject(with: response)]
+    let data = try JSONSerialization.data(withJSONObject: root)
+    let caps = try JSONSerialization.data(withJSONObject: ["success": true, "passive_session_surface": fixture["capabilities"]!])
+    let png = try passivePNG()
+    let wire = PassiveWire { request in
+        if request.url?.path.hasSuffix("capabilities") == true { return (200, "application/json", caps) }
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-passive-token")
+        if request.httpMethod == "GET" {
+            let q = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+            #expect(q.contains(.init(name: "projection_version", value: "3")))
+            #expect(q.contains(.init(name: "grant_id", value: r.grant_id)))
+            return (200, "image/png", png)
+        }
+        let body = try passiveBody(request)
+        #expect(body["projection_version"] as? Int == 3 && body["surface"] as? String == "widget")
+        return (200, "application/json", data)
+    }
+    defer { wire.close() }
+    let client = wire.client()
+    #expect(try await client.passiveSurfaceProjectionVersion() == 3)
+    let accepted = try #require(await client.authorizePassiveSurface(sessionID: p.session_id, surface: .widget, enabled: true, projectionVersion: 3))
+    let read = try await client.readPassiveSurface(sessionID: p.session_id, surface: .widget, grantID: accepted.grant_id, projectionVersion: 3)
+    let cover = try #require(read.passive_session.artwork.first)
+    let image = try await client.passiveSurfaceImage(cover, response: read)
+    #expect(image.image.width == cover.width && image.image.height == cover.height)
 }

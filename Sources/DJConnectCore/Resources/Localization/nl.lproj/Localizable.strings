@@ -1725,5 +1725,7 @@
 "ui.session.welcome.presence.explanation" = "Hoe vaak je DJ iets vertelt";
 "ui.session.welcome.persona.explanation" = "De stijl en toon van je DJ";
 "watch.game.resume" = "Hervat";
+"watch.widget.track_cover" = "Tracknaam en hoes";
+"watch.widget.locked_explanation" = "Toon de tracknaam en albumhoes in Smart Stack, ook wanneer je Watch is vergrendeld.";
 "ui.for_you.choose_output" = "Kies waar je deze mix wilt afspelen.";
 "ui.for_you.preparing" = "Nieuwe mixkeuzes voor je stemming worden klaargezet…";

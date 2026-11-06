@@ -14203,6 +14203,56 @@ func volumeControlFailureIsLocalized(language: String) throws {
     #expect(model.canControlPlaybackVolume)
 }
 
+@MainActor
+@Test(.isolatedClientResources, arguments: ["set_volume", "volume_delta"], ["http", "envelope", "capability", "wire_capability", "wire_failure"])
+func volumeCommandRefusalDoesNotBecomeGlobalBackendFailure(command: String, kind: String) async throws {
+    let host = "volume-action-" + UUID().uuidString.lowercased() + ".local"
+    let requests = RequestRecorder()
+    let capability = kind == "capability" || kind == "wire_capability"
+    var body: [String: Any] = ["success": false,
+        "error": capability ? "unsupported_backend_capability" : "backend_unavailable",
+        "backend_available": capability, "music_backend_available": capability,
+        "message": capability ? "Player command failed: Cannot control device volume"
+            : "The configured playback backend is unavailable."]
+    if kind.hasPrefix("wire_") {
+        let error = capability ? "unsupported_backend_capability" : "volume_command_failed"
+        body = ["success": false, "command": command, "error_scope": "command",
+            "retry_automatically": false, "error": error, "message": error]
+        if capability {
+            body["capability"] = "supports_volume"
+            body["backend"] = "spotify_direct"
+            body["backend_available"] = true
+        }
+    }
+    let data = try JSONSerialization.data(withJSONObject: body)
+    let session = mockSession(host: host) { request in
+        requests.append(request)
+        return (try httpResponse(for: request, statusCode: kind == "http" ? 503 : 200), data)
+    }
+    let model = makePairedMusicDNAModel(defaults: try testDefaults(), host: host, session: session)
+    model.language = "nl"
+    model.isConnected = true; model.backendAvailable = true
+    model.playback = DJConnectPlayback(volumePercent: 50,
+        device: DJConnectPlaybackDevice(id: "phone", name: "iPhone", active: true, supportsVolume: true))
+    model.djResponseText = "Original Session contribution"
+    model.voiceStatus = .idle
+    var finished = false
+    model.sendPlaybackCommand(command, value: .int(command == "set_volume" ? 45 : -5),
+        onUnconfirmed: { finished = true })
+    for _ in 0..<100 where !finished { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(finished)
+    #expect(requests.requests.count == 1) // A volume write must never be replayed on fallback.
+    #expect(model.isConnected && model.backendAvailable && model.pairingStatus == .paired)
+    #expect(model.voiceStatus == .idle && model.voiceErrorMessage == nil)
+    #expect(model.djResponseText == "Original Session contribution")
+    let key = capability ? "appModel.device.volume.control.unavailable" : "appModel.volume.could.not.be.changed"
+    #expect(model.userNotice?.text == DJConnectLocalization.localized(key: key, language: "nl"))
+    #expect(model.canControlPlaybackVolume == !capability)
+    // Only a separately observed health failure may disable the backend.
+    model.apply(error: .backendUnavailable(message: "Independent status failure"))
+    #expect(!model.backendAvailable)
+}
+
 @Test(.isolatedClientResources) func outputNamesAndVolumesDoNotExposeTransportFallbacks() throws {
     let opaque = "9a2c703675ba2ecd05fe97eb-b78d644b481b3c07"
     let device = try JSONDecoder().decode(DJConnectOutputDevice.self, from: Data("{\"id\":\"\(opaque)\"}".utf8))
@@ -14759,8 +14809,8 @@ func discoveryPlayAdmitsOnlyOneRequestWhileTheOriginalReplyIsPending(_ fails: Bo
 }
 
 
-@MainActor @Test(.isolatedClientResources, arguments: [false, true])
-func discoveryPlayRefreshesTheQueueAfterAnyPreselectionReadFinishes(_ oldReadInFlight: Bool) async throws {
+@MainActor @Test(.isolatedClientResources, arguments: [false, true], [DJConnectMusicDiscoveryItemKind.track, .artist])
+func discoveryPlayRefreshesTheQueueAfterAnyPreselectionReadFinishes(_ oldReadInFlight: Bool, _ kind: DJConnectMusicDiscoveryItemKind) async throws {
     let defaults = try testDefaults(), gate = PushReplyGate(), reads = RequestCounter(), recorder = RequestRecorder()
     defer { gate.release() }
     let oldRow: [String: Any] = ["id":"old", "title":"Previous selection", "uri":"spotify:track:old"]
@@ -14782,6 +14832,14 @@ func discoveryPlayRefreshesTheQueueAfterAnyPreselectionReadFinishes(_ oldReadInF
             return (try httpResponse(for:request,statusCode:200),Data(#"{"success":true}"#.utf8))
         }
         if request.url?.path.hasSuffix("/music_discovery/play") == true {
+            let payload = try #require(try requestBodyData(request))
+            let body = try #require(JSONSerialization.jsonObject(with: payload) as? [String: Any])
+            #expect(body["discovery_item_id"] as? String == "new")
+            #expect(body["section_id"] as? String == "fresh")
+            #expect(body["request_source"] as? String == "discover")
+            // Core resolves the selected artist to its real playlist and replaces
+            // playback. The client must not substitute an artist URI/command.
+            #expect(body["uri"] == nil && body["command"] == nil)
             return (try httpResponse(for:request,statusCode:200),Data(#"{"success":true}"#.utf8))
         }
         return (try httpResponse(for:request,statusCode:200),Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
@@ -14792,7 +14850,7 @@ func discoveryPlayRefreshesTheQueueAfterAnyPreselectionReadFinishes(_ oldReadInF
     #expect(model.queueItems.count == 12)
     let earlier = oldReadInFlight ? Task { await model.refreshQueue() } : nil
     if oldReadInFlight { await gate.waitForRequest() }
-    let item = DJConnectMusicDiscoveryItem(id:"new",kind:.track,title:"Selected track",uri:"spotify:track:new",reason:"Fixture")
+    let item = DJConnectMusicDiscoveryItem(id:"new",kind:kind,title:"Selected item",uri:"spotify:\(kind.rawValue):new",reason:"Fixture")
     #expect(await model.playMusicDiscoveryItem(item,sectionID:"fresh"))
     if oldReadInFlight {
         #expect(reads.count == 1)

@@ -1725,5 +1725,7 @@
 "ui.session.welcome.presence.explanation" = "How often your DJ speaks";
 "ui.session.welcome.persona.explanation" = "Your DJ’s style and tone";
 "watch.game.resume" = "Resume";
+"watch.widget.track_cover" = "Track title and cover";
+"watch.widget.locked_explanation" = "Show the track title and album cover in Smart Stack, including when your Watch is locked.";
 "ui.for_you.choose_output" = "Choose where to play this mix.";
 "ui.for_you.preparing" = "Preparing new mixes for your mood…";

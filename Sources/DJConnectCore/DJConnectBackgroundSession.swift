@@ -4,7 +4,7 @@ import CryptoKit
 /// Distinct v2 background read. It never changes the foreground v1 grant or
 /// imports an app bearer. These wire fields are not independent owner authority.
 public struct DJConnectBackgroundSession: Codable, Sendable {
-    public struct Status: Codable, Sendable {
+    public struct Status: Codable, Equatable, Hashable, Sendable {
         public let state: String
         public let reason: String
         var isValid: Bool {
@@ -13,20 +13,20 @@ public struct DJConnectBackgroundSession: Codable, Sendable {
             reason.range(of: "^[a-z_]+$", options: .regularExpression) != nil
         }
     }
-    public struct Rights: Codable, Sendable {
+    public struct Rights: Codable, Equatable, Hashable, Sendable {
         public let passive_cache: Bool
         public let os_snapshot: Bool
         public let external_relay: Bool
         public let watch_replication: Bool
         var isValid: Bool { passive_cache && os_snapshot && !external_relay && !watch_replication }
     }
-    public struct ExpressionLicense: Codable, Sendable {
+    public struct ExpressionLicense: Codable, Equatable, Hashable, Sendable {
         public let id: String
         public let url: String
         public let adapted: Bool
         public let attribution_required: Bool
     }
-    public struct Contribution: Codable, Sendable {
+    public struct Contribution: Codable, Equatable, Hashable, Sendable {
         public let rights: Rights
         public let sources: [[String: String]]?
         public let expression_license: ExpressionLicense?

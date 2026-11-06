@@ -1,18 +1,67 @@
-# Contextual Help component qualification
+# Native Help regression
 
-`prepare_native_help_tests.py <new-output-directory> --jose-checkout <pinned-clean-checkout> --platform iOS|macOS` generates an isolated Xcode project. Run scheme `NativeHelpUI` on an owned simulator or Mac test session. It does not change shipping targets, pairing, credentials or installed DJConnect.
+Run this slower native suite explicitly, before a relevant release or after
+changes to Help, suggestions, the composer or native layout. It is not part of
+every-PR CI and makes no model/provider calls.
 
-The host defaults to the real byte-verified bundled catalogue, which currently advertises no command examples. `HELP_SYNTHETIC=1` decodes only the existing synthetic Core reference fixture from Tests; it is not a producer qualification or product switch. Neither the fixture nor this host is part of shipping resources.
+```
+python3 Tools/qualification/contextual-help/run_native_help.py \
+  --platform iOS \
+  --destination 'platform=iOS Simulator,id=<owned-iphone-or-ipad-id>' \
+  --jose-checkout '<clean-pinned-JOSESwift-checkout>' \
+  --output '/Volumes/Shared Data/tmp/pcvantol/<new-unique-run>'
+```
 
-The host renders production `AskDJHelpReference` with an injected context and clock deadline. It cannot create an AppModel, make requests, send a command or play audio. Probe buttons change only synthetic view state. Native tests cover idle original-context expiry, owner withdrawal, ended Session, empty shipping catalogue, both reference surfaces and five languages in normal/dark and accessibility/light presentations. Screenshots contain only the disposable test application; Mac screenshots target its window.
+For Mac, select `--platform macOS --destination platform=macOS`. Use separate
+output directories for iPhone, iPad and Mac. The runner retains the full XCTest
+result, logs, source/diff identity and a receipt, including failures. It runs
+each test once and never hides a failure with an automatic retry.
 
-The focused interaction test uses the production native Help entry/popover and production suggestion rows, with three suggestions selected by the actual catalogue algorithm from the test-only fixture. It verifies exact selected-text forwarding to a probe label, opening/dismissing Help and stable row identity. This is not a command-send or paired-backend test.
+## Current catalogue coverage
 
-These component tests do not exercise paired capability discovery, server-rendered typed `help`, physical VoiceOver output or real command execution. Those remain separate acceptance requirements. The 70 pending producer route/locale gates must not be changed by Apple or inferred from synthetic success.
+`HELP_CURRENT_CATALOGUE=1` uses the real byte-verified bundled revision-2
+catalogue and the original all-14-entry projection in
+`Tests/Fixtures/askdj-help-r5-core-wire.json`. The view context is a declared
+disposable test context, not an operator's live Profile or new producer
+admission. Test resources remain outside shipping targets.
 
-`HELP_FULL_CATALOGUE=1` selects the new production full-catalogue reference renderer inside the disposable host. It uses the same synthetic-only source, exposes all eligible entries without the compact two-per-group limit, and records complete/placeholder selections as `send:`/`draft:` probe labels. The native `testFullCatalogueMoreScrollAndCompleteVersusPlaceholderSelection` exercises More, scrolling to the final entry, and both selection dispositions. These labels are not real command transmission or native composer-selection proof. Production keeps the new current-configuration reader absent until the owning Core contract is delivered and qualified; global discovery and the test fixture cannot activate it.
+- Every published option is selected in NL and EN on both `ask_dj` and
+  `active_session`: 56 native selections. Expected text comes from the original
+  catalogue. Placeholder options produce a draft; complete options forward the
+  original complete prompt to a probe.
+- The production suggestion selector and native suggestion rows produce three
+  distinct stable choices and forward exactly the displayed text: 12 native
+  selections covering both languages and surfaces.
+- The current production `AskDJHelpPanel` and `AskDJFullCatalogueReference`
+  render the catalogue. A test-only entry adapter opens the panel. That adapter
+  does not qualify the shipping composer's entry, focus or network reader.
 
-The additional `HELP_COMPOSER=1` mode constructs an isolated, tokenless AppModel solely for the real production input bar, with background work, Send and voice disabled. `testPlaceholderIsSelectedInTheRealNativeComposer` chooses the synthetic artist template and types `ABBA` without tapping/repositioning the caret. Its required result is exactly `Play ABBA`, demonstrating replacement of the selected placeholder after the native popover dismissal. Isolated preferences are removed when the component disappears. This adds no producer readiness, HTTP or actual-send acceptance. Diagnostic focus text belongs only to this disposable host, never the shipping UI.
+The fixture supplies prerequisites for all 14 options. In the real client,
+missing prerequisites must keep corresponding options disabled. EN/NL are
+published; DE/FR/ES route qualification remains pending and must not be enabled
+by this test.
 
+## Separate integration evidence
 
-`HELP_COMPOSER_POPOUT=1` renders the real production input bar above an empty or populated synthetic timeline (`HELP_POPULATED=1`), with Send/voice disabled, no token and background tasks off. `HELP_SURFACE=ask_dj|active_session` selects only presentation. The bounded native click test covers both surfaces and content states, the white Help icon inside the empty composer, no automatic focus opening, the popout above the composer, immediate X dismissal with no confirmation, More, and hiding on typing/restoring only the icon on clearing. This mode uses the actual closed shipping catalogue and does not fabricate three qualified examples. Captured images are component proof of placement and interaction, not a live qualified catalogue or installed app acceptance. The existing synthetic-only full-catalogue mode separately tests long-list scrolling and selection dispositions.
+`PASS_NATIVE_COMPONENT_ONLY` is not a Core Golden, provider, playback, speech,
+history or physical Watch verdict. The host cannot send commands or play audio.
+Real end-to-end runs must bind the actual paired client, original server turn,
+answer/history identity, Core installation and provider/effect evidence through
+the qualified Core native Golden contract. The older 167-step adapter is not a
+current admission. Missing native/provider coverage remains NOT_RUN or blocked,
+never a pass inferred from component screenshots.
+
+The generator retains historical synthetic-reference, placeholder-composer and
+tokenless composer-popout probes. They are isolated component tests, not current
+server route or paid Golden qualification. Composer probes disable Send, voice
+and background work and never borrow installation tokens.
+
+### Explicit landscape visibility regression
+
+The disposable host also renders the shipping `ForYouLandscape` with a decorative
+recipe and navigation/scroll controls. Run
+`NativeHelpUITests/testForYouAnimationStopsAndReplaysAfterViewportAndPageReturn`
+explicitly with the generated `NativeHelpUI` scheme. It compares the actual
+landscape screenshots after the two-second window and after viewport/page return.
+This is a renderer-only regression; it does not fetch an offer or exercise Core,
+pairing, playback or a physical Watch. It is deliberately outside ordinary PR CI.

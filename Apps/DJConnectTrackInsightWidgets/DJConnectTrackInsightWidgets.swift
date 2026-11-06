@@ -199,8 +199,10 @@ private struct DJConnectSessionWidgetView: View {
                 PassiveSessionContentView(contribution: rich.projection.currentContribution(at: now),
                     playback: rich.projection.currentPlayback(at: now), cache: rich,
                     compact: family == .systemSmall, large: family == .systemLarge, theme: theme, date: now)
+            } else if family == .systemSmall {
+                PassiveSessionContentView(contribution: nil, playback: nil, cache: nil, compact: true, theme: theme, date: now)
             } else {
-                DJConnectSessionSurfaceView(isActive: !privateSuppressed && entry.isActive, compact: family == .systemSmall, theme: theme)
+                DJConnectSessionSurfaceView(isActive: !privateSuppressed && entry.isActive, compact: false, theme: theme)
             }
         }
         .containerBackground(for: .widget) {
@@ -277,16 +279,50 @@ struct DJConnectSessionActivityWidget: Widget {
                     .padding(.horizontal, 12).padding(.bottom, 8)
                 }
             } compactLeading: {
-                SessionSurfaceAvatar(theme: activityTheme(context.state, stale: context.isStale), side: 22)
+                ActivityArtworkIdentity(snapshot: context.state, stale: context.isStale, side: 22)
             } compactTrailing: {
                 Image(systemName: context.state.playbackObservation?.playbackState.symbolName ?? (context.isStale ? "arrow.up.forward" : "music.note")).foregroundStyle(.white)
             } minimal: {
-                SessionSurfaceAvatar(theme: activityTheme(context.state, stale: context.isStale), side: 20)
+                ActivityArtworkIdentity(snapshot: context.state, stale: context.isStale, side: 20)
             }
             .widgetURL(sessionURL)
             .keylineTint(activityTheme(context.state, stale: context.isStale).accent)
         }
         .supplementalActivityFamilies([.small, .medium])
+    }
+}
+
+/// Reuse only the exact live-activity observation and its own admitted pixels.
+private func currentActivityCache(_ snapshot: DJConnectSessionSurfaceSnapshot, at now: Date) -> DJConnectPassiveSurfaceCache? {
+    guard !privateSurfaceFieldsSuppressed, snapshot.isCurrent(at: now), let rich = snapshot.rich,
+          rich.isCurrent(at: now) else { return nil }
+    return UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
+        .flatMap { DJConnectPassiveSurfaceCache.load(surface: .liveActivity, from: $0, at: now) }
+        .flatMap { cache in
+            cache.projection.binding_id == rich.bindingID && cache.projection.generation == rich.generation &&
+            cache.projection.delivery_sequence == rich.sequence &&
+            (cache.projection.contribution == rich.contribution ||
+                (rich.foregroundProjectionVersion == 3 && cache.projection.schema_version == 3 &&
+                 rich.nowPlaying != nil && rich.contribution == nil)) &&
+            cache.projection.now_playing == rich.nowPlaying ? cache : nil
+        }
+}
+private struct ActivityArtworkIdentity: View {
+    let snapshot: DJConnectSessionSurfaceSnapshot
+    let stale: Bool
+    let side: CGFloat
+    var body: some View {
+        let now = Date()
+        if !stale, let cache = currentActivityCache(snapshot, at: now),
+           let playback = cache.projection.currentPlayback(at: now),
+           cache.projection.currentArtwork(slot: "now_playing", at: now) != nil,
+           cache.pixels["now_playing"] != nil {
+            PassiveSessionContentView(contribution: nil, playback: playback, cache: cache,
+                compact: true, theme: snapshot.renderingTheme(at: now), date: now)
+                .frame(width: side, height: side)
+        } else {
+            SessionSurfaceAvatar(theme: activityTheme(snapshot, stale: stale), side: side)
+        }
     }
 }
 
@@ -318,7 +354,7 @@ private struct SessionActivityPresentation: View {
                             }
                         }
                         PassiveSessionContentView(contribution: nil, playback: playback, cache: nil,
-                            compact: true, showsSpotifyCredit: false, showsHeader: false,
+                            compact: true, activity: true, showsSpotifyCredit: false, showsHeader: false,
                             theme: snapshot.renderingTheme(at: now), watchActivity: true, date: now)
                     }
                 } else {
@@ -366,9 +402,12 @@ private struct PassiveSessionContentView: View {
     var researchAttribution: DJConnectDirectResearchAttribution? = nil
     var watchActivity = false
     let date: Date
+    private var hasResearchCredit: Bool {
+        researchAttribution != nil || contribution?.usage_basis == "public_artist_narration_v1"
+    }
     var body: some View {
         Group {
-            if researchAttribution != nil {
+            if activity && hasResearchCredit {
                 // All required research credit is visible together or this
                 // story is omitted. Never clip a factual sentence/reference
                 // to preserve a partial attribution in a small native region.
@@ -376,9 +415,9 @@ private struct PassiveSessionContentView: View {
                     content(artworkSide: nil).fixedSize(horizontal: false, vertical: true)
                     content(artworkSide: nil, suppressContribution: true)
                 }
-            } else if large, playback != nil, contribution == nil {
+            } else if !activity {
                 GeometryReader { geometry in
-                    content(artworkSide: min(156, max(80, geometry.size.height - 190)))
+                    widgetContent(size: geometry.size)
                 }
             } else { content(artworkSide: nil) }
         }
@@ -386,6 +425,102 @@ private struct PassiveSessionContentView: View {
         .frame(maxWidth: .infinity, maxHeight: activity ? nil : .infinity, alignment: .topLeading)
         .accessibilityElement(children: .contain)
     }
+    /// Reserve the top row for music, then let the contribution use the rest.
+    /// Neither a missing cover nor an absent contribution changes the row layout.
+    @ViewBuilder private func widgetContent(size: CGSize) -> some View {
+        if compact {
+            widgetCover(side: min(size.width, size.height))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if large {
+            let half = max(0, (size.height - 12) / 2)
+            VStack(alignment: .leading, spacing: 12) {
+                widgetTrackRow(size: CGSize(width: size.width, height: half))
+                    .frame(height: half)
+                VStack(alignment: .leading, spacing: 6) {
+                    if let contribution {
+                        if contribution.usage_basis == "public_artist_narration_v1" {
+                            ViewThatFits(in: .vertical) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(contribution.text).font(.subheadline)
+                                    passiveResearchCredit(contribution)
+                                }.fixedSize(horizontal: false, vertical: true)
+                                Color.clear
+                            }
+                        } else {
+                            Text(contribution.text).font(.subheadline)
+                                .lineLimit(max(1, Int((half - 24) / 17))).truncationMode(.tail)
+                                .accessibilityLabel(contribution.text)
+                            credit(contribution.source_attribution)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+        } else {
+            widgetTrackRow(size: size)
+        }
+    }
+    private func widgetTrackRow(size: CGSize) -> some View {
+        let side = min(size.height, size.width * 0.36)
+        return HStack(alignment: .center, spacing: 12) {
+            widgetCover(side: side)
+            VStack(alignment: .leading, spacing: 4) {
+                if let playback {
+                    Text(playback.track).font(.headline).lineLimit(2)
+                    Text(playback.artist).font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+                    if !playback.album.isEmpty {
+                        Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
+                    }
+                    playbackProgress(playback)
+                    credit(playback.attribution)
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+    @ViewBuilder private func playbackProgress(_ playback: DJConnectPassiveSession.NowPlaying) -> some View {
+        if let cache, cache.isCurrent(at: date), let progress = playback.progress,
+           let fraction = progress.fraction(at: date, playback: playback, state: cache.projection.playback_state),
+           let observed = DJConnectHistoryEntry.date(progress.observed_at) {
+            let start = observed.addingTimeInterval(-Double(progress.position_ms) / 1000)
+            let end = start.addingTimeInterval(Double(progress.duration_ms) / 1000)
+            VStack(alignment: .leading, spacing: 2) {
+                if progress.playback_state == "playing" {
+                    ProgressView(timerInterval: start...end, countsDown: false).labelsHidden().tint(.white)
+                } else {
+                    ProgressView(value: fraction).labelsHidden().tint(.white)
+                }
+                HStack {
+                    if progress.playback_state == "playing" { Text(start, style: .timer) }
+                    else { Text(progressTime(progress.position_ms)) }
+                    Text("/ " + progressTime(progress.duration_ms))
+                }.font(.caption2.monospacedDigit()).foregroundStyle(.white.opacity(0.7))
+            }
+        }
+    }
+    private func progressTime(_ milliseconds: Int) -> String {
+        let seconds = max(0, milliseconds / 1000)
+        return "\(seconds / 60):" + String(format: "%02d", seconds % 60)
+    }
+
+    private func widgetCover(side: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.ultraThinMaterial)
+            if let cover = decodedCover(slot: "now_playing", side: side - 8) {
+                // Fit the entire image inside the rounded card: no source crop.
+                Image(cover.image, scale: 3, label: Text(cover.label)).resizable()
+                    .widgetAccentedRenderingMode(.fullColor).scaledToFit().padding(4)
+            } else {
+                Image(systemName: "music.note").font(.system(size: side * 0.35))
+                    .foregroundStyle(.white.opacity(0.5)).accessibilityHidden(true)
+            }
+        }
+        .frame(width: side, height: side)
+        .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.28), lineWidth: 0.7) }
+    }
+
     private func content(artworkSide: CGFloat?, suppressContribution: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: activity || compact ? 6 : 8) {
             if showsHeader {
@@ -406,7 +541,7 @@ private struct PassiveSessionContentView: View {
                                    height: activity ? 64 : large ? 104 : compact ? 32 : 56)
                     }
                     VStack(alignment: .leading, spacing: 3) {
-                        if !compact {
+                        if !compact && activity && playbackState != "playing" {
                             Text(text(!activity || playbackState == "playing" ? "ui.now.playing" : playbackState == "paused" ? "ui.paused" : "ui.playback")).font(.caption2).foregroundStyle(.white.opacity(0.7))
                         }
                         if watchActivity {
@@ -423,23 +558,25 @@ private struct PassiveSessionContentView: View {
                             Text(playback.artist).font(activity ? .subheadline : large ? .callout : .caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
                         }
                         if (large || activity) && !playback.album.isEmpty { Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(activity ? 1 : 2) }
+                        if activity { playbackProgress(playback) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 }
                 credit(playback.attribution)
             }
-            if let contribution, !suppressContribution && (!activity || playback == nil || researchAttribution != nil) {
+            if let contribution, !suppressContribution && (!activity || playback == nil || hasResearchCredit) {
                 if playback != nil { Divider().overlay(.white.opacity(0.15)) }
                 HStack(alignment: .top, spacing: 10) {
                     if !compact, cache?.projection.currentArtwork(slot: "contribution", at: date) != nil {
                         cover(slot: "contribution").frame(width: 56, height: 56)
                     }
                     Text(contribution.text).font(compact ? .caption : .subheadline.weight(.medium))
-                        .lineLimit(researchAttribution != nil ? nil : large ? 6 : compact && playback != nil ? 2 : 3)
+                        .lineLimit(hasResearchCredit ? nil : large ? 6 : compact && playback != nil ? 2 : 3)
                         .accessibilityLabel(contribution.text)
                 }
                 if let researchAttribution { researchCredit(researchAttribution) }
+                else if contribution.usage_basis == "public_artist_narration_v1" { passiveResearchCredit(contribution) }
                 else { credit(contribution.source_attribution) }
             }
             if (contribution == nil || suppressContribution) && playback == nil {
@@ -457,6 +594,21 @@ private struct PassiveSessionContentView: View {
         .lineLimit(lines)
     }
 
+    private func passiveResearchCredit(_ contribution: DJConnectPassiveSession.Contribution) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(Array((contribution.sources ?? []).enumerated()), id: \.offset) { _, source in
+                Text((source["provider"] ?? "") + " · " + (source["license"] ?? ""))
+                if let url = URL(string: source["revision_url"].flatMap { $0.isEmpty ? nil : $0 } ?? source["url"] ?? "") {
+                    Link(source["title"] ?? "", destination: url)
+                }
+            }
+            if let license = contribution.expression_license, let url = URL(string: license.url) {
+                Link(license.id, destination: url)
+            }
+            Text(text("surface.research.adapted"))
+        }.font(.caption2).foregroundStyle(.white.opacity(0.85))
+            .fixedSize(horizontal: false, vertical: true)
+    }
     private func researchCredit(_ attribution: DJConnectDirectResearchAttribution) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             ForEach(Array(attribution.sources.enumerated()), id: \.offset) { _, source in
@@ -497,7 +649,6 @@ private struct PassiveSessionContentView: View {
             .frame(width: artworkSide, height: artworkSide)
             .frame(maxWidth: .infinity)
             VStack(alignment: .leading, spacing: 3) {
-                Text(text("ui.now.playing")).font(.caption).foregroundStyle(.white.opacity(0.70))
                 Text(playback.track).font(.title2.bold()).lineLimit(2).minimumScaleFactor(0.8)
                 Text(playback.artist).font(.body).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
                 if !playback.album.isEmpty {
@@ -523,7 +674,9 @@ private struct PassiveSessionContentView: View {
     @ViewBuilder private func cover(slot: String) -> some View {
         if let cover = decodedCover(slot: slot, side: activity ? 64 : large ? 104 : compact ? 32 : 56) {
             Image(cover.image, scale: 3, label: Text(cover.label))
-                .resizable().scaledToFit()
+                .resizable().widgetAccentedRenderingMode(.fullColor).scaledToFit().padding(4)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.28), lineWidth: 0.7) }
         }
     }
     private func decodedCover(slot: String, side: CGFloat) -> (image: CGImage, label: String)? {
@@ -556,13 +709,7 @@ private struct PassiveActivityBody: View {
         } else if !stale, snapshot.isCurrent(at: now), let rich = snapshot.rich, rich.isCurrent(at: now) {
             let contribution = rich.currentContribution(at: now)
             let playback = rich.currentPlayback(at: now)
-            let cache = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
-                .flatMap { DJConnectPassiveSurfaceCache.load(surface: .liveActivity, from: $0, at: now) }
-                .flatMap { value in
-                    value.projection.binding_id == rich.bindingID && value.projection.generation == rich.generation &&
-                    value.projection.delivery_sequence == rich.sequence && value.projection.contribution == rich.contribution &&
-                    value.projection.now_playing == rich.nowPlaying ? value : nil
-                }
+            let cache = currentActivityCache(snapshot, at: now)
             PassiveSessionContentView(contribution: contribution, playback: playback, cache: cache,
                                       activity: true, playbackState: playback == nil ? nil : rich.playbackState,
                                       showsSpotifyCredit: showsSpotifyCredit, showsHeader: showsHeader && playback == nil,

@@ -2153,6 +2153,18 @@ private struct DJConnectWatchSettingsView: View {
                         DJConnectGlassPreferenceToggle(language: model.language)
                     }
 
+                    if !model.isDemoMode {
+                        DJConnectWatchSettingsSection(title: "Smart Stack") {
+                            Toggle(watchLocalizedKey(model.language, "watch.widget.track_cover"), isOn: Binding(
+                                get: { model.watchWidgetDisplayEnabled },
+                                set: { model.setWatchWidgetDisplayEnabled($0) }))
+                                .disabled(!model.canChooseWatchWidgetDisplay && !model.watchWidgetDisplayEnabled)
+                            Text(watchLocalizedKey(model.language, "watch.widget.locked_explanation"))
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
                     DJConnectWatchSettingsSection(title: watchLocalizedKey(model.language, "ui.device_speech.title")) {
                         DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
                             previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
@@ -4491,7 +4503,8 @@ private struct DJConnectWatchCompanionPages: View {
         .scrollContentBackground(.hidden)
         .environment(\.watchSessionTheme, theme)
         .navigationTitle(page == 2 ? text("watch.v2.more") : page == 1 || page == 3 || demoSession != nil || needsSessionReadback || session != nil ? "" : "Ask DJ")
-        .toolbarForegroundStyle(page == 2 ? moreTitleColor : .white, for: .navigationBar)
+        .toolbarForegroundStyle(page == 2 ? moreTitleColor :
+            (page == 0 && session == nil && demoSession == nil ? watchAccentPurple : .white), for: .navigationBar)
         .onChange(of: model.watchHomeOpenSequence) { _, _ in page = 0; flowPosition = 0; destination = nil }
         .onChange(of: model.watchMomentOpenIntent, initial: true) { _, intent in
             if let intent { destination = .notification(intent) }
@@ -4585,16 +4598,7 @@ private struct DJConnectWatchCompanionPages: View {
             ZStack {
                 // This target shares the controls' layout bounds, beneath every action.
                 // A background outside home's ignored safe area can steal corner taps.
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        guard page == 0, destination == nil, !isLoadingSession,
-                              mainPageOrder.count > 1 else { return }
-                        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.15)) {
-                            pageIndicatorVisit = UUID()
-                        }
-                    }
-                    .accessibilityHidden(true)
+                homePageTapTarget
                 if isLoadingSession {
                     DJConnectWatchGlassBrandIcon(size: Self.avatarSize, winksOnAppear: true)
                         .overlay(alignment: .top) {
@@ -4635,9 +4639,27 @@ private struct DJConnectWatchCompanionPages: View {
             .accessibilityIdentifier(isLoadingSession ? "watch-session-loading" : "watch-session-home")
         } else if dynamicTypeSize.isAccessibilitySize {
             ScrollView { homeContent.padding(.horizontal, watchRowInset) }
+                .background { homePageTapTarget }
         } else {
             homeContent.padding(.horizontal, watchRowInset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background { homePageTapTarget }
         }
+    }
+
+    /// Below every action, filling the page rather than only the avatar/text.
+    /// A blank-space tap reveals dots without intercepting the voice/control tap.
+    private var homePageTapTarget: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard page == 0, destination == nil, !isLoadingSession,
+                      mainPageOrder.count > 1 else { return }
+                withAnimation(reduceMotion ? nil : .easeIn(duration: 0.15)) {
+                    pageIndicatorVisit = UUID()
+                }
+            }
+            .accessibilityHidden(true)
     }
 
     private var homeContent: some View {

@@ -261,3 +261,33 @@ private func announcementReceipt() throws -> [String: Any] {
     #expect(!speech.admits(reference: .entry(sessionID: entry.sessionID, entryID: "other"), text: entry.text!, at: now))
     #expect(!speech.admits(reference: speech.reference, text: "Other track", at: now))
 }
+
+@Test func musicAnnouncementRetainedWatchFlowPreservesOriginalIdentityTextTimeAndExpiry() throws {
+    let receipt = try announcementReceipt()
+    let entry = try JSONDecoder().decode(DJConnectHistoryEntry.self,
+        from: JSONSerialization.data(withJSONObject: receipt["entry"]!))
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let fixture = try #require(JSONSerialization.jsonObject(with: Data(contentsOf:
+        root.appendingPathComponent("Fixtures/moment-contract-receipt.json"))) as? [String: Any])
+    var runtime = try JSONDecoder().decode(DJConnectSessionRuntime.self,
+        from: JSONSerialization.data(withJSONObject: fixture["runtime"]!))
+    runtime.sessionID = entry.sessionID
+    // The retained contribution is independent of current playback and mood.
+    runtime.selectedMood = "party"
+    runtime.broadcast.djMoments = []
+    let occurred = try nativeDate(entry.occurredAt)
+    let expires = try nativeDate(entry.retainedUntil)
+    let rows = DJConnectWatchFlowRow.latest(history: [entry], session: runtime, at: occurred)
+    let row = try #require(rows.first)
+    #expect(rows.count == 1)
+    #expect(row.id == entry.id && row.momentID == entry.momentID)
+    #expect(row.labelKey == "ui.session.moment.music_announcement")
+    #expect(row.text == entry.text && row.date == occurred && row.expiresAt == expires)
+    #expect(row.reference == entry.reference)
+    #expect(row.spotifyAttribution == (entry.requiresSpotifyAttribution == true))
+    let roundTrip = try JSONDecoder().decode(DJConnectWatchFlowRow.self, from: JSONEncoder().encode(row))
+    #expect(roundTrip.reference == row.reference && roundTrip.text == row.text && roundTrip.date == row.date)
+    #expect(DJConnectWatchFlowRow.latest(history: [entry], session: runtime, at: expires).isEmpty)
+    runtime.sessionID = "other-session"
+    #expect(DJConnectWatchFlowRow.latest(history: [entry], session: runtime, at: occurred).isEmpty)
+}

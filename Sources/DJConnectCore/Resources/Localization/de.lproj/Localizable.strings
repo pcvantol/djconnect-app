@@ -1725,5 +1725,7 @@
 "ui.session.welcome.presence.explanation" = "Wie oft dein DJ etwas erzählt";
 "ui.session.welcome.persona.explanation" = "Stil und Ton deines DJs";
 "watch.game.resume" = "Fortsetzen";
+"watch.widget.track_cover" = "Titel und Albumcover";
+"watch.widget.locked_explanation" = "Zeige Titel und Albumcover im Smart-Stapel, auch wenn deine Watch gesperrt ist.";
 "ui.for_you.choose_output" = "Wähle, wo du diesen Mix abspielen möchtest.";
 "ui.for_you.preparing" = "Neue Mix-Auswahl für deine Stimmung wird vorbereitet…";

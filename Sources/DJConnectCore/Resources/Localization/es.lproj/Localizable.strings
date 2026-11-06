@@ -1725,5 +1725,7 @@
 "ui.session.welcome.presence.explanation" = "Con qué frecuencia habla tu DJ";
 "ui.session.welcome.persona.explanation" = "El estilo y el tono de tu DJ";
 "watch.game.resume" = "Reanudar";
+"watch.widget.track_cover" = "Título y portada";
+"watch.widget.locked_explanation" = "Muestra el título y la portada del álbum en el Grupo Inteligente, incluso cuando tu Watch está bloqueado.";
 "ui.for_you.choose_output" = "Elige dónde reproducir esta mezcla.";
 "ui.for_you.preparing" = "Preparando nuevas mezclas para tu estado de ánimo…";
