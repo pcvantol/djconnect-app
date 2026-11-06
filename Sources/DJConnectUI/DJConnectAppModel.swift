@@ -2128,7 +2128,7 @@ public final class DJConnectAppModel: ObservableObject {
     public var displayedRepeatState: DJConnectRepeatState { repeatSelection?.value ?? playback?.repeatState ?? .off }
     public var isChangingShuffle: Bool { shuffleSelection != nil }
     public var isChangingRepeat: Bool { repeatSelection != nil }
-    private var pendingVolumePercent: Int?
+    @Published private var pendingVolumePercent: Int?
     private var pendingSeekTargetMS: Int?
     private var seekCommandTask: Task<Void, Never>?
     private var askDJTextTasks: [UUID: Task<Void, Never>] = [:]
@@ -2495,7 +2495,8 @@ public final class DJConnectAppModel: ObservableObject {
 
     public var currentPlaybackVolumePercent: Int? {
         guard canControlPlaybackVolume, playback?.device?.active != false else { return nil }
-        return DJConnectVolumeNormalizer.validBackendPercent(playback?.volumePercent)
+        return pendingVolumePercent
+            ?? DJConnectVolumeNormalizer.validBackendPercent(playback?.volumePercent)
             ?? DJConnectVolumeNormalizer.validBackendPercent(playback?.device?.volumePercent)
     }
 
@@ -5134,6 +5135,7 @@ public final class DJConnectAppModel: ObservableObject {
         DJConnectHaptics.selection()
         log(.debug, "User action: select output")
         outputSelectionGeneration += 1
+        pendingVolumePercent = nil // a drag on the previous speaker cannot label this one
         let selectionGeneration = outputSelectionGeneration
         selectedOutput = output.name
         pendingSelectedOutput = output.name
