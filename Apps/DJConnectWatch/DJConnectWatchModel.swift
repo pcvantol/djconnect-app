@@ -618,11 +618,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         companionPairingRegistrationWatchdogTask?.cancel()
     }
 
-    func requestRemoteNotificationRegistration() {
+    func requestRemoteNotificationRegistration(allowSystemPrompt: Bool = false) {
+        let pairing = companionPairingIntent?.identifier
         Task { @MainActor in
+            guard paired, !isDemoMode, companionPairingIntent?.identifier == pairing else { return }
             let center = UNUserNotificationCenter.current()
             logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(identity.appVersion ?? "<missing>") app_build=\(DJConnectApplicationVersion.buildVersion) protocol_version=\(identity.protocolVersion ?? identity.firmware) env=\(Self.pushEnvironment.rawValue)")
-            let authorized = await requestRemoteNotificationAuthorizationIfNeeded(center: center)
+            let authorized = await requestRemoteNotificationAuthorizationIfNeeded(
+                center: center, allowSystemPrompt: allowSystemPrompt
+            )
+            guard paired, !isDemoMode, companionPairingIntent?.identifier == pairing else { return }
             guard authorized else {
                 logPush("remote notification registration not started permission_granted=false", level: .warning)
                 return
@@ -1682,7 +1687,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if !wasPaired { isShowingPairingSuccess = true }
         statusMessage = "Succesvol gekoppeld via iPhone"
         companionPairingStatus = "Gekoppeld via iPhone"
-        requestRemoteNotificationRegistration()
+        requestRemoteNotificationRegistration(allowSystemPrompt: !wasPaired)
         Task { await refreshStatus() }
     }
 
@@ -4539,10 +4544,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         pendingAskDJNotificationAuthorizationContinuation = nil
     }
 
-    private func requestAskDJNotificationAuthorization(center: UNUserNotificationCenter) async -> Bool {
+    private func requestAskDJNotificationAuthorization(
+        center: UNUserNotificationCenter, registerWithSystem: Bool = true
+    ) async -> Bool {
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .sound])
-            if granted {
+            if granted, registerWithSystem {
                 WKApplication.shared().registerForRemoteNotifications()
             }
             return granted
@@ -4552,15 +4559,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
-    private func requestRemoteNotificationAuthorizationIfNeeded(center: UNUserNotificationCenter) async -> Bool {
+    private func requestRemoteNotificationAuthorizationIfNeeded(
+        center: UNUserNotificationCenter, allowSystemPrompt: Bool
+    ) async -> Bool {
         let settings = await center.notificationSettings()
         logPush("notification permission status=\(Self.notificationAuthorizationStatusName(settings.authorizationStatus))")
         switch settings.authorizationStatus {
         case .authorized, .provisional, .ephemeral:
             return true
         case .notDetermined:
-            logPush("notification permission explanation requested by remote registration")
-            return await requestAskDJNotificationAuthorizationIfNeeded(center: center)
+            guard allowSystemPrompt else { return false }
+            return await requestAskDJNotificationAuthorization(center: center, registerWithSystem: false)
         case .denied:
             return false
         @unknown default:

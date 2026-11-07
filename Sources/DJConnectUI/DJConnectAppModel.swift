@@ -2221,7 +2221,8 @@ public final class DJConnectAppModel: ObservableObject {
     private var hostWakeOriginalAPNSToken: Data?
     private var hostWakeAPNSTokenEpoch = UUID()
     private weak var hostWakePreparingOwner: DJConnectHostWakeFirstKeyOwner?
-    private var remoteNotificationRegistrationRequestedThisLaunch = false
+    private var remoteNotificationRegistrationInProgress = false
+    private var pendingRemoteNotificationPromptPairing: UUID?
     private var pushRegistrationInFlightSignature: String?
     private var pushRegistrationAttemptEpoch: UUID?
     private var discoveryArtworkRenewalTask: Task<Void, Never>?
@@ -4497,9 +4498,12 @@ public final class DJConnectAppModel: ObservableObject {
         presentPairingSuccessScreenAfterPairing()
         presentWakeWordActivationPromptAfterPairing()
         if !Self.isRunningUnderSwiftPMTests {
-            requestRemoteNotificationRegistration()
+            requestRemoteNotificationRegistration(allowSystemPrompt: startBackgroundTasks)
         }
         registerStoredPushTokenIfPossible()
+        // The authenticated completion read can discover device transport
+        // immediately. The direct pair response still waits for paired status.
+        refreshAutomaticSurfaceDiscovery()
     }
 
     private func isWaitingForHomeAssistantCompletion(_ error: DJConnectError) -> Bool {
@@ -14157,17 +14161,23 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func requestRemoteNotificationRegistration(allowSystemPrompt: Bool = false) {
         #if canImport(UserNotifications)
-        guard !remoteNotificationRegistrationRequestedThisLaunch else {
-            if currentAPNsPushToken == nil && (defaults.string(forKey: legacyPushTokenKey)?.isEmpty ?? true) {
-                logPush("retrying system remote notification registration token_present=false", level: .info)
-                registerForSystemRemoteNotifications()
-            } else {
-                registerStoredPushTokenIfPossible()
-            }
+        guard pairingStatus == .paired, !isDemoMode else { return }
+        let pairing = pairingTaskGeneration
+        if remoteNotificationRegistrationInProgress {
+            if allowSystemPrompt { pendingRemoteNotificationPromptPairing = pairing }
             return
         }
-        remoteNotificationRegistrationRequestedThisLaunch = true
+        remoteNotificationRegistrationInProgress = true
         Task { @MainActor in
+            defer {
+                remoteNotificationRegistrationInProgress = false
+                let pending = pendingRemoteNotificationPromptPairing
+                pendingRemoteNotificationPromptPairing = nil
+                if let pending, pending == pairingTaskGeneration {
+                    requestRemoteNotificationRegistration(allowSystemPrompt: true)
+                }
+            }
+            guard pairingStatus == .paired, !isDemoMode, pairingTaskGeneration == pairing else { return }
             let center = UNUserNotificationCenter.current()
             logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(appVersion) app_build=\(buildVersion) protocol_version=\(Self.protocolVersion) env=\(Self.pushEnvironment.rawValue)", level: .info)
             let authorized = await requestRemoteNotificationAuthorizationIfNeeded(
@@ -14175,11 +14185,16 @@ public final class DJConnectAppModel: ObservableObject {
                 allowSystemPrompt: allowSystemPrompt
             )
             refreshPermissionStatuses()
+            guard pairingStatus == .paired, !isDemoMode, pairingTaskGeneration == pairing else { return }
             guard authorized else {
                 logPush("remote notification registration not started permission_granted=false", level: .warning)
                 return
             }
-            registerForSystemRemoteNotifications()
+            if currentAPNsPushToken == nil {
+                registerForSystemRemoteNotifications()
+            } else {
+                registerStoredPushTokenIfPossible()
+            }
         }
         #else
         notificationPermissionStatus = .unavailable
