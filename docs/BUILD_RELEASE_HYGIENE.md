@@ -91,6 +91,12 @@ Use `Tools/qualification/install_ordinary_macos.py --source <signed-app>
 checks app identity/build, strict signatures, no diagnostic bundles/resource-fork
 files, executable modes and framework symlinks. It preserves an existing app as
 recovery and refuses to replace a running app. `copyfile` alone loses executable
-modes; `copytree` without `symlinks=True` flattens versioned frameworks. The two
-filesystem regressions run in CI without installing or signing anything. This
-helper does not grant publication or protected-release authority.
+modes; `copytree` without `symlinks=True` flattens versioned frameworks. The seven
+filesystem and process-identity regressions run in CI without installing or
+signing anything. After replacement, the helper retires only captured widget
+extension processes that still have the same birth time, still belong to the
+destination bundle, and demonstrably map executable code from this installation's
+recovery bundle. WidgetKit then resolves the newly installed extension. It never
+terminates Notification Center or removes widget data. An uncertain loaded image
+fails qualification while retaining both signed bundles. The helper does not
+grant publication or protected-release authority.
