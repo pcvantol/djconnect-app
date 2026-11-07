@@ -283,12 +283,17 @@ final class DJConnectMacUITests: XCTestCase {
         }
         XCTAssertEqual(artwork.label, "Pauze")
         artwork.click()
-        XCTAssertTrue(app.staticTexts["Gepauzeerd"].firstMatch.waitForExistence(timeout: 5))
+        let pausedHeading = app.descendants(matching: .any)
+            .matching(identifier: "session-playback-paused")
+            .matching(NSPredicate(format: "label == %@", "Gepauzeerd"))
+            .firstMatch
+        XCTAssertTrue(pausedHeading.waitForExistence(timeout: 5))
         XCTAssertEqual(avatars.count, 1, "Pausing must preserve the same single avatar card")
         try saveMomentScreenshot(app, "mac-session-avatar-paused")
         XCTAssertEqual(artwork.label, "Afspelen")
         artwork.click()
         XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertFalse(pausedHeading.exists)
         XCTAssertEqual(avatars.count, 1)
     }
 
