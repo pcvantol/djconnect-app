@@ -73,24 +73,41 @@ jobs:
               ;;
           esac
 
-          xcodebuild test -project DJConnectApp.xcodeproj -scheme "$scheme" -configuration Debug \
-            -destination "$destination" -parallel-testing-enabled NO \
-            -test-timeouts-enabled YES -maximum-test-execution-time-allowance 120 \
-            -derivedDataPath "$scratch/derived" -resultBundlePath "$scratch/tests.xcresult" \
-            "${tests[@]}" CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$scratch/xcodebuild.log"
-          xcrun xcresulttool get test-results summary --path "$scratch/tests.xcresult" > "$scratch/summary.json"
-          jq -e --argjson minimum "$minimum_passes" '
-            .passedTests >= $minimum and .failedTests == 0 and .skippedTests == 0
-          ' "$scratch/summary.json"
+          common=(-project DJConnectApp.xcodeproj -scheme "$scheme" -configuration Debug
+                  -destination "$destination" -parallel-testing-enabled NO
+                  -derivedDataPath "$scratch/derived" CODE_SIGNING_ALLOWED=NO)
+          mkdir -p "$scratch/results"
+          run_tests() {
+            local action="$1" output="$2" minimum="$3"
+            shift 3
+            mkdir -p "$output"
+            xcodebuild "$action" "${common[@]}" \
+              -test-timeouts-enabled YES -maximum-test-execution-time-allowance 120 \
+              -resultBundlePath "$output/tests.xcresult" "$@" 2>&1 | tee "$output/xcodebuild.log"
+            xcrun xcresulttool get test-results summary --path "$output/tests.xcresult" > "$output/summary.json"
+            jq -e --argjson minimum "$minimum" '
+              .passedTests >= $minimum and .failedTests == 0 and .skippedTests == 0
+            ' "$output/summary.json"
+          }
+
+          if [[ "$PLATFORM" == iphone || "$PLATFORM" == ipad ]]; then
+            xcodebuild build-for-testing "${common[@]}" 2>&1 | tee "$scratch/results/build.log"
+            run_tests test-without-building "$scratch/results/avatar" 1 "${tests[0]}"
+            # XCTest has failed to terminate the previous app while launching the next case.
+            # Stop only this job's simulator; the next test boots it with the same build.
+            state="$(xcrun simctl list devices -j | jq -er --arg id "$id" '
+              [.devices[][] | select(.udid == $id)] | if length == 1 then .[0].state else error("simulator not found") end')"
+            if [[ "$state" != Shutdown ]]; then xcrun simctl shutdown "$id"; fi
+            run_tests test-without-building "$scratch/results/context-menu" 1 "${tests[1]}"
+          else
+            run_tests test "$scratch/results/smoke" "$minimum_passes" "${tests[@]}"
+          fi
 
       - name: Upload synthetic fixture results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: apple-e2e-fixtures-${{ matrix.platform }}
-          path: |
-            ${{ runner.temp }}/apple-e2e-${{ matrix.platform }}/tests.xcresult
-            ${{ runner.temp }}/apple-e2e-${{ matrix.platform }}/summary.json
-            ${{ runner.temp }}/apple-e2e-${{ matrix.platform }}/xcodebuild.log
+          path: ${{ runner.temp }}/apple-e2e-${{ matrix.platform }}/results/
           if-no-files-found: error
           retention-days: 7
