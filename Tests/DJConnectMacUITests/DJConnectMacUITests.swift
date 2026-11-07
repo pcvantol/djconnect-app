@@ -45,10 +45,10 @@ final class DJConnectMacUITests: XCTestCase {
         lastScreenshotPNG = png
     }
 
-    private func launchReviewDemoApp() -> XCUIApplication {
+    private func launchReviewDemoApp(fixture: String = "review_demo") -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
-        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "review_demo"
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = fixture
         app.launch()
         return app
     }
@@ -251,23 +251,9 @@ final class DJConnectMacUITests: XCTestCase {
     }
 
     func testReviewDemoSessionAvatarLayoutFavoriteAndArtworkControls() throws {
-        let app = launchReviewDemoApp()
+        let app = launchReviewDemoApp(fixture: "review_demo_active_session")
         defer { app.terminate() }
 
-        let start = app.buttons["Start DJ-sessie"].firstMatch
-        if start.waitForExistence(timeout: 3) {
-            let content = app.scrollViews.containing(.button, identifier: "Start DJ-sessie").firstMatch
-            for _ in 0..<4 where !start.isHittable && content.isHittable {
-                content.scroll(byDeltaX: 0, deltaY: -240)
-            }
-            guard start.isHittable else {
-                XCTFail("Start DJ-sessie is outside the visible Session content")
-                return
-            }
-            start.click()
-        }
-        let introduction = app.buttons["session-introduction-skip"]
-        if introduction.waitForExistence(timeout: 3) { introduction.click() }
         XCTAssertTrue(app.buttons["session-end-button"].waitForExistence(timeout: 10))
 
         let avatars = app.descendants(matching: .any).matching(identifier: "session-dj-avatar")

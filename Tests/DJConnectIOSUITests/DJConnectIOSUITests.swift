@@ -52,7 +52,7 @@ final class DJConnectIOSUITests: XCTestCase {
             return
         }
         XCTAssertFalse(app.buttons["Meld antwoord"].exists, "A question cannot be reported as an answer")
-        reuse.tap()
+        tapSessionContextMenuButton(reuse, in: app)
         XCTAssertEqual(composer.value as? String, prompt)
         XCTAssertTrue(app.buttons["ask-dj-composer-send"].isEnabled, "The reused prompt is ready to send")
         app.buttons["ask-dj-composer-send"].tap()
@@ -69,8 +69,24 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(report.waitForExistence(timeout: 5))
         let menu = XCTAttachment(screenshot: app.screenshot())
         menu.name = "session-answer-context-menu"; menu.lifetime = .keepAlways; add(menu)
-        report.tap()
+        tapSessionContextMenuButton(report, in: app)
         XCTAssertTrue(app.descendants(matching: .any)["ask-dj-feedback-content"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    private func tapSessionContextMenuButton(_ button: XCUIElement, in app: XCUIApplication) {
+        if button.isHittable {
+            button.tap()
+            return
+        }
+        // On iPad, the system menu can expose a frame without an activation point.
+        let frame = button.frame
+        guard !frame.isEmpty, app.frame.contains(frame) else {
+            XCTFail("The context menu action is outside the app window")
+            return
+        }
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: frame.midX - app.frame.minX, dy: frame.midY - app.frame.minY))
+            .tap()
     }
 
     private func dismissSessionComposerSuggestions(in app: XCUIApplication) {
