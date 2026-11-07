@@ -36,8 +36,11 @@ final class DJConnectIOSUITests: XCTestCase {
         app.buttons["ask-dj-composer-send"].tap()
         let question = app.staticTexts[prompt].firstMatch
         dismissSessionComposerSuggestions(in: app)
+        // Keep both ends of the drag inside the timeline above the floating composer.
+        let lowerTimeline = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.48))
+        let upperTimeline = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.26))
         for _ in 0..<8 where !question.isHittable || question.frame.maxY > composer.frame.minY - 16 {
-            app.swipeUp()
+            lowerTimeline.press(forDuration: 0.1, thenDragTo: upperTimeline)
         }
         guard question.isHittable, question.frame.maxY <= composer.frame.minY - 16 else {
             XCTFail("The sent question did not scroll clear of the floating composer")
@@ -56,7 +59,9 @@ final class DJConnectIOSUITests: XCTestCase {
         app.buttons["ask-dj-composer-send"].tap()
         dismissSessionComposerSuggestions(in: app)
         let answer = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "In dit voorbeeld houdt de DJ de sfeer vast")).firstMatch
-        for _ in 0..<6 where !answer.isHittable { app.swipeDown() }
+        for _ in 0..<6 where !answer.isHittable {
+            upperTimeline.press(forDuration: 0.1, thenDragTo: lowerTimeline)
+        }
         XCTAssertTrue(answer.isHittable)
         answer.press(forDuration: 1)
         guard reuse.waitForExistence(timeout: 5) else {
