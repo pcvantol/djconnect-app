@@ -277,12 +277,16 @@ final class DJConnectMacUITests: XCTestCase {
             .matching(NSPredicate(format: "label == %@", "Haal uit favorieten")).firstMatch.waitForExistence(timeout: 5))
         try saveMomentScreenshot(app, "mac-session-avatar-favorite")
 
-        let artwork = app.descendants(matching: .any)["session-music-artwork"].firstMatch
-        XCTAssertTrue(artwork.isHittable)
+        let artwork = app.buttons["session-music-artwork"].firstMatch
+        guard artwork.waitForExistence(timeout: 5), artwork.isHittable else {
+            return XCTFail("The artwork must expose its playback action")
+        }
+        XCTAssertEqual(artwork.label, "Pauze")
         artwork.click()
         XCTAssertTrue(app.staticTexts["Gepauzeerd"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(avatars.count, 1, "Pausing must preserve the same single avatar card")
         try saveMomentScreenshot(app, "mac-session-avatar-paused")
+        XCTAssertEqual(artwork.label, "Afspelen")
         artwork.click()
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertEqual(avatars.count, 1)

@@ -676,6 +676,9 @@ struct NativeSessionMomentsView: View {
                     guard artworkFeedback?.id == feedback.id else { return }
                     withAnimation(.easeOut(duration: 0.2)) { artworkFeedback = nil }
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(text(artworkIsPaused ? "ui.play" : "ui.pause")))
+                .accessibilityAddTraits(.isButton)
                 .accessibilityAction { sendArtworkCommand(artworkIsPaused ? "play" : "pause") }
                 .accessibilityAction(named: Text(text("ui.next.track"))) { sendArtworkCommand("next") }
                 .accessibilityAction(named: Text(text("ui.previous.track"))) { sendArtworkCommand("previous") }
