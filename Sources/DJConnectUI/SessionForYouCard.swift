@@ -123,6 +123,9 @@ import DJConnectCore
         if let session, Self.settingsData(session) != host?.activeDJSession.flatMap(Self.settingsData) { return }
         if let policy = incoming.refresh_policy, policy.mood_revision != host?.activeDJSession?.moodRevision { return }
         let replacement = offer?.offer_id != incoming.offer_id
+        host?.recordForYouObservation(state: incoming.state, remaining: incoming.expires_in,
+                                     outputs: incoming.continuation?.admittedOutputActions.count ?? 0,
+                                     replacement: replacement)
         // A pending/unknown operation cannot be made executable by a normal poll.
         if replacement {
             uncertain = false; settingsChanged = false
@@ -246,6 +249,8 @@ import DJConnectCore
                    result.admittedPlaybackActions.allSatisfy({ $0.kind == "output" && $0.command == "set_output" }),
                    let lease = host.resolveConversationPresentationDeadline(response), lease > now() {
                     let remaining = min(result.expiresIn, lease.timeIntervalSince(now()), response.firstPlay?.expires_in ?? 0)
+                    host.recordForYouObservation(state: "awaiting_output", remaining: remaining,
+                                                 outputs: result.admittedPlaybackActions.count, replacement: false)
                     admitOutputs(result.admittedPlaybackActions, resultID: result.resultSetID, context: context, remaining: remaining)
                 }
                 uncertain = response.forYou == nil || ["attempted", "uncertain", "awaiting_output"].contains(response.forYou?.state ?? "")
