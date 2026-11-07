@@ -605,7 +605,7 @@ struct SessionTimelineScreen: View {
             if result[entry.id] == nil { result[entry.id] = entry }
         }
         ScrollViewReader { proxy in
-            VStack(spacing: 0) {
+            let timelineContent = VStack(spacing: 0) {
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
                     let now = max(clock.date, Date())
                     let preparedEntries = renderCache.snapshot(entries, sessionID: sessionID, epoch: history.responseEpoch, at: now)
@@ -993,6 +993,8 @@ struct SessionTimelineScreen: View {
             .task(id: model.askDJExampleReadKey) {
                 if activeSession != nil { await model.refreshAskDJExampleCapabilities() }
             }
+
+            timelineContent
             .task(id: sessionID) {
                 if activeSession != nil, initialAnchor == nil { positionSessionTopWithoutAnimation() }
                 let restoreGeneration = anchorGeneration
