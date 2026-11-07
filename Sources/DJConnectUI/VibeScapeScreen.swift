@@ -100,7 +100,7 @@ struct VibeScapeScreen: View {
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key,language: model.language) }
     var body: some View {
-        ZStack {
+        let controls = ZStack {
             Color.black.ignoresSafeArea()
             if !unavailable {
                 VibeScapeMetalView(visit: visit, reduceMotion: reduceMotion,
@@ -210,7 +210,8 @@ struct VibeScapeScreen: View {
         .accessibilityLabel("VibeScape")
         .accessibilityValue(text((visit.scene?.family ?? .neutral).titleKey))
         .accessibilityAction(named: Text(text("ui.vibescape.voice.label"))) { toggleVisualVoice() }
-        .onAppear {
+
+        let observingSession = controls.onAppear {
             guard admitted else { model.isShowingVibeScape = false; return }
             screenIsActive = scenePhase == .active
             displayWakeLock.setActive(scenePhase == .active)
@@ -244,7 +245,8 @@ struct VibeScapeScreen: View {
         .onChange(of: model.activeDJSession?.id) { _, _ in close() }
         .onChange(of: model.activeDJSession?.runtimeState) { _, _ in close() }
         .onChange(of: model.pairingStatus) { _, _ in close() }
-        .onChange(of: scenePhase) { _, value in
+
+        return observingSession.onChange(of: scenePhase) { _, value in
             screenIsActive = value == .active
             switch value {
             case .active:

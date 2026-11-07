@@ -603,6 +603,7 @@ struct NativeSessionMomentsView: View {
                 artworkModel: playbackModel,
                 speech: session.broadcast.sessionSpeech.first { $0.reference == .moment(sessionID: session.id, momentID: moment.id) },
                 contributionQuestion: contributionQuestion,
+                titleAccessibilityIdentifier: "session-current-moment-title",
                 contributionAction: {
                     guard let model = playbackModel, let actionEpoch,
                           model.sessionHistory.exploreContribution(moment, expectedEpoch: actionEpoch) else { return }
@@ -675,6 +676,9 @@ struct NativeSessionMomentsView: View {
                     guard artworkFeedback?.id == feedback.id else { return }
                     withAnimation(.easeOut(duration: 0.2)) { artworkFeedback = nil }
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(text(artworkIsPaused ? "ui.play" : "ui.pause")))
+                .accessibilityAddTraits(.isButton)
                 .accessibilityAction { sendArtworkCommand(artworkIsPaused ? "play" : "pause") }
                 .accessibilityAction(named: Text(text("ui.next.track"))) { sendArtworkCommand("next") }
                 .accessibilityAction(named: Text(text("ui.previous.track"))) { sendArtworkCommand("previous") }
@@ -1257,6 +1261,7 @@ struct MomentCard: View {
     var artworkModel: DJConnectAppModel? = nil
     var speech: DJConnectSessionSpeech? = nil
     var contributionQuestion: String? = nil
+    var titleAccessibilityIdentifier: String? = nil
     var contributionAction: (() -> Void)? = nil
     private var spotifyURLs: [URL] { moment.nativeSourceURLs.filter(SessionSourceLinks.isSpotify) }
     var body: some View {
@@ -1269,7 +1274,14 @@ struct MomentCard: View {
                 Label(kind, systemImage: "newspaper").font(.caption.weight(.bold)).foregroundStyle(.secondary)
                     .accessibilityAddTraits(.isHeader)
             } else { Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary) }
-            if !moment.isBulletinV1 && !moment.title.isEmpty { Text(moment.title).font(.title2.bold()).accessibilityAddTraits(.isHeader) }
+            if !moment.isBulletinV1 && !moment.title.isEmpty {
+                let title = Text(moment.title).font(.title2.bold()).accessibilityAddTraits(.isHeader)
+                if let titleAccessibilityIdentifier {
+                    title.accessibilityIdentifier(titleAccessibilityIdentifier)
+                } else {
+                    title
+                }
+            }
             Text(moment.content).font(.title3).fixedSize(horizontal: false, vertical: true)
                 .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
             if let speech = presentation?.speech {

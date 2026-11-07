@@ -14210,7 +14210,7 @@ public final class DJConnectAppModel: ObservableObject {
         currentAPNsPushToken = token
         if hostWakeOriginalAPNSToken != deviceToken {
             hostWakeAPNSTokenEpoch = UUID()
-            hostWakeOriginalAPNSToken = (16...2048).contains(deviceToken.count) ? Data(deviceToken) : nil
+            hostWakeOriginalAPNSToken = (16...2048).contains(deviceToken.count) ? deviceToken : nil
             hostWakePreparingOwner?.closeOriginalOperation()
         }
         defaults.removeObject(forKey: legacyPushTokenKey)
@@ -14819,7 +14819,13 @@ public final class DJConnectAppModel: ObservableObject {
         pairingMessage = nil
         backendAvailable = true
         updateRequiredMessage = nil
-        if scenario == "review_demo" { startDemoMode(); return }
+        if scenario == "review_demo" || scenario == "review_demo_active_session" {
+            startDemoMode()
+            if scenario == "review_demo_active_session" {
+                applyDemoSessionExamples()
+            }
+            return
+        }
         if scenario == "session_history_contract" || scenario == "paired_owner_contract" {
             var environment = ProcessInfo.processInfo.environment
             var arguments = ProcessInfo.processInfo.arguments

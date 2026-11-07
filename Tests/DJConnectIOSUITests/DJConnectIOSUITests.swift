@@ -25,39 +25,78 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertEqual(avatars.count, 1)
         XCTAssertTrue(card.descendants(matching: .any)["session-dj-avatar"].firstMatch.exists)
         XCTAssertEqual(avatar.frame.width, before.width, accuracy: 1)
-        let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = "session-pulse-existing-current-card"; shot.lifetime = .keepAlways; add(shot)
     }
 
     func testSessionConversationContextMenuReusesPromptAndReportsAnswer() {
         let app = launchSessionUIDemo()
-        let composer = app.textViews.firstMatch
+        let composer = app.textViews["ask-dj-composer-input"].firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
         let prompt = "Vertel over de artiest"
         composer.tap(); composer.typeText(prompt)
         app.buttons["ask-dj-composer-send"].tap()
         let question = app.staticTexts[prompt].firstMatch
-        for _ in 0..<8 where !question.isHittable { app.swipeUp() }
-        XCTAssertTrue(question.waitForExistence(timeout: 5))
+        dismissSessionComposerSuggestions(in: app)
+        // Keep both ends of the drag inside the timeline above the floating composer.
+        let lowerTimeline = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.48))
+        let upperTimeline = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.26))
+        for _ in 0..<8 where !question.isHittable || question.frame.maxY > composer.frame.minY - 16 {
+            lowerTimeline.press(forDuration: 0.1, thenDragTo: upperTimeline)
+        }
+        guard question.isHittable, question.frame.maxY <= composer.frame.minY - 16 else {
+            XCTFail("The sent question did not scroll clear of the floating composer")
+            return
+        }
         question.press(forDuration: 1)
         let reuse = app.buttons["Zet in prompt"].firstMatch
-        XCTAssertTrue(reuse.waitForExistence(timeout: 5))
+        guard reuse.waitForExistence(timeout: 5) else {
+            XCTFail("The message context menu did not open")
+            return
+        }
         XCTAssertFalse(app.buttons["Meld antwoord"].exists, "A question cannot be reported as an answer")
-        reuse.tap()
+        tapSessionContextMenuButton(reuse, in: app)
         XCTAssertEqual(composer.value as? String, prompt)
         XCTAssertTrue(app.buttons["ask-dj-composer-send"].isEnabled, "The reused prompt is ready to send")
         app.buttons["ask-dj-composer-send"].tap()
+        dismissSessionComposerSuggestions(in: app)
         let answer = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "In dit voorbeeld houdt de DJ de sfeer vast")).firstMatch
-        for _ in 0..<6 where !answer.isHittable { app.swipeDown() }
+        for _ in 0..<6 where !answer.isHittable {
+            upperTimeline.press(forDuration: 0.1, thenDragTo: lowerTimeline)
+        }
         XCTAssertTrue(answer.isHittable)
         answer.press(forDuration: 1)
-        XCTAssertTrue(reuse.waitForExistence(timeout: 5))
+        guard reuse.waitForExistence(timeout: 5) else {
+            XCTFail("The message context menu did not open")
+            return
+        }
         let report = app.buttons["Meld antwoord"].firstMatch
         XCTAssertTrue(report.waitForExistence(timeout: 5))
         let menu = XCTAttachment(screenshot: app.screenshot())
         menu.name = "session-answer-context-menu"; menu.lifetime = .keepAlways; add(menu)
-        report.tap()
+        tapSessionContextMenuButton(report, in: app)
         XCTAssertTrue(app.descendants(matching: .any)["ask-dj-feedback-content"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    private func tapSessionContextMenuButton(_ button: XCUIElement, in app: XCUIApplication) {
+        if button.isHittable {
+            button.tap()
+            return
+        }
+        // On iPad, the system menu can expose a frame without an activation point.
+        let frame = button.frame
+        guard !frame.isEmpty, app.frame.contains(frame) else {
+            XCTFail("The context menu action is outside the app window")
+            return
+        }
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: frame.midX - app.frame.minX, dy: frame.midY - app.frame.minY))
+            .tap()
+    }
+
+    private func dismissSessionComposerSuggestions(in app: XCUIApplication) {
+        let close = app.buttons["ask-dj-suggestions-close"].firstMatch
+        if close.waitForExistence(timeout: 2), close.isHittable {
+            close.tap()
+        }
     }
 
     func testSavedSessionsSearchFiltersAndClears() {
@@ -1562,9 +1601,7 @@ extension DJConnectIOSUITests {
         app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
         app.launchArguments.append(contentsOf: additionalArguments)
         app.launchEnvironment = ["DJCONNECT_UITEST_HA_URL": "", "DJCONNECT_UITEST_RUNTIME_FIXTURE": "review_demo"]
-        app.terminate(); app.launch()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
-        app.terminate(); app.launch()
+        app.launch()
         let tab = app.tabBars.buttons["DJ-sessie"]
         if tab.exists { tab.tap() }
         let start = app.buttons["Start DJ-sessie"].firstMatch
