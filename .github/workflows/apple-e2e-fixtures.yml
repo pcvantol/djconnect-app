@@ -78,11 +78,11 @@ jobs:
                   -derivedDataPath "$scratch/derived" CODE_SIGNING_ALLOWED=NO)
           mkdir -p "$scratch/results"
           run_tests() {
-            local action="$1" output="$2" minimum="$3"
-            shift 3
+            local action="$1" output="$2" minimum="$3" allowance="$4"
+            shift 4
             mkdir -p "$output"
             xcodebuild "$action" "${common[@]}" \
-              -test-timeouts-enabled YES -maximum-test-execution-time-allowance 120 \
+              -test-timeouts-enabled YES -maximum-test-execution-time-allowance "$allowance" \
               -resultBundlePath "$output/tests.xcresult" "$@" 2>&1 | tee "$output/xcodebuild.log"
             xcrun xcresulttool get test-results summary --path "$output/tests.xcresult" > "$output/summary.json"
             jq -e --argjson minimum "$minimum" '
@@ -92,15 +92,19 @@ jobs:
 
           if [[ "$PLATFORM" == iphone || "$PLATFORM" == ipad ]]; then
             xcodebuild build-for-testing "${common[@]}" 2>&1 | tee "$scratch/results/build.log"
-            run_tests test-without-building "$scratch/results/avatar" 1 "${tests[0]}"
+            run_tests test-without-building "$scratch/results/avatar" 1 120 "${tests[0]}"
             # XCTest has failed to terminate the previous app while launching the next case.
             # Stop only this job's simulator; the next test boots it with the same build.
             state="$(xcrun simctl list devices -j | jq -er --arg id "$id" '
               [.devices[][] | select(.udid == $id)] | if length == 1 then .[0].state else error("simulator not found") end')"
             if [[ "$state" != Shutdown ]]; then xcrun simctl shutdown "$id"; fi
-            run_tests test-without-building "$scratch/results/context-menu" 1 "${tests[1]}"
+            context_allowance=120
+            # The hosted iPhone can spend a full minute waiting for UI idle
+            # during a swipe. Keep the case bounded without truncating its assertions.
+            if [[ "$PLATFORM" == iphone ]]; then context_allowance=300; fi
+            run_tests test-without-building "$scratch/results/context-menu" 1 "$context_allowance" "${tests[1]}"
           else
-            run_tests test "$scratch/results/smoke" "$minimum_passes" "${tests[@]}"
+            run_tests test "$scratch/results/smoke" "$minimum_passes" 120 "${tests[@]}"
           fi
 
       - name: Upload synthetic fixture results
