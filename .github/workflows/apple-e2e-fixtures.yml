@@ -92,14 +92,16 @@ jobs:
 
           if [[ "$PLATFORM" == iphone || "$PLATFORM" == ipad ]]; then
             xcodebuild build-for-testing "${common[@]}" 2>&1 | tee "$scratch/results/build.log"
+            xcrun simctl bootstatus "$id" -b
             # Cold simulator UI startup plus the conversation round trip has exceeded
             # two minutes on both mobile devices even when the assertions pass.
             run_tests test-without-building "$scratch/results/avatar" 1 300 "${tests[0]}"
             # XCTest has failed to terminate the previous app while launching the next case.
-            # Stop only this job's simulator; the next test boots it with the same build.
+            # Restart only this job's simulator before reusing the same build.
             state="$(xcrun simctl list devices -j | jq -er --arg id "$id" '
               [.devices[][] | select(.udid == $id)] | if length == 1 then .[0].state else error("simulator not found") end')"
             if [[ "$state" != Shutdown ]]; then xcrun simctl shutdown "$id"; fi
+            xcrun simctl bootstatus "$id" -b
             context_allowance=120
             # The hosted iPhone can spend a full minute waiting for UI idle
             # during a swipe. Keep the case bounded without truncating its assertions.
