@@ -25,8 +25,6 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertEqual(avatars.count, 1)
         XCTAssertTrue(card.descendants(matching: .any)["session-dj-avatar"].firstMatch.exists)
         XCTAssertEqual(avatar.frame.width, before.width, accuracy: 1)
-        let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = "session-pulse-existing-current-card"; shot.lifetime = .keepAlways; add(shot)
     }
 
     func testSessionConversationContextMenuReusesPromptAndReportsAnswer() {
