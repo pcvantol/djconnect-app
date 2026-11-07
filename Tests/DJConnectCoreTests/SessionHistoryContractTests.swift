@@ -9838,7 +9838,7 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/command") })
 }
 
-@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss", "server_refresh", "manual_refresh", "output_expiry", "output_replacement", "terminal", "dismiss_expired", "dismiss_without_context"])
+@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss", "server_refresh", "manual_refresh", "output_expiry", "output_replacement", "terminal", "dismiss_expired", "dismiss_without_context", "output_expired_refresh", "unknown_expired_refresh"])
 @MainActor func forYouUsesOriginalOfferWithoutPlaybackOrAutomaticRenewal(_ scenario: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let fixtureEnvelope = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-v1.json"))) as? [String: Any])
@@ -9874,13 +9874,18 @@ private final class StartupReadFailure: @unchecked Sendable {
         messages[messages.count - 1] = assistant; answer["messages"] = messages
     }
 
+    if scenario == "output_expired_refresh" {
+        var awaiting = offer
+        awaiting["state"] = "awaiting_output"; awaiting["actions_available"] = false
+        answer["for_you"] = awaiting
+    }
     let answerData = try historyData(answer)
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200, caps, 0) }
         if path.hasSuffix("/session/active") { return (200, runtimeData, 0) }
         if path.hasSuffix("/ask_dj/message") {
-            if scenario == "unknown" { return (503, Data(), 0) }
+            if scenario == "unknown" || scenario == "unknown_expired_refresh" { return (503, Data(), 0) }
             if scenario == "dismiss" {
                 return (200, try historyData(["success": true, "for_you": ["schema_version": 1, "state": "dismissed", "visible": false]]), 0)
             }
@@ -9982,6 +9987,32 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(model.askDJDraft == "Mijn concept")
     if scenario == "dismiss" { #expect(projection.offer == nil) }
     else { #expect(projection.offer?.visible == true && !projection.canChoose) }
+    if scenario == "output_expired_refresh" || scenario == "unknown_expired_refresh" {
+        #expect(projection.uncertain && !projection.canRefresh)
+        var unavailable = offer
+        unavailable["state"] = "unavailable"; unavailable["actions_available"] = false
+        unavailable["expires_in"] = 0; unavailable["reason"] = "choice_expired_or_changed"
+        unavailable["refresh_request"] = ["automatic": false, "prompt": "Nieuw voorstel"]
+        projection.observe(try JSONDecoder().decode(DJConnectForYou.self, from: historyData(unavailable)))
+        #expect(projection.outputChoices.isEmpty && !projection.canChoose && projection.isPresented)
+        #expect(projection.canRefresh == (scenario == "output_expired_refresh"))
+        #expect(projection.uncertain == (scenario == "unknown_expired_refresh"))
+        let posts = fixture.requests.filter { $0.httpMethod == "POST" }
+        #expect(posts.count == 1) // No automatic replay or renewal after expiry.
+        if scenario == "output_expired_refresh" {
+            projection.renew(); projection.renew()
+            for _ in 0..<200 where projection.busy { try await Task.sleep(for: .milliseconds(10)) }
+            let renewed = fixture.requests.filter { $0.httpMethod == "POST" }
+            #expect(renewed.count == 2)
+            let bodies = try renewed.map { request in
+                try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+            }
+            #expect(bodies.last?["text"] as? String == "Nieuw voorstel")
+            #expect(bodies.last?["choice_action"] == nil)
+            #expect(Set(bodies.compactMap { $0["client_message_id"] as? String }).count == 2)
+        }
+        return
+    }
     if ["output", "output_expiry", "output_replacement"].contains(scenario) {
         let result = try JSONDecoder().decode(DJConnectResultSet.self, from: historyData((old["output"] as! [String: Any])["result_set"]!))
         let speaker = try #require(result.admittedPlaybackActions.first)
