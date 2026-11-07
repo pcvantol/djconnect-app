@@ -16874,6 +16874,14 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
     }
 
+    /// Fixed state names and bounded durations only; never conversation or owner data.
+    func recordForYouObservation(state: String, remaining: Double?, outputs: Int, replacement: Bool) {
+        let states = ["available", "unavailable", "awaiting_output", "attempted", "uncertain", "confirmed", "closed", "dismissed"]
+        let safeState = states.contains(state) ? state : "other"
+        let seconds = remaining.flatMap { $0.isFinite ? Int(max(0, min(60, $0))) : nil } ?? -1
+        log(.info, "For you observation state=\(safeState) remaining=\(seconds) outputs=\(max(0, min(32, outputs))) replacement=\(replacement)")
+    }
+
     private func log(_ level: DJConnectAppLogLevel, _ message: String) {
         let configuredLevel = DJConnectAppLogLevel.parse(logLevel)
         guard configuredLevel != .off, level != .off, level.priority >= configuredLevel.priority else {

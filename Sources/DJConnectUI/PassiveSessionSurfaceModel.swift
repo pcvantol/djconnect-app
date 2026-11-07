@@ -285,7 +285,10 @@ import DJConnectCore
                     }
                     guard current(captured, version, surface), !Task.isCancelled else { return }
                     guard result.passive_session.binding_id == grant.binding,
-                          result.passive_session.generation == grant.generation else { throw DJConnectError.invalidResponse }
+                          result.passive_session.generation == grant.generation else {
+                        onDiagnostic?("validation_failed stage=read_binding")
+                        throw DJConnectError.invalidResponse
+                    }
                     try await accept(result, surface: surface, captured: captured, version: version, originalClock: originalClock, services: services)
                 } catch {
                     guard current(captured, version, surface) else { return }
@@ -341,13 +344,19 @@ import DJConnectCore
         let p = result.passive_session, now = Date()
         guard current(captured, version, surface), !Task.isCancelled, let sessionID,
               result.validates(sessionID: sessionID, surface: surface, projectionVersion: grants[surface]?.projectionVersion ?? 1), grants[surface]?.id == result.grant_id,
-              let asOf = DJConnectHistoryEntry.date(p.as_of), abs(asOf.timeIntervalSince(now)) <= 30 else { throw DJConnectError.invalidResponse }
+              let asOf = DJConnectHistoryEntry.date(p.as_of), abs(asOf.timeIntervalSince(now)) <= 30 else {
+            onDiagnostic?("validation_failed stage=response_scope_or_clock")
+            throw DJConnectError.invalidResponse
+        }
         if let previous = caches[surface]?.projection ?? invalidatedPlayback[surface] {
             guard p.binding_id == previous.binding_id, p.generation == previous.generation,
                   p.delivery_sequence >= previous.delivery_sequence,
                   asOf >= (DJConnectHistoryEntry.date(previous.as_of) ?? .distantFuture) else { return }
             if p.delivery_sequence == previous.delivery_sequence {
-                guard p.hasSameOriginalObservation(as: previous, at: now) else { throw DJConnectError.invalidResponse }
+                guard p.hasSameOriginalObservation(as: previous, at: now) else {
+                    onDiagnostic?("validation_failed stage=same_sequence_changed_observation")
+                    throw DJConnectError.invalidResponse
+                }
             }
         }
         if let previous = invalidatedPlayback[surface]?.now_playing, let next = p.now_playing,
