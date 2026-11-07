@@ -103,25 +103,53 @@ private func receiptData() throws -> Data {
 }
 
 // Opt-in network acceptance against Tools/moment_contract_server.js.
+var momentNetworkFixtureURL: URL {
+    let port = ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_FIXTURE_PORT"].flatMap(Int.init) ?? 18787
+    return URL(string: "http://127.0.0.1:\(port)")!
+}
+
+func momentFixtureControl(_ operation: String, at base: URL) async throws -> Data {
+    let (data, response) = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/" + operation))
+    try #require((response as? HTTPURLResponse)?.statusCode == 200, Comment(rawValue: operation))
+    return data
+}
+
+@MainActor func momentFixtureWait(_ predicate: () -> Bool) async throws {
+    let deadline = ContinuousClock.now + .seconds(8)
+    while !predicate(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(50)) }
+    try #require(predicate())
+}
+
+func momentFixtureWaitForSubscription(_ minimum: Int = 1, at base: URL) async throws {
+    let deadline = ContinuousClock.now + .seconds(8)
+    repeat {
+        let data = try await momentFixtureControl("metrics", at: base)
+        let state = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        if (state["subscriptions"] as? Int ?? 0) >= minimum, (state["active_connections"] as? Int ?? 0) > 0 { return }
+        try await Task.sleep(for: .milliseconds(50))
+    } while ContinuousClock.now < deadline
+    try #require(Bool(false), "The paired fixture never accepted the native WebSocket subscription")
+}
+
 // This uses the same client, owner WebSocket, state reducer as the native app.
 @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1")) @MainActor func ownerHTTPAndWebSocketDriveAppStateAcrossReconnectAndEnd() async throws {
     guard ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1" else { return }
-    let base = URL(string: "http://127.0.0.1:18787")!
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
+    let base = momentNetworkFixtureURL
+    _ = try await momentFixtureControl("reset", at: base)
     let defaults = UserDefaults(suiteName: "moment-network-contract-test")!
     defaults.removePersistentDomain(forName: "moment-network-contract-test")
     defaults.set(base.absoluteString, forKey: "DJConnectHomeAssistantURL")
     defaults.set(base.absoluteString, forKey: "DJConnectHALocalURL")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "local-moment-contract-fixture"), startBackgroundTasks: false)
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: "moment-network-contract-test") }
     await model.refreshActiveDJSession()
     #expect(model.activeDJSession?.broadcast.djMoments.count == 1)
-    try await Task.sleep(for: .seconds(1))
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
-    try await Task.sleep(for: .seconds(1))
-    #expect(model.activeDJSession?.broadcast.djMoments.count == 2)
+    try await momentFixtureWaitForSubscription(at: base)
+    _ = try await momentFixtureControl("advance", at: base)
+    try await momentFixtureWait { model.activeDJSession?.broadcast.djMoments.count == 2 }
     let activeID = model.activeDJSession?.id
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reconnect"))
-    try await Task.sleep(for: .seconds(2))
+    _ = try await momentFixtureControl("reconnect", at: base)
+    try await momentFixtureWaitForSubscription(2, at: base)
     #expect(model.activeDJSession?.id == activeID)
     #expect(model.activeDJSession?.broadcast.djMoments.count == 2)
     await model.endDJSession()
@@ -130,37 +158,34 @@ private func receiptData() throws -> Data {
     let metrics = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
     #expect(metrics["playbackMutations"] as? Int == 0)
     #expect(metrics["ended"] as? Bool == true)
-    defaults.removePersistentDomain(forName: "moment-network-contract-test")
 }
 
 @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1")) @MainActor
 func rejectedOwnerSubscriptionRemovesPrivateProjectionWithoutClaimingRuntimeEnd() async throws {
-    let base = URL(string: "http://127.0.0.1:18787")!
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
+    let base = momentNetworkFixtureURL
+    _ = try await momentFixtureControl("reset", at: base)
     let defaults = UserDefaults(suiteName: "moment-owner-rejection-test")!
     defaults.removePersistentDomain(forName: "moment-owner-rejection-test")
     defaults.set(base.absoluteString, forKey: "DJConnectHomeAssistantURL")
     defaults.set(base.absoluteString, forKey: "DJConnectHALocalURL")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "local-moment-contract-fixture"), startBackgroundTasks: false)
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: "moment-owner-rejection-test") }
     await model.refreshActiveDJSession()
     #expect(model.activeDJSession != nil)
-    try await Task.sleep(for: .seconds(1))
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reject_owner"))
-    try await Task.sleep(for: .seconds(2))
-    #expect(model.activeDJSession == nil)
-    #expect(model.djSessionErrorMessage != nil)
+    try await momentFixtureWaitForSubscription(at: base)
+    _ = try await momentFixtureControl("reject_owner", at: base)
+    try await momentFixtureWait { model.activeDJSession == nil && model.djSessionErrorMessage != nil }
     let (data, _) = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/metrics"))
     let metrics = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
     #expect(metrics["ended"] as? Bool == false)
     #expect(metrics["playbackMutations"] as? Int == 0)
-    defaults.removePersistentDomain(forName: "moment-owner-rejection-test")
 }
 
 @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1"))
 func ownerSessionTextNeverEntersParentURLCacheEvenWithCacheableResponse() async throws {
-    let base = URL(string: "http://127.0.0.1:18787")!
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/cacheable"))
+    let base = momentNetworkFixtureURL
+    _ = try await momentFixtureControl("reset", at: base)
+    _ = try await momentFixtureControl("cacheable", at: base)
     let cache = URLCache(memoryCapacity: 1_048_576, diskCapacity: 0, diskPath: nil)
     let configuration = URLSessionConfiguration.default
     configuration.urlCache = cache
@@ -183,9 +208,9 @@ func ownerSessionTextNeverEntersParentURLCacheEvenWithCacheableResponse() async 
 
 @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1"))
 func sessionDecodeFailureOmitsPrivateMomentBodyFromDiagnostics() async throws {
-    let base = URL(string: "http://127.0.0.1:18787")!
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/malformed"))
+    let base = momentNetworkFixtureURL
+    _ = try await momentFixtureControl("reset", at: base)
+    _ = try await momentFixtureControl("malformed", at: base)
     let client = DJConnectClient(baseURL: base, identity: DJConnectIdentity(deviceID: "djconnect-ios-8F3A2C91B45D", deviceName: "Test", clientType: .ios, firmware: "4.0.0-rc.1", platform: .ios), tokenStore: DJConnectInMemoryTokenStore(token: "local-moment-contract-fixture"))
     do {
         _ = try await client.activeSession()

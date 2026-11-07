@@ -78,6 +78,7 @@ public extension DJConnectCommandResponse {
         guard var value = pending[id], value.allowsReplayChunks else { return }
         guard (1...((Self.maximumReplayBytes + Self.replayChunkBytes - 1) / Self.replayChunkBytes)).contains(count),
               (0..<count).contains(index), !bytes.isEmpty, bytes.count <= Self.replayChunkBytes,
+              index * Self.replayChunkBytes + bytes.count <= Self.maximumReplayBytes,
               index == count - 1 || bytes.count == Self.replayChunkBytes,
               value.chunkCount == nil || value.chunkCount == count,
               value.chunks[index] == nil || value.chunks[index] == bytes else {
@@ -89,9 +90,6 @@ public extension DJConnectCommandResponse {
         var payload = Data()
         for index in 0..<count {
             if let chunk = value.chunks[index] { payload.append(chunk) }
-        }
-        guard payload.count <= Self.maximumReplayBytes else {
-            complete(id: id, response: .init(success: false, error: "invalid_response")); return
         }
         complete(id: id, response: .init(success: true, payload: payload))
     }

@@ -82,21 +82,23 @@ private func nativeDate(_ raw: String) throws -> Date {
 
 @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_NETWORK_TEST"] == "1")) @MainActor
 func nativeOwnerHTTPWebSocketBackgroundExpiryReconnectAndUnsequencedTerminal() async throws {
-    let base = URL(string: "http://127.0.0.1:18787")!
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
+    let base = momentNetworkFixtureURL
+    _ = try await momentFixtureControl("native_reset", at: base)
     let defaults = UserDefaults(suiteName: "native-owner-contract-test")!
     defaults.removePersistentDomain(forName: "native-owner-contract-test")
     defaults.set(base.absoluteString, forKey: "DJConnectHomeAssistantURL")
     defaults.set(base.absoluteString, forKey: "DJConnectHALocalURL")
     let model = DJConnectUI.DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "local-moment-contract-fixture"), startBackgroundTasks: false)
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: "native-owner-contract-test") }
     await model.refreshActiveDJSession()
-    try await Task.sleep(for: .seconds(1))
+    try await momentFixtureWaitForSubscription(at: base)
     #expect(model.activeDJSession?.broadcast.nativeCurrentMoment(at: Date())?.nativeSourceURLs.count == 1)
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
-    try await Task.sleep(for: .seconds(1))
-    #expect(model.activeDJSession?.broadcast.nativeCurrentMoment(at: Date())?.nativeSourceURLs.count == 2)
+    _ = try await momentFixtureControl("advance", at: base)
+    try await momentFixtureWait {
+        model.activeDJSession?.broadcast.nativeCurrentMoment(at: Date())?.nativeSourceURLs.count == 2
+    }
     #expect(model.activeDJSession?.broadcast.nativeFlowMoments(at: Date()).count == 1)
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/delay_active"))
+    _ = try await momentFixtureControl("delay_active", at: base)
     let lateHTTP = Task { await model.refreshActiveDJSession() }
     try await Task.sleep(for: .milliseconds(100))
     model.markInactiveSession()
@@ -105,20 +107,16 @@ func nativeOwnerHTTPWebSocketBackgroundExpiryReconnectAndUnsequencedTerminal() a
     #expect(model.activeDJSession?.broadcast.djMoments.isEmpty == true)
     model.markActiveSession()
     await model.refreshActiveDJSession()
-    try await Task.sleep(for: .seconds(1))
+    try await momentFixtureWaitForSubscription(2, at: base)
     #expect(model.activeDJSession?.broadcast.nativeCurrentMoment(at: Date())?.nativeSourceURLs.count == 2)
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
-    try await Task.sleep(for: .seconds(1))
-    #expect(model.activeDJSession?.broadcast.djMoments.isEmpty == true)
+    _ = try await momentFixtureControl("expire", at: base)
+    try await momentFixtureWait { model.activeDJSession?.broadcast.djMoments.isEmpty == true }
     #expect(model.activeDJSession?.broadcast.nativeCurrentMoment(at: Date()) == nil)
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reconnect"))
-    try await Task.sleep(for: .seconds(2))
+    _ = try await momentFixtureControl("reconnect", at: base)
+    try await momentFixtureWaitForSubscription(3, at: base)
     #expect(model.activeDJSession?.broadcast.nativeFlowMoments(at: Date()).isEmpty == true)
-    _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/terminal_denial"))
-    try await Task.sleep(for: .seconds(1))
-    #expect(model.activeDJSession == nil)
-    model.markInactiveSession()
-    defaults.removePersistentDomain(forName: "native-owner-contract-test")
+    _ = try await momentFixtureControl("terminal_denial", at: base)
+    try await momentFixtureWait { model.activeDJSession == nil }
 }
 
 @Test(.isolatedClientResources) func actualSpotifyProducerCardRequiresLogoAlbumLinkAndNeverGrantsRecall() throws {
@@ -162,17 +160,18 @@ func nativeOwnerHTTPWebSocketBackgroundExpiryReconnectAndUnsequencedTerminal() a
 
 @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_NETWORK_TEST"] == "1")) @MainActor
 func nativeOwnerCurrentFailureResetsLoadingAndObsoleteFailureCannotClearRecovery() async throws {
-    let base=URL(string:"http://127.0.0.1:18787")!
-    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/native_reset"))
+    let base=momentNetworkFixtureURL
+    _ = try await momentFixtureControl("native_reset", at: base)
     let defaults=UserDefaults(suiteName:"native-owner-error-generation-test")!
     defaults.removePersistentDomain(forName:"native-owner-error-generation-test")
     defaults.set(base.absoluteString,forKey:"DJConnectHomeAssistantURL")
     defaults.set(base.absoluteString,forKey:"DJConnectHALocalURL")
     let model=DJConnectAppModel(defaults:defaults,tokenStore:DJConnectInMemoryTokenStore(token:"local-moment-contract-fixture"),startBackgroundTasks:false)
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName:"native-owner-error-generation-test") }
     await model.refreshActiveDJSession()
-    try await Task.sleep(for:.seconds(1))
+    try await momentFixtureWaitForSubscription(at: base)
     let id=try #require(model.activeDJSession?.id)
-    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/late_failure"))
+    _ = try await momentFixtureControl("late_failure", at: base)
     let obsolete=Task { await model.refreshActiveDJSession() }
     try await Task.sleep(for:.milliseconds(100))
     model.markInactiveSession(); model.markActiveSession()
@@ -181,23 +180,22 @@ func nativeOwnerCurrentFailureResetsLoadingAndObsoleteFailureCannotClearRecovery
     #expect(model.activeDJSession?.id == id)
     #expect(!model.isLoadingDJSession)
     #expect(model.djSessionErrorMessage == nil)
-    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/active_failure"))
+    _ = try await momentFixtureControl("active_failure", at: base)
     await model.refreshActiveDJSession()
     #expect(model.activeDJSession == nil)
     #expect(!model.isLoadingDJSession)
-    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/clear_active_failure"))
+    _ = try await momentFixtureControl("clear_active_failure", at: base)
     await model.refreshActiveDJSession()
     #expect(model.activeDJSession?.id == id)
     #expect(!model.isLoadingDJSession)
-    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/delay_active"))
+    try await momentFixtureWaitForSubscription(at: base)
+    _ = try await momentFixtureControl("delay_active", at: base)
     let pending=Task { await model.refreshActiveDJSession() }
     try await Task.sleep(for:.milliseconds(100))
-    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/terminal_denial"))
+    _ = try await momentFixtureControl("terminal_denial", at: base)
     await pending.value
     #expect(model.activeDJSession == nil)
     #expect(!model.isLoadingDJSession)
-    model.markInactiveSession()
-    defaults.removePersistentDomain(forName:"native-owner-error-generation-test")
 }
 
 private func announcementReceipt() throws -> [String: Any] {
