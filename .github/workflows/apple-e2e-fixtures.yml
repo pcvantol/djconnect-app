@@ -1,0 +1,94 @@
+name: Apple E2E fixtures
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-e2e-fixtures-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native-smoke:
+    name: Native fixture smoke (${{ matrix.platform }})
+    runs-on: macos-26
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [iphone, ipad, mac, watch-contract]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Run selected native fixture tests
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          unset DJCONNECT_ASKDJ_GOLDEN_PLAN DJCONNECT_ASKDJ_GOLDEN_OUTPUT
+          export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+          scratch="$RUNNER_TEMP/apple-e2e-$PLATFORM"
+          mkdir -p "$scratch/tmp"
+          export TMPDIR="$scratch/tmp"
+          xcodebuild -version
+
+          scheme=DJConnectMac
+          destination=platform=macOS
+          minimum_passes=2
+          case "$PLATFORM" in
+            iphone|ipad)
+              scheme=DJConnectIOS
+              model="iPhone 17 Pro"
+              if [[ "$PLATFORM" == ipad ]]; then model="iPad mini (A17 Pro)"; fi
+              # Select an installed device by ID, with the newest available iOS runtime.
+              id="$(xcrun simctl list devices available -j | jq -er --arg model "$model" '
+                [.devices | to_entries[] | select(.key | contains(".iOS-"))
+                  | .key as $runtime | .value[] | select(.name == $model and .isAvailable)
+                  | {udid, version: ($runtime | split(".iOS-")[1] | split("-") | map(tonumber))}]
+                | sort_by(.version) | last | .udid')"
+              destination="platform=iOS Simulator,id=$id"
+              tests=(
+                -only-testing:DJConnectIOSUITests/DJConnectIOSUITests/testSessionAvatarStaysInsideSingleCurrentCard
+                -only-testing:DJConnectIOSUITests/DJConnectIOSUITests/testSessionConversationContextMenuReusesPromptAndReportsAnswer
+              )
+              ;;
+            mac)
+              tests=(
+                -only-testing:DJConnectMacUITests/DJConnectMacUITests/testAskDJNavigationKeepsSidebarAndComposerInsideWindow
+                -only-testing:DJConnectMacUITests/DJConnectMacUITests/testReviewDemoSessionAvatarLayoutFavoriteAndArtworkControls
+              )
+              ;;
+            watch-contract)
+              tests=(
+                '-only-testing:DJConnectCoreTests/watchMomentAlertLocatorRejectsOtherFamiliesAndNeverCarriesAuthority()'
+                '-only-testing:DJConnectCoreTests/watchRetainedMomentOpenUsesOriginalPublicationAndRejectsAnotherID()'
+                '-only-testing:DJConnectCoreTests/watchVoiceCompanionFreezesExplicitOriginalContextAndOperationID()'
+              )
+              minimum_passes=3
+              ;;
+          esac
+
+          xcodebuild test -project DJConnectApp.xcodeproj -scheme "$scheme" -configuration Debug \
+            -destination "$destination" -parallel-testing-enabled NO \
+            -derivedDataPath "$scratch/derived" -resultBundlePath "$scratch/tests.xcresult" \
+            "${tests[@]}" CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$scratch/xcodebuild.log"
+          xcrun xcresulttool get test-results summary --path "$scratch/tests.xcresult" > "$scratch/summary.json"
+          jq -e --argjson minimum "$minimum_passes" '
+            .passedTests >= $minimum and .failedTests == 0 and .skippedTests == 0
+          ' "$scratch/summary.json"
+
+      - name: Upload synthetic fixture results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apple-e2e-fixtures-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/apple-e2e-${{ matrix.platform }}/tests.xcresult
+            ${{ runner.temp }}/apple-e2e-${{ matrix.platform }}/summary.json
+            ${{ runner.temp }}/apple-e2e-${{ matrix.platform }}/xcodebuild.log
+          if-no-files-found: error
+          retention-days: 7
