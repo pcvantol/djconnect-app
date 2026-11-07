@@ -43,13 +43,14 @@ jobs:
             iphone|ipad)
               scheme=DJConnectIOS
               model="iPhone 17 Pro"
-              if [[ "$PLATFORM" == ipad ]]; then model="iPad mini (A17 Pro)"; fi
-              # Select an installed device by ID, with the newest available iOS runtime.
-              id="$(xcrun simctl list devices available -j | jq -er --arg model "$model" '
+              family=iPhone
+              if [[ "$PLATFORM" == ipad ]]; then model="iPad mini (A17 Pro)"; family=iPad; fi
+              # Prefer the named model, then use an installed device of the same family.
+              id="$(xcrun simctl list devices available -j | jq -er --arg model "$model" --arg family "$family" '
                 [.devices | to_entries[] | select(.key | contains(".iOS-"))
-                  | .key as $runtime | .value[] | select(.name == $model and .isAvailable)
-                  | {udid, version: ($runtime | split(".iOS-")[1] | split("-") | map(tonumber))}]
-                | sort_by(.version) | last | .udid')"
+                  | .key as $runtime | .value[] | select((.name | startswith($family)) and .isAvailable)
+                  | {udid, preferred: (.name == $model), version: ($runtime | split(".iOS-")[1] | split("-") | map(tonumber))}]
+                | sort_by(.preferred, .version, .udid) | last | .udid')"
               destination="platform=iOS Simulator,id=$id"
               tests=(
                 -only-testing:DJConnectIOSUITests/DJConnectIOSUITests/testSessionAvatarStaysInsideSingleCurrentCard
@@ -74,6 +75,7 @@ jobs:
 
           xcodebuild test -project DJConnectApp.xcodeproj -scheme "$scheme" -configuration Debug \
             -destination "$destination" -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES -maximum-test-execution-time-allowance 120 \
             -derivedDataPath "$scratch/derived" -resultBundlePath "$scratch/tests.xcresult" \
             "${tests[@]}" CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$scratch/xcodebuild.log"
           xcrun xcresulttool get test-results summary --path "$scratch/tests.xcresult" > "$scratch/summary.json"
