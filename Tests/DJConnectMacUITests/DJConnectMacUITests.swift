@@ -45,13 +45,25 @@ final class DJConnectMacUITests: XCTestCase {
         lastScreenshotPNG = png
     }
 
+    private func launchReviewDemoApp(fixture: String = "review_demo") -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = fixture
+        app.launch()
+        return app
+    }
+
     func testAskDJNavigationKeepsSidebarAndComposerInsideWindow() {
-        let app = launchMonkeyApp()
-        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 12))
+        let app = launchReviewDemoApp()
+        defer { app.terminate() }
+        let window = app.windows.firstMatch
         let session = app.buttons["DJ-sessie"].firstMatch
-        XCTAssertTrue(session.waitForExistence(timeout: 6))
+        guard window.waitForExistence(timeout: 12), session.waitForExistence(timeout: 6) else {
+            XCTFail("The review fixture did not open the main window and Session sidebar")
+            return
+        }
         let sidebarY = session.frame.minY
-        let window = app.windows.firstMatch.frame
+        let windowFrame = window.frame
         for _ in 0..<3 {
             openScreen("Ask DJ", in: app)
             XCTAssertTrue(session.isHittable)
@@ -59,8 +71,8 @@ final class DJConnectMacUITests: XCTestCase {
                            "Changing the detail must not displace the sidebar")
             let composer = app.descendants(matching: .any)["ask-dj-composer-input"].firstMatch
             XCTAssertTrue(composer.waitForExistence(timeout: 6))
-            XCTAssertGreaterThanOrEqual(composer.frame.minY, window.minY)
-            XCTAssertLessThanOrEqual(composer.frame.maxY, window.maxY)
+            XCTAssertGreaterThanOrEqual(composer.frame.minY, windowFrame.minY)
+            XCTAssertLessThanOrEqual(composer.frame.maxY, windowFrame.maxY)
             session.tap()
         }
     }
@@ -239,16 +251,9 @@ final class DJConnectMacUITests: XCTestCase {
     }
 
     func testReviewDemoSessionAvatarLayoutFavoriteAndArtworkControls() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
-        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "review_demo"
-        app.launch()
+        let app = launchReviewDemoApp(fixture: "review_demo_active_session")
         defer { app.terminate() }
 
-        let start = app.buttons["Start DJ-sessie"].firstMatch
-        if start.waitForExistence(timeout: 3) { start.click() }
-        let introduction = app.buttons["session-introduction-skip"]
-        if introduction.waitForExistence(timeout: 3) { introduction.click() }
         XCTAssertTrue(app.buttons["session-end-button"].waitForExistence(timeout: 10))
 
         let avatars = app.descendants(matching: .any).matching(identifier: "session-dj-avatar")
