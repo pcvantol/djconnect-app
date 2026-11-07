@@ -32,6 +32,7 @@ import DJConnectCore
     private var monotonicDeadline: ContinuousClock.Instant?
     private var settings: Data?
     private var settingsChanged = false
+    private var awaitingOutput = false
     var now: () -> Date = { Date() }
     var instant: () -> ContinuousClock.Instant = { .now }
     init(host: DJConnectAppModel) { self.host = host }
@@ -68,6 +69,7 @@ import DJConnectCore
             hiddenOfferID = nil
             wallDeadline = nil; monotonicDeadline = nil; settings = nil; settingsChanged = false
             outputResultSetID = nil; submittedOutputs = []; outputContext = nil
+            awaitingOutput = false
             return
         }
         if let session = host?.activeDJSession, let settings,
@@ -129,9 +131,22 @@ import DJConnectCore
         // A pending/unknown operation cannot be made executable by a normal poll.
         if replacement {
             uncertain = false; settingsChanged = false
+            awaitingOutput = false
             settings = host?.activeDJSession.flatMap(Self.settingsData)
             pendingOutputs = []; outputContext = nil; outputResultSetID = nil
             outputDeadline = nil; outputInstant = nil
+        }
+        if ["attempted", "uncertain"].contains(incoming.state) { awaitingOutput = false }
+        // A confirmed, unexecuted speaker continuation may expire. Core's
+        // authenticated expiry then permits a new explicit proposal request,
+        // never restoration or replay of the consumed choice. Transport-unknown
+        // and attempted operations do not enter this recovery path.
+        if awaitingOutput, !busy, incoming.state == "unavailable",
+           incoming.reason == "choice_expired_or_changed", incoming.expires_in == 0,
+           incoming.actions_available == false, incoming.continuation == nil,
+           incoming.conversation_context != nil,
+           incoming.conversation_context == offer?.conversation_context {
+            uncertain = false; awaitingOutput = false; pendingOutputs = []
         }
         offer = incoming
         let remaining = incoming.expires_in ?? 0
@@ -229,6 +244,7 @@ import DJConnectCore
         let token = generation
         let submittedSettings = host.activeDJSession.flatMap(Self.settingsData)
         busy = true
+        awaitingOutput = false
         pendingOutputs = [] // Consume the original speaker choice synchronously.
         // One synchronous latch; an unknown outcome is never replayed.
         Task { [weak self] in
@@ -254,6 +270,7 @@ import DJConnectCore
                     admitOutputs(result.admittedPlaybackActions, resultID: result.resultSetID, context: context, remaining: remaining)
                 }
                 uncertain = response.forYou == nil || ["attempted", "uncertain", "awaiting_output"].contains(response.forYou?.state ?? "")
+                awaitingOutput = response.firstPlay?.state == "output" && response.forYou?.state == "awaiting_output"
                 _ = await host.refreshActiveDJSession()
             } catch {
                 if current(captured, token) { uncertain = true }
