@@ -9838,7 +9838,7 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/command") })
 }
 
-@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss", "server_refresh", "manual_refresh", "output_expiry", "output_replacement", "terminal", "dismiss_expired", "dismiss_without_context", "output_expired_refresh", "unknown_expired_refresh"])
+@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss", "server_refresh", "manual_refresh", "output_expiry", "output_replacement", "terminal", "dismiss_expired", "dismiss_without_context", "output_expired_refresh", "unknown_expired_refresh", "output_uncertain_expired_refresh", "output_attempted_expired_refresh"])
 @MainActor func forYouUsesOriginalOfferWithoutPlaybackOrAutomaticRenewal(_ scenario: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let fixtureEnvelope = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-v1.json"))) as? [String: Any])
@@ -9874,7 +9874,7 @@ private final class StartupReadFailure: @unchecked Sendable {
         messages[messages.count - 1] = assistant; answer["messages"] = messages
     }
 
-    if scenario == "output_expired_refresh" {
+    if scenario.hasPrefix("output_") && scenario.hasSuffix("expired_refresh") {
         var awaiting = offer
         awaiting["state"] = "awaiting_output"; awaiting["actions_available"] = false
         answer["for_you"] = awaiting
@@ -9987,8 +9987,14 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(model.askDJDraft == "Mijn concept")
     if scenario == "dismiss" { #expect(projection.offer == nil) }
     else { #expect(projection.offer?.visible == true && !projection.canChoose) }
-    if scenario == "output_expired_refresh" || scenario == "unknown_expired_refresh" {
+    if scenario.hasSuffix("expired_refresh") {
         #expect(projection.uncertain && !projection.canRefresh)
+        if scenario == "output_uncertain_expired_refresh" || scenario == "output_attempted_expired_refresh" {
+            var unresolved = offer
+            unresolved["state"] = scenario == "output_uncertain_expired_refresh" ? "uncertain" : "attempted"
+            unresolved["actions_available"] = false
+            projection.observe(try JSONDecoder().decode(DJConnectForYou.self, from: historyData(unresolved)))
+        }
         var unavailable = offer
         unavailable["state"] = "unavailable"; unavailable["actions_available"] = false
         unavailable["expires_in"] = 0; unavailable["reason"] = "choice_expired_or_changed"
@@ -9996,7 +10002,7 @@ private final class StartupReadFailure: @unchecked Sendable {
         projection.observe(try JSONDecoder().decode(DJConnectForYou.self, from: historyData(unavailable)))
         #expect(projection.outputChoices.isEmpty && !projection.canChoose && projection.isPresented)
         #expect(projection.canRefresh == (scenario == "output_expired_refresh"))
-        #expect(projection.uncertain == (scenario == "unknown_expired_refresh"))
+        #expect(projection.uncertain == (scenario != "output_expired_refresh"))
         let posts = fixture.requests.filter { $0.httpMethod == "POST" }
         #expect(posts.count == 1) // No automatic replay or renewal after expiry.
         if scenario == "output_expired_refresh" {

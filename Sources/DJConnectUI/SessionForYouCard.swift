@@ -136,6 +136,7 @@ import DJConnectCore
             pendingOutputs = []; outputContext = nil; outputResultSetID = nil
             outputDeadline = nil; outputInstant = nil
         }
+        if ["attempted", "uncertain"].contains(incoming.state) { awaitingOutput = false }
         // A confirmed, unexecuted speaker continuation may expire. Core's
         // authenticated expiry then permits a new explicit proposal request,
         // never restoration or replay of the consumed choice. Transport-unknown
