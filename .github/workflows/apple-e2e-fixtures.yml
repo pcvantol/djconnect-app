@@ -92,7 +92,9 @@ jobs:
 
           if [[ "$PLATFORM" == iphone || "$PLATFORM" == ipad ]]; then
             xcodebuild build-for-testing "${common[@]}" 2>&1 | tee "$scratch/results/build.log"
-            run_tests test-without-building "$scratch/results/avatar" 1 120 "${tests[0]}"
+            # Cold simulator UI startup plus the conversation round trip has exceeded
+            # two minutes on both mobile devices even when the assertions pass.
+            run_tests test-without-building "$scratch/results/avatar" 1 300 "${tests[0]}"
             # XCTest has failed to terminate the previous app while launching the next case.
             # Stop only this job's simulator; the next test boots it with the same build.
             state="$(xcrun simctl list devices -j | jq -er --arg id "$id" '
