@@ -259,13 +259,11 @@ final class DJConnectMacUITests: XCTestCase {
         let avatars = app.descendants(matching: .any).matching(identifier: "session-dj-avatar")
         XCTAssertTrue(avatars.firstMatch.waitForExistence(timeout: 15))
         XCTAssertEqual(avatars.count, 1, "The current Session must contain exactly one avatar")
-        let currentMoment = app.descendants(matching: .any)["session-current-moment"].firstMatch
-        let title = currentMoment.staticTexts.matching(
-            NSPredicate(format: "label == %@", "Een avond met de DJ")
-        ).firstMatch
+        let title = app.descendants(matching: .any)["session-current-moment-title"].firstMatch
         guard title.waitForExistence(timeout: 5) else {
             return XCTFail("The current DJ contribution must expose its title")
         }
+        XCTAssertEqual(title.label, "Een avond met de DJ")
         XCTAssertGreaterThanOrEqual(title.frame.minX, avatars.firstMatch.frame.maxX,
                                     "Contribution text must start to the right of the avatar")
         XCTAssertLessThan(title.frame.minY, avatars.firstMatch.frame.maxY,
