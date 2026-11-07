@@ -245,6 +245,12 @@ final class DJConnectMacUITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
 
+        let start = app.buttons["Start DJ-sessie"].firstMatch
+        if start.waitForExistence(timeout: 3) { start.click() }
+        let introduction = app.buttons["session-introduction-skip"]
+        if introduction.waitForExistence(timeout: 3) { introduction.click() }
+        XCTAssertTrue(app.buttons["session-end-button"].waitForExistence(timeout: 10))
+
         let avatars = app.descendants(matching: .any).matching(identifier: "session-dj-avatar")
         XCTAssertTrue(avatars.firstMatch.waitForExistence(timeout: 15))
         XCTAssertEqual(avatars.count, 1, "The current Session must contain exactly one avatar")

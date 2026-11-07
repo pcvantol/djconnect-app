@@ -6,12 +6,7 @@ final class DJConnectIOSUITests: XCTestCase {
     private var lastScreenshotPNG: Data?
 
     func testSessionAvatarStaysInsideSingleCurrentCard() {
-        let app = XCUIApplication()
-        app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
-        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "review_demo"
-        app.launch()
-        let tab = app.tabBars.buttons["DJ-sessie"]
-        if tab.waitForExistence(timeout: 10) { tab.tap() }
+        let app = launchSessionUIDemo()
         let card = app.descendants(matching: .any)["session-current-card"].firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 10))
         let avatar = card.descendants(matching: .any)["session-dj-avatar"].firstMatch
@@ -35,12 +30,7 @@ final class DJConnectIOSUITests: XCTestCase {
     }
 
     func testSessionConversationContextMenuReusesPromptAndReportsAnswer() {
-        let app = XCUIApplication()
-        app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
-        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "review_demo"
-        app.launch()
-        let tab = app.tabBars.buttons["DJ-sessie"]
-        if tab.waitForExistence(timeout: 10) { tab.tap() }
+        let app = launchSessionUIDemo()
         let composer = app.textViews.firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
         let prompt = "Vertel over de artiest"

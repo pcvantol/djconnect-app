@@ -229,3 +229,16 @@ the inspected HA OpenAI SDK defaults to two retries. Fixture admission must prov
 and enforce actual SDK/HA transport-attempt bounds before I/O. The client budget
 is only an admission declaration, not provider enforcement. No retry setting or
 HA installation was changed, and no real provider/session run was performed.
+
+## Manual Apple fixture CI
+
+Run **Apple E2E fixtures** from GitHub Actions when checking Session UI and Ask DJ
+changes across Apple targets. It runs iPhone and iPad simulator UI flows, macOS
+UI smoke and Watch companion/Moment contract tests. Each job requires a minimum
+number of passed tests and rejects skips. It uploads only fixture-run evidence.
+The ordinary PR workflow continues to run the cheap contract and orchestration
+checks.
+
+This CI workflow does not arm a Golden plan. It uses the existing local demo
+fixtures and Watch contract tests. A real Golden run still requires the qualified
+Core producer handoff, supported host and provider evidence described above.
