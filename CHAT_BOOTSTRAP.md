@@ -8,7 +8,10 @@ contract.
 
 Current installation qualification: `Tools/qualification/install_ordinary_macos.py`
 validates ordinary bundle identity, signatures, executable modes and framework
-symlinks. CI runs its preservation regressions. Current local work/evidence and
+symlinks. It also retires verified old widget-extension processes after atomic
+replacement; PID birth and recovery-image guards prevent signalling a replacement
+or unrelated process. CI runs its preservation and process-identity regressions.
+Current local work/evidence and
 remaining release gates: `docs/feedback/APPLE_INTEGRAL_EXECUTION_20261017.md`.
 
 CI also runs the isolated VibeCast binding/binary-input package. These tests use

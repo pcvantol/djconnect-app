@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import plistlib
 import re
+import signal
 import shutil
 import stat
 import subprocess
@@ -75,12 +76,85 @@ def validate_bundle(path: Path, expected_build: str) -> None:
     subprocess.run(["codesign", "--verify", "--deep", "--strict", str(path)], check=True)
 
 
+def extension_image_pattern(destination: Path) -> str:
+    return re.escape(str(destination / "Contents/PlugIns")) + r"/[^/]+\.appex/Contents/MacOS/[^/]+"
+
+
+def extension_pattern(destination: Path) -> str:
+    return "^" + extension_image_pattern(destination) + r"($| )"
+
+
+def process_start(pid: int) -> str | None:
+    result = subprocess.run(["ps", "-p", str(pid), "-o", "lstart="], capture_output=True, text=True)
+    if result.returncode == 1:
+        return None
+    if result.returncode != 0 or not result.stdout.strip():
+        raise ValueError("Extension process identity is uncertain")
+    return result.stdout.strip()
+
+
+def extension_processes(destination: Path) -> dict[int, str]:
+    result = subprocess.run(["pgrep", "-f", extension_pattern(destination)], capture_output=True, text=True)
+    if result.returncode == 1:
+        return {}
+    if result.returncode != 0 or not result.stdout.split() or not all(p.isdecimal() for p in result.stdout.split()):
+        raise ValueError("Extension process inventory is uncertain")
+    captured = {}
+    for value in result.stdout.split():
+        pid = int(value)
+        if (started := process_start(pid)) is not None:
+            captured[pid] = started
+    return captured
+
+
+def retire_replaced_extensions(destination: Path, backup: Path | None, captured: dict[int, str]) -> None:
+    """Retire only the original processes demonstrably executing this backup.
+
+    WidgetKit may keep the old executable mapped after an atomic app replacement.
+    Never terminate the widget host, a reused PID, or an unproven extension.
+    """
+    if not captured:
+        return
+    if backup is None:
+        raise ValueError("Running extensions have no original recovery bundle")
+    old_image = re.compile("^n" + extension_image_pattern(backup) + "$")
+    new_image = re.compile("^n" + extension_image_pattern(destination) + "$")
+    for pid, started in captured.items():
+        if process_start(pid) != started:
+            continue
+        live = subprocess.run(["pgrep", "-f", extension_pattern(destination)], capture_output=True, text=True)
+        if live.returncode == 1:
+            continue
+        if live.returncode != 0 or not live.stdout.split() or not all(p.isdecimal() for p in live.stdout.split()):
+            raise ValueError("Extension process inventory changed ambiguously")
+        if str(pid) not in live.stdout.split():
+            continue
+        files = subprocess.run(["lsof", "-p", str(pid), "-Fn"], capture_output=True, text=True)
+        if files.returncode != 0:
+            if process_start(pid) is None:
+                continue
+            raise ValueError("Cannot verify the extension's original loaded image")
+        lines = files.stdout.splitlines()
+        if not any(old_image.fullmatch(line) for line in lines):
+            if any(new_image.fullmatch(line) for line in lines):
+                continue
+            raise ValueError("Extension loaded image does not match either qualified bundle")
+        # Recheck birth immediately before signalling; a newly launched process
+        # must not inherit the captured process's retirement decision.
+        if process_start(pid) == started:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
+
 def install(source: Path, destination: Path, expected_build: str) -> Path | None:
     validate_bundle(source, expected_build)
     pattern = "^" + re.escape(str(destination / "Contents/MacOS/DJConnect")) + r"($| )"
     process = subprocess.run(["pgrep", "-f", pattern], capture_output=True, text=True)
     if process.returncode != 1:
         raise ValueError("Destination app is running or process state is uncertain")
+    extensions = extension_processes(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     stage_root = Path(tempfile.mkdtemp(prefix=".djconnect-install-", dir=destination.parent))
     staged = stage_root / "DJConnect.app"
@@ -91,6 +165,7 @@ def install(source: Path, destination: Path, expected_build: str) -> Path | None
         # Recheck immediately before changing the destination.
         if subprocess.run(["pgrep", "-f", pattern], capture_output=True).returncode != 1:
             raise ValueError("Destination app started during qualification")
+        extensions.update(extension_processes(destination))
         if destination.exists():
             stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             backup = destination.with_name("DJConnect-recovery-" + stamp + ".app")
@@ -108,6 +183,9 @@ def install(source: Path, destination: Path, expected_build: str) -> Path | None
                     destination.rename(rejected)
                 backup.rename(destination)
             raise
+        # This occurs after successful replacement, so WidgetKit's next launch
+        # resolves the new bundle. A failure preserves both signed installations.
+        retire_replaced_extensions(destination, backup, extensions)
         return backup
     finally:
         if stage_root.exists():
