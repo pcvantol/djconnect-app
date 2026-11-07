@@ -14195,7 +14195,7 @@ public final class DJConnectAppModel: ObservableObject {
         currentAPNsPushToken = token
         if hostWakeOriginalAPNSToken != deviceToken {
             hostWakeAPNSTokenEpoch = UUID()
-            hostWakeOriginalAPNSToken = (16...2048).contains(deviceToken.count) ? Data(deviceToken) : nil
+            hostWakeOriginalAPNSToken = (16...2048).contains(deviceToken.count) ? deviceToken : nil
             hostWakePreparingOwner?.closeOriginalOperation()
         }
         defaults.removeObject(forKey: legacyPushTokenKey)
