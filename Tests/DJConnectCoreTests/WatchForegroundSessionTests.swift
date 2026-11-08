@@ -145,6 +145,38 @@ private func watchSettings() throws -> DJConnectProfileDJSettingsResponse {
     #expect(unrelated.error == "outcome_unknown" && pending.count == 0)
 }
 
+@Test(.isolatedClientResources) @MainActor
+func watchSpeechReplayRejectsOversizeFinalChunkBeforeWaitingForOtherChunks() async {
+    let requests = DJConnectWatchProxyRequests(timeout: .seconds(1))
+    let chunkBytes = DJConnectWatchProxyRequests.replayChunkBytes
+    let limit = DJConnectWatchProxyRequests.maximumReplayBytes
+    let fullChunks = (limit - 1) / chunkBytes
+    let lastChunkBytes = limit - fullChunks * chunkBytes
+
+    let rejected = await requests.request(allowsReplayChunks: true) { id in
+        requests.receiveReplayChunk(
+            id: id, index: fullChunks, count: fullChunks + 1,
+            bytes: Data(repeating: 1, count: lastChunkBytes + 1)
+        )
+    }
+    #expect(rejected.error == "invalid_response")
+    #expect(requests.count == 0)
+
+    let accepted = await requests.request(allowsReplayChunks: true) { id in
+        requests.receiveReplayChunk(
+            id: id, index: fullChunks, count: fullChunks + 1,
+            bytes: Data(repeating: 1, count: lastChunkBytes)
+        )
+        let chunk = Data(repeating: 0, count: chunkBytes)
+        for index in 0..<fullChunks {
+            requests.receiveReplayChunk(id: id, index: index, count: fullChunks + 1, bytes: chunk)
+        }
+    }
+    #expect(accepted.payload?.count == limit)
+    #expect(accepted.payload?.last == 1)
+    #expect(requests.count == 0)
+}
+
 @Test(.isolatedClientResources) @MainActor func watchCompanionBoundsConcurrentWorkAndDoesNotReplayTimedOutWrites() async {
     let pending = DJConnectWatchProxyRequests(timeout: .seconds(2))
     var sends = 0

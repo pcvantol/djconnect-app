@@ -398,6 +398,34 @@ that users should allow inbound local-network connections for DJConnect. Prefer
 an application-based allow rule because Home Assistant LAN access can be blocked when the
 pairing server restarts.
 
+## Legacy route maintenance
+
+Run `python3 Tools/qualification/assess_dead_legacy_routes.py --output "$AUDIT_JSON"`
+to inventory possible orphan declarations in an external validation directory.
+Before removing a candidate, check references across platform targets, tests
+and qualification tools. Check protocol conformance, callbacks and public APIs
+separately. The inventory counts names in source text and cannot establish
+runtime reachability.
+
+Ask DJ still supports a single HTTP submission for older Home Assistant
+servers. Keep the original request and deadline, the fresh same-origin 404
+requirement when hybrid transport is configured, and the no-replay behavior
+after uncertain delivery. See [Ask DJ delivery](ASK_DJ_DELIVERY_WAIT.md).
+
+The opt-in Moment network tests exercise real loopback HTTP and paired
+WebSocket frames against pinned Core fixtures. Build `DJConnectMac` for
+testing, then run:
+
+```sh
+python3 Tools/qualification/run_moment_network_tests.py \
+  --core "$CORE_CHECKOUT" --xctestrun "$MAC_XCTESTRUN" --output "$NEW_PRIVATE_OUTPUT"
+```
+
+The Core checkout must contain the exact revisions pinned by the fixture
+generators. Use a new output directory on Shared Data. The runner starts
+an isolated local server, runs six tests in sequence and saves the result
+bundle. Real APNs and device acceptance use a separate test environment.
+
 ## Repository Rules
 
 - Keep HTTP and protocol code in `DJConnectCore`.

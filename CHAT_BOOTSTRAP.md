@@ -19,10 +19,9 @@ injected SDK closures only; they neither arm the separate hosted diagnostic nor
 generate keys/captures. See `Tools/qualification/vibecast-native/API_BINARY_INTAKE.md`
 for the separate app/profile and joint API experiment gates.
 
-CodeQL maintenance: PR180 now pins all three firmware-analysis action references
-to 4.39.0 (`6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee`). Its original main
-qualification is recorded in `docs/feedback/APPLE_CODEQL_180_SOURCE_RECEIPT_20261024.json`.
-This workflow-only update is not an app version or device-installation receipt.
+The firmware analysis pins all three CodeQL actions to 4.39.3
+(`33d7b85da1a04171e211befe2c739303b9a4c066`). The earlier PR180 qualification
+for 4.39.0 remains in `docs/feedback/APPLE_CODEQL_180_SOURCE_RECEIPT_20261024.json`.
 
 TDE observe diagnostics: Source #243 preserves original CLI stdout/stderr/exits and
 BLOCKED decisions, and publishes supplemental public Runtime diagnostics only as

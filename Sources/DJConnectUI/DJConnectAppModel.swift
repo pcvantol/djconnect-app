@@ -2385,7 +2385,6 @@ public final class DJConnectAppModel: ObservableObject {
     private let watchProxyPairedKey = "DJConnectWatchProxyPaired"
     private let watchProxyPairingIntentKey = "DJConnectWatchProxyPairingIntent"
     private let watchProxyDeviceTokenKey = "DJConnectWatchProxyDeviceToken"
-    private let watchProxyLocalURLKey = "DJConnectWatchProxyLocalURL"
     private let watchProxyAPIBaseKey = "DJConnectWatchProxyAPIBase"
     private let watchProxyVoicePathKey = "DJConnectWatchProxyVoicePath"
     private let watchProxyStatusPathKey = "DJConnectWatchProxyStatusPath"
