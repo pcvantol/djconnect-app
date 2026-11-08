@@ -111,12 +111,12 @@ jobs:
             # The hosted iPhone can spend a full minute waiting for UI idle
             # during a swipe. Keep the case bounded without truncating its assertions.
             if [[ "$PLATFORM" == iphone ]]; then context_allowance=300; fi
-            run_tests test-without-building "$scratch/results/context-menu" 1 "$context_allowance" "${tests[1]}"
+            run_tests test-without-building "$scratch/results/vibecast" 1 300 "${tests[2]}"
             state="$(xcrun simctl list devices -j | jq -er --arg id "$id" '
               [.devices[][] | select(.udid == $id)] | if length == 1 then .[0].state else error("simulator not found") end')"
             if [[ "$state" != Shutdown ]]; then xcrun simctl shutdown "$id"; fi
             xcrun simctl bootstatus "$id" -b
-            run_tests test-without-building "$scratch/results/vibecast" 1 300 "${tests[2]}"
+            run_tests test-without-building "$scratch/results/context-menu" 1 "$context_allowance" "${tests[1]}"
           else
             run_tests test "$scratch/results/smoke" "$minimum_passes" 120 "${tests[@]}"
           fi

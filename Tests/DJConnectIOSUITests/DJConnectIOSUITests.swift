@@ -2177,10 +2177,8 @@ extension DJConnectIOSUITests {
         XCTAssertEqual(app.textFields["vibecast-handoff-digit-4"].value as? String, "")
         app.typeText("56")
         XCTAssertEqual(app.textFields["vibecast-handoff-digit-5"].value as? String, "6")
-        let lookup = app.buttons["display-consent-lookup"]
-        XCTAssertTrue(lookup.exists)
-        XCTAssertGreaterThan(app.buttons["session-handoff-not-now"].frame.minY, lookup.frame.maxY)
-        XCTAssertFalse(lookup.isEnabled, "Demo presentation grants no handoff authority")
+        XCTAssertFalse(app.buttons["display-consent-confirm"].exists,
+                       "Demo code entry never offers approval")
         outside.tap()
         XCTAssertTrue(dialog.exists)
         if !app.buttons["session-handoff-not-now"].isHittable { app.swipeDown() }
