@@ -1951,12 +1951,6 @@ public final class DJConnectClient: Sendable {
         }
     }
 
-    private func webSocketAskDJMessageIfSupported(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJMessageResponse? {
-        try await webSocketFastPathResult { fastPath, token in
-            try await fastPath.askDJMessage(payload, identity: makeDJConnectIdentity(deviceToken: token))
-        }
-    }
-
     private func webSocketAskDJHistoryIfSupported(sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse? {
         try await webSocketFastPathResult(replaySafe: true) { fastPath, token in
             try await fastPath.askDJHistory(identity: makeDJConnectIdentity(deviceToken: token), sinceRevision: sinceRevision)

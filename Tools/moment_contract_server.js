@@ -21,9 +21,16 @@ let lateFailureOnce = false;
 let subscriptions = 0;
 let playbackMutations = 0;
 let commandKinds = [];
-const sockets = new Set();
+const sockets = new Map();
+const pairedPath = '/api/djconnect/v1/session/broadcast/paired';
+const fixtureToken = 'local-moment-contract-fixture';
+const capability = JSON.parse(fs.readFileSync(require('path').join(__dirname, '../Tests/Fixtures/paired-owner-live-capability-v1.json')));
+const pairedContract = capability.session_broadcast.paired_owner_websocket;
 function send(socket, data) { socket.write(encodeFrame(JSON.stringify(data))); }
-function event(socket, data) { send(socket, {id:1,type:'event',event:{event_type:'djconnect/session/broadcast',data}}); }
+function event(socket, data) {
+  const event_type = 'djconnect/session/broadcast';
+  send(socket, sockets.get(socket) ? {id:1,type:'event',event_type,data} : {id:1,type:'event',event:{event_type,data}});
+}
 const server = http.createServer(async (request,response) => {
   const chunks = []; for await (const chunk of request) chunks.push(chunk);
   const rawBody = Buffer.concat(chunks).toString('utf8');
@@ -34,12 +41,15 @@ const server = http.createServer(async (request,response) => {
   let requestDelay=0;
   if (path === "/api/djconnect/v1/session/active" && lateFailureOnce) { lateFailureOnce=false; requestDelay=1000; responseStatus=401; }
   if (path === "/api/djconnect/v1/session/active" && activeFailure) responseStatus=401;
-  if (path === '/fixture/spotify_reset') {
+  if (path === '/api/djconnect/v1/capabilities') {
+    if (request.headers.authorization || request.headers.cookie) responseStatus = 400;
+    else data = capability;
+  } else if (path === '/fixture/spotify_reset') {
     require('child_process').execFileSync('python3', ['Tools/generate_native_moment_receipt.py','--core',process.argv[3],'--output',process.argv[2]+'.native'], {timeout:45000});
     nativeFlavor='spotify'; activeFailure=false; lateFailureOnce=false; nativeCapture=JSON.parse(fs.readFileSync(process.argv[2]+'.native','utf8')).spotify;
     snapshot=nativeCapture.snapshot; receipt.runtime=nativeCapture.runtime;
     ended=false; rejectOwner=false; cacheable=false; malformed=false; delayActive=false; subscriptions=0; playbackMutations=0; commandKinds=[];
-    for (const socket of sockets) socket.destroy();
+    for (const socket of sockets.keys()) socket.destroy();
   } else if (path === '/fixture/native_reset') {
     nativeFlavor='cc0'; activeFailure=false; lateFailureOnce=false;
     require('child_process').execFileSync('python3', ['Tools/generate_native_moment_receipt.py','--core',process.argv[3],'--output',process.argv[2]+'.native'], {timeout:45000});
@@ -47,29 +57,29 @@ const server = http.createServer(async (request,response) => {
     snapshot = nativeCapture.http_initial.snapshot;
     receipt.runtime = {...receipt.runtime,session_id:snapshot.session.session_id,broadcast:snapshot};
     ended=false; rejectOwner=false; cacheable=false; malformed=false; delayActive=false; subscriptions=0; playbackMutations=0; commandKinds=[];
-    for (const socket of sockets) socket.destroy();
+    for (const socket of sockets.keys()) socket.destroy();
   } else if (path === '/fixture/reset') {
     nativeCapture = null; nativeFlavor = null;
     require('child_process').execFileSync('python3', ['Tools/generate_moment_contract_receipt.py','--core',process.argv[3] || process.env.DJCONNECT_CORE_ROOT || require('path').resolve(__dirname, '../../djconnect'),'--output',process.argv[2]], {timeout:45000});
     receipt = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')); snapshot = receipt.snapshot; ended = false; rejectOwner = false; cacheable = false; malformed = false; delayActive=false; subscriptions = 0; playbackMutations = 0; commandKinds = [];
-    for (const socket of sockets) socket.destroy();
+    for (const socket of sockets.keys()) socket.destroy();
   } else if (path === '/api/djconnect/v1/session/active') data.active_session = ended ? null : {...receipt.runtime,broadcast:snapshot};
   else if (path === '/api/djconnect/v1/websocket/session') data = {success:true,access_token:'local-fixture-ha-auth',expires_in:3600,commands:[]};
   else if (path === '/api/djconnect/v1/session/end') {
     ended = true;
-    for (const socket of sockets) for (const item of (nativeFlavor==='spotify' ? nativeCapture.end_events : nativeCapture ? nativeCapture.events.slice(-2) : receipt.end_events)) event(socket,item);
+    for (const socket of sockets.keys()) for (const item of (nativeFlavor==='spotify' ? nativeCapture.end_events : nativeCapture ? nativeCapture.events.slice(-2) : receipt.end_events)) event(socket,item);
   } else if (path === '/fixture/advance') {
     snapshot = nativeCapture ? nativeCapture.http_shared_producer.snapshot : receipt.updated_snapshot;
-    for (const socket of sockets) for (const item of (nativeCapture ? nativeCapture.events.slice(0,5) : receipt.events)) event(socket,item);
+    for (const socket of sockets.keys()) for (const item of (nativeCapture ? nativeCapture.events.slice(0,5) : receipt.events)) event(socket,item);
   } else if (path === '/fixture/expire') {
     snapshot = nativeCapture.expired;
-    for (const socket of sockets) for (const item of (nativeFlavor==='spotify' ? nativeCapture.expiry_events : nativeCapture.events.slice(5,7))) event(socket,item);
+    for (const socket of sockets.keys()) for (const item of (nativeFlavor==='spotify' ? nativeCapture.expiry_events : nativeCapture.events.slice(5,7))) event(socket,item);
   } else if (path === '/fixture/terminal_denial') {
     const terminal = {...nativeCapture.events.at(-1)}; delete terminal.delivery_sequence;
-    ended=true; for (const socket of sockets) event(socket,terminal);
+    ended=true; for (const socket of sockets.keys()) event(socket,terminal);
   } else if (path === '/fixture/track_change') {
     snapshot = receipt.track_change_snapshot;
-    for (const socket of sockets) for (const item of receipt.track_change_events) event(socket,item);
+    for (const socket of sockets.keys()) for (const item of receipt.track_change_events) event(socket,item);
   } else if (path === '/fixture/active_failure') {
     activeFailure=true;
   } else if (path === '/fixture/clear_active_failure') {
@@ -83,9 +93,9 @@ const server = http.createServer(async (request,response) => {
   } else if (path === '/fixture/cacheable') {
     cacheable = true;
   } else if (path === '/fixture/reject_owner') {
-    rejectOwner = true; for (const socket of sockets) socket.destroy();
+    rejectOwner = true; for (const socket of sockets.keys()) socket.destroy();
   } else if (path === '/fixture/reconnect') {
-    for (const socket of sockets) socket.destroy();
+    for (const socket of sockets.keys()) socket.destroy();
   } else if (path === '/fixture/metrics') data = {subscriptions,active_connections:sockets.size,playbackMutations,commandKinds,ended};
   else if (path.includes('/command')) {
     const kind = body.command || body.type || 'unknown'; commandKinds.push(kind);
@@ -100,7 +110,7 @@ const server = http.createServer(async (request,response) => {
         track_name:p.title,artist_name:p.artist,progress_ms:p.position_ms,duration_ms:p.duration_ms,
         volume_percent:54,shuffle:false,repeat_state:'off'}};
   }
-  if (responseStatus !== 200) data={success:false,error:"auth_stale"};
+  if (responseStatus !== 200) data={success:false,error:"unauthorized"};
   if (requestDelay) await new Promise(resolve => setTimeout(resolve,requestDelay));
   if (delayActive && path === '/api/djconnect/v1/session/active') await new Promise(resolve => setTimeout(resolve, 1000));
   response.writeHead(responseStatus,{'Content-Type':'application/json','Cache-Control':cacheable ? 'public,max-age=600' : 'no-store'});
@@ -108,11 +118,14 @@ const server = http.createServer(async (request,response) => {
 });
 server.on('upgrade',(request,socket) => {
   const key = request.headers['sec-websocket-key'];
-  if (request.url !== '/api/websocket' || !key) { socket.destroy(); return; }
+  const paired = request.url === pairedPath;
+  if ((!paired && request.url !== '/api/websocket') || !key ||
+      (paired && (request.headers.authorization || request.headers.cookie))) { socket.destroy(); return; }
   const accept = crypto.createHash('sha1').update(key+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
   socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: '+accept+'\r\n\r\n');
-  send(socket,{type:'auth_required',ha_version:'2026.10.0'});
+  send(socket, paired ? {type:'auth_required',protocol_version:1} : {type:'auth_required',ha_version:'2026.10.0'});
   let pending = Buffer.alloc(0);
+  let authenticated = false;
   socket.on('data',chunk => {
     pending = Buffer.concat([pending,chunk]);
     while (pending.length) {
@@ -122,15 +135,24 @@ server.on('upgrade',(request,socket) => {
       if (frame.opcode === 8) { socket.end(); return; }
       if (frame.opcode !== 1 && frame.opcode !== 2) continue;
       const message = JSON.parse(frame.text);
-      if (message.type === 'auth') send(socket,{type:'auth_ok',ha_version:'2026.10.0'});
-      else if (message.type === 'djconnect/session/broadcast/subscribe') {
+      if (message.type === 'auth' && !authenticated) {
+        authenticated = !paired || (message.protocol_version === 1 && message.device_token === fixtureToken &&
+          typeof message.device_id === 'string' && pairedContract.client_types.includes(message.client_type) && !message.access_token);
+        if (!authenticated) {
+          send(socket,{type:'auth_invalid',code:'unauthorized'}); socket.end(); return;
+        }
+        send(socket, paired ? {type:'auth_ok',protocol_version:1,lease_seconds:pairedContract.lease_seconds,
+          audience:pairedContract.audience,commands:pairedContract.commands} : {type:'auth_ok',ha_version:'2026.10.0'});
+      } else if (authenticated && message.type === pairedContract.commands[0]) {
         if (rejectOwner) {
-          send(socket,{id:message.id,type:'result',success:false,error:{code:'profile_access_denied'}}); continue;
+          if (paired) send(socket,{type:'auth_invalid',code:'profile_access_denied'});
+          else send(socket,{id:message.id,type:'result',success:false,error:{code:'profile_access_denied'}});
+          continue;
         }
         if (message.session_id !== receipt.runtime.session_id || ended) {
           send(socket,{id:message.id,type:'result',success:false,error:{code:'active_session_not_found'}}); continue;
         }
-        subscriptions++; sockets.add(socket);
+        subscriptions++; sockets.set(socket, paired);
         send(socket,{id:message.id,type:'result',success:true,result:{success:true,session_id:receipt.runtime.session_id,subscription_id:'fixture-subscription-'+subscriptions,snapshot}});
       }
     }
@@ -138,4 +160,5 @@ server.on('upgrade',(request,socket) => {
   socket.on('error',()=>{});
   socket.on('close',()=>sockets.delete(socket));
 });
-server.listen(18787,'127.0.0.1',()=>console.log('LOCAL_SYNTHETIC_OWNER_FIXTURE http://127.0.0.1:18787'));
+const port = Number(process.env.DJCONNECT_MOMENT_FIXTURE_PORT ?? 18787);
+server.listen(port,'127.0.0.1',()=>console.log(`LOCAL_SYNTHETIC_OWNER_FIXTURE http://127.0.0.1:${server.address().port}`));

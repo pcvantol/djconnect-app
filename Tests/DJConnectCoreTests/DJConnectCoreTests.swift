@@ -5561,14 +5561,34 @@ func webSocketPreDispatchCancellationDoesNotBecomeHTTPFallback(kind: String) asy
     #expect(await fastPath.commandCalls == 1)
 }
 
-@Test(.isolatedClientResources) func askDJMessagePreselectsOneHTTPAttemptEvenWhenLegacyWebSocketIsAvailable() async throws {
-    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
+@Test(.isolatedClientResources, arguments: [true, false])
+func askDJMessageWithoutHybridTransportUsesExactlyOneHTTPAttempt(legacySocketAdvertised: Bool) async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: legacySocketAdvertised ? [.askDJMessage] : [])
+    let requests = RequestCounter()
+    let host = legacySocketAdvertised ? "ask-fast.local" : "ask-http.local"
+    let identity = testIOSIdentity()
+    let payload = DJConnectAskDJRequest(
+        identity: identity,
+        text: "Tell me about this track",
+        clientMessageID: "client-message-1",
+        mood: 72,
+        musicDNAKey: "music-dna",
+        audioResponse: .auto,
+        language: "de-DE",
+        profileContext: .init(profileID: "original-profile", sessionID: "original-session", privateSession: true)
+    )
     let client = DJConnectClient(
-        baseURL: URL(string: "http://ask-fast.local:8123")!,
-        identity: testIOSIdentity(),
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
         tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
-        session: mockSession(host: "ask-fast.local") { request in
+        session: mockSession(host: host) { request in
+            requests.increment()
+            #expect(request.httpMethod == "POST")
+            #expect(request.url?.path == "/api/djconnect/v1/ask_dj/message")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer device-token")
             #expect(request.timeoutInterval <= 300 && request.timeoutInterval > 299)
+            let body = try #require(try requestBodyData(request))
+            #expect(try JSONDecoder().decode(DJConnectAskDJRequest.self, from: body) == payload)
             let reply = DJConnectAskDJMessageResponse(
                 assistantMessage: DJConnectAskDJHistoryMessage(id: "http-assistant", role: .assistant, text: "Retained answer", createdAt: Date()),
                 historyRevision: 12, clearRevision: 3)
@@ -5577,16 +5597,9 @@ func webSocketPreDispatchCancellationDoesNotBecomeHTTPFallback(kind: String) asy
         webSocketFastPath: fastPath
     )
 
-    let response = try await client.sendAskDJMessage(DJConnectAskDJRequest(
-        identity: testIOSIdentity(),
-        text: "Tell me about this track",
-        clientMessageID: "client-message-1",
-        mood: 72,
-        musicDNAKey: "music-dna",
-        audioResponse: .auto,
-        language: "de-DE"
-    ))
+    let response = try await client.sendAskDJMessage(payload)
 
+    #expect(requests.count == 1)
     #expect(response.historyRevision == 12)
     #expect(response.clearRevision == 3)
     #expect(response.assistantMessage?.text == "Retained answer")

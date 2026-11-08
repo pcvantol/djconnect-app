@@ -570,12 +570,6 @@ struct SessionTimelineScreen: View {
         history.searchErrorKey != nil && (activeSession == nil ? searching : flowSearchExpanded)
     }
 
-    private var showsFirstPlayHelper: Bool {
-        activeSession?.runtimeState == "active" && !hasSessionPlayback
-            && !history.sessionsWithObservedPlayback.contains(sessionID)
-            && !model.djSessionIsRecovering && !model.djSessionLiveUnavailable
-    }
-
     private func sendComposerQuestion() {
         guard model.activeDJSession?.id == sessionID, canSend else { return }
         let previous = model.askDJMessages.last(where: { $0.role == .user })?.id
