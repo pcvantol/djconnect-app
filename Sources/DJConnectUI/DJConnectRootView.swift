@@ -9437,14 +9437,13 @@ struct VibeCastSessionStartDialog: View {
                 }
             } else {
                 #if os(iOS)
-                ScrollView {
-                    dialogContent
+                ViewThatFits(in: .vertical) {
+                    dialogContent.fixedSize(horizontal: false, vertical: true)
+                    ScrollView { dialogContent }
+                        .scrollBounceBehavior(.basedOnSize)
+                        .scrollDismissesKeyboard(.interactively)
+                        .accessibilityIdentifier("vibecast-session-start-scroll")
                 }
-                .scrollBounceBehavior(.basedOnSize)
-                .scrollDismissesKeyboard(.interactively)
-                .defaultScrollAnchor(.center, for: .alignment)
-                .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620, idealHeight: 620)
-                .accessibilityIdentifier("vibecast-session-start-scroll")
                 #else
                 dialogContent
                 #endif
@@ -9452,7 +9451,7 @@ struct VibeCastSessionStartDialog: View {
         }
         .background { DJConnectCanvasBackground() }
         #if os(iOS)
-        .presentationSizing(.fitted)
+        .presentationSizing(.fitted.sticky(horizontal: false, vertical: false))
         #endif
         .tint(.white)
         .accentColor(.white)

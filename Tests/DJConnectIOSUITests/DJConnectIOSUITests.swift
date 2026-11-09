@@ -2488,6 +2488,10 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(dialog.waitForExistence(timeout: 10))
         if app.frame.width >= 700 {
             XCTAssertEqual(dialog.frame.midY, app.frame.midY, accuracy: 36, "Native iPad sheet stays centered")
+            if app.frame.height >= 700 {
+                XCTAssertTrue(app.buttons["session-handoff-not-now"].isHittable,
+                              "The pairing sheet expands after the screen picker so the bottom action is visible")
+            }
         }
         XCTAssertFalse(app.buttons["session-handoff-close"].exists)
         XCTAssertEqual(app.buttons["session-handoff-not-now"].label, "Niet nu")
