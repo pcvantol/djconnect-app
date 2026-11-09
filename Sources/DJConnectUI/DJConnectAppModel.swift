@@ -370,11 +370,13 @@ public typealias DJConnectWebSocketFastPathFactory = @Sendable (
 
 public enum DJConnectPermissionExplanationKind: Equatable, Sendable {
     case notifications
+    case momentNotifications
     case microphone
 }
 
 private enum DJConnectPendingPermissionRequest {
     case appPermissions
+    case momentNotifications
     case voiceRecording
 }
 
@@ -1430,6 +1432,10 @@ public final class DJConnectAppModel: ObservableObject {
                     Self.normalizedHomeAssistantURL(from: oldValue) != Self.normalizedHomeAssistantURL(from: homeAssistantURL))
             }
             defaults.set(homeAssistantURL, forKey: homeAssistantURLKey)
+            if hasRemotePairingAddress,
+               pairingMessage == localized(key: "appModel.pairing.use.external.https.or.local.network") {
+                pairingMessage = nil
+            }
         }
     }
     @Published public private(set) var haLocalURL = "" {
@@ -2443,7 +2449,6 @@ public final class DJConnectAppModel: ObservableObject {
     private var hostWakeAPNSTokenEpoch = UUID()
     private weak var hostWakePreparingOwner: DJConnectHostWakeFirstKeyOwner?
     private var remoteNotificationRegistrationInProgress = false
-    private var pendingRemoteNotificationPromptPairing: UUID?
     private var pushRegistrationInFlightSignature: String?
     private var pushRegistrationAttemptEpoch: UUID?
     private var discoveryArtworkRenewalTask: Task<Void, Never>?
@@ -2597,6 +2602,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let pairingSessionIDKey = "DJConnectPairingSessionID"
     private let pairingTokenKey = "DJConnectPairingToken"
     private let pendingHomeAssistantSetupKey = "DJConnectHomeAssistantSetupPending"
+    private let pendingHomeAssistantSetupURLKey = "DJConnectHomeAssistantSetupURL"
     private let watchProxyDeviceIDKey = "DJConnectWatchProxyDeviceID"
     private let watchProxyDeviceNameKey = "DJConnectWatchProxyDeviceName"
     private let watchProxyPairCodeKey = "DJConnectWatchProxyPairCode"
@@ -2902,8 +2908,21 @@ public final class DJConnectAppModel: ObservableObject {
         isDemoMode || (canUsePlaybackFeatures && hasActiveNowPlaying)
     }
 
+    var pairingClientType: DJConnectClientType {
+        pairingFlowTarget == .appleWatch ? .watchos : identity.clientType
+    }
+
+    private var hasRemotePairingAddress: Bool {
+        let address = pairingStatus == .waitingForHomeAssistantCompletion
+            ? defaults.string(forKey: pendingHomeAssistantSetupURLKey) ?? homeAssistantURL : homeAssistantURL
+        return pairingClientType == .ios
+            && Self.normalizedHomeAssistantURL(from: address).map(DJConnectPairingURLPolicy.isRemotePairingURL) == true
+    }
+
     public var localNetworkRequirementMessage: String? {
-        (!hasEvaluatedLocalNetwork || isLocalNetworkAvailable) ? nil : localized(key: "appModel.local.wi.fi.lan.is.required.connect.this.device")
+        guard hasEvaluatedLocalNetwork, !isLocalNetworkAvailable, !hasRemotePairingAddress else { return nil }
+        return localized(key: pairingClientType == .ios ? "appModel.pairing.use.external.https.or.local.network"
+            : "appModel.local.wi.fi.lan.is.required.connect.this.device")
     }
 
     public var isOfflineModeActive: Bool {
@@ -2911,7 +2930,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var shouldShowPairingWiFiSettingsLink: Bool {
-        !isDemoMode && hasEvaluatedLocalNetwork && !isLocalNetworkAvailable
+        !isDemoMode && localNetworkRequirementMessage != nil
     }
 
     public var shouldShowPairingScreen: Bool {
@@ -3073,7 +3092,7 @@ public final class DJConnectAppModel: ObservableObject {
                 applyDemoState()
                 log(.info, "App started in demo mode")
             } else {
-                defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+                clearPendingHomeAssistantSetup()
                 clearPairingToken()
                 log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
             }
@@ -3442,7 +3461,7 @@ public final class DJConnectAppModel: ObservableObject {
                 }
             } else {
                 isShowingTokenStorageError = false
-                defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+                clearPendingHomeAssistantSetup()
                 pairingStatus = .unpaired
                 isConnected = false
                 pairingMessage = localized(key: "appModel.no.djconnect.token.found.pair.again.to.continue")
@@ -4494,10 +4513,13 @@ public final class DJConnectAppModel: ObservableObject {
               defaults.bool(forKey: pendingHomeAssistantSetupKey),
               pairingStatus == .waitingForHomeAssistantCompletion,
               pairingTask == nil,
-              let baseURL = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()) else {
+              let baseURL = Self.normalizedHomeAssistantURL(
+                from: defaults.string(forKey: pendingHomeAssistantSetupURLKey) ?? localHomeAssistantURL()) else {
             return
         }
-        guard requestLocalNetworkExplanation(then: { [weak self] in self?.resumePendingHomeAssistantPairingIfNeeded() }) else { return }
+        if identity.clientType != .ios || !DJConnectPairingURLPolicy.isRemotePairingURL(baseURL) {
+            guard requestLocalNetworkExplanation(then: { [weak self] in self?.resumePendingHomeAssistantPairingIfNeeded() }) else { return }
+        }
         log(.info, "Resuming Home Assistant setup completion check")
         isPairing = true
         let generation = UUID(); pairingTaskGeneration = generation
@@ -4533,26 +4555,27 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Ignoring pairing wait because device is already paired")
             return
         }
-        guard !hasEvaluatedLocalNetwork || isLocalNetworkAvailable else {
-            log(.warning, "Pairing wait cannot start because local network is unavailable")
-            pairingStatus = .unpaired
-            isConnected = false
-            isPairing = false
-            pairingMessage = localNetworkRequirementMessage
-            return
-        }
-
         scheduledPairingTask?.cancel()
         scheduledPairingTask = nil
         pairingTask?.cancel()
 
         guard let baseURL = Self.normalizedHomeAssistantURL(from: homeAssistantURL),
-              DJConnectPairingURLPolicy.isAllowedPairingURL(baseURL) else {
+              DJConnectPairingURLPolicy.isAllowedPairingURL(baseURL, clientType: identity.clientType) else {
             log(.warning, "Pairing wait cannot start because the Home Assistant URL is invalid")
             pairingMessage = localized(key: "appModel.enter.your.home.assistant.url.for.example.192.168")
             pairingStatus = .unpaired
             isConnected = false
             isPairing = false
+            return
+        }
+
+        let isRemotePairing = identity.clientType == .ios && DJConnectPairingURLPolicy.isRemotePairingURL(baseURL)
+        guard isRemotePairing || !hasEvaluatedLocalNetwork || isLocalNetworkAvailable else {
+            log(.warning, "Pairing wait cannot start because local network is unavailable")
+            pairingStatus = .unpaired
+            isConnected = false
+            isPairing = false
+            pairingMessage = localNetworkRequirementMessage
             return
         }
 
@@ -4565,7 +4588,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
-        if startBackgroundTasks, !requestLocalNetworkExplanation(then: { [weak self] in self?.startPairingWait() }) { return }
+        if !isRemotePairing, startBackgroundTasks, !requestLocalNetworkExplanation(then: { [weak self] in self?.startPairingWait() }) { return }
 
         log(.info, "Starting pairing wait against \(Self.redactedURL(baseURL))")
         pairingStatus = .pairing
@@ -4592,7 +4615,7 @@ public final class DJConnectAppModel: ObservableObject {
         if pairingStatus == .pairing || pairingStatus == .waitingForHomeAssistantCompletion {
             log(.info, "Pairing wait stopped")
             if defaults.bool(forKey: pendingHomeAssistantSetupKey) {
-                defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+                clearPendingHomeAssistantSetup()
                 try? tokenStore.clearToken()
             }
             isConnected = false
@@ -4609,23 +4632,22 @@ public final class DJConnectAppModel: ObservableObject {
 
         let client = makeClient(baseURL: baseURL)
         do {
-            if baseURL.scheme?.lowercased() == "https",
-               !DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(baseURL) {
-                throw DJConnectError.invalidConfiguration(localized(key: "appModel.pairing.must.be.completed.on.the.same.local.network"))
-            }
+            let isRemotePairing = identity.clientType == .ios && DJConnectPairingURLPolicy.isRemotePairingURL(baseURL)
             let response = try await client.pair(DJConnectPairingPayload(
                 identity: identity,
                 pairingToken: pairCode,
-                haLocalURL: Self.normalizedHomeAssistantURL(from: homeAssistantURL).map(Self.redactedURL),
+                haLocalURL: isRemotePairing ? nil : Self.redactedURL(baseURL),
                 assistPipelineID: assistPipelineID.isEmpty ? nil : assistPipelineID
             ))
             guard !Task.isCancelled, pairingTaskGeneration == generation else { return }
             apply(pairingResponse: response, fallbackBaseURL: baseURL)
             log(.info, "Pairing accepted by Home Assistant")
+            if isRemotePairing { recordConnectionMode(.remote, baseURL: baseURL) }
             if response.setupPending == false {
                 completeHomeAssistantPairing()
                 return
             }
+            defaults.set(Self.redactedURL(baseURL), forKey: pendingHomeAssistantSetupURLKey)
             defaults.set(true, forKey: pendingHomeAssistantSetupKey)
             pairingStatus = .waitingForHomeAssistantCompletion
             isConnected = false
@@ -4705,7 +4727,7 @@ public final class DJConnectAppModel: ObservableObject {
                     continue
                 }
                 if isPairingTokenRejectedAfterPair(error) {
-                    defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+                    clearPendingHomeAssistantSetup()
                     try? tokenStore.clearToken()
                     applyPairingWait(error: error, pairingToken: pairingToken)
                     return
@@ -4715,8 +4737,13 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func completeHomeAssistantPairing() {
+    private func clearPendingHomeAssistantSetup() {
         defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+        defaults.removeObject(forKey: pendingHomeAssistantSetupURLKey)
+    }
+
+    private func completeHomeAssistantPairing() {
+        clearPendingHomeAssistantSetup()
         pairingStatus = .paired
         isConnected = true
         isPairing = false
@@ -4724,7 +4751,7 @@ public final class DJConnectAppModel: ObservableObject {
         presentPairingSuccessScreenAfterPairing()
         presentWakeWordActivationPromptAfterPairing()
         if !Self.isRunningUnderSwiftPMTests {
-            requestRemoteNotificationRegistration(allowSystemPrompt: startBackgroundTasks)
+            requestRemoteNotificationRegistration()
         }
         registerStoredPushTokenIfPossible()
         // The authenticated completion read can discover device transport
@@ -4767,7 +4794,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingTask = nil
         unregisterPushNotifications()
         try? tokenStore.clearToken()
-        defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+        clearPendingHomeAssistantSetup()
         isDemoMode = false
         defaults.removeObject(forKey: demoModeKey)
         clearStoredHomeAssistantURLs()
@@ -7473,27 +7500,37 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func apply(pairingResponse response: DJConnectPairingResponse, fallbackBaseURL: URL) {
-        let localURL = response.haLocalURL.flatMap(Self.normalizedHomeAssistantURL(from:))
-            ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL)
-            ?? fallbackBaseURL
-        haLocalURL = Self.redactedURL(localURL)
+        let pairedOverHTTPS = identity.clientType == .ios && DJConnectPairingURLPolicy.isRemotePairingURL(fallbackBaseURL)
+        let advertisedLocalURL = response.haLocalURL.flatMap(Self.normalizedHomeAssistantURL(from:))
+        let localURL: URL?
+        if pairedOverHTTPS {
+            localURL = advertisedLocalURL.flatMap { url in
+                url != fallbackBaseURL && (DJConnectHybridTransport.isLocalTransportCandidate(url)
+                    || DJConnectPairingURLPolicy.isRemotePairingURL(url)) ? url : nil
+            }
+        } else {
+            localURL = advertisedLocalURL ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL) ?? fallbackBaseURL
+        }
+        haLocalURL = localURL.map(Self.redactedURL) ?? ""
         homeAssistantURL = haLocalURL
         defaults.set(haLocalURL, forKey: haLocalURLKey)
-        if let remoteURL = response.haRemoteURL.flatMap(Self.normalizedHomeAssistantURL(from:)) {
+        let remoteURL = pairedOverHTTPS ? fallbackBaseURL
+            : response.haRemoteURL.flatMap(Self.normalizedHomeAssistantURL(from:))
+        if let remoteURL {
             haRemoteURL = Self.redactedURL(remoteURL)
             defaults.set(haRemoteURL, forKey: haRemoteURLKey)
         } else {
             haRemoteURL = ""
             defaults.removeObject(forKey: haRemoteURLKey)
         }
-        remoteSupported = response.remoteSupported ?? !haRemoteURL.isEmpty
+        remoteSupported = pairedOverHTTPS || (response.remoteSupported ?? !haRemoteURL.isEmpty)
         applyBootstrapContext(
             haInstallID: response.haInstallID,
             integrationVersion: response.integrationVersion,
             pairingSessionID: response.pairingSessionID
         )
         apply(musicBackendSummary: DJConnectMusicBackendSummary(
-            remoteSupported: response.remoteSupported,
+            remoteSupported: pairedOverHTTPS ? true : response.remoteSupported,
             musicBackend: response.musicBackend,
             musicBackendName: response.musicBackendName,
             musicBackendAvailable: response.musicBackendAvailable,
@@ -7643,7 +7680,7 @@ public final class DJConnectAppModel: ObservableObject {
         scheduledPairingTask?.cancel()
         scheduledPairingTask = nil
         try? tokenStore.clearToken()
-        defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+        clearPendingHomeAssistantSetup()
         clearPairingToken()
         clearAskDJHistoryLocally()
         clearMusicDNADisplay()
@@ -13754,7 +13791,11 @@ public final class DJConnectAppModel: ObservableObject {
     public func retryPushNotificationRegistration() {
         guard pairingStatus == .paired, !isDemoMode else { return }
         defaults.removeObject(forKey: registeredPushSignatureKey)
-        requestRemoteNotificationRegistration(allowSystemPrompt: true)
+        if notificationPermissionStatus == .granted {
+            requestRemoteNotificationRegistration()
+        } else {
+            requestAppPermissions()
+        }
     }
 
     public func openNotificationSettings() {
@@ -14614,30 +14655,19 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
     }
 
-    public func requestRemoteNotificationRegistration(allowSystemPrompt: Bool = false) {
+    public func requestRemoteNotificationRegistration() {
         #if canImport(UserNotifications)
         guard pairingStatus == .paired, !isDemoMode else { return }
         let pairing = pairingTaskGeneration
-        if remoteNotificationRegistrationInProgress {
-            if allowSystemPrompt { pendingRemoteNotificationPromptPairing = pairing }
-            return
-        }
+        guard !remoteNotificationRegistrationInProgress else { return }
         remoteNotificationRegistrationInProgress = true
         Task { @MainActor in
-            defer {
-                remoteNotificationRegistrationInProgress = false
-                let pending = pendingRemoteNotificationPromptPairing
-                pendingRemoteNotificationPromptPairing = nil
-                if let pending, pending == pairingTaskGeneration {
-                    requestRemoteNotificationRegistration(allowSystemPrompt: true)
-                }
-            }
+            defer { remoteNotificationRegistrationInProgress = false }
             guard pairingStatus == .paired, !isDemoMode, pairingTaskGeneration == pairing else { return }
             let center = UNUserNotificationCenter.current()
             logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(appVersion) app_build=\(buildVersion) protocol_version=\(Self.protocolVersion) env=\(Self.pushEnvironment.rawValue)", level: .info)
             let authorized = await requestRemoteNotificationAuthorizationIfNeeded(
-                center: center,
-                allowSystemPrompt: allowSystemPrompt
+                center: center
             )
             refreshPermissionStatuses()
             guard pairingStatus == .paired, !isDemoMode, pairingTaskGeneration == pairing else { return }
@@ -14680,14 +14710,30 @@ public final class DJConnectAppModel: ObservableObject {
 
     func setMomentNotificationsEnabled(_ enabled: Bool) {
         guard enabled != momentNotificationsEnabled else { return }
-        defaults.set(enabled, forKey: Self.momentNotificationsKey)
-        momentNotificationsEnabled = enabled
         if enabled {
-            requestRemoteNotificationRegistration(allowSystemPrompt: true)
+            guard !isRequestingPermissions, pendingPermissionRequest == nil else { return }
+            switch notificationPermissionStatus {
+            case .granted:
+                saveMomentNotificationsEnabled(true)
+                requestRemoteNotificationRegistration()
+            case .denied, .restricted:
+                openAppPermissionSettings()
+                schedulePermissionStatusRefreshes()
+            case .unknown, .unavailable:
+                pendingPermissionRequest = .momentNotifications
+                permissionExplanationKind = .momentNotifications
+                isShowingPermissionExplanation = true
+            }
         } else {
+            saveMomentNotificationsEnabled(false)
             pendingMomentOpen = nil
             pendingMomentPairing = nil
         }
+    }
+
+    private func saveMomentNotificationsEnabled(_ enabled: Bool) {
+        defaults.set(enabled, forKey: Self.momentNotificationsKey)
+        momentNotificationsEnabled = enabled
     }
 
     public func shouldPresentRemoteNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
@@ -15970,8 +16016,9 @@ public final class DJConnectAppModel: ObservableObject {
                     self.schedulePairingWait()
                 } else {
                     self.log(.warning, "Local network unavailable")
-                    if !self.isDemoMode {
-                        self.pairingMessage = self.localNetworkRequirementMessage
+                    if !self.isDemoMode, self.pairingStatus == .unpaired,
+                       let message = self.localNetworkRequirementMessage {
+                        self.pairingMessage = message
                     }
                 }
             }
@@ -17760,7 +17807,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func requestAppPermissions() {
-        guard !isRequestingPermissions else {
+        guard !isRequestingPermissions, pendingPermissionRequest == nil else {
             log(.debug, "Ignoring permission request because one is already running")
             return
         }
@@ -17792,6 +17839,8 @@ public final class DJConnectAppModel: ObservableObject {
         switch pending {
         case .appPermissions:
             requestAppPermissionsAfterExplanation()
+        case .momentNotifications:
+            requestAppPermissionsAfterExplanation(enablesMomentNotifications: true)
         case .voiceRecording:
             shouldBypassPermissionExplanationOnce = true
             startVoiceRecording()
@@ -17811,7 +17860,7 @@ public final class DJConnectAppModel: ObservableObject {
         log(.debug, "User cancelled permission explanation")
     }
 
-    private func requestAppPermissionsAfterExplanation() {
+    private func requestAppPermissionsAfterExplanation(enablesMomentNotifications: Bool = false) {
         guard !isRequestingPermissions else {
             return
         }
@@ -17831,6 +17880,9 @@ public final class DJConnectAppModel: ObservableObject {
                 hasRequestedAskDJNotificationPermission = true
             }
             if notificationGranted {
+                if enablesMomentNotifications {
+                    saveMomentNotificationsEnabled(true)
+                }
                 registerForSystemRemoteNotifications()
                 if let preview = askDJNotificationPreview {
                     await scheduleAskDJLocalNotification(center: UNUserNotificationCenter.current(), preview: preview)

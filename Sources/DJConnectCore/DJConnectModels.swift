@@ -545,9 +545,9 @@ public struct DJConnectPairingDeepLink: Equatable, Sendable {
         guard
             let rawHAURL = items["ha_url"],
             let haURL = URL(string: rawHAURL),
-            DJConnectPairingURLPolicy.isAllowedPairingURL(haURL)
+            DJConnectPairingURLPolicy.isAllowedPairingURL(haURL, clientType: expectedClientType)
         else {
-            throw DJConnectError.invalidConfiguration("Missing or invalid local Home Assistant URL.")
+            throw DJConnectError.invalidConfiguration("Missing or invalid Home Assistant URL.")
         }
         guard let pairCode = items["pair_code"], pairCode.count == 6, pairCode.allSatisfy(\.isNumber) else {
             throw DJConnectError.invalidConfiguration("Missing or invalid 6-digit pair code.")
@@ -569,7 +569,10 @@ public struct DJConnectPairingDeepLink: Equatable, Sendable {
 }
 
 public enum DJConnectPairingURLPolicy {
-    public static func isAllowedPairingURL(_ url: URL) -> Bool {
+    public static func isAllowedPairingURL(_ url: URL, clientType: DJConnectClientType? = nil) -> Bool {
+        if clientType == .ios {
+            return DJConnectHybridTransport.isLocalTransportCandidate(url) || isRemotePairingURL(url)
+        }
         guard let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased(), !host.isEmpty else {
             return false
         }
@@ -577,6 +580,10 @@ public enum DJConnectPairingURLPolicy {
             return true
         }
         return scheme == "https" && isWhitelistedDevelopmentTunnelHost(host)
+    }
+
+    public static func isRemotePairingURL(_ url: URL) -> Bool {
+        DJConnectHybridTransport.trustedOrigin(url) && (url.path.isEmpty || url.path == "/")
     }
 
     public static func isWhitelistedDevelopmentTunnelURL(_ url: URL) -> Bool {

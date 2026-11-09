@@ -527,7 +527,7 @@ public final class DJConnectClient: Sendable {
     /// to the ordinary playback-unavailable classifier.
     public func postPairingCompletionStatus(_ payload: DJConnectStatusPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
         let request = try statusRequest(payload)
-        let (data, status) = try await dataAndStatusCodeResponse(for: request, acceptingStatuses: [200])
+        let (data, status) = try await dataAndStatusCodeResponse(for: request, acceptingStatuses: [200], rejectsRedirects: isRemoteApplePairing)
         let response = try decoder.decode(DJConnectEnvelope<DJConnectPlayback>.self, from: data)
         let backendOnlyFailure = ["backend_unavailable", "playback_backend_unavailable"].contains(response.error ?? "")
         let hasRuntimeInstallation = response.haInstallID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
@@ -540,13 +540,17 @@ public final class DJConnectClient: Sendable {
 
     public func pair(_ payload: DJConnectPairingPayload) async throws -> DJConnectPairingResponse {
         let request = try pairingRequest(payload)
-        let response: DJConnectPairingResponse = try await decodedResponse(for: request)
+        let response: DJConnectPairingResponse = try await decodedResponse(for: request, rejectsRedirects: isRemoteApplePairing)
         guard response.success, let token = response.resolvedDeviceToken, !token.isEmpty else {
             throw DJConnectError.pairingFailed(message: response.message)
         }
         try Task.checkCancellation()
         try tokenStore.saveToken(token)
         return response
+    }
+
+    private var isRemoteApplePairing: Bool {
+        identity.clientType == .ios && DJConnectPairingURLPolicy.isRemotePairingURL(baseURL)
     }
 
     public func sendCommand(_ payload: DJConnectCommandPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
@@ -2196,8 +2200,10 @@ public final class DJConnectClient: Sendable {
         return trimmed?.isEmpty == false ? trimmed : nil
     }
 
-    private func decodedResponse<T: Decodable>(for request: URLRequest, using requestSession: URLSession? = nil) async throws -> T {
-        let (data, statusCode) = try await dataAndStatusCodeResponse(for: request, using: requestSession)
+    private func decodedResponse<T: Decodable>(for request: URLRequest, using requestSession: URLSession? = nil,
+                                                rejectsRedirects: Bool = false) async throws -> T {
+        let (data, statusCode) = try await dataAndStatusCodeResponse(
+            for: request, using: requestSession, rejectsRedirects: rejectsRedirects)
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
@@ -2224,7 +2230,7 @@ public final class DJConnectClient: Sendable {
     }
 
     private func dataAndStatusCodeResponse(for request: URLRequest, using requestSession: URLSession? = nil,
-                                          acceptingStatuses: Set<Int> = []) async throws -> (Data, Int) {
+                                          acceptingStatuses: Set<Int> = [], rejectsRedirects: Bool = false) async throws -> (Data, Int) {
         var selectedLegacyDeadline: DJConnectOperationDeadline?
         if let hybridTransport, DJConnectHybridTransport.operation(for: request) != nil || DJConnectHybridTransport.isActiveRead(request) {
             do {
@@ -2251,7 +2257,7 @@ public final class DJConnectClient: Sendable {
                 let deadline = selectedLegacyDeadline ?? DJConnectOperationDeadline()
                 (data, response) = try await legacyAskDJData(request, deadline: deadline)
             } else {
-                (data, response) = try await (requestSession ?? session).data(for: request)
+                (data, response) = try await (requestSession ?? session).data(for: request, delegate: rejectsRedirects ? PairingRedirectGuard() : nil)
             }
         } catch {
             if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
@@ -2262,6 +2268,9 @@ public final class DJConnectClient: Sendable {
         }
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            throw DJConnectError.invalidResponse
+        }
+        if rejectsRedirects, httpResponse.url != request.url || (300..<400).contains(httpResponse.statusCode) {
             throw DJConnectError.invalidResponse
         }
         responseLogger?(Self.requestSummary(request), httpResponse.statusCode)
@@ -3036,5 +3045,13 @@ public extension DJConnectClient {
         })
         guard isCurrent(), (try? tokenStore.loadToken()) == originalToken, !Task.isCancelled else { throw CancellationError() }
         return data
+    }
+}
+
+
+private final class PairingRedirectGuard: NSObject, URLSessionTaskDelegate, Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
+        completionHandler(nil)
     }
 }

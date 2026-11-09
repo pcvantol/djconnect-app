@@ -652,6 +652,7 @@
 "watch.warnings" = "Warnings";
 "watch.errors" = "Errors";
 "appModel.local.wi.fi.lan.is.required.connect.this.device" = "A local network is required. Connect this device to the same local network as Home Assistant.";
+"appModel.pairing.use.external.https.or.local.network" = "Gib die externe HTTPS-Adresse von Home Assistant ein oder verbinde dich mit dem lokalen Netzwerk.";
 "appModel.loading.release.notes" = "Loading release notes...";
 "appModel.release.notes.could.not.be.loaded.see.https.djconnect" = "Release notes could not be loaded. See https://djconnect.dev for more information.";
 "appModel.djconnect.token.restored.checking.home.assistant.pairing" = "DJConnect token restored. Checking Home Assistant pairing...";
@@ -1554,6 +1555,8 @@
 "ui.displayConsent.stop" = "Bildschirmfreigabe beenden";
 
 "ui.displayConsent.stopped" = "Bildschirmfreigabe beendet. Deine DJ-Session läuft weiter.";
+"ui.displayConsent.ended_title" = "VibeCast-Sitzung beendet";
+"ui.displayConsent.return_to_session" = "Zurück zur DJ-Sitzung";
 
 "ui.displayConsent.stop_uncertain" = "Das Beenden der Bildschirmfreigabe wurde nicht bestätigt. Prüfe den Bildschirm, bevor du fortfährst.";
 

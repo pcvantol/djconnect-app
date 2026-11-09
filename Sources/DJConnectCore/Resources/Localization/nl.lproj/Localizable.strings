@@ -652,6 +652,7 @@
 "watch.warnings" = "Waarschuwingen";
 "watch.errors" = "Fouten";
 "appModel.local.wi.fi.lan.is.required.connect.this.device" = "Een lokaal netwerk is vereist. Verbind dit apparaat met hetzelfde lokale netwerk als Home Assistant.";
+"appModel.pairing.use.external.https.or.local.network" = "Vul het externe HTTPS-adres van Home Assistant in, of maak verbinding met het lokale netwerk.";
 "appModel.loading.release.notes" = "Release notes laden...";
 "appModel.release.notes.could.not.be.loaded.see.https.djconnect" = "Release notes konden niet worden geladen. Bekijk https://djconnect.dev voor meer informatie.";
 "appModel.djconnect.token.restored.checking.home.assistant.pairing" = "DJConnect-token hersteld. Home Assistant-koppeling controleren...";
@@ -1554,6 +1555,8 @@
 "ui.displayConsent.stop" = "Schermdelen stoppen";
 
 "ui.displayConsent.stopped" = "Schermdelen is gestopt. Je DJ-sessie gaat door.";
+"ui.displayConsent.ended_title" = "VibeCast sessie beëindigd";
+"ui.displayConsent.return_to_session" = "Terug naar DJ-sessie";
 
 "ui.displayConsent.stop_uncertain" = "Het is niet bevestigd of het schermdelen is gestopt. Controleer het scherm voordat je verdergaat.";
 

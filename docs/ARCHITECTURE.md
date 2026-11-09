@@ -23,7 +23,7 @@ The Apple app owns:
   fallbacks, respecting OS Reduce Transparency; never a backend Profile field;
 - local bonus games with app-local highscores;
 - local app-private storage for only the DJConnect bearer token;
-- iOS/macOS Home Assistant URL state after local pairing, including local URL,
+- iOS/macOS Home Assistant URL state after pairing, including local URL,
   optional remote URL, and local/remote/offline diagnostics;
 - local audio recording for push-to-talk, when implemented;
 - optional playback of returned DJ response audio.
@@ -350,8 +350,8 @@ Playing with the blocking pairing sheet on top.
 
 Fresh installs seed the Home Assistant URL field with
 `http://homeassistant.local:8123`. Once pairing succeeds, runtime traffic uses
-the `ha_local_url` returned by Home Assistant instead of this editable setup
-default.
+the paired endpoints instead of this editable setup default. iPhone and iPad
+also accept a full external HTTPS address for setup.
 
 The output selector exposes real backend devices only. Synthetic local/None/no
 selected-device rows are filtered; an absent selection is an unavailable state,
@@ -393,11 +393,12 @@ through generic commands sent to Home Assistant.
 
 ## Home Assistant Transport
 
-iOS and macOS call Home Assistant directly after local pairing. Pairing uses the
-local `/api/djconnect/v1/pair` endpoint only. Runtime traffic uses the stored
-`ha_local_url` first, falls back to the optional `ha_remote_url` when remote is
-supported and local access fails, and reports `offline` when neither route
-works.
+iOS and macOS call Home Assistant directly. iPhone and iPad can use
+`/api/djconnect/v1/pair` over the LAN or the external HTTPS address. For remote
+setup, the pairing request and authenticated completion check stay on the
+entered HTTPS endpoint, including across app restarts. Runtime traffic can
+prefer the paired local URL when the LAN is available and use the paired
+HTTPS URL when it is not. macOS setup uses its existing local pairing path.
 
 watchOS does not own Home Assistant transport. The Watch sends typed
 WatchConnectivity requests to the paired iPhone; the iPhone performs HA pairing,

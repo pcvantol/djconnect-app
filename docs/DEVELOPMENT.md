@@ -90,12 +90,17 @@ and sends the Home Assistant code as `pair_code`, `pairing_code`, and
 `pairing_token` for compatibility with current Home Assistant integration
 builds.
 
-Pairing is local-first. The URL field validates real URL syntax and accepts
-local `http` Home Assistant hosts such as `homeassistant.local`, LAN IP
-addresses, or `localhost`. For development, `https://*.ngrok-free.dev` is
-whitelisted so a tunneled Home Assistant dev environment can be paired. Other
-remote HTTPS URLs are rejected for first pairing and should be used only after
-Home Assistant returns `ha_remote_url` for runtime fallback.
+For an initial iPhone or iPad pairing, enter either the local Home Assistant
+address or its full external HTTPS base URL. The external URL must reach the
+DJConnect API directly with a trusted TLS certificate. Remote pairing works
+over cellular or another Wi-Fi network. Open the iOS pairing flow in Home
+Assistant, enter its six-digit code in DJConnect, and finish setup in Home
+Assistant. DJConnect uses the same HTTPS URL to confirm setup, including when
+the app resumes. The Home Assistant account needs permission to run the
+DJConnect setup flow, or an administrator can open it and supply the code.
+
+macOS pairing uses the local Home Assistant address. The existing
+`https://*.ngrok-free.dev` development exception is also supported.
 
 If Home Assistant returns `error:"client_type_mismatch"` during pairing, the
 client keeps the entered URL and 6-digit code, stops the current attempt, and
