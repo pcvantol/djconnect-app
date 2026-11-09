@@ -3,6 +3,7 @@ import Combine
 import SwiftUI
 import UniformTypeIdentifiers
 import ImageIO
+import Network
 
 /// Shared feature identity across native tabs, sidebar, heroes and notices.
 enum DJConnectFeatureSymbols {
@@ -967,6 +968,10 @@ public struct DJConnectRootView: View {
             await model.refreshActiveDJSession()
         }
         .task(id: model.pairingStatus) { await history.prepare() }
+        .task(id: scenePhase == .active && model.pairingStatus == .paired ? model.pendingMomentOpen : nil) {
+            guard scenePhase == .active, let intent = model.pendingMomentOpen else { return }
+            await model.openPendingMoment(intent)
+        }
         .djStatusToastOverlay(text: history.navigationErrorKey.map { localizedKey(model.language, $0) },
                               systemImage: "clock.arrow.circlepath")
         .task(id: history.navigationErrorKey) {
@@ -1344,7 +1349,7 @@ public struct DJConnectRootView: View {
             VibeCastRendezvousView(model: model)
                 .id(model.rendezvousPresentationID)
         case .vibeCastSessionStart:
-            VibeCastSessionStartDialog(model: model)
+            VibeCastSessionStartDialog(model: model, showsDestinations: model.startsVibeCastWithDestinationPicker)
         case .permissionExplanation:
             PermissionExplanationView(model: model)
         case .musicDNAOptIn:
@@ -1363,6 +1368,7 @@ public struct DJConnectRootView: View {
                 NavigationStack {
                     SessionTimelineScreen(model: model, sessionID: target.sessionID,
                                           initialAnchor: target.entryID)
+                        .id(target)
                         .navigationTitle(savedSessionNavigationTitle(target.sessionID, history: history, language: model.language))
                         .toolbar { Button(localizedKey(model.language, "ui.close")) { history.openTarget = nil } }
                 }
@@ -5731,8 +5737,15 @@ private struct MusicDNAArtistStrip: View {
                 }
             }
             .padding(.vertical, 2)
+            #if os(macOS)
+            .background(MusicShelfMacScroller())
+            #endif
         }
+        #if os(macOS)
+        .scrollIndicators(.visible, axes: .horizontal)
+        #else
         .scrollIndicators(.hidden)
+        #endif
     }
 }
 
@@ -6592,12 +6605,22 @@ private struct MusicDiscoverySectionView: View {
                         MusicDiscoveryCard(
                             model: model,
                             sectionID: section.id,
-                            item: item
+                            item: item,
+                            artworkURL: musicDiscoveryArtworkURL(item.imageURL, model: model),
+                            isLoading: model.playingMusicDiscoveryItemID == item.id,
+                            isDemoMode: model.isDemoMode
                         )
+                        .equatable()
                     }
                 }
                 .padding(.vertical, 2)
+                #if os(macOS)
+                .background(MusicShelfMacScroller())
+                #endif
             }
+            #if os(macOS)
+            .scrollIndicators(.visible, axes: .horizontal)
+            #endif
         }
         .padding(20)
         .clipShape(DJConnectCardAppearance.shape)
@@ -6605,14 +6628,42 @@ private struct MusicDiscoverySectionView: View {
     }
 }
 
-private struct MusicDiscoveryCard: View {
-    @ObservedObject var model: DJConnectAppModel
+#if os(macOS)
+/// Keep an overflow scrollbar available to a mouse without changing the system setting.
+private struct MusicShelfMacScroller: NSViewRepresentable {
+    func makeNSView(context: Context) -> ScrollViewProbe { ScrollViewProbe() }
+    func updateNSView(_ nsView: ScrollViewProbe, context: Context) {
+        nsView.configureScroller()
+    }
+
+    final class ScrollViewProbe: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            configureScroller()
+        }
+
+        func configureScroller() {
+            guard let scrollView = enclosingScrollView, scrollView.hasHorizontalScroller,
+                  !scrollView.hasVerticalScroller else { return }
+            scrollView.scrollerStyle = .legacy
+            scrollView.autohidesScrollers = true
+        }
+    }
+}
+#endif
+
+private struct MusicDiscoveryCard: View, Equatable {
+    let model: DJConnectAppModel
     let sectionID: String
     let item: DJConnectMusicDiscoveryItem
+    let artworkURL: URL?
+    let isLoading: Bool
+    let isDemoMode: Bool
     @State private var showingDetail = false
 
-    private var artworkURL: URL? {
-        musicDiscoveryArtworkURL(item.imageURL, model: model)
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.model === rhs.model && lhs.sectionID == rhs.sectionID && lhs.item == rhs.item
+            && lhs.artworkURL == rhs.artworkURL && lhs.isLoading == rhs.isLoading && lhs.isDemoMode == rhs.isDemoMode
     }
 
     var body: some View {
@@ -6623,15 +6674,14 @@ private struct MusicDiscoveryCard: View {
                 #endif
                 showingDetail = true
             } label: {
-                MusicDiscoveryCardArtwork(artworkURL: artworkURL, isLoading: model.playingMusicDiscoveryItemID == item.id,
-                                          isDemoMode: model.isDemoMode)
+                MusicDiscoveryCardArtwork(artworkURL: artworkURL, isLoading: isLoading, isDemoMode: isDemoMode)
                     .equatable()
                     .contentShape(DJConnectCardAppearance.shape)
             }
             .djConnectPlainButtonStyle()
             .accessibilityLabel(item.title)
             .popover(isPresented: $showingDetail) {
-                MusicDiscoveryDetailView(model: model, sectionID: sectionID, item: item)
+                MusicDiscoveryDetailView(model: model, sectionID: sectionID, item: item, artworkURL: artworkURL)
                     .frame(idealWidth: 360, maxWidth: 480)
                     .presentationCompactAdaptation(.popover)
                     .djConnectGlassPopoutSurface(nativePresentation: true)
@@ -6723,17 +6773,15 @@ private struct MusicDiscoveryDetailView: View {
     @ObservedObject var model: DJConnectAppModel
     let sectionID: String
     let item: DJConnectMusicDiscoveryItem
+    let artworkURL: URL?
     @Environment(\.dismiss) private var dismiss
-
-    private var artworkURL: URL? {
-        musicDiscoveryArtworkURL(item.imageURL, model: model)
-    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top, spacing: 14) {
                     MusicDiscoveryDetailArtwork(url: artworkURL, isDemoMode: model.isDemoMode)
+                        .equatable()
                     VStack(alignment: .leading, spacing: 6) {
                         Text(item.title)
                             .font(.title3.weight(.bold))
@@ -6882,7 +6930,8 @@ private struct MusicDiscoveryQualityView: View {
     }
 }
 
-private struct MusicDiscoveryDetailArtwork: View {
+// As on the shelf, keep the image phase independent of unrelated model updates.
+private struct MusicDiscoveryDetailArtwork: View, Equatable {
     let url: URL?
     let isDemoMode: Bool
 
@@ -6890,19 +6939,7 @@ private struct MusicDiscoveryDetailArtwork: View {
         ZStack {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(.white.opacity(0.10))
-            if let url {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case let .success(image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    default:
-                        Image(systemName: isDemoMode ? "music.note" : "wand.and.stars")
-                            .foregroundStyle(.white.opacity(0.74))
-                    }
-                }
-            } else {
+            CachedArtworkImage(url: url, mode: .fill) {
                 Image(systemName: isDemoMode ? "music.note" : "wand.and.stars")
                     .foregroundStyle(.white.opacity(0.74))
             }
@@ -8954,6 +8991,16 @@ private struct DJSessionView: View {
     }
 
     var body: some View {
+        #if os(iOS)
+        GeometryReader { geometry in
+            sessionNavigation(contentTop: geometry.frame(in: .global).minY)
+        }
+        #else
+        sessionNavigation(contentTop: 0)
+        #endif
+    }
+
+    private func sessionNavigation(contentTop: CGFloat) -> some View {
         NavigationStack {
             ZStack {
                 if let session = model.activeDJSession {
@@ -8963,13 +9010,8 @@ private struct DJSessionView: View {
                                           openQueueAction: openQueueAction,
                                           refreshAction: { await refreshNowPlayingWithToast() })
                 } else {
-                DJConnectCanvasBackground()
-                ScrollView {
-                    IdleDJSessionView(model: model)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                }
-                .background(.clear)
+                    DJConnectCanvasBackground()
+                    idleSessionContent(contentTop: contentTop)
                 }
             }
             .navigationTitle("")
@@ -8988,6 +9030,29 @@ private struct DJSessionView: View {
             .djUserNoticeToast(model: model, screenImage: DJConnectFeatureSymbols.djSession)
         }
         .accessibilityIdentifier("screen-dj-session")
+    }
+
+    private func idleSessionContent(contentTop: CGFloat) -> some View {
+        #if os(iOS)
+        GeometryReader { geometry in
+            ScrollView {
+                IdleDJSessionView(model: model)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
+            }
+            // Move the card above the navigation bar's inset, to the
+            // pre-navigation safe edge. Keep the card's own padding fixed.
+            .padding(.top, max(0, contentTop - geometry.frame(in: .global).minY))
+        }
+        .ignoresSafeArea(.container, edges: .top)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        #else
+        ScrollView {
+            IdleDJSessionView(model: model)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+        }
+        #endif
     }
 
     @ToolbarContentBuilder private var sessionConnectionToolbar: some ToolbarContent {
@@ -9016,6 +9081,7 @@ private struct IdleDJSessionView: View {
     @State private var selectedMood = "chill"
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 42
     var body: some View {
+        let refreshing = model.isLoadingDJSession && !model.isStartingDJSession && model.canUsePlaybackFeatures
         VStack(alignment: .leading, spacing: 28) {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 36) {
@@ -9027,14 +9093,13 @@ private struct IdleDJSessionView: View {
             }
             DJSessionWelcomeFeatures(language: model.language)
             VStack(alignment: .leading, spacing: 16) {
-                IdleSessionProfileChoices(model: model, mood: $selectedMood)
                 Button {
                     let startMood = selectedMood
                     Task { await model.startDJSession(mood: startMood) }
                 } label: {
                     HStack(spacing: 12) {
                         Group {
-                            if model.isLoadingDJSession {
+                            if model.isStartingDJSession {
                                 ProgressView().tint(.white)
                             } else {
                                 DJPersonaMark()
@@ -9050,7 +9115,7 @@ private struct IdleDJSessionView: View {
                 }
                 .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .sessionStart, expands: true,
                     sessionStartMood: selectedMood,
-                    dimsWhenDisabled: !model.isSchedulingProfileDJChoice && model.profileDJSettings.phase != .saving))
+                    dimsWhenDisabled: !refreshing && !model.isSchedulingProfileDJChoice && model.profileDJSettings.phase != .saving))
                 .disabled(model.isLoadingDJSession || (!model.isDemoMode && model.pairingStatus != .paired) || !model.canUsePlaybackFeatures || model.isSchedulingProfileDJChoice || (!model.isDemoMode && [.saving, .uncertain].contains(model.profileDJSettings.phase)))
                 .accessibilityIdentifier("session-welcome-start")
                 HStack(alignment: .top, spacing: 8) {
@@ -9065,6 +9130,7 @@ private struct IdleDJSessionView: View {
                 .foregroundStyle(.white.opacity(0.85))
                 .frame(maxWidth: .infinity, alignment: .center)
                 .accessibilityElement(children: .combine)
+                welcomeInstruction
                 if !model.isDemoMode && (model.pairingStatus != .paired || !model.canUsePlaybackFeatures) {
                     Text(localizedKey(model.language, "ui.session.requires_connection")).font(.footnote).foregroundStyle(.secondary)
                 }
@@ -9072,6 +9138,7 @@ private struct IdleDJSessionView: View {
                     Text(error).font(.footnote).foregroundStyle(.red)
                 }
             }
+            IdleSessionProfileChoices(model: model, mood: $selectedMood)
         }
         .padding(28)
         .background {
@@ -9080,10 +9147,28 @@ private struct IdleDJSessionView: View {
         .modifier(DJConnectCardOutline())
         .frame(maxWidth: 960)
         .frame(maxWidth: .infinity, alignment: .top)
-        #if !os(macOS)
-        .padding(.vertical, 12)
-        #endif
         .accessibilityIdentifier("screen-idle-dj-session")
+    }
+
+    private var welcomeInstruction: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "info.circle")
+                .font(.title2)
+                .foregroundStyle(.white)
+                .accessibilityHidden(true)
+            Text(localizedKey(model.language, "ui.session.welcome.instruction"))
+                .font(.callout)
+                .foregroundStyle(.white.opacity(0.92))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
+                .allowsHitTesting(false)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func welcomeCopy(compactArtwork: Bool) -> some View {
@@ -9107,18 +9192,10 @@ private struct IdleDJSessionView: View {
                 .minimumScaleFactor(0.50)
                 .allowsTightening(true)
                 .accessibilityAddTraits(.isHeader)
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(localizedKey(model.language, "ui.session.welcome.subtitle")
-                    .split(separator: "\n").enumerated()), id: \.offset) { _, line in
-                    Text(String(line))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.1)
-                        .allowsTightening(true)
-                }
-            }
-            .font(.body)
-            .foregroundStyle(.white.opacity(0.82))
-            .accessibilityElement(children: .combine)
+            Text(localizedKey(model.language, "ui.session.welcome.subtitle"))
+                .font(.body)
+                .foregroundStyle(.white.opacity(0.82))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -9131,29 +9208,9 @@ private struct DJSessionWelcomeFeatures: View {
     private func text(_ key: String) -> String { localizedKey(language, key) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: 20) { features }
-                VStack(alignment: .leading, spacing: 16) { features }
-            }
-            HStack(spacing: 12) {
-                Image(systemName: "info.circle")
-                    .font(.title2)
-                    .foregroundStyle(.white)
-                    .accessibilityHidden(true)
-                Text(text("ui.session.welcome.instruction"))
-                    .font(.callout)
-                    .foregroundStyle(.white.opacity(0.92))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
-                    .allowsHitTesting(false)
-            }
-            .accessibilityElement(children: .combine)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 20) { features }
+            VStack(alignment: .leading, spacing: 16) { features }
         }
     }
 
@@ -9358,22 +9415,34 @@ struct DJSessionWelcomeArtwork: View {
 struct VibeCastSessionStartDialog: View {
     @ObservedObject var model: DJConnectAppModel
     @Environment(\.dismiss) private var dismiss
+    @State private var showsDestinations: Bool
+
+    init(model: DJConnectAppModel, showsDestinations: Bool = false) {
+        self.model = model
+        _showsDestinations = State(initialValue: showsDestinations)
+    }
 
     var body: some View {
         ZStack {
             DJConnectCanvasBackground()
-            #if os(iOS)
-            ScrollView {
+            if showsDestinations {
+                VibeCastDestinationPicker(language: model.language, scansNetwork: !model.isDemoMode) {
+                    showsDestinations = false
+                }
+            } else {
+                #if os(iOS)
+                ScrollView {
+                    dialogContent
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollDismissesKeyboard(.interactively)
+                .defaultScrollAnchor(.center, for: .alignment)
+                .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620, idealHeight: 620)
+                .accessibilityIdentifier("vibecast-session-start-scroll")
+                #else
                 dialogContent
+                #endif
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .scrollDismissesKeyboard(.interactively)
-            .defaultScrollAnchor(.center, for: .alignment)
-            .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620, idealHeight: 620)
-            .accessibilityIdentifier("vibecast-session-start-scroll")
-            #else
-            dialogContent
-            #endif
         }
         .tint(.white)
         .accentColor(.white)
@@ -9425,6 +9494,153 @@ struct VibeCastSessionStartDialog: View {
     }
 }
 
+private struct VibeCastDestinationPicker: View {
+    let language: String
+    let scansNetwork: Bool
+    let openScreen: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var discovery = VibeCastDeviceDiscovery()
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(localizedKey(language, "ui.vibecast.destinations.title"))
+                    .font(.title2.bold())
+                    .accessibilityAddTraits(.isHeader)
+                VStack(spacing: 4) {
+                    Button(action: openScreen) {
+                        destinationRow(localizedKey(language, "ui.vibecast.destinations.screen"),
+                                       symbol: "tv.badge.wifi", showsChevron: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("vibecast-destination-screen")
+                    ForEach(discovery.devices) { device in
+                        destinationRow(device.name, symbol: "tv.badge.wifi", showsChevron: false)
+                            .accessibilityHint(localizedKey(language, "ui.vibecast.destinations.unavailable"))
+                    }
+                }
+                Text(localizedKey(language, statusKey))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                DJConnectNotNowLinkButton(language: language, key: "ui.not.now.b1e535") { dismiss() }
+            }
+            .padding(24)
+            .djSessionFrostedSurface()
+            .padding(20)
+            .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620)
+        }
+        .frame(maxHeight: 460)
+        .accessibilityIdentifier("vibecast-destination-picker")
+        .onChange(of: scenePhase, initial: true) {
+            if scansNetwork && scenePhase == .active {
+                discovery.start()
+            } else {
+                discovery.stop()
+            }
+        }
+        .onDisappear { discovery.stop() }
+    }
+
+    private var statusKey: String {
+        if !discovery.devices.isEmpty { return "ui.vibecast.destinations.unavailable" }
+        if discovery.failed { return "ui.vibecast.destinations.network" }
+        if discovery.searching { return "ui.vibecast.destinations.scanning" }
+        return "ui.vibecast.destinations.empty"
+    }
+
+    private func destinationRow(_ title: String, symbol: String, showsChevron: Bool) -> some View {
+        HStack(spacing: 12) {
+            Label(title, systemImage: symbol)
+            Spacer()
+            if showsChevron { Image(systemName: "chevron.right").font(.footnote.weight(.semibold)) }
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 44)
+        .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+        .contentShape(Rectangle())
+    }
+}
+
+@MainActor private final class VibeCastDeviceDiscovery: ObservableObject {
+    struct Device: Identifiable, Sendable {
+        let id: String
+        let name: String
+    }
+
+    @Published private(set) var devices: [Device] = []
+    @Published private(set) var searching = false
+    @Published private(set) var failed = false
+    private var browser: NWBrowser?
+    private var generation = UUID()
+    private var searchTimer: Task<Void, Never>?
+
+    func start() {
+        guard browser == nil else { return }
+        let generation = UUID()
+        self.generation = generation
+        searching = true
+        failed = false
+        let browser = NWBrowser(for: .bonjourWithTXTRecord(type: "_googlecast._tcp", domain: nil), using: .tcp)
+        self.browser = browser
+        browser.browseResultsChangedHandler = { [weak self] results, _ in
+            Task { @MainActor in
+                guard let self, self.generation == generation else { return }
+                self.devices = Self.castDevices(from: results)
+            }
+        }
+        browser.stateUpdateHandler = { [weak self] state in
+            Task { @MainActor in
+                guard let self, self.generation == generation else { return }
+                switch state {
+                case .failed, .waiting:
+                    self.failed = true
+                    self.searching = false
+                    self.devices = []
+                case .ready:
+                    self.failed = false
+                default:
+                    break
+                }
+            }
+        }
+        browser.start(queue: .main)
+        searchTimer = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(4)) } catch { return }
+            guard let self, self.generation == generation else { return }
+            self.searching = false
+        }
+    }
+
+    func stop() {
+        generation = UUID()
+        searchTimer?.cancel()
+        searchTimer = nil
+        browser?.cancel()
+        browser = nil
+        devices = []
+        searching = false
+        failed = false
+    }
+
+    private static func castDevices(from results: Set<NWBrowser.Result>) -> [Device] {
+        var devices: [String: Device] = [:]
+        for result in results {
+            guard case let .service(name, type, domain, _) = result.endpoint else { continue }
+            let record: [String: String]
+            if case let .bonjour(txt) = result.metadata { record = txt.dictionary } else { record = [:] }
+            let id = record["id"].flatMap { $0.isEmpty ? nil : $0 } ?? "\(name).\(type).\(domain)"
+            let friendlyName = record["fn"].flatMap { $0.isEmpty ? nil : $0 } ?? name
+            devices[id] = Device(id: id, name: friendlyName)
+        }
+        return devices.values.sorted {
+            let order = $0.name.localizedStandardCompare($1.name)
+            return order == .orderedSame ? $0.id < $1.id : order == .orderedAscending
+        }
+    }
+}
+
 struct VibeCastHandoffForm: View {
     @ObservedObject var model: DJConnectAppModel
     var body: some View {
@@ -9441,6 +9657,8 @@ struct VibeCastDisplayConsentForm: View {
     }
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
+    @State private var lookupFocusRequest = 0
+    @FocusState private var lookupFocused: Bool
     private var busy: Bool { model.displayConsentState == .resolving || model.displayConsentState == .approving || model.displayConsentState == .revoking }
     var body: some View {
         Group {
@@ -9456,10 +9674,12 @@ struct VibeCastDisplayConsentForm: View {
                 .background(DJConnectCanvasBackground())
             }
         }
-        .accessibilityIdentifier("display-consent-form")
         .onChange(of: history.responseEpoch) { model.refreshDisplayConsentPresentation() }
         .onChange(of: history.authorizedProfileID) { model.refreshDisplayConsentPresentation() }
         .onChange(of: code) { _, _ in model.resetDisplayConsent() }
+        .onChange(of: lookupFocusRequest) {
+            if code.count == 6, model.canResolveDisplayConsent { lookupFocused = true }
+        }
         .onAppear { model.resetDisplayConsent() }
         .onDisappear { model.cancelDisplayConsent() }
         .task {
@@ -9482,7 +9702,9 @@ struct VibeCastDisplayConsentForm: View {
                     .frame(maxWidth: .infinity)
                 }
                 Text(localizedKey(model.language, "ui.displayConsent.instructions"))
-                VibeCastCodeEntry(code: $code, accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code"))
+                VibeCastCodeEntry(code: $code, accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code")) {
+                    lookupFocusRequest += 1
+                }
                     .frame(height: 64).disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .approved || model.displayConsentState == .uncertain || model.displayConsentState == .revokeUncertain)
                 if model.displayConsentState == .idle || model.displayConsentState == .unavailable || model.displayConsentState == .revoked {
                     Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
@@ -9491,6 +9713,9 @@ struct VibeCastDisplayConsentForm: View {
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .disabled(code.count != 6 || busy || !model.canResolveDisplayConsent)
+                    .focusable()
+                    .focused($lookupFocused)
+                    .keyboardShortcut(.defaultAction)
                     .accessibilityIdentifier("display-consent-lookup")
                 }
                 if model.displayConsentState == .ready {
@@ -9518,6 +9743,8 @@ struct VibeCastDisplayConsentForm: View {
                         .accessibilityIdentifier("display-consent-close")
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("display-consent-form")
     }
 }
 
@@ -9526,6 +9753,7 @@ struct VibeCastDisplayConsentForm: View {
 private struct VibeCastCodeEntry: UIViewRepresentable {
     @Binding var code: String
     let accessibilityLabel: String
+    let focusLookup: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(code: $code) }
 
@@ -9560,6 +9788,7 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIStackView, context: Context) {
         context.coordinator.code = $code
+        context.coordinator.focusLookup = focusLookup
         // Playback updates must not recreate inputs or move the first responder.
         if code != context.coordinator.lastEmittedCode { context.coordinator.sync(code) }
         for (index, field) in context.coordinator.fields.enumerated() {
@@ -9580,6 +9809,7 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
         var fields: [DigitField] = []
         var digits = Array(repeating: "", count: 6)
         var lastEmittedCode = ""
+        var focusLookup: (() -> Void)?
         init(code: Binding<String>) { self.code = code }
 
         func sync(_ value: String) {
@@ -9603,13 +9833,9 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
         func deleteDigit(_ index: Int) {
             // UIKit's text deletion need not enter shouldChangeCharactersIn.
             // Keep the aggregate binding authoritative for filled cells too.
-            if digits[index].isEmpty { deleteBefore(index) }
-            else { digits[index] = ""; emit() }
-        }
-        func deleteBefore(_ index: Int) {
-            guard index > 0 else { return }
-            digits[index - 1] = ""
-            fields[index - 1].becomeFirstResponder()
+            if digits[index].isEmpty, index > 0 { digits[index - 1] = "" }
+            digits[index] = ""
+            if index > 0 { fields[index - 1].becomeFirstResponder() }
             emit()
         }
         func textFieldDidBeginEditing(_ textField: UITextField) { refresh() }
@@ -9617,8 +9843,7 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
         func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
             let index = textField.tag
             if string.isEmpty {
-                digits[index] = ""
-                emit()
+                deleteDigit(index)
                 return false
             }
             insert(string, at: index)
@@ -9630,48 +9855,162 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
             // Full-code paste/autofill replaces all six, even from a later cell.
             let start = clean.count >= 6 ? 0 : index
             for (offset, digit) in clean.prefix(6 - start).enumerated() { digits[start + offset] = digit }
-            fields[min(5, start + clean.count)].becomeFirstResponder()
+            let completedPaste = clean.count > 1 && digits.allSatisfy { !$0.isEmpty }
+            if completedPaste { fields[index].resignFirstResponder() }
+            else { fields[min(5, start + clean.count)].becomeFirstResponder() }
             emit()
+            if completedPaste { focusLookup?() }
         }
     }
 }
-#else
-private struct VibeCastCodeEntry: View {
+#elseif os(macOS)
+private struct VibeCastCodeEntry: NSViewRepresentable {
     @Binding var code: String
     let accessibilityLabel: String
-    @State private var digits = Array(repeating: "", count: 6)
-    @FocusState private var focusedDigit: Int?
+    let focusLookup: () -> Void
 
-    var body: some View {
-        HStack(spacing: 6) {
-            ForEach(0..<6, id: \.self) { index in
-                TextField("", text: Binding(get: { digits[index] }, set: { input in
-                    let clean = input.filter { $0.isASCII && $0.isNumber }
-                    if clean.count >= 6 {
-                        digits = clean.prefix(6).map(String.init)
-                        focusedDigit = 5
-                    } else {
-                        digits[index] = clean.last.map(String.init) ?? ""
-                        if !clean.isEmpty { focusedDigit = min(5, index + 1) }
-                    }
-                    code = digits.joined()
-                }))
-                .textFieldStyle(.plain)
-                .font(.title.monospacedDigit().weight(.semibold))
-                .multilineTextAlignment(.center)
-                .focused($focusedDigit, equals: index)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.white.opacity(focusedDigit == index ? 0.18 : 0.10), in: RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(focusedDigit == index ? Color.purple : .white.opacity(0.28)).allowsHitTesting(false))
-                .onKeyPress(.delete) {
-                    guard digits[index].isEmpty, index > 0 else { return .ignored }
-                    digits[index - 1] = ""
-                    code = digits.joined()
-                    focusedDigit = index - 1
-                    return .handled
-                }
-                .accessibilityLabel("\(accessibilityLabel), \(index + 1) / 6")
-                .accessibilityIdentifier("vibecast-handoff-digit-\(index)")
+    func makeCoordinator() -> Coordinator { Coordinator(code: $code) }
+
+    func makeNSView(context: Context) -> NSStackView {
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.alignment = .height
+        stack.distribution = .fillEqually
+        stack.spacing = 6
+        for index in 0..<6 {
+            let container = NSView()
+            container.wantsLayer = true
+            container.layer?.cornerRadius = 14
+            container.layer?.borderWidth = 1
+
+            let field = NSTextField()
+            let cell = DigitCell(textCell: "")
+            cell.isEditable = true
+            cell.isSelectable = true
+            cell.isBordered = false
+            cell.drawsBackground = false
+            cell.isScrollable = true
+            field.cell = cell
+            field.tag = index
+            field.delegate = context.coordinator
+            field.alignment = .center
+            field.font = .monospacedDigitSystemFont(ofSize: 26, weight: .semibold)
+            field.textColor = .white
+            field.setAccessibilityIdentifier("vibecast-handoff-digit-\(index)")
+            cell.editor.onInsert = { [weak coordinator = context.coordinator] input, pasted in
+                coordinator?.insert(input, at: index, pasted: pasted)
+            }
+            cell.editor.onDelete = { [weak coordinator = context.coordinator] in coordinator?.delete(at: index) }
+
+            field.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(field)
+            NSLayoutConstraint.activate([
+                field.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                field.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                field.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+            ])
+            stack.addArrangedSubview(container)
+            context.coordinator.fields.append(field)
+        }
+        context.coordinator.sync(code)
+        return stack
+    }
+
+    func updateNSView(_ view: NSStackView, context: Context) {
+        let coordinator = context.coordinator
+        coordinator.code = $code
+        coordinator.focusLookup = focusLookup
+        if code != coordinator.lastEmittedCode { coordinator.sync(code) }
+        for (index, field) in coordinator.fields.enumerated() {
+            field.isEnabled = context.environment.isEnabled
+            field.setAccessibilityLabel("\(accessibilityLabel), \(index + 1) / 6")
+        }
+    }
+
+    private final class DigitCell: NSTextFieldCell {
+        let editor = DigitEditor()
+        override func fieldEditor(for controlView: NSView) -> NSTextView? {
+            editor.isFieldEditor = true
+            editor.isRichText = false
+            return editor
+        }
+    }
+
+    private final class DigitEditor: NSTextView {
+        var onInsert: ((String, Bool) -> Void)?
+        var onDelete: (() -> Void)?
+
+        override func insertText(_ insertString: Any, replacementRange: NSRange) {
+            if let text = insertString as? String { onInsert?(text, false) }
+            else if let text = insertString as? NSAttributedString { onInsert?(text.string, false) }
+        }
+
+        override func paste(_ sender: Any?) {
+            if let text = NSPasteboard.general.string(forType: .string) { onInsert?(text, true) }
+        }
+
+        override func deleteBackward(_ sender: Any?) { onDelete?() }
+        override func deleteForward(_ sender: Any?) { onDelete?() }
+    }
+
+    @MainActor final class Coordinator: NSObject, NSTextFieldDelegate {
+        var code: Binding<String>
+        var focusLookup: (() -> Void)?
+        var fields: [NSTextField] = []
+        private var digits = Array(repeating: "", count: 6)
+        private(set) var lastEmittedCode = ""
+
+        init(code: Binding<String>) { self.code = code }
+
+        func sync(_ value: String) {
+            let clean = value.filter { $0.isASCII && $0.isNumber }.prefix(6).map(String.init)
+            digits = (0..<6).map { $0 < clean.count ? clean[$0] : "" }
+            lastEmittedCode = value
+            refresh()
+        }
+
+        func insert(_ input: String, at index: Int, pasted: Bool) {
+            let clean = input.filter { $0.isASCII && $0.isNumber }.prefix(6).map(String.init)
+            guard !clean.isEmpty else { return }
+            let start = clean.count == 6 ? 0 : index
+            for (offset, digit) in clean.prefix(6 - start).enumerated() { digits[start + offset] = digit }
+            emit()
+            if (pasted || clean.count > 1) && digits.allSatisfy({ !$0.isEmpty }) {
+                fields[index].window?.makeFirstResponder(nil)
+                focusLookup?()
+            } else {
+                focus(min(5, start + clean.count))
+            }
+        }
+
+        func delete(at index: Int) {
+            if digits[index].isEmpty, index > 0 { digits[index - 1] = "" }
+            digits[index] = ""
+            emit()
+            if index > 0 { focus(index - 1) }
+        }
+
+        func controlTextDidBeginEditing(_ notification: Notification) { refresh() }
+        func controlTextDidEndEditing(_ notification: Notification) { refresh() }
+
+        private func focus(_ index: Int) {
+            fields[index].window?.makeFirstResponder(fields[index])
+            refresh()
+        }
+
+        private func emit() {
+            lastEmittedCode = digits.joined()
+            code.wrappedValue = lastEmittedCode
+            refresh()
+        }
+
+        private func refresh() {
+            for (index, field) in fields.enumerated() {
+                let editor = field.currentEditor()
+                if field.stringValue != digits[index] { field.stringValue = digits[index] }
+                if let editor, editor.string != digits[index] { editor.string = digits[index] }
+                field.superview?.layer?.backgroundColor = NSColor.white.withAlphaComponent(editor == nil ? 0.10 : 0.18).cgColor
+                field.superview?.layer?.borderColor = (editor == nil ? NSColor.white.withAlphaComponent(0.28) : .systemPurple).cgColor
             }
         }
     }
@@ -10225,18 +10564,15 @@ private struct QueueItemRow: View, Equatable {
             QueueArtworkView(url: item.albumImageURL)
                 .frame(width: 52, height: 52)
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.title)
+                QueueOverflowText(text: item.title)
                     .font(.body.weight(.medium))
                     .foregroundStyle(.white)
-                    .lineLimit(2)
                 if let subtitle {
-                    Text(subtitle)
+                    QueueOverflowText(text: subtitle)
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.white.opacity(0.78))
-                        .lineLimit(1)
                 }
             }
-            Spacer(minLength: 8)
             if isLoading {
                 ProgressView()
                     .controlSize(.large)
@@ -10255,6 +10591,60 @@ private struct QueueItemRow: View, Equatable {
     private static func trimmedNonEmpty(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed?.isEmpty == false ? trimmed : nil
+    }
+}
+
+private struct QueueOverflowText: View {
+    let text: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.layoutDirection) private var layoutDirection
+    @State private var availableWidth: CGFloat = 0
+    @State private var textWidth: CGFloat = 0
+    @State private var startedAt = Date.now
+
+    private var overflow: CGFloat { max(0, textWidth - availableWidth) }
+    private var scrolls: Bool { !reduceMotion && availableWidth > 0 && overflow > 1 }
+    private var label: some View { Text(text).lineLimit(1) }
+
+    var body: some View {
+        Text(text)
+            .lineLimit(reduceMotion ? nil : 1)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .opacity(scrolls ? 0 : 1)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
+            .background(alignment: .leading) {
+                label.fixedSize()
+                    .hidden()
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { textWidth = $0 }
+            }
+            .overlay(alignment: .leading) {
+                if scrolls {
+                    TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+                        label.fixedSize()
+                            .offset(x: offset(at: timeline.date))
+                    }
+                    .accessibilityHidden(true)
+                    .allowsHitTesting(false)
+                }
+            }
+            .clipped()
+            .accessibilityLabel(text)
+            .onChange(of: text) { startedAt = .now }
+            .onChange(of: overflow) { startedAt = .now }
+            .onChange(of: scrolls) { startedAt = .now }
+    }
+
+    private func offset(at date: Date) -> CGFloat {
+        let speed: CGFloat = 28
+        let pause: TimeInterval = 1.25
+        let travelTime = TimeInterval(overflow / speed)
+        let leg = pause + travelTime
+        let phase = max(0, date.timeIntervalSince(startedAt)).truncatingRemainder(dividingBy: 2 * leg)
+        let distance = phase < leg
+            ? CGFloat(max(0, phase - pause)) * speed
+            : overflow - CGFloat(max(0, phase - leg - pause)) * speed
+        return layoutDirection == .leftToRight ? -distance : distance
     }
 }
 
@@ -13327,10 +13717,11 @@ struct AskDJInputBar: View {
     }
 
     private var isExpanded: Bool {
+        guard !floating else { return false }
         #if os(iOS)
-        isNativeEditorFocused
+        return isNativeEditorFocused
         #else
-        isInputFocused.wrappedValue && isMacEditorEngaged
+        return isInputFocused.wrappedValue && isMacEditorEngaged
         #endif
     }
     private var composerLayout: AnyLayout {
@@ -13359,10 +13750,11 @@ struct AskDJInputBar: View {
                 AskDJPromptTextView(text: editorDraft, isInputFocused: isInputFocused,
                                     isEditing: $isNativeEditorFocused, replacementRevision: model.askDJDraftRevision, replacementText: model.askDJDraft,
                                     inputSelection: model.askDJCatalogueInputSelection, selectionRequest: model.askDJCatalogueFocusRequest,
+                                    singleLine: floating,
                                     submit: { if canSend { send() } })
                     .frame(minHeight: 44)
                 #else
-                TextField("", text: editorDraft, selection: $promptSelection, axis: .vertical)
+                TextField("", text: editorDraft, selection: $promptSelection, axis: floating ? .horizontal : .vertical)
                     .lineLimit(isExpanded ? 2...4 : 1...1)
                     .textFieldStyle(.plain)
                     .accessibilityLabel("Ask DJ")
@@ -13381,6 +13773,9 @@ struct AskDJInputBar: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
+                    .onSubmit {
+                        if floating && canSend { send() }
+                    }
                     .onKeyPress(.return, phases: .down) { key in
                         let modifiers = key.modifiers.intersection([.control, .command, .option, .shift])
                         if modifiers.isEmpty || modifiers == .control {
@@ -13737,6 +14132,7 @@ private struct AskDJPromptTextView: UIViewRepresentable {
     let replacementText: String
     let inputSelection: NSRange?
     let selectionRequest: UUID?
+    let singleLine: Bool
     let submit: () -> Void
 
     func makeUIView(context: Context) -> UITextView {
@@ -13752,6 +14148,10 @@ private struct AskDJPromptTextView: UIViewRepresentable {
         textView.isScrollEnabled = true
         textView.textContainerInset = UIEdgeInsets(top: 11, left: 10, bottom: 11, right: 10)
         textView.textContainer.lineFragmentPadding = 0
+        if singleLine {
+            textView.textContainer.widthTracksTextView = false
+            textView.textContainer.size.width = .greatestFiniteMagnitude
+        }
         textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return textView
     }
@@ -13790,6 +14190,10 @@ private struct AskDJPromptTextView: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
         let width = proposal.width ?? 240
+        if singleLine {
+            let height = (uiView.font?.lineHeight ?? 20) + uiView.textContainerInset.top + uiView.textContainerInset.bottom
+            return CGSize(width: width, height: max(44, ceil(height)))
+        }
         let fittingSize = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         let maximumHeight = max(104, (uiView.font?.lineHeight ?? 20) * 3 + uiView.textContainerInset.top + uiView.textContainerInset.bottom)
         let minimumHeight = isEditing
@@ -17008,6 +17412,7 @@ struct SettingsView: View {
     @ObservedObject var model: DJConnectAppModel
     var returnToDJSession: () -> Void = {}
     @Environment(\.openURL) private var openURL
+    @State private var retainedWidgetSessionID: String?
     @State private var isShowingResetPairingConfirmation = false
     @State private var isShowingLoggingDisableConfirmation = false
     @State private var diagnosticLogClearFailed = false
@@ -17298,6 +17703,15 @@ struct SettingsView: View {
         return error.localizedDescription
     }
 
+    private func nativePushConsentToggle(_ role: DJConnectSurfacePushTaskOwner.Role, title: String) -> some View {
+        Toggle(localizedKey(model.language, title), isOn: Binding(
+            get: { model.nativePushAllowed(role) },
+            set: { model.setNativePushAllowed($0, for: role) }
+        ))
+        .accessibilityIdentifier("settings-surface-push-\(role.rawValue)")
+        .djCompactSettingsListRow()
+    }
+
     private static func localizedAskDJHistoryExportFallback(language: String) -> String {
         localizedKey(language, "ui.ask.dj.history.export.failed")
     }
@@ -17320,6 +17734,22 @@ struct SettingsView: View {
                     .djMusicDNASettingsListRow()
                     DJConnectGlassPreferenceToggle(language: model.language)
                         .djMusicDNASettingsListRow()
+                    if model.passiveSurfaces.retainedWidgetEnabled ||
+                        (retainedWidgetSessionID != nil && retainedWidgetSessionID == model.activeDJSession?.id) {
+                        Toggle(isOn: Binding(get: { model.passiveSurfaces.retainedWidgetEnabled }, set: { enabled in
+                            Task { await model.setRetainedWidgetContributionEnabled(enabled) }
+                        })) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(localizedKey(model.language, "ui.widget.retained.title"))
+                                Text(localizedKey(model.language, "ui.widget.retained.detail"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .disabled(model.passiveSurfaces.busy(.widget))
+                        .accessibilityIdentifier("settings-widget-retained-contribution")
+                        .djMusicDNASettingsListRow()
+                    }
                     if model.isDemoMode {
                         LabeledContent(localizedKey(model.language, "ui.demo.mode")) {
                             Button(localizedKey(model.language, "ui.stop.demo.mode"), role: .destructive) {
@@ -17464,6 +17894,18 @@ struct SettingsView: View {
                     )
                     .accessibilityIdentifier("settings-permission-notifications")
                     .djCompactSettingsListRow()
+                    Toggle(localizedKey(model.language, "ui.settings.moment.notifications"), isOn: Binding(
+                        get: { model.momentNotificationsEnabled },
+                        set: { model.setMomentNotificationsEnabled($0) }
+                    ))
+                    .accessibilityIdentifier("settings-moment-notifications")
+                    .djCompactSettingsListRow()
+                    if model.canChooseNativePushConsent {
+                        nativePushConsentToggle(.widget, title: "ui.surface.push.widget")
+                        #if os(iOS)
+                        nativePushConsentToggle(.liveActivityUpdate, title: "ui.surface.push.activity")
+                        #endif
+                    }
                     PermissionStatusRow(
                         title: localizedKey(model.language, "ui.microphone"),
                         detail: localizedKey(model.language, "ui.needed.for.push.to.talk.voice.requests"),
@@ -17629,6 +18071,13 @@ struct SettingsView: View {
             .task {
                 model.refreshPermissionStatuses()
                 model.startPairingWait()
+            }
+            .task(id: model.activeDJSession?.id) {
+                retainedWidgetSessionID = nil
+                let sessionID = model.activeDJSession?.id
+                if await model.supportsRetainedWidgetContribution(), !Task.isCancelled {
+                    retainedWidgetSessionID = sessionID
+                }
             }
         }
         .djConnectButtonStyle(DJConnectButtonStyle(usesDestructiveGlass: true))

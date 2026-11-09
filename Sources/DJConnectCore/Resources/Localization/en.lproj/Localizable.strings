@@ -373,6 +373,7 @@
 "ui.microphone" = "Microphone";
 "ui.speech.recognition" = "Speech Recognition";
 "ui.notifications" = "Notifications";
+"ui.settings.moment.notifications" = "DJ Moment notifications";
 "ui.request.permissions" = "Request Permissions";
 "ui.pair.app.again.c2c7b2" = "Pair App Again?";
 "ui.turn.off.music.dna" = "Turn Off Music DNA?";
@@ -1186,7 +1187,7 @@
 
 "ui.connection.transport" = "Transport";
 
-"ui.connection.address.active" = "Home Assistant";
+"ui.connection.address.active" = "Home Assistant server";
 
 "ui.connection.address.unconfirmed" = "Active route not yet confirmed";
 
@@ -1403,6 +1404,8 @@
 "ui.session.history.delete_all.failed" = "The previous sessions could not be deleted. Check your connection and try again.";
 
 // Private owner Session history summary
+"ui.session.history.start_time" = "Start";
+"ui.session.history.end_time" = "End";
 "ui.session.summary.tracks" = "Registered tracks";
 "ui.session.summary.moments" = "Published DJ contributions";
 "ui.session.summary.retained" = "Retained DJ contributions";
@@ -1729,3 +1732,16 @@
 "watch.widget.locked_explanation" = "Show the track title and album cover in Smart Stack, including when your Watch is locked.";
 "ui.for_you.choose_output" = "Choose where to play this mix.";
 "ui.for_you.preparing" = "Preparing new mixes for your mood…";
+
+"ui.widget.retained.title" = "Latest DJ contribution in the widget";
+"ui.widget.retained.detail" = "Allow the large widget to show the latest eligible DJ contribution from this session.";
+
+"ui.surface.push.widget" = "Allow background widget updates";
+"ui.surface.push.activity" = "Allow background Live Activity updates";
+
+"ui.vibecast.destinations.title" = "Choose a screen";
+"ui.vibecast.destinations.screen" = "VibeCast screen";
+"ui.vibecast.destinations.scanning" = "Looking for Google Cast devices…";
+"ui.vibecast.destinations.empty" = "No Google Cast devices found.";
+"ui.vibecast.destinations.network" = "Check that DJConnect has local network access.";
+"ui.vibecast.destinations.unavailable" = "Sharing via Google Cast is not yet available.";

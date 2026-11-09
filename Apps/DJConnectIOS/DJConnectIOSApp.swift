@@ -216,7 +216,9 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
             let payload = notification.request.content.userInfo
             if let model { _ = await model.handleRemoteNotificationPayload(payload) }
             else { pendingPush.enqueue(payload) }
-            completionHandler([.banner, .list, .sound])
+            let shouldPresent = model?.shouldPresentRemoteNotification(payload)
+                ?? ((payload["event_type"] as? String) != "dj_moment_published")
+            completionHandler(shouldPresent ? [.banner, .list, .sound] : [])
         }
     }
 
@@ -226,6 +228,7 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         Task { @MainActor in
+            guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { completionHandler(); return }
             let payload = response.notification.request.content.userInfo
             let handled: Bool
             if let model { handled = await model.handleRemoteNotificationPayload(payload, openedFromTap: true) }
@@ -274,6 +277,14 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         return true
     }
 
+    func handleSceneNotification(_ response: UNNotificationResponse) {
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
+        let payload = response.notification.request.content.userInfo
+        guard let moment = try? DJConnectWatchMomentOpenIntent(notification: payload) else { return }
+        if let model { model.queueMomentOpen(moment) }
+        else { pendingPush.enqueue(payload, openedFromTap: true) }
+    }
+
     @discardableResult
     func handle(_ url: URL) -> Bool {
         guard let action = DJConnectHomeScreenAction(deepLinkURL: url) else {
@@ -302,7 +313,8 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         Task { @MainActor [weak model] in
             for delivery in batch.deliveries {
                 guard let model else { return }
-                _ = await model.handleRemoteNotificationPayload(delivery.userInfo, openedFromTap: delivery.openedFromTap)
+                if let moment = delivery.moment { model.queueMomentOpen(moment) }
+                else { _ = await model.handleRemoteNotificationPayload(delivery.userInfo, openedFromTap: delivery.openedFromTap) }
             }
         }
     }
@@ -319,6 +331,9 @@ final class DJConnectIOSSceneDelegate: NSObject, UIWindowSceneDelegate {
         }
         if let url = connectionOptions.urlContexts.first?.url {
             _ = appDelegate?.handle(url)
+        }
+        if let response = connectionOptions.notificationResponse {
+            appDelegate?.handleSceneNotification(response)
         }
         refreshSupportedOrientations(in: scene)
     }

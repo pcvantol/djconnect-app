@@ -70,6 +70,10 @@ private final class OwnerFixture: @unchecked Sendable {
                 "background_read": ["credential": "djcsurface_" + String(repeating: "A", count: 43), "expires_at_ms": expiry,
                     "registration_id": "model-reg", "scope": "exact_original_surface_read_only", "cache_policy": "private,no-store"]]
         case "status": result = ["success": true, "contract_version": 1, "registration": receipt]
+        case "retained-authorize":
+            result = ["success": true, "contract_version": 1, "registration_id": "model-reg",
+                "credential": "djcretained_" + String(repeating: "A", count: 43),
+                "expires_at_ms": expiry, "projection_version": 4, "cache_policy": "private,no-store"]
         case "read":
             #if SWIFT_PACKAGE
             let bundle = Bundle.module
@@ -173,6 +177,42 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         #expect(bodies[2]["operation_id"] as? String == bodies[3]["operation_id"] as? String)
         #expect(bodies[0]["operation_id"] as? String != bodies[2]["operation_id"] as? String)
         #expect((bodies[3]["expected_registration"] as? [String: Any])?["revision"] as? Int == 1)
+    }
+    @Test(.isolatedClientResources) func retainedReadStopsWhenExplicitGrantIsWithdrawnDuringAuthorization() async throws {
+        let fixture = OwnerFixture(gatedPart: "retained-authorize")
+        defer { fixture.close() }
+        let originalAdmission = admission()
+        let owner = Owner(role: .widget, modelProvider: { _, _ in originalAdmission })
+        defer { owner.withdrawLocally() }
+        owner.bind(try fixture.scope())
+        owner.observe(try candidate())
+        owner.register(using: fixture.client(), observationGeneration: owner.observationGeneration)
+        try await settle(owner)
+        try #require(owner.hasReadCustody)
+
+        let grant = DJConnectRetainedWidgetGrant(id: "model-grant", sessionID: "model-session",
+            bindingID: "model-binding", generation: "model-grant-generation")
+        let denied = try await owner.readRetainedWidget(grant, grantIsCurrent: { false })
+        #expect(denied == nil)
+        #expect(fixture.requests.count == 2)
+
+        var explicitGrantIsCurrent = true
+        let request = Task {
+            try await owner.readRetainedWidget(grant, grantIsCurrent: { explicitGrantIsCurrent })
+        }
+        for _ in 0..<100 where fixture.requests.count < 3 { try await Task.sleep(for: .milliseconds(10)) }
+        let authorization = try #require(fixture.requests.last)
+        #expect(authorization.url?.lastPathComponent == "retained-authorize")
+        let bytes = try #require(authorization.httpBody)
+        let body = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        #expect(body["grant_id"] as? String == "model-grant")
+        #expect(body["registration_id"] as? String == owner.coordinate?.registration_id)
+
+        explicitGrantIsCurrent = false
+        fixture.gate?.release()
+        await #expect(throws: CancellationError.self) { try await request.value }
+        #expect(fixture.requests.count == 3)
+        #expect(!owner.hasOwnedTask)
     }
     @Test(.isolatedClientResources, arguments: ["context", "register"]) func modeledWithdrawalCancelsHTTPAndRejectsLateABA(_ part: String) async throws {
         let f = OwnerFixture(gatedPart: part); defer { f.close() }; let a = admission()

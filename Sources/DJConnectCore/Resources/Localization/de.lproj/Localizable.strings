@@ -373,6 +373,7 @@
 "ui.microphone" = "Mikrofon";
 "ui.speech.recognition" = "Spracherkennung";
 "ui.notifications" = "Benachrichtigungen";
+"ui.settings.moment.notifications" = "Mitteilungen für DJ-Beiträge";
 "ui.request.permissions" = "Request Permissions";
 "ui.pair.app.again.c2c7b2" = "Pair App Again?";
 "ui.turn.off.music.dna" = "Turn Off Music DNA?";
@@ -1186,7 +1187,7 @@
 
 "ui.connection.transport" = "Transport";
 
-"ui.connection.address.active" = "Home Assistant";
+"ui.connection.address.active" = "Home Assistant-Server";
 
 "ui.connection.address.unconfirmed" = "Aktive Route noch nicht bestätigt";
 
@@ -1403,6 +1404,8 @@
 "ui.session.history.delete_all.failed" = "Die früheren Sitzungen konnten nicht gelöscht werden. Prüfe die Verbindung und versuche es erneut.";
 
 // Private owner Session history summary
+"ui.session.history.start_time" = "Beginn";
+"ui.session.history.end_time" = "Ende";
 "ui.session.summary.tracks" = "Erfasste Titel";
 "ui.session.summary.moments" = "Veröffentlichte DJ-Beiträge";
 "ui.session.summary.retained" = "Aufbewahrte DJ-Beiträge";
@@ -1729,3 +1732,16 @@
 "watch.widget.locked_explanation" = "Zeige Titel und Albumcover im Smart-Stapel, auch wenn deine Watch gesperrt ist.";
 "ui.for_you.choose_output" = "Wähle, wo du diesen Mix abspielen möchtest.";
 "ui.for_you.preparing" = "Neue Mix-Auswahl für deine Stimmung wird vorbereitet…";
+
+"ui.widget.retained.title" = "Letzter DJ-Beitrag im Widget";
+"ui.widget.retained.detail" = "Erlaube dem großen Widget, den letzten verfügbaren DJ-Beitrag dieser Session anzuzeigen.";
+
+"ui.surface.push.widget" = "Widget-Aktualisierungen im Hintergrund erlauben";
+"ui.surface.push.activity" = "Live-Aktivitäten im Hintergrund aktualisieren";
+
+"ui.vibecast.destinations.title" = "Bildschirm auswählen";
+"ui.vibecast.destinations.screen" = "VibeCast-Bildschirm";
+"ui.vibecast.destinations.scanning" = "Google Cast-Geräte werden gesucht…";
+"ui.vibecast.destinations.empty" = "Keine Google Cast-Geräte gefunden.";
+"ui.vibecast.destinations.network" = "Prüfe, ob DJConnect Zugriff auf das lokale Netzwerk hat.";
+"ui.vibecast.destinations.unavailable" = "Teilen über Google Cast ist noch nicht verfügbar.";

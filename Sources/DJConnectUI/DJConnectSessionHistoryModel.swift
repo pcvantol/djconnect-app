@@ -1265,34 +1265,55 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             if navigate { openTarget = action.reference }
             return true
         }
+        return await openSession(sessionID: action.sessionID, entryID: action.entryID, navigate: navigate) {
+            try await $0.openSavedSession(action)
+        }
+    }
+
+    func openNotificationMoment(_ intent: DJConnectWatchMomentOpenIntent, isCurrent: @escaping @MainActor () -> Bool) async -> Bool {
+        await openSession(sessionID: intent.sessionID, entryID: nil, navigate: true, isCurrent: isCurrent) {
+            try await $0.openRetainedMomentSession(.init(sessionID: intent.sessionID, momentID: intent.momentID))
+        }
+    }
+
+    private func openSession(
+        sessionID: String, entryID: String?, navigate: Bool,
+        isCurrent: @escaping @MainActor () -> Bool = { true },
+        resolve: @escaping (DJConnectClient) async throws -> DJConnectSessionOpenResponse
+    ) async -> Bool {
         guard available, !historyNeedsUpgrade, let owner = ownerScope, !owner.isEmpty,
-              let host, host.canRefreshSessionHistory else { return false }
+              let host, host.canRefreshSessionHistory, isCurrent() else { return false }
         navigationErrorKey = nil
         let captured = epoch; let generation = UUID(); navigationGeneration = generation
-        timelineGenerations[action.sessionID] = generation
-        timelineNavigations[action.sessionID] = generation
-        defer { if timelineNavigations[action.sessionID] == generation { timelineNavigations[action.sessionID] = nil } }
+        timelineGenerations[sessionID] = generation
+        timelineNavigations[sessionID] = generation
+        defer { if timelineNavigations[sessionID] == generation { timelineNavigations[sessionID] = nil } }
         do {
-            let response = try await host.withHomeAssistantClient { try await $0.openSavedSession(action) }
-            guard captured == epoch, ownerScope == owner, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation, response.entry.isRetained() else { return false }
-            var timeline = timelines[action.sessionID] ?? Timeline()
+            let response = try await host.withHomeAssistantClient { try await resolve($0) }
+            guard !Task.isCancelled, isCurrent(), captured == epoch, ownerScope == owner, generation == navigationGeneration,
+                  timelineGenerations[sessionID] == generation, response.entry.isRetained() else { return false }
+            var timeline = timelines[sessionID] ?? Timeline()
             if navigate && timeline.revision != response.session.revision.value { timeline.entries = [] }
             timeline.session = response.session; timeline.revision = response.session.revision.value
             timeline.entries = try mergeEntries(timeline.entries, [response.entry])
             timeline.loading = false
-            timelines[action.sessionID] = timeline
-            if navigate { openTarget = action.reference }
+            timelines[sessionID] = timeline
+            if navigate { openTarget = response.entry.reference }
             return true
         } catch {
-            guard captured == epoch, ownerScope == owner, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation else { return false }
+            guard !Task.isCancelled, isCurrent(), captured == epoch, ownerScope == owner,
+                  generation == navigationGeneration, timelineGenerations[sessionID] == generation else { return false }
             if requireHistoryUpgrade(for: error) { return false }
             if withdrawAuthority(for: error) { return false }
-            timelines[action.sessionID] = nil
-            searchMatches.removeAll { $0.sessionID == action.sessionID && $0.id == action.entryID }
-            historicalMatches = historicalMatches.mapValues { $0.filter { $0.reference != action.reference } }
+            if let entryID {
+                timelines[sessionID] = nil
+                let reference = DJConnectSessionEntryReference(sessionID: sessionID, entryID: entryID)
+                searchMatches.removeAll { $0.reference == reference }
+                historicalMatches = historicalMatches.mapValues { $0.filter { $0.reference != reference } }
+                clearSearchResults(); searchErrorKey = errorKey(error)
+            }
             if navigate { openTarget = nil }
             navigationErrorKey = errorKey(error)
-            clearSearchResults(); searchErrorKey = errorKey(error)
             return false
         }
     }

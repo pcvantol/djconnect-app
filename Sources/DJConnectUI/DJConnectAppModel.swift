@@ -738,6 +738,7 @@ public struct DJConnectPushStartupBuffer {
     public struct Delivery {
         public let eventType: String
         public var openedFromTap: Bool
+        public var moment: DJConnectWatchMomentOpenIntent? = nil
         public var userInfo: [AnyHashable: Any] { ["event_type": eventType] }
     }
     public struct Batch {
@@ -760,6 +761,13 @@ public struct DJConnectPushStartupBuffer {
         let kind = userInfo["event_type"] as? String ?? userInfo["eventType"] as? String
             ?? nested?["event_type"] as? String ?? nested?["eventType"] as? String
             ?? (openedFromTap ? "ask_dj_response" : "")
+        if kind == "dj_moment_published" {
+            if openedFromTap, let moment = try? DJConnectWatchMomentOpenIntent(notification: userInfo) {
+                deliveries.removeAll { $0.eventType == kind }
+                deliveries.append(Delivery(eventType: kind, openedFromTap: true, moment: moment))
+            }
+            return true
+        }
         guard ["ask_dj_response", "ask_dj_confirm", "music_discovery_ready"].contains(kind) else { return false }
         let old = deliveries.firstIndex { $0.eventType == kind }
         let tapped = openedFromTap || old.map { deliveries[$0].openedFromTap } == true
@@ -915,9 +923,14 @@ public final class DJConnectAppModel: ObservableObject {
         displayConsentOwner = owner
         displayConsentState = .resolving
         do {
-            // Select one qualified client; the coordinator owns both requests.
-            // No transport fallback or automatic replay can repeat an approval.
-            let client = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) { $0 }
+            // The display owner endpoints require secure ingress. Ordinary
+            // playback may prefer the paired HTTP LAN route even when HTTPS is configured.
+            let client: DJConnectClient
+            if let baseURL = homeAssistantBaseURLs().first(where: DJConnectHybridTransport.trustedOrigin) {
+                client = makeClient(baseURL: baseURL)
+            } else {
+                client = try makeClient()
+            }
             guard owner(), !Task.isCancelled else { throw CancellationError() }
             let flow = try DJConnectDisplayConsentSession(client: client, installationID: installation,
                 sessionID: session.id, pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()), isCurrent: owner)
@@ -928,6 +941,9 @@ public final class DJConnectAppModel: ObservableObject {
             displayConsentState = flow.state
         } catch {
             guard displayConsentOperation == operation else { return }
+            if let error = error as? DJConnectError {
+                log(.debug, "VibeCast display lookup failed: \(Self.describe(error))")
+            }
             cancelDisplayConsent()
         }
     }
@@ -953,10 +969,16 @@ public final class DJConnectAppModel: ObservableObject {
         guard displayConsentOperation == operation else { return }
         displayConsentState = flow.state
     }
+    func openVibeCastDestinationPicker() {
+        startsVibeCastWithDestinationPicker = true
+        isShowingVibeCastSessionStart = true
+    }
+
     func openRendezvousDisplayConsent() {
         guard canResolveDisplayConsent else { return }
         cancelRendezvous()
         isShowingRendezvous = false
+        startsVibeCastWithDestinationPicker = false
         isShowingVibeCastSessionStart = true
     }
 
@@ -1152,6 +1174,24 @@ public final class DJConnectAppModel: ObservableObject {
     // original-purpose/clock factory; tokens cannot open acquisition themselves.
     let nativeWidgetPushOwner = DJConnectSurfacePushTaskOwner(role: .widget)
     let nativeActivityPushOwner = DJConnectSurfacePushTaskOwner(role: .liveActivityUpdate)
+    private struct NativePushChoice: Codable {
+        let pairing: String
+        let generation: UUID
+    }
+    @Published private var nativePushConsent: [String: NativePushChoice]
+    private static let nativePushConsentKey = "DJConnectNativeSurfacePushConsent.v1"
+    private struct WidgetConsentIntent: Codable, Equatable {
+        let pairing: String
+        let enabled: Bool
+        var operationID = UUID()
+        var expectedRevision: Int64?
+        var confirmed = false
+    }
+    private static let widgetConsentIntentKey = "DJConnectWidgetConsentTrial.v1"
+    @Published private var widgetConsentIntent: WidgetConsentIntent?
+    private var widgetConsentTask: Task<Void, Never>?
+    private var widgetConsentRetryAfter: Date?
+    private var confirmedWidgetConsent: UUID?
     private let nativeWidgetRegistrationInstance = UUID().uuidString
     private var passiveSurfaceObservation: AnyCancellable?
     public let profileDJSettings = ProfileDJSettingsModel()
@@ -1559,6 +1599,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
     @Published public private(set) var isLoadingDJSession = false
+    @Published private(set) var isStartingDJSession = false
     @Published public private(set) var isSessionIntroductionPresented = false
     private var demoSessionIntroductionSeen = false
     @Published public private(set) var djSessionErrorMessage: String?
@@ -1992,6 +2033,11 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var microphonePermissionStatus: DJConnectPermissionStatus = .unknown
     @Published public private(set) var speechPermissionStatus: DJConnectPermissionStatus = .unknown
     @Published public private(set) var notificationPermissionStatus: DJConnectPermissionStatus = .unknown
+    @Published public private(set) var momentNotificationsEnabled: Bool
+    @Published private(set) var pendingMomentOpen: DJConnectWatchMomentOpenIntent?
+    private var pendingMomentPairing: UUID?
+    private var lastOpenedMoment: DJConnectWatchMomentOpenIntent?
+    private static let momentNotificationsKey = "DJConnectMomentNotificationsEnabled"
     @Published var isShowingLocalNetworkExplanation = false
     private var pendingLocalNetworkAction: (() -> Void)?
     private let localNetworkExplanationAcceptedKey = "djconnect.local-network.explanation-accepted.v1"
@@ -2036,6 +2082,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isShowingTokenStorageError = false
     @Published public var isShowingWhatsNew = false
     @Published public var isShowingVibeCastSessionStart = false
+    private(set) var startsVibeCastWithDestinationPicker = false
     @Published public private(set) var whatsNewTitle = ""
     @Published public private(set) var whatsNewBody = ""
     @Published public private(set) var isLoadingWhatsNew = false
@@ -2745,6 +2792,9 @@ public final class DJConnectAppModel: ObservableObject {
         diagnosticLogDirectory: URL? = nil
     ) {
         self.defaults = defaults
+        self.nativePushConsent = defaults.data(forKey: Self.nativePushConsentKey)
+            .flatMap { try? JSONDecoder().decode([String: NativePushChoice].self, from: $0) } ?? [:]
+        self.momentNotificationsEnabled = defaults.bool(forKey: Self.momentNotificationsKey)
         // Retire the old auto-suggestion preference. Help is always manual.
         defaults.removeObject(forKey: "DJConnectAutomaticHelpHidden")
         self.startBackgroundTasks = startBackgroundTasks
@@ -3417,6 +3467,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func markActiveSession() {
         endpointStatusRefreshAt = nil
         isAppInForeground = true
+        refreshWidgetConsentTrial(force: true)
         #if os(iOS) && canImport(WatchConnectivity)
         resumeWatchProxySetupIfNeeded()
         #endif
@@ -3470,6 +3521,8 @@ public final class DJConnectAppModel: ObservableObject {
         cancelRendezvous()
         personaReactions.cancel(.background)
         isAppInForeground = false
+        confirmedWidgetConsent = nil
+        widgetConsentTask?.cancel()
         sessionStartup.reconcile()
         sessionForYou.reconcile()
         directSessionAttemptEpoch = UUID()
@@ -7323,6 +7376,7 @@ public final class DJConnectAppModel: ObservableObject {
         if let incoming = haInstallID?.trimmingCharacters(in: .whitespacesAndNewlines),
            !incoming.isEmpty, incoming != defaults.string(forKey: haInstallIDKey) {
             retireDirectSessionRuntimes()
+            clearNativePushConsent()
         }
         storeNonEmpty(haInstallID, forKey: haInstallIDKey)
         storeNonEmpty(integrationVersion, forKey: integrationVersionKey)
@@ -8443,8 +8497,14 @@ public final class DJConnectAppModel: ObservableObject {
         let startLanguage = currentRequestLocale
         let request = UUID()
         sessionRequestGeneration = request
+        isStartingDJSession = true
         isLoadingDJSession = true
-        defer { if request == sessionRequestGeneration { isLoadingDJSession = false } }
+        defer {
+            if request == sessionRequestGeneration {
+                isStartingDJSession = false
+                isLoadingDJSession = false
+            }
+        }
         do {
             let response = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) { client in
                 try await client.startSession(
@@ -8478,6 +8538,7 @@ public final class DJConnectAppModel: ObservableObject {
                 // A missing acknowledgement is not proof that Start failed.
                 // Read the canonical state; never replay a potentially accepted Start.
                 log(.info, "Session start acknowledgement unavailable; reading canonical state")
+                isStartingDJSession = false
                 isLoadingDJSession = false
                 let recovered = await refreshActiveDJSession()
                 if recovered, activeDJSession != nil { presentSessionIntroductionIfNeeded() }
@@ -8834,6 +8895,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func invalidateSessionRequest() {
         resetActiveMoodState()
         sessionRequestGeneration = UUID()
+        isStartingDJSession = false
         isLoadingDJSession = false
     }
 
@@ -9547,6 +9609,7 @@ public final class DJConnectAppModel: ObservableObject {
     func refreshForegroundStateFromPollTimer() async {
         guard isAppInForeground, pairingStatus == .paired, !isDemoMode,
               !isOfflineModeActive, !isRefreshing else { return }
+        refreshWidgetConsentTrial()
         // Session polling continues independently of music. Also rearm the
         // bounded status recovery if metadata or a foreground interruption
         // left the backend unavailable without a live recovery task.
@@ -11722,6 +11785,180 @@ public final class DJConnectAppModel: ObservableObject {
         try await runtime.withdraw()
     }
 
+    // The local choice is valid only for the original pairing. It does not
+    // carry an issuer grant, OS display rights, or a registration credential.
+    private var nativePushConsentPairing: String? {
+        guard pairingStatus == .paired, !isDemoMode,
+              let installation = defaults.string(forKey: haInstallIDKey), !installation.isEmpty,
+              let credential = try? tokenStore.loadToken(), !credential.isEmpty else { return nil }
+        let fields = [installation, identity.deviceID, identity.clientType.rawValue, credential]
+        let framed = fields.map { "\($0.utf8.count):\($0)" }.joined()
+        return SHA256.hash(data: Data(framed.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    var canChooseNativePushConsent: Bool { nativePushConsentPairing != nil }
+
+    private var usesWidgetConsentTrial: Bool {
+        #if DEBUG && os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+            && ProcessInfo.processInfo.arguments.contains("--widget-consent-trial")
+        #else
+        false
+        #endif
+    }
+
+    func nativePushAllowed(_ role: DJConnectSurfacePushTaskOwner.Role) -> Bool {
+        if role == .widget, usesWidgetConsentTrial {
+            return widgetConsentIntent?.pairing == nativePushConsentPairing && widgetConsentIntent?.enabled == true
+        }
+        return nativePushConsentGeneration(role) != nil
+    }
+
+    func nativePushConsentGeneration(_ role: DJConnectSurfacePushTaskOwner.Role) -> UUID? {
+        if role == .widget, usesWidgetConsentTrial {
+            guard nativePushAllowed(role), let intent = widgetConsentIntent,
+                  confirmedWidgetConsent == intent.operationID else { return nil }
+            return intent.operationID
+        }
+        guard let pairing = nativePushConsentPairing, let choice = nativePushConsent[role.rawValue],
+              choice.pairing == pairing else { return nil }
+        return choice.generation
+    }
+
+    func setNativePushAllowed(_ enabled: Bool, for role: DJConnectSurfacePushTaskOwner.Role) {
+        if role == .widget, usesWidgetConsentTrial {
+            guard let pairing = nativePushConsentPairing else { return }
+            confirmedWidgetConsent = nil
+            bindNativePushOwners()
+            saveWidgetConsentIntent(.init(pairing: pairing, enabled: enabled))
+            widgetConsentRetryAfter = nil
+            refreshWidgetConsentTrial(force: true)
+            return
+        }
+        if enabled {
+            guard let pairing = nativePushConsentPairing,
+                  nativePushConsent[role.rawValue]?.pairing != pairing else { return }
+            nativePushConsent[role.rawValue] = NativePushChoice(pairing: pairing, generation: UUID())
+        } else {
+            nativePushConsent.removeValue(forKey: role.rawValue)
+        }
+        // Fence in-flight work before persistence or the next inventory refresh.
+        bindNativePushOwners()
+        if let data = try? JSONEncoder().encode(nativePushConsent) {
+            defaults.set(data, forKey: Self.nativePushConsentKey)
+        } else {
+            defaults.removeObject(forKey: Self.nativePushConsentKey)
+        }
+    }
+
+    private func clearNativePushConsent() {
+        confirmedWidgetConsent = nil
+        saveWidgetConsentIntent(nil)
+        nativeWidgetPushOwner.bind(nil)
+        nativeActivityPushOwner.bind(nil)
+        nativePushConsent.removeAll()
+        defaults.removeObject(forKey: Self.nativePushConsentKey)
+    }
+
+    private func saveWidgetConsentIntent(_ intent: WidgetConsentIntent?) {
+        widgetConsentIntent = intent
+        defaults.set(intent.flatMap { try? JSONEncoder().encode($0) }, forKey: Self.widgetConsentIntentKey)
+    }
+
+    private func refreshWidgetConsentTrial(force: Bool = false) {
+        guard usesWidgetConsentTrial, isAppInForeground, widgetConsentTask == nil,
+              let pairing = nativePushConsentPairing else { return }
+        if widgetConsentIntent == nil, let data = defaults.data(forKey: Self.widgetConsentIntentKey),
+           let saved = try? JSONDecoder().decode(WidgetConsentIntent.self, from: data), saved.pairing == pairing {
+            widgetConsentIntent = saved
+        }
+        guard let intent = widgetConsentIntent, intent.pairing == pairing,
+              force || (widgetConsentRetryAfter.map { $0 <= Date() } ?? true) else { return }
+        widgetConsentRetryAfter = Date().addingTimeInterval(30)
+        widgetConsentTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                self.widgetConsentTask = nil
+                if let latest = self.widgetConsentIntent, latest.operationID != intent.operationID,
+                   self.widgetConsentRetryAfter == nil {
+                    self.refreshWidgetConsentTrial(force: true)
+                }
+            }
+            await self.reconcileWidgetConsent(intent)
+        }
+    }
+
+    private func reconcileWidgetConsent(_ intent: WidgetConsentIntent) async {
+        let current: @MainActor @Sendable () -> Bool = { [weak self] in
+            guard let self else { return false }
+            return !Task.isCancelled && self.isAppInForeground && self.nativePushConsentPairing == intent.pairing
+                && self.widgetConsentIntent?.operationID == intent.operationID
+        }
+        do {
+            let client = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) { $0 }
+            guard current() else { return }
+            var pending = intent
+            let initial = try await client.readWidgetPushConsent(isCurrent: current)
+            guard current() else { return }
+            if !pending.confirmed, pending.expectedRevision == nil {
+                pending.expectedRevision = initial.revision
+                saveWidgetConsentIntent(pending)
+            }
+            guard let expected = pending.expectedRevision else { return }
+            let latest: DJConnectClient.WidgetPushConsent
+            if pending.confirmed {
+                latest = initial
+            } else {
+                do {
+                    _ = try await client.writeWidgetPushConsent(enabled: pending.enabled, operationID: pending.operationID,
+                                                               expectedRevision: expected, isCurrent: current)
+                } catch DJConnectError.server(statusCode: 409, message: _) {
+                    let observed = try await client.readWidgetPushConsent(isCurrent: current)
+                    guard current(), observed.revision > expected else { return }
+                    // A newer server decision defeats an old opt-in. Opt-out
+                    // stays queued as a fresh, revision-fenced intent.
+                    saveWidgetConsentIntent(pending.enabled ? nil : .init(pairing: pending.pairing, enabled: false))
+                    return
+                }
+                latest = try await client.readWidgetPushConsent(isCurrent: current)
+            }
+            guard current() else { return }
+            guard latest.revision == expected + 1, latest.enabled == pending.enabled else {
+                confirmedWidgetConsent = nil
+                nativeWidgetPushOwner.bind(nil)
+                if latest.revision > expected {
+                    saveWidgetConsentIntent(pending.enabled ? nil : .init(pairing: pending.pairing, enabled: false))
+                }
+                return
+            }
+            if pending.enabled {
+                if confirmedWidgetConsent == pending.operationID { return }
+                pending.confirmed = true
+                saveWidgetConsentIntent(pending)
+                try await client.enrollWidgetFirstKeyForTrial(isCurrent: current)
+                guard current() else { return }
+                let afterEnrollment = try await client.readWidgetPushConsent(isCurrent: current)
+                guard current() else { return }
+                guard afterEnrollment.enabled, afterEnrollment.revision == latest.revision else {
+                    confirmedWidgetConsent = nil
+                    nativeWidgetPushOwner.bind(nil)
+                    saveWidgetConsentIntent(nil)
+                    return
+                }
+                confirmedWidgetConsent = pending.operationID
+                bindNativePushOwners()
+            } else {
+                saveWidgetConsentIntent(nil)
+            }
+        } catch {
+            // A missing acknowledgement leaves the exact intent for retry.
+            if current(), confirmedWidgetConsent == intent.operationID {
+                confirmedWidgetConsent = nil
+                nativeWidgetPushOwner.bind(nil)
+            }
+        }
+    }
+
     private func bindNativePushOwners() {
         if privateSurfaceFallbackSuppressed {
             nativeWidgetPushOwner.withdrawLocally(); nativeActivityPushOwner.withdrawLocally(); return
@@ -11731,17 +11968,23 @@ public final class DJConnectAppModel: ObservableObject {
               let settings = profileDJSettings.response, settings.isValid,
               let session = activeDJSession?.id,
               let installation = defaults.string(forKey: haInstallIDKey),
-              let origin = Self.normalizedHomeAssistantURL(from: haConnectionMode == .remote ? haRemoteURL : localHomeAssistantURL()),
-              let scope = DJConnectSurfacePushTaskOwner.Scope(installation: installation,
-                  binding: settings.binding, sessionID: session, origin: origin,
-                  deviceID: identity.deviceID, clientType: identity.clientType.rawValue) else {
+              let origin = Self.normalizedHomeAssistantURL(from: haConnectionMode == .remote ? haRemoteURL : localHomeAssistantURL()) else {
             nativeWidgetPushOwner.bind(nil); nativeActivityPushOwner.bind(nil); return
         }
-        nativeWidgetPushOwner.bind(scope); nativeActivityPushOwner.bind(scope)
+        func scope(for role: DJConnectSurfacePushTaskOwner.Role) -> DJConnectSurfacePushTaskOwner.Scope? {
+            guard let consentGeneration = nativePushConsentGeneration(role) else { return nil }
+            return .init(installation: installation, binding: settings.binding, sessionID: session,
+                         origin: origin, deviceID: identity.deviceID, clientType: identity.clientType.rawValue,
+                         consentGeneration: consentGeneration)
+        }
+        nativeWidgetPushOwner.bind(scope(for: .widget))
+        nativeActivityPushOwner.bind(scope(for: .liveActivityUpdate))
     }
     private func observeNativePushToken(_ token: Data?, role: DJConnectSurfacePushTaskOwner.Role,
-                                        target: [String: String], binding: String, session: String) {
+                                        target: [String: String], binding: String, session: String,
+                                        signedEnvironment: DJConnectPushEnvironment? = nil) {
         guard !privateSurfaceFallbackSuppressed, !Task.isCancelled, isAppInForeground, !isDemoMode, pairingStatus == .paired,
+              nativePushConsentGeneration(role) != nil,
               profileDJSettings.active, profileDJSettings.response?.binding == binding,
               activeDJSession?.id == session, activeDJSession?.runtimeState == "active" else { return }
         let owner = role == .widget ? nativeWidgetPushOwner : nativeActivityPushOwner
@@ -11758,9 +12001,8 @@ public final class DJConnectAppModel: ObservableObject {
         let version = ProcessInfo.processInfo.operatingSystemVersion
         guard let candidate = DJConnectSurfacePushTaskOwner.Candidate(role: role, token: token,
             platform: platform, osVersion: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)",
-            environment: nil, target: target) else { owner.observe(nil); return }
-        // Signed deployment/environment and original clock/consent admission
-        // are separate missing qualifications; never infer them from DEBUG.
+            environment: signedEnvironment?.rawValue, target: target) else { owner.observe(nil); return }
+        // A signed environment does not confer original clock/consent admission.
         owner.observe(candidate)
         let generation = owner.observationGeneration
         guard let origin = Self.normalizedHomeAssistantURL(from: haConnectionMode == .remote ? haRemoteURL : localHomeAssistantURL()) else { return }
@@ -11833,7 +12075,8 @@ public final class DJConnectAppModel: ObservableObject {
         }, authorizeVersioned: { [weak self] session, surface, enabled, version in
             guard let self else { throw CancellationError() }
             return try await self.withHomeAssistantClient(allowsOperationReplay: false) {
-                try await $0.authorizePassiveSurface(sessionID: session, surface: surface, enabled: enabled, projectionVersion: version)
+                try await $0.authorizePassiveSurface(sessionID: session, surface: surface, enabled: enabled,
+                    projectionVersion: version, retainedLatest: enabled && version == 4)
             }
         }, readVersioned: { [weak self] session, surface, grant, version in
             guard let self else { throw CancellationError() }
@@ -11846,6 +12089,24 @@ public final class DJConnectAppModel: ObservableObject {
         if !profileDJSettings.negotiated { await refreshProfileDJSettings() }
         bindPassiveSessionSurfaces()
         await passiveSurfaces.discover(passiveSurfaceServices)
+    }
+    func supportsRetainedWidgetContribution() async -> Bool {
+        guard !isDemoMode, pairingStatus == .paired, isAppInForeground,
+              let session = activeDJSession, session.runtimeState == "active" else { return false }
+        let version = try? await withHomeAssistantClient(notifiesTransportFailure: false) {
+            try await $0.passiveSurfaceProjectionVersion(retainedWidget: true)
+        }
+        return !Task.isCancelled && activeDJSession?.id == session.id && version == 4
+    }
+    func setRetainedWidgetContributionEnabled(_ enabled: Bool) async {
+        guard let sessionID = activeDJSession?.id else { return }
+        if enabled {
+            guard await supportsRetainedWidgetContribution() else { return }
+            await preparePassiveSurfaceControls()
+        }
+        guard !Task.isCancelled, activeDJSession?.id == sessionID else { return }
+        bindPassiveSessionSurfaces()
+        await passiveSurfaces.setRetainedWidgetEnabled(enabled, services: passiveSurfaceServices)
     }
     public func setPassiveSurface(_ surface: DJConnectPassiveSurface, enabled: Bool) async {
         let removed = enabled ? [] : retireRemovedDirectSessionSurfaces(configured: Set(DJConnectPassiveSurface.allCases.filter { $0 != surface }))
@@ -11952,12 +12213,14 @@ public final class DJConnectAppModel: ObservableObject {
                                    #endif
                                }(),
                                widgetKinds: configured.map(\.kind)) {
-                            try? DJConnectWidgetPushToken.replace(token, in: shared)
+                            let signedEnvironment = DJConnectWidgetPushToken.load(from: shared)?
+                                .environment(matching: bytes, extensionBundleID: token.extensionBundleID)
                             observeNativePushToken(bytes, role: .widget, target: [
                                 "instance_id": nativeWidgetRegistrationInstance, // Local operation target, NOT a WidgetInfo placement UUID.
                                 "app_bundle_id": identity.clientType == .macos ? "dev.djconnect.mac" : "dev.djconnect.ios",
                                 "extension_bundle_id": token.extensionBundleID,
-                                "widget_kind": DJConnectSessionSurfaceSnapshot.widgetKind], binding: settings.binding, session: sessionID)
+                                "widget_kind": DJConnectSessionSurfaceSnapshot.widgetKind], binding: settings.binding,
+                                session: sessionID, signedEnvironment: signedEnvironment)
                         } else {
                             observeNativePushToken(nil, role: .widget, target: [:], binding: settings.binding, session: sessionID)
                         }
@@ -14222,6 +14485,51 @@ public final class DJConnectAppModel: ObservableObject {
         logPush("system remote notification registration failed error=\(error.localizedDescription)", level: .warning)
     }
 
+    func setMomentNotificationsEnabled(_ enabled: Bool) {
+        guard enabled != momentNotificationsEnabled else { return }
+        defaults.set(enabled, forKey: Self.momentNotificationsKey)
+        momentNotificationsEnabled = enabled
+        if enabled {
+            requestRemoteNotificationRegistration(allowSystemPrompt: true)
+        } else {
+            pendingMomentOpen = nil
+            pendingMomentPairing = nil
+        }
+    }
+
+    public func shouldPresentRemoteNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
+        guard Self.pushEventType(in: userInfo) == "dj_moment_published" else { return true }
+        return momentNotificationsEnabled && pairingStatus == .paired && !isDemoMode &&
+            (try? DJConnectWatchMomentOpenIntent(notification: userInfo)) != nil
+    }
+
+    public func queueMomentOpen(_ intent: DJConnectWatchMomentOpenIntent) {
+        guard momentNotificationsEnabled, pairingStatus == .paired, !isDemoMode, intent.isPending(),
+              pendingMomentOpen != intent, lastOpenedMoment != intent else { return }
+        pendingMomentPairing = pairingTaskGeneration
+        pendingMomentOpen = intent
+    }
+
+    func openPendingMoment(_ intent: DJConnectWatchMomentOpenIntent) async {
+        func isCurrent() -> Bool {
+            !Task.isCancelled && momentNotificationsEnabled && canRefreshSessionHistory &&
+                pendingMomentPairing == pairingTaskGeneration && pendingMomentOpen == intent && intent.isPending()
+        }
+        guard canRefreshSessionHistory, pendingMomentOpen == intent else { return }
+        defer {
+            if !Task.isCancelled, pendingMomentOpen == intent {
+                pendingMomentOpen = nil
+                pendingMomentPairing = nil
+            }
+        }
+        guard isCurrent() else { return }
+        if !sessionHistory.hasAuthorizedOwner { await sessionHistory.prepare() }
+        guard isCurrent() else { return }
+        if await sessionHistory.openNotificationMoment(intent, isCurrent: isCurrent) {
+            lastOpenedMoment = intent
+        }
+    }
+
     @discardableResult
     public func handleRemoteNotificationPayload(_ userInfo: [AnyHashable: Any], openedFromTap: Bool = false) async -> Bool {
         if !openedFromTap, RegisteredHostWakeRefreshOwner.isContentFreeHint(userInfo) {
@@ -14240,6 +14548,12 @@ public final class DJConnectAppModel: ObservableObject {
             return await registeredHostWakeRefresh.run(reads) > 0
         }
         let event = Self.pushEventType(in: userInfo)
+        if event == "dj_moment_published" {
+            if openedFromTap, let intent = try? DJConnectWatchMomentOpenIntent(notification: userInfo) {
+                queueMomentOpen(intent)
+            }
+            return true
+        }
         guard event == "music_discovery_ready" else {
             guard event == "ask_dj_response" || event == "ask_dj_confirm" || (event == nil && openedFromTap) else { return false }
             if openedFromTap { performHomeScreenAction(.askDJ) }
@@ -16723,6 +17037,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: askDJVoiceSupportedKey)
         defaults.removeObject(forKey: askDJAudioResponseSupportedKey)
         defaults.removeObject(forKey: haInstallIDKey)
+        clearNativePushConsent()
         defaults.removeObject(forKey: integrationVersionKey)
         defaults.removeObject(forKey: pairingSessionIDKey)
     }

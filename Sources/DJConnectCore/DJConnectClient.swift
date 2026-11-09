@@ -1,4 +1,8 @@
 import Foundation
+import CryptoKit
+#if DEBUG && os(iOS) && !targetEnvironment(simulator) && canImport(DeviceCheck)
+import DeviceCheck
+#endif
 
 /// A single application process shares the default resource limits. An internal
 /// task scope lets independent client runtimes (including test fixtures) own
@@ -119,10 +123,12 @@ public final class DJConnectClient: Sendable {
               DJConnectHybridTransport.trustedOrigin(baseURL) ||
                 (baseURL == pairedLocalOrigin && DJConnectHybridLocalPolicy.isLocalCandidate(baseURL)) else { throw DJConnectError.invalidResponse }
         let originalToken = try loadedToken()
+        let ownerBody = try JSONSerialization.data(withJSONObject: ["contract_version": 1,
+            "identity": ["device_id": identity.deviceID, "client_type": identity.clientType.rawValue]])
         var installationRequest = try authenticatedRequest(path: "/api/djconnect/v1/transport/context")
         installationRequest.httpMethod = "POST"
         installationRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        installationRequest.httpBody = Data(#"{"contract_version":1}"#.utf8)
+        installationRequest.httpBody = ownerBody
         guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
         let installationData = try await sessionArtworkTransport.prepare(installationRequest, isCurrent: {
             isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
@@ -139,8 +145,7 @@ public final class DJConnectClient: Sendable {
         var request = try authenticatedRequest(path: "/api/djconnect/v1/display/owner/context")
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["contract_version": 1,
-            "identity": ["device_id": identity.deviceID, "client_type": identity.clientType.rawValue]])
+        request.httpBody = ownerBody
         guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
         let data = try await sessionArtworkTransport.prepare(request, isCurrent: {
             isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
@@ -165,6 +170,307 @@ public final class DJConnectClient: Sendable {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
+        let data = try await sessionArtworkTransport.prepare(request, isCurrent: {
+            isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
+        })
+        try Task.checkCancellation()
+        guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
+        return data
+    }
+
+    public struct WidgetPushConsent: Sendable, Decodable {
+        public let enabled: Bool
+        public let revision: Int64
+        fileprivate let contract_version: Int
+        fileprivate let operation_id: String?
+    }
+
+    public func readWidgetPushConsent(
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws -> WidgetPushConsent {
+        let consent = try await widgetPushConsentExchange(body: nil, isCurrent: isCurrent)
+        guard consent.operation_id == nil else { throw DJConnectError.invalidResponse }
+        return consent
+    }
+
+    /// A write receipt may be historical. Read current consent before using it for enrollment.
+    public func writeWidgetPushConsent(
+        enabled: Bool, operationID: UUID, expectedRevision: Int64,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws -> WidgetPushConsent {
+        let operation = operationID.uuidString.lowercased()
+        guard (0..<Self.maximumWidgetConsentRevision).contains(expectedRevision),
+              operation.dropFirst(14).first == "4",
+              let variant = operation.dropFirst(19).first, "89ab".contains(variant) else {
+            throw DJConnectError.invalidResponse
+        }
+        struct Intent: Encodable {
+            let contract_version = 1
+            let enabled: Bool
+            let operation_id: String
+            let expected_revision: Int64
+        }
+        let body = try JSONEncoder().encode(Intent(enabled: enabled, operation_id: operation,
+                                                    expected_revision: expectedRevision))
+        let consent = try await widgetPushConsentExchange(body: body, isCurrent: isCurrent)
+        guard consent.operation_id == operation, consent.enabled == enabled,
+              consent.revision == expectedRevision + 1 else { throw DJConnectError.invalidResponse }
+        return consent
+    }
+
+    private static let maximumWidgetConsentRevision: Int64 = 9_007_199_254_740_991
+
+    private func widgetPushConsentExchange(
+        body: Data?, isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws -> WidgetPushConsent {
+        let data = try await widgetPairExchange(route: "consent/widgetkit", body: body, isCurrent: isCurrent)
+        let consent = try decoder.decode(WidgetPushConsent.self, from: data)
+        guard consent.contract_version == 1, (0...Self.maximumWidgetConsentRevision).contains(consent.revision),
+              consent.revision != 0 || !consent.enabled else { throw DJConnectError.invalidResponse }
+        return consent
+    }
+
+    public struct WidgetFirstKeyChallenge: Codable, Sendable {
+        public let operationID: String
+        public let clientDataHash: Data
+        public let expiresAtMS: Int64
+        private let admittedAtMS: Int64
+        private let requestedUptime: TimeInterval
+        private let deadline: TimeInterval
+        private let receiptBindings: [String: String]
+        fileprivate let pairingBinding: Data
+
+        public func isCurrent(
+            nowMS: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
+            uptime: TimeInterval = ProcessInfo.processInfo.systemUptime
+        ) -> Bool {
+            nowMS >= admittedAtMS && nowMS < expiresAtMS && uptime >= requestedUptime && uptime < deadline
+        }
+
+        static func parse(_ data: Data, nowMS: Int64, requestedUptime: TimeInterval, uptime: TimeInterval,
+                          pairingBinding: Data) throws -> Self {
+            let fields = try RendezvousFlatJSON.parse(data, maximumBytes: 4096)
+            let identifiers = ["api_installation_id", "install_credential_id", "challenge_id", "pairing_generation"]
+            let digests = ["pair_binding", "owner_binding", "device_binding", "core_key_thumbprint"]
+            let required = ["contract_version", "api_audience", "operation_id", "challenge_nonce",
+                            "expires_at_ms", "expected_key_revision", "client_data_hash_b64"] + identifiers + digests
+            func string(_ key: String) -> String {
+                if case let .string(value)? = fields[key] { return value }
+                return ""
+            }
+            let audience = "djc-native-push-ha-dev/1"
+            let operation = string("operation_id")
+            let nonce = string("challenge_nonce")
+            let encodedHash = string("client_data_hash_b64")
+            guard Set(fields.keys) == Set(required), fields["contract_version"] == .integer(1),
+                  fields["expected_key_revision"] == .integer(0), string("api_audience") == audience,
+                  UUID(uuidString: operation)?.uuidString.lowercased() == operation,
+                  operation.dropFirst(14).first == "4",
+                  let variant = operation.dropFirst(19).first, "89ab".contains(variant),
+                  identifiers.allSatisfy({ string($0).range(of: #"\A[A-Za-z0-9_-]{1,128}\z"#, options: .regularExpression) != nil }),
+                  digests.allSatisfy({ string($0).range(of: #"\A[0-9a-f]{64}\z"#, options: .regularExpression) != nil }),
+                  DJConnectRendezvousQR.canonicalToken(nonce),
+                  let hash = Data(base64Encoded: encodedHash), hash.count == 32, hash.base64EncodedString() == encodedHash,
+                  case let .integer(expiry)? = fields["expires_at_ms"], nowMS >= 0, expiry > nowMS,
+                  expiry - nowMS <= 120_000, requestedUptime.isFinite, requestedUptime >= 0,
+                  uptime.isFinite, uptime >= requestedUptime else { throw DJConnectError.invalidResponse }
+            let transcript: [Any] = ["djc-native-pair-witness/1", audience, "POST", "/v1/push/native/key/register",
+                                     "widget-first-key", operation, string("api_installation_id"),
+                                     string("install_credential_id"), string("challenge_id"), nonce, expiry, 0,
+                                     string("pairing_generation")] + digests.map(string)
+            let bytes = try JSONSerialization.data(withJSONObject: transcript, options: [.withoutEscapingSlashes])
+            let deadline = min(requestedUptime + 120, uptime + Double(expiry - nowMS) / 1000)
+            guard uptime < deadline, Data(SHA256.hash(data: bytes)) == hash else { throw DJConnectError.invalidResponse }
+            let receiptKeys = ["api_installation_id", "install_credential_id", "pairing_generation", "core_key_thumbprint"]
+            return .init(operationID: operation, clientDataHash: hash, expiresAtMS: expiry,
+                         admittedAtMS: nowMS, requestedUptime: requestedUptime, deadline: deadline,
+                         receiptBindings: Dictionary(uniqueKeysWithValues: receiptKeys.map { ($0, string($0)) }),
+                         pairingBinding: pairingBinding)
+        }
+
+        func validateReceipt(_ data: Data) throws {
+            var fields = try RendezvousFlatJSON.parse(data, maximumBytes: 4096)
+            guard case let .string(generation)? = fields.removeValue(forKey: "registry_generation"),
+                  generation.range(of: #"\A[A-Za-z0-9_-]{1,128}\z"#, options: .regularExpression) != nil else {
+                throw DJConnectError.invalidResponse
+            }
+            var expected = receiptBindings.mapValues(RendezvousFlatJSON.Value.string)
+            expected["contract_version"] = .integer(1)
+            expected["operation_id"] = .string(operationID)
+            expected["expires_at_ms"] = .integer(expiresAtMS)
+            expected["key_revision"] = .integer(1)
+            expected["state"] = .string("registered")
+            expected["transcript_sha256"] = .string(clientDataHash.map { String(format: "%02x", $0) }.joined())
+            guard fields == expected else { throw DJConnectError.invalidResponse }
+        }
+    }
+
+    public func prepareWidgetFirstKey(isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws {
+        let body = try widgetFirstKeyIdentity()
+        let data = try await widgetPairExchange(route: "pair-witness/bootstrap", body: body, isCurrent: isCurrent)
+        let fields = try RendezvousFlatJSON.parse(data, maximumBytes: 1024)
+        guard fields == ["contract_version": .integer(1), "ready": .bool(true)] else {
+            throw DJConnectError.invalidResponse
+        }
+    }
+
+    public func requestWidgetFirstKeyChallenge(
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws -> WidgetFirstKeyChallenge {
+        let body = try widgetFirstKeyIdentity()
+        let binding = widgetPairingBinding(token: try loadedToken())
+        let requestedUptime = ProcessInfo.processInfo.systemUptime
+        let data = try await widgetPairExchange(route: "pair-witness/challenge", body: body,
+                                               expectedPairing: binding, isCurrent: isCurrent)
+        return try WidgetFirstKeyChallenge.parse(data, nowMS: Int64(Date().timeIntervalSince1970 * 1000),
+            requestedUptime: requestedUptime, uptime: ProcessInfo.processInfo.systemUptime, pairingBinding: binding)
+    }
+
+    /// An uncertain submission must be recovered with status, never replayed.
+    public func registerWidgetFirstKey(
+        _ challenge: WidgetFirstKeyChallenge, keyIdentifier: String, attestation: Data,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws {
+        guard let key = Data(base64Encoded: keyIdentifier), key.count == 32,
+              key.base64EncodedString() == keyIdentifier, (1...16_384).contains(attestation.count) else {
+            throw DJConnectError.invalidResponse
+        }
+        try await widgetFirstKeyReceipt("register", challenge: challenge, proof: [
+            "kind": "attestation", "key_id_b64": keyIdentifier, "proof_b64": attestation.base64EncodedString()
+        ], isCurrent: isCurrent)
+    }
+
+    public func recoverWidgetFirstKey(
+        _ challenge: WidgetFirstKeyChallenge, isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws {
+        try await widgetFirstKeyReceipt("status", challenge: challenge, proof: nil, isCurrent: isCurrent)
+    }
+
+    private struct WidgetFirstKeyCheckpoint: Codable {
+        let challenge: WidgetFirstKeyChallenge
+        let keyIdentifier: String
+        var registered: Bool
+    }
+
+    @MainActor private static var widgetFirstKeyTrialInFlight = false
+
+    /// The HA-dev trial stores only local operation metadata. Once the
+    /// checkpoint exists, recovery uses status and never resubmits proof.
+    @MainActor
+    public func enrollWidgetFirstKeyForTrial(
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws {
+        #if DEBUG && os(iOS) && !targetEnvironment(simulator) && canImport(DeviceCheck)
+        let service = DCAppAttestService.shared
+        guard isCurrent(), service.isSupported, !Self.widgetFirstKeyTrialInFlight else {
+            throw DJConnectError.invalidResponse
+        }
+        Self.widgetFirstKeyTrialInFlight = true
+        defer { Self.widgetFirstKeyTrialInFlight = false }
+        let token = try loadedToken()
+        let binding = widgetPairingBinding(token: token)
+        let directory = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
+                                                     appropriateFor: nil, create: true)
+            .appendingPathComponent("DJConnectWidgetFirstKeyTrial-v1", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var excludedDirectory = directory
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try excludedDirectory.setResourceValues(values)
+        let scope = [identity.deviceID, identity.clientType.rawValue, token]
+            .map { "\($0.utf8.count):\($0)" }.joined()
+        let name = SHA256.hash(data: Data(scope.utf8)).map { String(format: "%02x", $0) }.joined()
+        let journal = directory.appendingPathComponent(name)
+        func save(_ checkpoint: WidgetFirstKeyCheckpoint) throws {
+            try JSONEncoder().encode(checkpoint).write(to: journal, options: [.atomic, .completeFileProtection])
+        }
+        let saved: Data?
+        do {
+            saved = try Data(contentsOf: journal)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            saved = nil
+        }
+        var checkpoint: WidgetFirstKeyCheckpoint
+        if let saved {
+            checkpoint = try JSONDecoder().decode(WidgetFirstKeyCheckpoint.self, from: saved)
+            guard checkpoint.challenge.pairingBinding == binding else { throw DJConnectError.invalidResponse }
+            if checkpoint.registered { return }
+            try await recoverWidgetFirstKey(checkpoint.challenge, isCurrent: isCurrent)
+        } else {
+            try await prepareWidgetFirstKey(isCurrent: isCurrent)
+            let challenge = try await requestWidgetFirstKeyChallenge(isCurrent: isCurrent)
+            func verifyCurrent() throws {
+                try Task.checkCancellation()
+                guard isCurrent(), challenge.isCurrent(), challenge.pairingBinding == binding,
+                      try widgetPairingBinding(token: loadedToken()) == binding else {
+                    throw DJConnectError.invalidResponse
+                }
+            }
+            try verifyCurrent()
+            let key = try await service.generateKey()
+            try verifyCurrent()
+            let attestation = try await service.attestKey(key, clientDataHash: challenge.clientDataHash)
+            try verifyCurrent()
+            checkpoint = .init(challenge: challenge, keyIdentifier: key, registered: false)
+            try save(checkpoint)
+            try await registerWidgetFirstKey(challenge, keyIdentifier: key, attestation: attestation,
+                                            isCurrent: isCurrent)
+        }
+        guard isCurrent(), try widgetPairingBinding(token: loadedToken()) == binding else {
+            throw DJConnectError.invalidResponse
+        }
+        checkpoint.registered = true
+        try save(checkpoint)
+        #else
+        throw DJConnectError.invalidResponse
+        #endif
+    }
+
+    private func widgetFirstKeyReceipt(
+        _ action: String, challenge: WidgetFirstKeyChallenge, proof: [String: String]?,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws {
+        var payload: [String: Any] = ["contract_version": 1, "device_id": identity.deviceID,
+                                      "client_type": identity.clientType.rawValue, "operation_id": challenge.operationID]
+        if let proof { payload["apple_proof"] = proof }
+        let body = try JSONSerialization.data(withJSONObject: payload)
+        guard body.count <= 32_768 else { throw DJConnectError.invalidResponse }
+        let current: @MainActor @Sendable () -> Bool = { isCurrent() && challenge.isCurrent() }
+        guard await current() else { throw DJConnectError.invalidResponse }
+        let data = try await widgetPairExchange(route: "pair-witness/" + action, body: body,
+                                               expectedPairing: challenge.pairingBinding, isCurrent: current)
+        try challenge.validateReceipt(data)
+    }
+
+    private func widgetFirstKeyIdentity() throws -> Data {
+        try JSONSerialization.data(withJSONObject: ["contract_version": 1, "device_id": identity.deviceID,
+                                                    "client_type": identity.clientType.rawValue])
+    }
+
+    private func widgetPairingBinding(token: String) -> Data {
+        let fields = [baseURL.absoluteString, identity.deviceID, identity.clientType.rawValue, token]
+        let framed = fields.map { "\($0.utf8.count):\($0)" }.joined()
+        return Data(SHA256.hash(data: Data(framed.utf8)))
+    }
+
+    private func widgetPairExchange(
+        route: String, body: Data?, expectedPairing: Data? = nil,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws -> Data {
+        guard identity.clientType == .ios else { throw DJConnectError.invalidResponse }
+        let originalToken = try loadedToken()
+        if let expectedPairing, widgetPairingBinding(token: originalToken) != expectedPairing {
+            throw DJConnectError.invalidResponse
+        }
+        let url = try endpoint(path: Self.apiV1Path("push/native/" + route))
+        _ = try makeDJConnectIdentity(deviceToken: originalToken)
+        var request = makeAuthenticatedRequest(url: url, token: originalToken)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        if let body {
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
+        }
         let data = try await sessionArtworkTransport.prepare(request, isCurrent: {
             isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
         })
@@ -1153,6 +1459,10 @@ public final class DJConnectClient: Sendable {
     }
 
     public func openRetainedMoment(_ reference: DJConnectSelectedMomentReference) async throws -> DJConnectHistoryEntry {
+        try await openRetainedMomentSession(reference).entry
+    }
+
+    public func openRetainedMomentSession(_ reference: DJConnectSelectedMomentReference) async throws -> DJConnectSessionOpenResponse {
         struct Action: Encodable {
             let kind = "open_session"
             let sessionID: String
@@ -1174,7 +1484,7 @@ public final class DJConnectClient: Sendable {
               response.entry.sessionID == reference.sessionID, response.entry.momentID == reference.momentID,
               response.entry.kind == .djMoment, response.entry.isContractValid(historyContractVersion: historyContractVersion),
               response.entry.isRetained() else { throw DJConnectError.invalidResponse }
-        return response.entry
+        return response
     }
 
     public func sendSessionConversation(_ payload: DJConnectAskDJRequest) async throws -> DJConnectSessionConversationResponse {
@@ -2247,9 +2557,15 @@ public final class DJConnectClient: Sendable {
 // MARK: - Explicit passive Session presentation (frozen v1)
 public extension DJConnectClient {
     func passiveSurfaceAvailable() async throws -> Bool { try await passiveSurfaceProjectionVersion() != nil }
-    func passiveSurfaceProjectionVersion() async throws -> Int? {
+    func passiveSurfaceProjectionVersion(retainedWidget: Bool = false) async throws -> Int? {
         struct Capability: Decodable {
             struct Descriptor: Decodable {
+                struct RetainedLatest: Decodable {
+                    let surface: String
+                    let projection_version: Int
+                    let consent_field: String
+                    let maximum_publication_seconds: Int
+                }
                 let version: Int
                 let owner_only: Bool
                 let authentication: String
@@ -2263,6 +2579,7 @@ public extension DJConnectClient {
                 let watch_replication: Bool
                 let projection_versions: [Int]?
                 let default_projection_version: Int?
+                let retained_latest: RetainedLatest?
             }
             let success: Bool
             let passive_session_surface: Descriptor?
@@ -2278,19 +2595,29 @@ public extension DJConnectClient {
             c.max_cache_seconds == 120 && !c.read_side_effects && !c.background_delivery && !c.watch_replication else { return nil }
         if let versions = c.projection_versions {
             guard c.default_projection_version == 1, versions.contains(1) else { return nil }
+            if retainedWidget {
+                guard versions.contains(4), let retained = c.retained_latest,
+                      retained.surface == "widget", retained.projection_version == 4,
+                      retained.consent_field == "retained_latest", retained.maximum_publication_seconds == 1800 else { return nil }
+                return 4
+            }
             return versions.contains(3) ? 3 : 1
         }
-        return 1
+        return retainedWidget ? nil : 1
     }
 
     /// Call only for an explicit foreground choice bound to the current Session.
     /// A lost authorize response must not be replayed: it replaces the generation.
-    func authorizePassiveSurface(sessionID: String, surface: DJConnectPassiveSurface, enabled: Bool, projectionVersion: Int = 1) async throws -> DJConnectPassiveSurfaceResponse? {
-        guard [1, 3].contains(projectionVersion), DJConnectPassiveSession.identifier(sessionID), [.ios, .macos].contains(identity.clientType) else { throw DJConnectError.invalidResponse }
+    func authorizePassiveSurface(sessionID: String, surface: DJConnectPassiveSurface, enabled: Bool,
+                                 projectionVersion: Int = 1, retainedLatest: Bool = false) async throws -> DJConnectPassiveSurfaceResponse? {
+        guard [1, 3, 4].contains(projectionVersion), projectionVersion != 4 || surface == .widget,
+              retainedLatest == (projectionVersion == 4 && enabled),
+              DJConnectPassiveSession.identifier(sessionID), [.ios, .macos].contains(identity.clientType) else { throw DJConnectError.invalidResponse }
         var body: [String: Any] = ["contract_version": 1, "device_id": identity.deviceID, "client_type": identity.clientType.rawValue,
             "session_id": sessionID, "surface": surface.rawValue, "enabled": enabled,
             "os_snapshot_cache": enabled, "locked_display": enabled && surface == .liveActivity]
-        if projectionVersion == 3 { body["projection_version"] = 3 }
+        if projectionVersion != 1 { body["projection_version"] = projectionVersion }
+        if projectionVersion == 4 { body["retained_latest"] = retainedLatest }
         let request = try passiveSurfacePOST(path: "authorize", body: body)
         let data = try await sessionArtworkTransport.prepare(request)
         if !enabled {
@@ -2305,10 +2632,11 @@ public extension DJConnectClient {
     }
 
     func readPassiveSurface(sessionID: String, surface: DJConnectPassiveSurface, grantID: String, projectionVersion: Int = 1) async throws -> DJConnectPassiveSurfaceResponse {
-        guard [1, 3].contains(projectionVersion), DJConnectPassiveSession.identifier(sessionID), DJConnectPassiveSession.identifier(grantID) else { throw DJConnectError.invalidResponse }
+        guard [1, 3, 4].contains(projectionVersion), projectionVersion != 4 || surface == .widget,
+              DJConnectPassiveSession.identifier(sessionID), DJConnectPassiveSession.identifier(grantID) else { throw DJConnectError.invalidResponse }
         var body: [String: Any] = ["contract_version": 1, "device_id": identity.deviceID,
             "client_type": identity.clientType.rawValue, "session_id": sessionID, "surface": surface.rawValue, "grant_id": grantID]
-        if projectionVersion == 3 { body["projection_version"] = 3 }
+        if projectionVersion != 1 { body["projection_version"] = projectionVersion }
         let request = try passiveSurfacePOST(path: "read", body: body)
         let r = try decoder.decode(DJConnectPassiveSurfaceResponse.self, from: await sessionArtworkTransport.prepare(request))
         guard r.validates(sessionID: sessionID, surface: surface, projectionVersion: projectionVersion), r.grant_id == grantID else { throw DJConnectError.invalidResponse }
@@ -2321,7 +2649,7 @@ public extension DJConnectClient {
               p.currentArtwork(slot: artwork.slot, at: Date()) == artwork else { throw DJConnectError.invalidResponse }
         var query: [URLQueryItem] = [.init(name: "contract_version", value: "1"), .init(name: "surface", value: p.surface.rawValue),
             .init(name: "grant_id", value: response.grant_id)]
-        if p.schema_version == 3 { query.append(.init(name: "projection_version", value: "3")) }
+        if p.schema_version != 1 { query.append(.init(name: "projection_version", value: String(p.schema_version))) }
         let request = try pairedOwnerReadRequest(path: artwork.image_path, queryItems: query)
         return try await sessionArtworkTransport.load(request, width: artwork.width, height: artwork.height)
     }
@@ -2540,6 +2868,26 @@ public extension DJConnectClient {
         guard DJConnectSurfacePushCoordinate.identifier(sessionID), [.ios,.macos].contains(identity.clientType) else { throw DJConnectError.invalidResponse }
         return ["contract_version":1,"device_id":identity.deviceID,"client_type":identity.clientType.rawValue,"session_id":sessionID]
     }
+
+    @MainActor internal func authorizeRetainedWidget(sessionID: String, grantID: String,
+                                           original: DJConnectSurfacePushReceipt,
+                                           originalDeadline: ContinuousClock.Instant,
+                                           isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectRetainedWidgetAuthorization {
+        guard original.coordinate.isValid, original.state == "registered", original.token_role == "widget",
+              original.cache_policy == "private,no-store", DJConnectSurfacePushCoordinate.identifier(grantID) else {
+            throw DJConnectError.invalidResponse
+        }
+        var body = try surfacePushIdentity(sessionID)
+        body["registration_id"] = original.registration_id
+        body["grant_id"] = grantID
+        let data = try await surfacePushPOST("retained-authorize", body: body, isCurrent: {
+            isCurrent() && ContinuousClock.now < originalDeadline &&
+                Date().timeIntervalSince1970 * 1000 < Double(original.expires_at_ms)
+        })
+        guard let authorization = try? JSONDecoder().decode(DJConnectRetainedWidgetAuthorization.self, from: data),
+              authorization.matches(original) else { throw DJConnectError.invalidResponse }
+        return authorization
+    }
     @MainActor func nativeSurfaceBackgroundTransport() throws -> DJConnectSurfaceBackgroundHTTP {
         // The dedicated transport strips ambient app headers/cookies/credentials.
         try DJConnectSurfaceBackgroundHTTP(baseURL: baseURL, configuration: session.configuration)
@@ -2636,7 +2984,8 @@ public extension DJConnectClient {
     }
     @MainActor private func surfacePushPOST(_ path: String, bytes: Data,
         isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
-        guard ["context","register","revoke","status"].contains(path), isCurrent(), !Task.isCancelled else { throw CancellationError() }
+        guard ["context","register","revoke","status","retained-authorize"].contains(path),
+              isCurrent(), !Task.isCancelled else { throw CancellationError() }
         let originalToken = try loadedToken()
         var request = try authenticatedRequest(path:"/api/djconnect/v1/push/surface/" + path)
         request.httpMethod = "POST"; request.httpBody = bytes

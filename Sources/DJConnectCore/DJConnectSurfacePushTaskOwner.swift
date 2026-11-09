@@ -13,7 +13,9 @@ import Foundation
         public let origin: URL
         public let deviceID: String
         public let clientType: String
-        public init?(installation: String, binding: String, sessionID: String, origin: URL, deviceID: String, clientType: String) {
+        public let consentGeneration: UUID?
+        public init?(installation: String, binding: String, sessionID: String, origin: URL, deviceID: String, clientType: String,
+                     consentGeneration: UUID? = nil) {
             guard !installation.isEmpty, installation.utf8.count <= 2048,
                   !binding.isEmpty, binding.utf8.count <= 2048,
                   DJConnectSurfacePushCoordinate.identifier(sessionID), DJConnectSurfacePushCoordinate.identifier(deviceID),
@@ -24,6 +26,7 @@ import Foundation
                   c.path.isEmpty || c.path == "/" else { return nil }
             self.installation = installation; self.binding = binding
             self.sessionID = sessionID; self.origin = origin; self.deviceID = deviceID; self.clientType = clientType
+            self.consentGeneration = consentGeneration
         }
     }
     public struct Candidate: Equatable, Sendable {
@@ -73,7 +76,8 @@ import Foundation
         let candidate: Candidate
         let admission: Admission
         let pin: Pin
-        let coordinate: DJConnectSurfacePushCoordinate
+        let receipt: DJConnectSurfacePushReceipt
+        var coordinate: DJConnectSurfacePushCoordinate { receipt.coordinate }
         let read: DJConnectSurfaceBackgroundRead
         let client: DJConnectClient
     }
@@ -87,7 +91,7 @@ import Foundation
         }
         return true
     }
-    public var hasOwnedTask: Bool { task != nil || readTask != nil || statusTask != nil }
+    public var hasOwnedTask: Bool { task != nil || readTask != nil || retainedReadTask != nil || statusTask != nil }
     public var observationGeneration: UUID { epoch }
     private let role: Role
     private let provider: ((Scope, Candidate) -> Admission?)?
@@ -97,6 +101,7 @@ import Foundation
     private var task: Task<Void, Never>?
     private var expiryTask: Task<Void, Never>?
     private var readTask: Task<DJConnectSurfacePushReadResponse?, Error>?
+    private var retainedReadTask: Task<DJConnectPassiveSession?, Error>?
     private var statusTask: Task<DJConnectSurfacePushStatus?, Error>?
     private var readGeneration = UUID()
     private var statusGeneration = UUID()
@@ -207,7 +212,7 @@ import Foundation
                         expected!.revision < Int.max && receipt.coordinate.revision == expected!.revision + 1) else { throw DJConnectError.invalidResponse }
                 guard current() else { throw CancellationError() }
                 registered = Registered(candidate: candidate, admission: admission, pin: pin,
-                    coordinate: receipt.coordinate, read: read, client: client)
+                    receipt: receipt, read: read, client: client)
                 coordinate = receipt.coordinate; uncertainOperationID = nil; phase = .registered
                 expiryTask = Task { [weak self] in
                     do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
@@ -226,6 +231,7 @@ import Foundation
     private func cancelReads() {
         readGeneration = UUID(); statusGeneration = UUID()
         readTask?.cancel(); readTask = nil; statusTask?.cancel(); statusTask = nil
+        retainedReadTask?.cancel(); retainedReadTask = nil
     }
     /// Status is metadata only: it never reconstructs credentials or admission.
     public func status() async throws -> DJConnectSurfacePushStatus? {
@@ -247,7 +253,8 @@ import Foundation
     /// This original scoped read never publishes a native cache or mints a
     /// field/extension lifetime. Cold B and display rights are separate gates.
     public func read() async throws -> DJConnectSurfacePushReadResponse? {
-        guard !Task.isCancelled, readTask == nil, hasReadCustody, let scope, let value = registered else { return nil }
+        guard !Task.isCancelled, readTask == nil, retainedReadTask == nil,
+              hasReadCustody, let scope, let value = registered else { return nil }
         let captured = epoch, operation = UUID(); readGeneration = operation
         let pending = Task<DJConnectSurfacePushReadResponse?, Error> {
             let transport = try value.client.nativeSurfaceBackgroundTransport()
@@ -269,6 +276,35 @@ import Foundation
         let result = try await withTaskCancellationHandler { try await pending.value } onCancel: { pending.cancel() }
         guard !Task.isCancelled, epoch == captured, readGeneration == operation,
               scope == self.scope, hasReadCustody, candidate == value.candidate else { return nil }
+        return result
+    }
+
+    /// Joins the original registration to a still-current, explicit retained
+    /// grant in this process. The scoped credential never leaves this task.
+    func readRetainedWidget(_ grant: DJConnectRetainedWidgetGrant,
+                            grantIsCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectPassiveSession? {
+        guard role == .widget, !Task.isCancelled, readTask == nil, retainedReadTask == nil,
+              hasReadCustody, let scope, scope.sessionID == grant.sessionID, let value = registered,
+              grantIsCurrent() else { return nil }
+        let operation = UUID()
+        readGeneration = operation
+        let current: @MainActor @Sendable () -> Bool = {
+            !Task.isCancelled && self.readGeneration == operation && self.scope == scope &&
+                self.hasReadCustody && self.candidate == value.candidate && grantIsCurrent()
+        }
+        let pending = Task<DJConnectPassiveSession?, Error> {
+            let authorization = try await value.client.authorizeRetainedWidget(sessionID: grant.sessionID,
+                grantID: grant.id, original: value.receipt, originalDeadline: value.pin.deadline, isCurrent: current)
+            let transport = try value.client.nativeSurfaceBackgroundTransport()
+            return try await transport.retainedWidgetRead(authorization, original: value.receipt,
+                grant: grant, originalDeadline: value.pin.deadline, isCurrent: current)
+        }
+        retainedReadTask = pending
+        defer { if readGeneration == operation { retainedReadTask = nil } }
+        let result = try await withTaskCancellationHandler { try await pending.value } onCancel: { pending.cancel() }
+        let now = Date()
+        guard current(), now < Date(timeIntervalSince1970: Double(value.receipt.expires_at_ms) / 1000),
+              let result, result.isCurrent(at: now) else { return nil }
         return result
     }
     /// Revoke claims local withdrawal synchronously; remote completion grants nothing.

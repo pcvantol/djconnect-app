@@ -418,13 +418,20 @@ public struct DJConnectWidgetPushToken: Codable, Equatable, Sendable {
     public let extensionBundleID: String
     public let widgetKinds: [String]
     public let observedAt: Date
+    public let signedEnvironment: DJConnectPushEnvironment?
 
-    public init?(token: Data, extensionBundleID: String, widgetKinds: [String], at now: Date = Date()) {
+    public init?(token: Data, extensionBundleID: String, widgetKinds: [String],
+                 at now: Date = Date(), signedEnvironment: DJConnectPushEnvironment? = nil) {
         guard !token.isEmpty, token.count <= 4096,
               ["dev.djconnect.mac.track-insight-widget", "dev.djconnect.ios.track-insight-widget"].contains(extensionBundleID),
               widgetKinds.contains(DJConnectSessionSurfaceSnapshot.widgetKind) else { return nil }
         self.token = token; self.extensionBundleID = extensionBundleID
         self.widgetKinds = [DJConnectSessionSurfaceSnapshot.widgetKind]; observedAt = now
+        self.signedEnvironment = signedEnvironment
+    }
+    public func environment(matching currentToken: Data, extensionBundleID: String) -> DJConnectPushEnvironment? {
+        guard token == currentToken, self.extensionBundleID == extensionBundleID else { return nil }
+        return signedEnvironment
     }
     public static func replace(_ value: Self?, in defaults: UserDefaults) throws {
         if let value { defaults.set(try JSONEncoder().encode(value), forKey: storageKey) }
@@ -434,7 +441,7 @@ public struct DJConnectWidgetPushToken: Codable, Equatable, Sendable {
         guard let data = defaults.data(forKey: storageKey), data.count <= 8192,
               let value = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
         return Self(token: value.token, extensionBundleID: value.extensionBundleID,
-                    widgetKinds: value.widgetKinds, at: value.observedAt)
+                    widgetKinds: value.widgetKinds, at: value.observedAt, signedEnvironment: value.signedEnvironment)
     }
 }
 

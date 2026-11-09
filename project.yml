@@ -138,6 +138,7 @@ targets:
           - wifi
         NSBonjourServices:
           - _home-assistant._tcp.
+          - _googlecast._tcp
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
           NSExceptionDomains:
@@ -192,6 +193,7 @@ targets:
         NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition for on-device Ask DJ transcription and wake phrase detection.
         NSBonjourServices:
           - _home-assistant._tcp.
+          - _googlecast._tcp
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
           NSExceptionDomains:

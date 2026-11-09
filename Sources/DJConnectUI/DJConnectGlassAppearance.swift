@@ -41,8 +41,12 @@ struct DJConnectSessionStartButtonSurface: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var colors: [Color] {
         let theme = DJConnectSessionMoodTheme(sessionMood: mood)
-        // Calm keeps the deep blue/purple tones of the Session canvas.
-        let values: [UInt32] = theme == .chill ? [0x243A78, 0x422875, 0x5B2E86] : theme.colorValues
+        let values: [UInt32]
+        switch theme {
+        case .chill: values = [0x243A78, 0x422875, 0x5B2E86]
+        case .groove: values = [0x214772, 0x23567D, 0x1B626B]
+        default: values = theme.colorValues
+        }
         return values.map { rgb in
             Color(red: Double((rgb >> 16) & 255) / 255,
                   green: Double((rgb >> 8) & 255) / 255, blue: Double(rgb & 255) / 255)

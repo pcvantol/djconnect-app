@@ -2,6 +2,10 @@ name: Apple E2E fixtures
 
 on:
   workflow_dispatch:
+    inputs:
+      vibecast_origin:
+        description: Optional HTTPS HA-dev origin for the VibeCast browser fixture
+        type: string
 
 permissions:
   contents: read
@@ -18,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [iphone, ipad, mac, watch-contract]
+        platform: [iphone, ipad, mac, watch-contract, golden-contract, surface-contract]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -55,6 +59,7 @@ jobs:
               tests=(
                 -only-testing:DJConnectIOSUITests/DJConnectIOSUITests/testSessionAvatarStaysInsideSingleCurrentCard
                 -only-testing:DJConnectIOSUITests/DJConnectIOSUITests/testSessionConversationContextMenuReusesPromptAndReportsAnswer
+                -only-testing:DJConnectIOSUITests/DJConnectIOSUITests/testVibeCastCenteredBlockingDialogAndGenericCopy
               )
               ;;
             mac)
@@ -70,6 +75,36 @@ jobs:
                 '-only-testing:DJConnectCoreTests/watchVoiceCompanionFreezesExplicitOriginalContextAndOperationID()'
               )
               minimum_passes=3
+              ;;
+            surface-contract)
+              tests=(
+                '-only-testing:DJConnectCoreTests/momentNotificationTapOpensExactSessionEntryOnlyOnOptedInDevice(_:)'
+                '-only-testing:DJConnectCoreTests/nativeSurfacePushConsentIsExplicitAndScopedPerPairingAndRole()'
+                '-only-testing:DJConnectCoreTests/AutomaticSurfaceDiscoveryTests'
+                '-only-testing:DJConnectCoreTests/SurfacePushHTTPTests'
+                '-only-testing:DJConnectCoreTests/SurfacePushTaskOwnerTests'
+                '-only-testing:DJConnectCoreTests/passiveActivityArtworkArrivalChangesRenderStateWithoutRenewingLease()'
+                '-only-testing:DJConnectCoreTests/passiveSettingsRevisionWithdrawalCannotRestoreAwaitingArtwork()'
+                '-only-testing:DJConnectCoreTests/watchWidgetLocalChoiceCannotMigrateAcrossOwnerProfilePairingOrPurpose()'
+                '-only-testing:DJConnectCoreTests/iPhoneWatchProxyPairRequestPreservesWatchIdentity()'
+                '-only-testing:DJConnectCoreTests/macOSPairingCompletesOnlyAfterAuthenticatedStatusSucceeds()'
+                '-only-testing:DJConnectCoreTests/pendingHomeAssistantPairingResumesAfterBackgroundWithoutReposting()'
+              )
+              minimum_passes=45
+              ;;
+            golden-contract)
+              python3 -B -m unittest discover -s Tools/qualification/askdj-golden -p 'test_*.py'
+              tests=(
+                '-only-testing:DJConnectCoreTests/goldenCatalogueOrdinaryAppleTransport(_:)'
+                '-only-testing:DJConnectCoreTests/goldenAlbumHeaderAndTrackActionsStayDistinct(_:)'
+                '-only-testing:DJConnectCoreTests/helpObservationConsumesOriginalCoreActualHAWireCases()'
+                '-only-testing:DJConnectCoreTests/earlierSessionManualSpeechCanRegenerateWithoutAnOldAudioGrant()'
+                '-only-testing:DJConnectCoreTests/contributionExplorationLiveMomentKeepsOriginalIdentityAndAdmission(_:)'
+                '-only-testing:DJConnectCoreTests/activeMoodBoundIntentDoesNotTargetReplacementSession()'
+                '-only-testing:DJConnectCoreTests/sessionBulkDeletionIsOneSnapshotBoundOperationPreservingActiveFlow(_:)'
+                '-only-testing:DJConnectCoreTests/contentDeletionUsesFlatBoundWireAndNeverRenewsUnknown(_:)'
+              )
+              minimum_passes=8
               ;;
           esac
 
@@ -107,6 +142,9 @@ jobs:
             # during a swipe. Keep the case bounded without truncating its assertions.
             if [[ "$PLATFORM" == iphone ]]; then context_allowance=300; fi
             run_tests test-without-building "$scratch/results/context-menu" 1 "$context_allowance" "${tests[1]}"
+            xcrun simctl shutdown "$id"
+            xcrun simctl bootstatus "$id" -b
+            run_tests test-without-building "$scratch/results/vibecast" 1 300 "${tests[2]}"
           else
             run_tests test "$scratch/results/smoke" "$minimum_passes" 120 "${tests[@]}"
           fi
@@ -119,3 +157,23 @@ jobs:
           path: ${{ runner.temp }}/apple-e2e-${{ matrix.platform }}/results/
           if-no-files-found: error
           retention-days: 7
+
+  vibecast-browser:
+    name: VibeCast shared display (WebKit)
+    if: inputs.vibecast_origin != ''
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Run VibeCast display fixture
+        env:
+          DJCONNECT_VIBECAST_TEST_ORIGIN: ${{ inputs.vibecast_origin }}
+        run: |
+          set -euo pipefail
+          scratch="$RUNNER_TEMP/vibecast-browser"
+          mkdir -p "$scratch"
+          npm install --prefix "$scratch" --no-audit --no-fund --ignore-scripts --save-exact playwright@1.61.0
+          "$scratch/node_modules/.bin/playwright" install webkit
+          NODE_PATH="$scratch/node_modules" node Tools/qualification/vibecast-product/test_shared_display.cjs

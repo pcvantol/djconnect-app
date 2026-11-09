@@ -52,6 +52,91 @@ private func pushHTTPConfig() -> URLSessionConfiguration {
             identity:.init(deviceID:"djconnect-ios-ABCDEF123456",deviceName:"Fixture",clientType:.ios,firmware:"4.0.0",platform:.ios),
             tokenStore:DJConnectInMemoryTokenStore(token:"paired-fixture-token"),session:s)
     }
+    @Test(.isolatedClientResources) func retainedWidgetHTTPSeparatesPairedAndBackgroundAuthority() async throws {
+        let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/retained-widget-background-core-wire.json")
+        let fixture = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+        let examples = try #require(fixture["examples"] as? [String: [String: Any]])
+        var authorized = try #require(examples["authorized"])
+        var read = try #require(examples["read"])
+        var receipt = try #require(read["registration"] as? [String: Any])
+        let projection = try #require(read["passive_session"] as? [String: Any])
+        let session = try #require(projection["session_id"] as? String)
+        let binding = try #require(projection["binding_id"] as? String)
+        let generation = try #require(projection["generation"] as? String)
+        let originalGrant = DJConnectRetainedWidgetGrant(id: "fixture-grant", sessionID: session,
+            bindingID: binding, generation: generation)
+        let asOf = try #require(projection["as_of"] as? String)
+        let observed = try #require(DJConnectHistoryEntry.date(asOf))
+        let expiry = Int64(Date().addingTimeInterval(60).timeIntervalSince1970 * 1000)
+        authorized["expires_at_ms"] = expiry
+        receipt["expires_at_ms"] = expiry
+        read["registration"] = receipt
+        let original = try JSONDecoder().decode(DJConnectSurfacePushReceipt.self,
+            from: JSONSerialization.data(withJSONObject: receipt))
+        let deadline = ContinuousClock.now.advanced(by: .seconds(30))
+
+        SurfacePushHTTPWire.setup(try JSONSerialization.data(withJSONObject: authorized))
+        let grant = try await client().authorizeRetainedWidget(sessionID: session, grantID: "fixture-grant",
+            original: original, originalDeadline: deadline, isCurrent: { true })
+        let paired = try #require(SurfacePushHTTPWire.captured.first)
+        #expect(paired.url?.lastPathComponent == "retained-authorize")
+        #expect(paired.value(forHTTPHeaderField: "Authorization") == "Bearer paired-fixture-token")
+        let pairedBytes = try #require(paired.httpBody)
+        let pairedBody = try #require(JSONSerialization.jsonObject(with: pairedBytes) as? [String: Any])
+        #expect(Set(pairedBody.keys) == ["contract_version", "device_id", "client_type", "session_id", "registration_id", "grant_id"])
+
+        let transport = try DJConnectSurfaceBackgroundHTTP(baseURL: URL(string: "http://127.0.0.1:18766")!,
+            configuration: pushHTTPConfig(), nowMS: { Int64(observed.timeIntervalSince1970 * 1000) + 1 })
+        SurfacePushHTTPWire.setup(try JSONSerialization.data(withJSONObject: read))
+        let accepted = try await transport.retainedWidgetRead(grant, original: original,
+            grant: originalGrant, originalDeadline: deadline, isCurrent: { true })
+        #expect(accepted.session_id == session)
+        let background = try #require(SurfacePushHTTPWire.captured.first)
+        #expect(background.url?.lastPathComponent == "retained-read")
+        #expect(background.value(forHTTPHeaderField: "Authorization") == "Bearer " + grant.credential)
+        #expect(background.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == nil)
+        let backgroundBytes = try #require(background.httpBody)
+        let backgroundBody = try #require(JSONSerialization.jsonObject(with: backgroundBytes) as? [String: Any])
+        #expect(Set(backgroundBody.keys) == ["contract_version", "registration_id"])
+
+        let shortlyAfterObservation = Int64(observed.timeIntervalSince1970 * 1000) + 10
+        var expiringReceipt = receipt
+        expiringReceipt["expires_at_ms"] = shortlyAfterObservation
+        var expiringRead = read
+        expiringRead["registration"] = expiringReceipt
+        let expiring = try JSONDecoder().decode(DJConnectRetainedWidgetRead.self,
+            from: JSONSerialization.data(withJSONObject: expiringRead))
+        let receiptDeadline = Date(timeIntervalSince1970: Double(shortlyAfterObservation) / 1000)
+        #expect(expiring.matches(expiring.registration, grant: originalGrant, now: receiptDeadline.addingTimeInterval(-0.001)))
+        #expect(expiring.passive_session.isCurrent(at: receiptDeadline))
+        #expect(!expiring.matches(expiring.registration, grant: originalGrant, now: receiptDeadline))
+
+        for field in ["binding_id", "generation"] {
+            var substituted = read
+            var wrongProjection = projection
+            wrongProjection[field] = "different-grant-coordinate"
+            substituted["passive_session"] = wrongProjection
+            SurfacePushHTTPWire.setup(try JSONSerialization.data(withJSONObject: substituted))
+            await #expect(throws: DJConnectError.self) {
+                try await transport.retainedWidgetRead(grant, original: original,
+                    grant: originalGrant, originalDeadline: deadline, isCurrent: { true })
+            }
+        }
+        receipt["revision"] = original.revision + 1
+        read["registration"] = receipt
+        SurfacePushHTTPWire.setup(try JSONSerialization.data(withJSONObject: read))
+        await #expect(throws: DJConnectError.self) {
+            try await transport.retainedWidgetRead(grant, original: original,
+                grant: originalGrant, originalDeadline: deadline, isCurrent: { true })
+        }
+        SurfacePushHTTPWire.setup(Data())
+        await #expect(throws: DJConnectError.self) {
+            try await transport.retainedWidgetRead(grant, original: original,
+                grant: originalGrant, originalDeadline: ContinuousClock.now, isCurrent: { true })
+        }
+        #expect(SurfacePushHTTPWire.captured.isEmpty)
+    }
     @Test(.isolatedClientResources) func backgroundReadUsesOnlyOriginalSeparateCredentialAndClosedRequest() async throws {
         let fixture = try pushHTTPFixture("read"), registered = try pushHTTPFixture("register")
         let registration = try JSONDecoder().decode(DJConnectSurfacePushResponse.self,from:JSONSerialization.data(withJSONObject:registered["response_body"]!))

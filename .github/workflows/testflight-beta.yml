@@ -225,11 +225,31 @@ jobs:
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
         run: |
           set -euo pipefail
-          ipa_path="$(find .testflight/export -maxdepth 1 -name '*.ipa' -print -quit)"
-          if [[ -z "$ipa_path" ]]; then
-            echo "No IPA exported." >&2
+          shopt -s nullglob
+          ipa_files=(.testflight/export/*.ipa)
+          if [[ "${#ipa_files[@]}" -ne 1 ]]; then
+            echo "Expected exactly one exported IPA." >&2
             exit 1
           fi
+          ipa_path="${ipa_files[0]}"
+          qualification_dir="$(mktemp -d .testflight/widget-push.XXXXXX)"
+          trap 'rm -rf "$qualification_dir"' EXIT
+          ipa_sha256="$(shasum -a 256 "$ipa_path" | cut -d ' ' -f 1)"
+          ditto -x -k "$ipa_path" "$qualification_dir"
+          apps=("$qualification_dir"/Payload/*.app)
+          if [[ "${#apps[@]}" -ne 1 ]]; then
+            echo "Expected exactly one app in the exported IPA." >&2
+            exit 1
+          fi
+          python3 Tools/qualification/validate_native_mac_widget.py --mobile --push-evidence "${apps[0]}" > "$qualification_dir/widget-push.json"
+          if ! jq -e --arg ipa_sha256 "$ipa_sha256" '
+            select(.apns_environment == "production") | . + {ipa_sha256: $ipa_sha256}
+          ' "$qualification_dir/widget-push.json" > "$qualification_dir/qualified.json"; then
+            echo "TestFlight requires production APNs entitlements on the app and widget." >&2
+            exit 1
+          fi
+          test "$ipa_sha256" = "$(shasum -a 256 "$ipa_path" | cut -d ' ' -f 1)"
+          mv "$qualification_dir/qualified.json" .testflight/widget-push-evidence.json
           xcrun altool --upload-app \
             --type ios \
             --file "$ipa_path" \
@@ -244,4 +264,5 @@ jobs:
           path: |
             .testflight/ExportOptions-iOS-TestFlight.plist
             .testflight/DJConnectIOS.xcarchive/dSYMs
+            .testflight/widget-push-evidence.json
           if-no-files-found: ignore

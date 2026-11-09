@@ -45,18 +45,15 @@ final class DJConnectWatchApplicationDelegate: NSObject, WKApplicationDelegate, 
     func applicationDidFinishLaunching() { UNUserNotificationCenter.current().delegate = self }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        // Dismiss/custom actions, silent wakes and other token families cannot
-        // trigger navigation. Decode before crossing the actor boundary.
-        let intent = response.actionIdentifier == UNNotificationDefaultActionIdentifier
-            ? try? DJConnectWatchMomentOpenIntent(notification: response.notification.request.content.userInfo) : nil
-        Task { @MainActor in
-            if let intent {
-                if let model = self.model { model.openWatchMoment(intent) }
-                else { self.pendingOpen = intent }
-            }
+        didReceive response: UNNotificationResponse) async {
+        // Only a notification tap on the admitted Moment family opens a card.
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+              let intent = try? DJConnectWatchMomentOpenIntent(notification: response.notification.request.content.userInfo)
+        else { return }
+        await MainActor.run {
+            if let model { model.openWatchMoment(intent) }
+            else { pendingOpen = intent }
         }
-        completionHandler()
     }
 
     func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {

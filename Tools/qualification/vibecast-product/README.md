@@ -1,4 +1,20 @@
-# Bounded native HTTP/software qualification
+# VibeCast end-to-end fixtures
+
+Run **Apple E2E fixtures** manually in GitHub Actions. The iPhone and iPad
+jobs include the native VibeCast code dialog, including numeric input and
+dismissal. Set `vibecast_origin` to the HTTPS origin of an HA-dev instance to
+also run the WebKit shared-display job.
+
+The browser job fetches the public display page and its Content Security Policy
+from that instance. It supplies synthetic claim, grant, session and artwork
+responses in WebKit. It checks that the shared contributions appear in order,
+an item outside the shared feed stays out of the rendered page, album art
+switches with the track, and the feed and artwork clear when access is revoked.
+It does not create a live claim or require a paired profile. The separately
+armed `testOnlineVibeCastLooksUpFreshDisplayCode` checks a real lookup on a
+dedicated paired simulator.
+
+## Bounded native HTTP/software qualification
 
 This opt-in runner consumes a clean, protected API checkout at
 `828fbaf300ca369dcc753b676295e84094d5e8c6` and the API provenance-checked

@@ -373,6 +373,7 @@
 "ui.microphone" = "Microfoon";
 "ui.speech.recognition" = "Spraakherkenning";
 "ui.notifications" = "Meldingen";
+"ui.settings.moment.notifications" = "Meldingen voor DJ-bijdragen";
 "ui.request.permissions" = "Toestemmingen vragen";
 "ui.pair.app.again.c2c7b2" = "App opnieuw koppelen?";
 "ui.turn.off.music.dna" = "Music DNA uitschakelen?";
@@ -1186,7 +1187,7 @@
 
 "ui.connection.transport" = "Transport";
 
-"ui.connection.address.active" = "Home Assistant";
+"ui.connection.address.active" = "Home Assistant server";
 
 "ui.connection.address.unconfirmed" = "Actieve route nog niet bevestigd";
 
@@ -1403,6 +1404,8 @@
 "ui.session.history.delete_all.failed" = "De eerdere sessies konden niet worden verwijderd. Controleer de verbinding en probeer opnieuw.";
 
 // Private owner Session history summary
+"ui.session.history.start_time" = "Begin";
+"ui.session.history.end_time" = "Einde";
 "ui.session.summary.tracks" = "Geregistreerde nummers";
 "ui.session.summary.moments" = "Gepubliceerde DJ-bijdragen";
 "ui.session.summary.retained" = "Bewaarde DJ-bijdragen";
@@ -1719,7 +1722,7 @@
 "ui.session.welcome.feature.music" = "Persoonlijke\nmuziek";
 "ui.session.welcome.feature.stories" = "Muziekverhalen\nen highlights";
 "ui.session.welcome.feature.discovery" = "Elke sessie\neen ontdekking";
-"ui.session.welcome.instruction" = "Je kunt meteen starten, of eerst je keuzes aanpassen.";
+"ui.session.welcome.instruction" = "Pas je sessievoorkeuren hieronder aan. Tijdens de sessie kun je dit altijd wijzigen.";
 "ui.session.welcome.for_you_tip" = "Daarna vind je bij ‘Voor jou’ drie persoonlijke mixvoorstellen.";
 "ui.session.welcome.mood.explanation" = "Kies je vibe voor deze sessie";
 "ui.session.welcome.presence.explanation" = "Hoe vaak je DJ iets vertelt";
@@ -1729,3 +1732,16 @@
 "watch.widget.locked_explanation" = "Toon de tracknaam en albumhoes in Smart Stack, ook wanneer je Watch is vergrendeld.";
 "ui.for_you.choose_output" = "Kies waar je deze mix wilt afspelen.";
 "ui.for_you.preparing" = "Nieuwe mixkeuzes voor je stemming worden klaargezet…";
+
+"ui.widget.retained.title" = "Laatste DJ-bijdrage in de widget";
+"ui.widget.retained.detail" = "Sta toe dat de grote widget de laatste beschikbare DJ-bijdrage uit deze sessie toont.";
+
+"ui.surface.push.widget" = "Sta widgetupdates op de achtergrond toe";
+"ui.surface.push.activity" = "Sta Live Activity-updates op de achtergrond toe";
+
+"ui.vibecast.destinations.title" = "Kies een scherm";
+"ui.vibecast.destinations.screen" = "VibeCast scherm";
+"ui.vibecast.destinations.scanning" = "Zoeken naar Google Cast-apparaten…";
+"ui.vibecast.destinations.empty" = "Geen Google Cast-apparaten gevonden.";
+"ui.vibecast.destinations.network" = "Controleer of DJConnect toegang heeft tot het lokale netwerk.";
+"ui.vibecast.destinations.unavailable" = "Delen via Google Cast is nog niet beschikbaar.";

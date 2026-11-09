@@ -39,6 +39,55 @@ public struct DJConnectSurfaceBackgroundRead: Decodable, Sendable {
     }
 }
 
+struct DJConnectRetainedWidgetAuthorization: Decodable, Sendable {
+    let success: Bool
+    let contract_version: Int
+    let registration_id: String
+    let credential: String
+    let expires_at_ms: Int64
+    let projection_version: Int
+    let cache_policy: String
+
+    func matches(_ original: DJConnectSurfacePushReceipt) -> Bool {
+        success && contract_version == 1 && projection_version == 4 &&
+        original.coordinate.isValid && original.state == "registered" && original.token_role == "widget" &&
+        cache_policy == "private,no-store" && cache_policy == original.cache_policy &&
+        registration_id == original.registration_id && expires_at_ms == original.expires_at_ms &&
+        expires_at_ms > 0 && expires_at_ms <= 9_007_199_254_740_991 &&
+        credential.range(of: "^djcretained_[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil
+    }
+}
+
+struct DJConnectRetainedWidgetRead: Decodable, Sendable {
+    let success: Bool
+    let contract_version: Int
+    let registration: DJConnectSurfacePushReceipt
+    let passive_session: DJConnectPassiveSession
+    let cache_policy: String
+
+    func matches(_ original: DJConnectSurfacePushReceipt, grant: DJConnectRetainedWidgetGrant, now: Date) -> Bool {
+        success && contract_version == 1 && cache_policy == "private,no-store" &&
+        registration.cache_policy == cache_policy && registration.coordinate == original.coordinate &&
+        registration.state == "registered" && registration.token_role == "widget" &&
+        registration.platform == original.platform && registration.expires_at_ms == original.expires_at_ms &&
+        now < Date(timeIntervalSince1970: Double(original.expires_at_ms) / 1000) &&
+        passive_session.schema_version == 4 && passive_session.surface == .widget &&
+        passive_session.session_id == grant.sessionID &&
+        passive_session.binding_id == grant.bindingID && passive_session.generation == grant.generation &&
+        passive_session.artwork.isEmpty &&
+        passive_session.isCurrent(at: now)
+    }
+}
+
+/// Identity of the original, explicitly authorized v4 passive widget grant.
+/// This value describes the grant; the owning caller separately fences its lifetime.
+struct DJConnectRetainedWidgetGrant: Sendable {
+    let id: String
+    let sessionID: String
+    let bindingID: String
+    let generation: String
+}
+
 public struct DJConnectSurfacePushResponse: Decodable, Sendable {
     public struct Operation: Decodable, Sendable { public let phase: String }
     public let success: Bool

@@ -269,6 +269,12 @@ public struct DJConnectWatchFlowRow: Codable, Identifiable, Sendable {
     public let reference: DJConnectSessionEntryReference?
     public let spotifyAttribution: Bool
     public let sources: [DJConnectBulletinSource]
+    public private(set) var answerID: String? = nil
+    public private(set) var answerClientMessageID: String? = nil
+
+    public static func previewText(_ text: String) -> String {
+        String(text.unicodeScalars.prefix(500)) + (text.unicodeScalars.count > 500 ? "…" : "")
+    }
 
     public static func latest(history: [DJConnectHistoryEntry], session: DJConnectSessionRuntime, at now: Date) -> [Self] {
         let entries = history.filter { $0.sessionID == session.id && $0.isRetained(at: now) }
@@ -314,11 +320,12 @@ public struct DJConnectWatchFlowRow: Codable, Identifiable, Sendable {
             case .djSilence:
                 label = "ui.session.history.silence"; content = ""
             }
-            let preview = String(content.unicodeScalars.prefix(500)) + (content.unicodeScalars.count > 500 ? "…" : "")
             return .init(id: entry.id, date: date, expiresAt: deadline, labelKey: label,
-                         text: preview, momentID: entry.momentID,
+                         text: previewText(content), momentID: entry.momentID,
                          reference: entry.isPublicationReceipt ? nil : entry.reference,
-                         spotifyAttribution: entry.requiresSpotifyAttribution == true, sources: [])
+                         spotifyAttribution: entry.requiresSpotifyAttribution == true, sources: [],
+                         answerID: entry.kind == .conversationDJ ? entry.originMessageID : nil,
+                         answerClientMessageID: entry.kind == .conversationDJ ? entry.clientMessageID : nil)
         }
         let ordered = (retained + live).enumerated().sorted {
             $0.element.date == $1.element.date ? $0.offset < $1.offset : $0.element.date > $1.element.date

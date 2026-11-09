@@ -83,6 +83,7 @@
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_home-assistant._tcp.</string>
+		<string>_googlecast._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>DJConnect connects to Home Assistant on your local network.</string>

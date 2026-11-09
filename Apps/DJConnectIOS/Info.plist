@@ -81,6 +81,7 @@
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_home-assistant._tcp.</string>
+		<string>_googlecast._tcp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>DJConnect uses the camera only to scan QR codes for Home Assistant, Apple Watch pairing, or VibeCast TV linking.</string>

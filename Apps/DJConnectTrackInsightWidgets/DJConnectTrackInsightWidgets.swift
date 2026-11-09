@@ -2,6 +2,9 @@ import SwiftUI
 import WidgetKit
 import ImageIO
 import DJConnectCore
+#if os(macOS)
+import Security
+#endif
 #if os(iOS) && canImport(ActivityKit)
 import ActivityKit
 #endif
@@ -99,7 +102,7 @@ struct DJConnectSessionWidgetProvider: TimelineProvider {
         var entries = [entry]
         let deadlines: [Date] = entry.snapshot?.playbackObservation != nil ? [] :
             Set([entry.snapshot?.expiresAt, entry.palette?.expiresAt, entry.demo?.expiresAt].compactMap { $0 } + (entry.rich?.projection.deadlines ?? [])).sorted()
-        for expiry in deadlines {
+        for expiry in deadlines where expiry > entry.date {
             entries.append(.init(date: expiry, snapshot: entry.snapshot, palette: entry.palette, rich: entry.rich, demoMode: entry.demoMode, demo: entry.demo))
         }
         completion(Timeline(entries: entries, policy: .after(Date().addingTimeInterval(15 * 60))))
@@ -154,6 +157,42 @@ struct DJConnectSessionSurfaceView: View {
     }
 }
 
+private struct SessionWidgetBrandFallback: View {
+    let theme: DJConnectSessionMoodTheme
+    let compact: Bool
+
+    private var brandText: some View {
+        VStack(alignment: compact ? .center : .leading, spacing: 3) {
+            Text("DJConnect").font(.headline)
+            Text(text("brand.tagline"))
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.8))
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+        }
+        .multilineTextAlignment(compact ? .center : .leading)
+    }
+
+    var body: some View {
+        Group {
+            if compact {
+                VStack(spacing: 5) {
+                    SessionSurfaceAvatar(theme: theme, side: 44).accessibilityHidden(true)
+                    brandText
+                }
+            } else {
+                HStack(spacing: 12) {
+                    SessionSurfaceAvatar(theme: theme, side: 52).accessibilityHidden(true)
+                    brandText
+                }
+            }
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: compact ? .center : .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct DJConnectSessionWidgetView: View {
     let entry: DJConnectSessionWidgetEntry
     @Environment(\.widgetFamily) private var family
@@ -191,18 +230,17 @@ private struct DJConnectSessionWidgetView: View {
                         Spacer(minLength: 0)
                     }.foregroundStyle(.white)
                 } else {
-                    DJConnectSessionSurfaceView(isActive: false, compact: family == .systemSmall, theme: theme)
+                    SessionWidgetBrandFallback(theme: theme, compact: family == .systemSmall)
                 }
             } else if let observation = entry.snapshot?.playbackObservation {
                 DJConnectSessionPlaybackObservationView(observation: observation, compact: family == .systemSmall)
             } else if let rich {
-                PassiveSessionContentView(contribution: rich.projection.currentContribution(at: now),
+                PassiveSessionContentView(contribution: rich.projection.currentWidgetContribution(at: now),
                     playback: rich.projection.currentPlayback(at: now), cache: rich,
-                    compact: family == .systemSmall, large: family == .systemLarge, theme: theme, date: now)
-            } else if family == .systemSmall {
-                PassiveSessionContentView(contribution: nil, playback: nil, cache: nil, compact: true, theme: theme, date: now)
+                    compact: family == .systemSmall, large: family == .systemLarge,
+                    showsWidgetBrandFallback: true, theme: theme, date: now)
             } else {
-                DJConnectSessionSurfaceView(isActive: !privateSuppressed && entry.isActive, compact: false, theme: theme)
+                SessionWidgetBrandFallback(theme: theme, compact: family == .systemSmall)
             }
         }
         .containerBackground(for: .widget) {
@@ -230,10 +268,24 @@ struct DJConnectSessionWidgetPushHandler: WidgetPushHandler {
               let bundleID = Bundle.main.bundleIdentifier,
               let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else { return }
         let value = DJConnectWidgetPushToken(token: pushInfo.token, extensionBundleID: bundleID,
-                                            widgetKinds: widgets.map(\.kind))
+                                            widgetKinds: widgets.map(\.kind), signedEnvironment: Self.signedEnvironment)
         // Never send this token through ordinary app/Ask DJ registration.
         // Core must negotiate its widget delivery/background-read contract first.
         try? DJConnectWidgetPushToken.replace(value, in: shared)
+    }
+
+    private static var signedEnvironment: DJConnectPushEnvironment? {
+        #if os(macOS)
+        guard let task = SecTaskCreateFromSelf(nil) else { return nil }
+        let entitlement = SecTaskCopyValueForEntitlement(task, "com.apple.developer.aps-environment" as CFString, nil) as? String
+        switch entitlement {
+        case "development": return .sandbox
+        case "production": return .production
+        default: return nil
+        }
+        #else
+        return nil
+        #endif
     }
 }
 
@@ -398,6 +450,7 @@ private struct PassiveSessionContentView: View {
     var playbackState: String? = nil
     var showsSpotifyCredit = true
     var showsHeader = true
+    var showsWidgetBrandFallback = false
     var theme: DJConnectSessionMoodTheme = .brand
     var researchAttribution: DJConnectDirectResearchAttribution? = nil
     var watchActivity = false
@@ -429,8 +482,15 @@ private struct PassiveSessionContentView: View {
     /// Neither a missing cover nor an absent contribution changes the row layout.
     @ViewBuilder private func widgetContent(size: CGSize) -> some View {
         if compact {
-            widgetCover(side: min(size.width, size.height))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            let side = min(size.width, size.height)
+            if let cover = decodedCover(slot: "now_playing", side: side - 8) {
+                widgetCover(side: side, cover: cover)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if showsWidgetBrandFallback {
+                SessionWidgetBrandFallback(theme: theme, compact: true)
+            } else {
+                SessionSurfaceAvatar(theme: theme, side: side)
+            }
         } else if large {
             let half = max(0, (size.height - 12) / 2)
             VStack(alignment: .leading, spacing: 12) {
@@ -461,12 +521,12 @@ private struct PassiveSessionContentView: View {
             widgetTrackRow(size: size)
         }
     }
-    private func widgetTrackRow(size: CGSize) -> some View {
-        let side = min(size.height, size.width * 0.36)
-        return HStack(alignment: .center, spacing: 12) {
-            widgetCover(side: side)
-            VStack(alignment: .leading, spacing: 4) {
-                if let playback {
+    @ViewBuilder private func widgetTrackRow(size: CGSize) -> some View {
+        if let playback {
+            let side = min(size.height, size.width * 0.36)
+            HStack(alignment: .center, spacing: 12) {
+                widgetCover(side: side, cover: decodedCover(slot: "now_playing", side: side - 8))
+                VStack(alignment: .leading, spacing: 4) {
                     Text(playback.track).font(.headline).lineLimit(2)
                     Text(playback.artist).font(.subheadline)
                         .foregroundStyle(.white.opacity(0.85)).lineLimit(1)
@@ -475,10 +535,12 @@ private struct PassiveSessionContentView: View {
                     }
                     playbackProgress(playback)
                     credit(playback.attribution)
-                }
-            }.frame(maxWidth: .infinity, alignment: .leading)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        } else {
+            SessionWidgetBrandFallback(theme: theme, compact: false)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
     @ViewBuilder private func playbackProgress(_ playback: DJConnectPassiveSession.NowPlaying) -> some View {
         if let cache, cache.isCurrent(at: date), let progress = playback.progress,
@@ -505,18 +567,17 @@ private struct PassiveSessionContentView: View {
         return "\(seconds / 60):" + String(format: "%02d", seconds % 60)
     }
 
-    private func widgetCover(side: CGFloat) -> some View {
+    private func widgetCover(side: CGFloat, cover: (image: CGImage, label: String)?) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.ultraThinMaterial)
-            if let cover = decodedCover(slot: "now_playing", side: side - 8) {
+            if let cover {
                 // Fit the entire image inside the rounded card: no source crop.
                 Image(cover.image, scale: 3, label: Text(cover.label)).resizable()
                     .widgetAccentedRenderingMode(.fullColor).scaledToFit()
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .padding(4)
             } else {
-                Image(systemName: "music.note").font(.system(size: side * 0.35))
-                    .foregroundStyle(.white.opacity(0.5)).accessibilityHidden(true)
+                SessionSurfaceAvatar(theme: theme, side: side * 0.65).accessibilityHidden(true)
             }
         }
         .frame(width: side, height: side)
