@@ -9764,9 +9764,13 @@ struct VibeCastDisplayConsentForm: View {
                 }
                 if model.displayConsentState == .ready {
                     Text(localizedKey(model.language, model.displayConsentExistingShare == nil ? "ui.displayConsent.create" : "ui.displayConsent.existing"))
-                    Button(localizedKey(model.language, "ui.displayConsent.confirm")) { Task { await model.approveDisplayConsent() } }
-                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-                        .accessibilityIdentifier("display-consent-confirm")
+                    Button {
+                        Task { await model.approveDisplayConsent() }
+                    } label: {
+                        Label(localizedKey(model.language, "ui.displayConsent.confirm"), systemImage: "tv.badge.wifi")
+                    }
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .accessibilityIdentifier("display-consent-confirm")
                 }
                 if busy { ProgressView() }
                 if model.displayConsentState == .approved { Text(localizedKey(model.language, "ui.displayConsent.approved")) }
