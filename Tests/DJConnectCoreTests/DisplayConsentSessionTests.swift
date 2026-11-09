@@ -744,7 +744,11 @@ extension DisplayConsentSessionTests {
             try await Task.sleep(for: .milliseconds(100))
             #expect(model.displayConsentState == (mode == "short-claim" ? .ready : .approved))
             let before = try capture("before-expiry")
-            #expect(before.count == 6 && before.allSatisfy { !$0.isEnabled })
+            if mode == "short-claim" {
+                #expect(before.count == 6 && before.allSatisfy { !$0.isEnabled })
+            } else {
+                #expect(before.isEmpty)
+            }
             let requestsBefore = ConsentWire.requests.filter { $0.url?.path.contains("/owner/") == true }.count
             // Real clocks only; the mounted production form's 250 ms task
             // performs its ordinary refresh. No model refresh/getter injection.
@@ -752,7 +756,7 @@ extension DisplayConsentSessionTests {
             let after = try capture("after-expiry")
             #expect(model.displayConsentState == .unavailable)
             #expect(after.count == 6 && after.allSatisfy(\.isEnabled))
-            #expect(after.map { $0.text ?? "" } == Array(repeating: "0", count: 6))
+            #expect(after.map { $0.text ?? "" } == Array(repeating: mode == "short-claim" ? "0" : "", count: 6))
             #expect(ConsentWire.requests.filter { $0.url?.path.contains("/owner/") == true }.count == requestsBefore)
             #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == (mode == "short-claim" ? 0 : 1))
             #expect(model.canResolveDisplayConsent)
@@ -789,9 +793,11 @@ extension DisplayConsentSessionTests {
             func capture(_ stage: String, enabled: Bool) throws {
                 window.layoutIfNeeded()
                 let values = fields()
-                #expect(values.count == 6)
+                let approved = mode == "normal" && stage == "terminal"
+                let cleared = mode == "normal" && stage == "withdrawn"
+                #expect(values.count == (approved ? 0 : 6))
                 #expect(values.allSatisfy { $0.isEnabled == enabled }, "Native UITextField enablement must match the form's state")
-                #expect(values.map { $0.text ?? "" } == Array(repeating: "0", count: 6))
+                #expect(values.map { $0.text ?? "" } == Array(repeating: cleared ? "" : "0", count: values.count))
                 observations.append(["mode": mode, "stage": stage, "state": String(describing: model.displayConsentState), "enabled": values.map(\.isEnabled),
                     "first_responder": values.map(\.isFirstResponder), "digits": values.map { $0.text ?? "" }])
                 let image = UIGraphicsImageRenderer(bounds: window.bounds).image { context in window.layer.render(in: context.cgContext) }
@@ -991,8 +997,42 @@ extension DisplayConsentSessionTests {
         #expect(!ConsentWire.requests.contains { $0.url?.path.hasSuffix("/owner/approve") == true })
         await model.approveDisplayConsent()
         #expect(model.displayConsentState == .approved)
+        model.dismissDisplayConsentPresentation()
+        #expect(model.isVibeCastSharing)
+        model.openVibeCastDestinationPicker()
+        #expect(model.isShowingVibeCastSessionStart)
+        #expect(!model.startsVibeCastWithDestinationPicker)
+        model.prepareDisplayConsentPresentation()
+        #expect(model.displayConsentState == .approved)
         await model.approveDisplayConsent()
+        let requestsBeforeLookup = ConsentWire.requests.count
+        await model.resolveDisplayConsent(code: "123456")
+        #expect(ConsentWire.requests.count == requestsBeforeLookup)
+        #expect(model.displayConsentState == .approved)
         #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == 1)
+
+        await model.revokeDisplayConsent()
+        #expect(model.displayConsentState == .revoked)
+        model.openVibeCastDestinationPicker()
+        #expect(model.startsVibeCastWithDestinationPicker)
+    }
+
+    @Test(.isolatedClientResources) func actualIOSModelUnconfirmedStopKeepsScreenSelectionBlocked() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel("unknown-revoke")
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        await model.resolveDisplayConsent(code: "000000")
+        await model.approveDisplayConsent()
+        await model.revokeDisplayConsent()
+        #expect(model.displayConsentState == .revokeUncertain)
+
+        model.dismissDisplayConsentPresentation()
+        model.openVibeCastDestinationPicker()
+        model.prepareDisplayConsentPresentation()
+        #expect(!model.startsVibeCastWithDestinationPicker)
+        #expect(model.displayConsentState == .revokeUncertain)
+        let requestsBeforeLookup = ConsentWire.requests.count
+        await model.resolveDisplayConsent(code: "123456")
+        #expect(ConsentWire.requests.count == requestsBeforeLookup)
     }
 
     @Test(.isolatedClientResources) func actualIOSModelWithdrawalPreventsLateApproval() async throws {

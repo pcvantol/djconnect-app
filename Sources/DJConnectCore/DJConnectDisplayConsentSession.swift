@@ -185,9 +185,11 @@ import CryptoKit
     public func revokeDisplay() async throws {
         guard let approved = receipt, current() else { throw DJConnectError.invalidResponse }
         storedReceipt = nil; state = .revoking
+        var contextRead = false
         var possibleEffect = false
         do {
             let context = try await ownerContext()
+            contextRead = true
             guard current(), state == .revoking, context.displayEntryURL == route,
                   context.issuerEpoch == resolvedClaim?.issuerEpoch,
                   Date() >= approved.admittedAt, Date() < approved.expiresAt,
@@ -208,7 +210,10 @@ import CryptoKit
             guard current(), state == .revoking, reply.success, reply.contract_version == 1 else { throw DJConnectError.invalidResponse }
             resolvedClaim = nil; existingShare = nil; state = .revoked
         } catch {
-            storedReceipt = nil; state = possibleEffect ? .revokeUncertain : .unavailable
+            if state == .revoking {
+                // A failed read cannot establish that the previous display is gone.
+                state = possibleEffect || (!contextRead && current()) ? .revokeUncertain : .unavailable
+            }
             throw error
         }
     }

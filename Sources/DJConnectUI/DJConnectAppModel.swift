@@ -893,7 +893,29 @@ public final class DJConnectAppModel: ObservableObject {
         !isDemoMode && [.ios, .macos].contains(identity.clientType) && pairingStatus == .paired && isAppInForeground &&
             activeDJSession?.runtimeState == "active" && sessionHistory.authorizedProfileID != nil
     }
-    func resetDisplayConsent() { cancelDisplayConsent(); displayConsentState = .idle }
+    var isVibeCastSharing: Bool {
+        displayConsentState == .approved || displayConsentState == .revoking
+    }
+
+    var blocksVibeCastScreenSelection: Bool {
+        isVibeCastSharing || (displayConsentState == .revokeUncertain && displayConsentFlow != nil)
+    }
+
+    func resetDisplayConsent() {
+        guard !blocksVibeCastScreenSelection else { return }
+        cancelDisplayConsent()
+        displayConsentState = .idle
+    }
+
+    func prepareDisplayConsentPresentation() {
+        refreshDisplayConsentPresentation()
+        if !blocksVibeCastScreenSelection { resetDisplayConsent() }
+    }
+
+    func dismissDisplayConsentPresentation() {
+        // Closing the controls is separate from stopping the approved share.
+        if !blocksVibeCastScreenSelection { cancelDisplayConsent() }
+    }
 
     func cancelDisplayConsent() {
         let uncertain = displayConsentFlow?.state == .approving || displayConsentFlow?.state == .uncertain
@@ -904,6 +926,7 @@ public final class DJConnectAppModel: ObservableObject {
         displayConsentState = revokeUncertain ? .revokeUncertain : uncertain ? .uncertain : .unavailable
     }
     func resolveDisplayConsent(code: String) async {
+        guard !blocksVibeCastScreenSelection else { return }
         cancelDisplayConsent()
         guard !isDemoMode, [.ios, .macos].contains(identity.clientType), pairingStatus == .paired, isAppInForeground,
               let session = activeDJSession, session.runtimeState == "active",
@@ -970,12 +993,13 @@ public final class DJConnectAppModel: ObservableObject {
         displayConsentState = flow.state
     }
     func openVibeCastDestinationPicker() {
-        startsVibeCastWithDestinationPicker = true
+        refreshDisplayConsentPresentation()
+        startsVibeCastWithDestinationPicker = !blocksVibeCastScreenSelection
         isShowingVibeCastSessionStart = true
     }
 
     func openRendezvousDisplayConsent() {
-        guard canResolveDisplayConsent else { return }
+        guard canResolveDisplayConsent, !blocksVibeCastScreenSelection else { return }
         cancelRendezvous()
         isShowingRendezvous = false
         startsVibeCastWithDestinationPicker = false
@@ -987,7 +1011,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard displayConsentOwner?() == true else { cancelDisplayConsent(); return }
         if flow.state == .approved {
             _ = flow.receipt // Rechecks original owner/token and trusted clocks.
-            displayConsentState = flow.state
+            if displayConsentState != flow.state { displayConsentState = flow.state }
         } else if flow.state == .ready && flow.resolvedClaim?.isCurrent() != true {
             cancelDisplayConsent()
         }

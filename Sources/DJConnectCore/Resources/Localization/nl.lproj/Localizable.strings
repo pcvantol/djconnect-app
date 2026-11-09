@@ -1475,15 +1475,16 @@
 "ui.rendezvous.failed" = "Home Assistant kon het schermadres niet voorbereiden. Scan een nieuwe code en probeer opnieuw.";
 
 "ui.displayConsent.open" = "Een VibeCast-scherm koppelen";
-"ui.displayConsent.title" = "De huidige Session delen";
-"ui.displayConsent.instructions" = "Vul de code op je VibeCast-scherm in. De code opzoeken deelt nog niets.";
+"ui.displayConsent.title" = "Je huidige DJ-sessie delen";
+"ui.displayConsent.instructions" = "Vul de code in die je op je VibeCast-scherm ziet";
 "ui.displayConsent.lookup" = "Scherm opzoeken";
-"ui.displayConsent.create" = "Alleen je huidige DJ Session twee uur met dit scherm delen?";
-"ui.displayConsent.existing" = "Dit scherm toegang geven via de bestaande deeltoestemming voor je huidige Session, zonder de eindtijd te verlengen?";
+"ui.displayConsent.create" = "Wil je alleen je huidige DJ-sessie twee uur op dit scherm tonen?";
+"ui.displayConsent.existing" = "Wil je je huidige DJ-sessie ook op dit scherm tonen?";
 "ui.displayConsent.confirm" = "Dit scherm toestaan";
-"ui.displayConsent.approved" = "Scherm toegestaan voor je huidige Session.";
+"ui.displayConsent.active_title" = "VibeCast is actief";
+"ui.displayConsent.approved" = "Dit scherm heeft nu toegang tot je huidige DJ-sessie.";
 "ui.displayConsent.uncertain" = "De toestemming is niet bevestigd. Controleer het scherm voordat je een nieuw verzoek start.";
-"ui.displayConsent.unavailable" = "De schermcode of huidige Session is niet meer beschikbaar.";
+"ui.displayConsent.unavailable" = "Dit scherm koppelen is niet gelukt. Controleer de code op je VibeCast-scherm en zorg dat je DJ-sessie loopt.";
 
 /* Home Assistant speech configuration; never an audio-success claim. */
 "ui.ha_speech.configuration" = "Home Assistant-configuratie";

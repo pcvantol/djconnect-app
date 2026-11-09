@@ -948,11 +948,11 @@ struct SessionTimelineScreen: View {
                     if allowsHandoffPresentation {
                         Button { model.openVibeCastDestinationPicker() } label: {
                             Image(systemName: "tv.badge.wifi")
-                                .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
+                                .foregroundStyle(model.isVibeCastSharing ? djConnectAccent : .white)
                         }
-                        .accessibilityLabel(text("ui.vibecast.handoff.title"))
+                        .accessibilityLabel(text(model.isVibeCastSharing ? "ui.displayConsent.active_title" : "ui.vibecast.handoff.title"))
                         .accessibilityIdentifier("session-handoff-toggle")
-                        .help(text("ui.vibecast.handoff.title"))
+                        .help(text(model.isVibeCastSharing ? "ui.displayConsent.active_title" : "ui.vibecast.handoff.title"))
                     }
                 }
                 if activeSession != nil {
@@ -1255,9 +1255,9 @@ struct SessionTimelineScreen: View {
                 if allowsHandoffPresentation {
                     Button { model.openVibeCastDestinationPicker() } label: {
                         Image(systemName: "tv.badge.wifi")
-                            .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
+                            .foregroundStyle(model.isVibeCastSharing ? djConnectAccent : .white)
                     }
-                    .accessibilityLabel(text("ui.vibecast.handoff.title"))
+                    .accessibilityLabel(text(model.isVibeCastSharing ? "ui.displayConsent.active_title" : "ui.vibecast.handoff.title"))
                     .accessibilityIdentifier("session-handoff-toggle")
                 }
                 if activeSession != nil { SessionEndToolbarButton(model: model) }
@@ -2422,7 +2422,12 @@ struct SessionControlPopoverHost: View {
                                 }
                                 if showsHandoff {
                                     Button { queue(.handoff, captured: captured) } label: {
-                                        Label(text("ui.vibecast.handoff.title"), systemImage: "tv.badge.wifi")
+                                        Label {
+                                            Text(text(model.isVibeCastSharing ? "ui.displayConsent.active_title" : "ui.vibecast.handoff.title"))
+                                        } icon: {
+                                            Image(systemName: "tv.badge.wifi")
+                                                .foregroundStyle(model.isVibeCastSharing ? djConnectAccent : .white)
+                                        }
                                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                                     }.accessibilityIdentifier("session-handoff-toggle")
                                 }
