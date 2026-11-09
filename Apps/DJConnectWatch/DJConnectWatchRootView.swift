@@ -1685,7 +1685,7 @@ private struct DJConnectWatchAskDJNotificationPermissionView: View {
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
 
-                    Text(watchLocalizedKey(model.language, "watch.push.notifications.are.only.used.for.djconnect.notifications"))
+                    Text(watchLocalizedKey(model.language, "ui.privacy.push"))
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.72))
                         .multilineTextAlignment(.center)
@@ -1998,13 +1998,15 @@ private struct DJConnectWatchPrivacyView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    DJConnectWatchLegalSection(title: "Privacy") {
-                        Text(watchLocalizedKey(model.language, "watch.djconnect.itself.does.not.collect.sell.or.process"))
-                        Text(watchLocalizedKey(model.language, "watch.device.tokens.are.stored.locally.in.private.app"))
-                        Text(watchLocalizedKey(model.language, "watch.push.notifications.are.only.used.for.djconnect.notifications"))
-                        Text(watchLocalizedKey(model.language, "watch.diagnostics.are.only.shared.when.you.copy.them"))
-                        Text(watchLocalizedKey(model.language, "watch.music.playback.and.voice.requests.run.through.your"))
-                        Text(watchLocalizedKey(model.language, "watch.ai.and.assist.answers.can.be.incorrect.and"))
+                    DJConnectWatchLegalSection(title: watchLocalizedKey(model.language, "watch.privacy")) {
+                        Text(watchLocalizedKey(model.language, "ui.privacy.connection"))
+                        Text(watchLocalizedKey(model.language, "ui.privacy.home-assistant"))
+                        Text(watchLocalizedKey(model.language, "ui.privacy.choices"))
+                        Text(watchLocalizedKey(model.language, "ui.privacy.push"))
+                        Text(watchLocalizedKey(model.language, "ui.privacy.diagnostics"))
+                        Link(watchLocalizedKey(model.language, "ui.privacy.full-statement"),
+                             destination: DJConnectLocalization.privacyStatementURL(language: model.language))
+                            .accessibilityIdentifier("privacy-full-statement")
                     }
                 }
                 .font(.caption2)

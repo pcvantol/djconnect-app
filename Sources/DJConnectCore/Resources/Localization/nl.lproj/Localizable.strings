@@ -75,6 +75,12 @@
 "ui.about" = "Over";
 "ui.legal" = "Juridisch";
 "ui.privacy" = "Privacy";
+"ui.privacy.connection" = "DJConnect gebruikt een apparaattoken om de app aan je Home Assistant te koppelen. De app bewaart dit token in de eigen appopslag.";
+"ui.privacy.home-assistant" = "Je Home Assistant beheert je DJConnect-profiel, muziekverbindingen en Ask DJ-geschiedenis. Afhankelijk van je instellingen kunnen je gekozen spraak- en AI-aanbieders verzoeken of audio verwerken. Antwoorden van AI en Assist kunnen onjuist zijn.";
+"ui.privacy.choices" = "Music DNA is optioneel. Je kunt Music DNA en je Ask DJ-geschiedenis afzonderlijk wissen in Home Assistant.";
+"ui.privacy.push" = "Als je Apple-meldingen inschakelt, verwerkt de DJConnect-meldingsdienst registratiegegevens en je Apple-pushtoken. Apple bezorgt de meldingen op je apparaat. De dienst gebruikt technische aflevergegevens om de betrouwbaarheid te bewaken. Je kunt meldingen uitschakelen in Instellingen.";
+"ui.privacy.diagnostics" = "Je kiest zelf of je appdiagnostiek deelt met support of in een GitHub-issue.";
+"ui.privacy.full-statement" = "Volledige privacyverklaring";
 "ui.share.feedback" = "Feedback delen";
 "ui.ask.dj.notifications" = "Ask DJ-meldingen";
 "ui.allow.notifications" = "Meldingen toestaan";
@@ -581,12 +587,6 @@
 "watch.spotify.is.a.trademark.of.spotify.ab.home" = "Home Assistant is een handelsmerk van de Open Home Foundation. Andere dienstnamen zijn handelsmerken van hun respectieve eigenaren.";
 "watch.djconnect.uses.apple.platform.frameworks.and.swift.package" = "DJConnect gebruikt Apple platform-frameworks en Swift Package Manager.";
 "watch.third.party.notices.are.documented.in.the.repository" = "Third-party notices worden in de repository gedocumenteerd wanneer dependencies worden toegevoegd.";
-"watch.djconnect.itself.does.not.collect.sell.or.process" = "DJConnect verzamelt, verkoopt of verwerkt zelf geen persoonsgegevens in de app.";
-"watch.device.tokens.are.stored.locally.in.private.app" = "Device-tokens worden lokaal in de private app-opslag bewaard.";
-"watch.push.notifications.are.only.used.for.djconnect.notifications" = "Pushnotificaties worden alleen gebruikt voor DJConnect-meldingen, zoals Ask DJ-reacties. DJConnect bewaart hiervoor een Apple push-token lokaal en deelt dit met je eigen Home Assistant DJConnect-integratie zodat notificaties via Apple Push Notification service kunnen worden bezorgd. Push-tokens worden niet gebruikt voor tracking, advertenties of verkoop.";
-"watch.diagnostics.are.only.shared.when.you.copy.them" = "Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent.";
-"watch.music.playback.and.voice.requests.run.through.your" = "Muziek, playback en stemverzoeken lopen via je eigen Home Assistant DJConnect-integratie.";
-"watch.ai.and.assist.answers.can.be.incorrect.and" = "AI- en Assist-antwoorden kunnen onjuist zijn en hangen af van je eigen Home Assistant- en Assist-configuratie.";
 "watch.privacy" = "Privacy";
 "watch.open.a.github.issue.with.app.context.nothing" = "Open een GitHub issue met app-context. Er wordt niets automatisch geüpload.";
 "watch.open.github.issue" = "Open GitHub issue";
@@ -855,11 +855,6 @@
 "ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by" = "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Apple, Home Assistant of ondersteunde muziekdiensten.";
 "ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is" = "Home Assistant is een handelsmerk van de Open Home Foundation. Andere dienstnamen zijn handelsmerken van hun respectieve eigenaren.";
 "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third" = "DJConnect gebruikt Apple platform-frameworks en Swift Package Manager. Third-party notices worden in de repository gedocumenteerd wanneer dependencies worden toegevoegd.";
-"ui.djconnect.does.not.collect.sell.or.process.personal.data.in" = "DJConnect verzamelt, verkoopt of verwerkt zelf geen persoonsgegevens in de app.";
-"ui.device.tokens.are.stored.locally.in.the.app.s.private" = "Device-tokens worden lokaal in de private app-opslag bewaard. Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent.";
-"ui.push.notifications.are.only.used.for.djconnect.notifications.such.as" = "Pushnotificaties worden alleen gebruikt voor DJConnect-meldingen, zoals Ask DJ-reacties. DJConnect bewaart hiervoor een Apple push-token lokaal en deelt dit met je eigen Home Assistant DJConnect-integratie zodat notificaties via Apple Push Notification service kunnen worden bezorgd. Push-tokens worden niet gebruikt voor tracking, advertenties of verkoop.";
-"ui.music.playback.and.voice.requests.are.handled.through.your.own" = "Muziek, playback en stemverzoeken lopen via je eigen Home Assistant DJConnect-integratie.";
-"ui.ai.and.assist.answers.can.be.incorrect.and.depend.on" = "AI- en Assist-antwoorden kunnen onjuist zijn en hangen af van je eigen Home Assistant- en Assist-configuratie.";
 "ui.create.a.github.issue.draft.with.redacted.ask.dj.context" = "Maak een GitHub issue-concept met geredigeerde Ask DJ-context. Er wordt niets automatisch verstuurd.";
 "ui.review.this.text.before.opening.github.remove.anything.you.do" = "Controleer deze tekst voordat GitHub opent. Verwijder alles wat je niet wilt delen.";
 "ui.open.a.github.issue.with.redacted.app.context.nothing.is" = "Open een GitHub issue met geredigeerde app-context. Er wordt niets automatisch geüpload.";

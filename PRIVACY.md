@@ -1,44 +1,36 @@
 # DJConnect App Privacy Notes
 
-DJConnect Apple clients use Home Assistant as the trusted backend for pairing,
-Spotify OAuth, playback credentials, Assist/STT/TTS, and DJ response generation.
-AI and Assist answers can be incorrect and depend on the user's own Home
-Assistant and Assist configuration.
+The Apple apps use a DJConnect device credential issued during pairing to
+connect to the user's Home Assistant integration. They keep that credential in
+app-private storage and clear it when pairing is reset. Credentials for music,
+playback, voice and AI providers are managed by Home Assistant. Apple clients
+must never ask users for provider secrets, Home Assistant long-lived access
+tokens or Wi-Fi passwords. Keep those values out of storage, exports and logs.
+Temporary response audio URLs are used for playback and must stay out of
+persistent storage and logs.
 
-The app must not request, store, export, or log:
+Home Assistant manages the DJConnect Profile, music connections and Ask DJ
+history. Depending on the user's configuration, their chosen voice and AI
+providers may process requests or audio. Music DNA is optional. Music DNA and
+Ask DJ history can be cleared separately in Home Assistant.
 
-- Spotify OAuth client secrets, refresh tokens, or access tokens;
-- Home Assistant long-lived access tokens;
-- Sonos or playback backend credentials;
-- OpenAI or other AI provider credentials;
-- WiFi passwords;
-- DJConnect bearer tokens;
-- temporary TTS or response audio URLs.
+## Optional Apple notifications
 
-The only credential the app may store is its DJConnect device bearer token,
-issued by the Home Assistant integration during pairing. iOS, macOS, and
-watchOS store that token in app-private storage instead of Keychain so the app
-does not trigger platform Keychain access prompts. Resetting pairing clears the
-stored token and returns the app to the pairing sheet.
+When enabled, the DJConnect notification service processes registration data
+and the Apple push token. Apple delivers notifications to the device. The
+service uses technical delivery diagnostics to monitor reliability. Users can
+turn notifications off in Settings.
 
-## Diagnostics
+## App diagnostics
 
-Diagnostics exports must redact:
+Users choose whether to share app diagnostics with support or in a GitHub
+issue. This is separate from the notification service's delivery diagnostics.
 
-- `Authorization` headers;
-- `device_token`;
-- fields named `token` or ending in `_token`;
-- temporary `audio_url` query strings;
-- private Home Assistant URLs when the user chooses anonymized export.
+App diagnostic exports redact Authorization headers, device credentials,
+pairing codes, tokens, temporary audio URL query strings and raw request bodies.
+Anonymized exports also redact private Home Assistant addresses. Exports may
+include readiness metadata such as the app version, locale, connection mode,
+backend availability and permission status.
 
-Exports may include non-secret readiness metadata such as app version, bundle
-identifier, locale, client type, pairing state, connection mode, remote support
-flag, backend availability, selected output, playback snapshot state, and
-permission statuses. These fields are included so users can share useful
-TestFlight/App Store or support diagnostics without exposing bearer tokens,
-pairing codes, Authorization headers, raw request bodies, or playback/backend
-credentials.
-
-Backend unavailable, stale auth, missing integration routes, and version
-mismatch states must not automatically erase the stored token. The user must
-explicitly reset pairing before the app clears token state.
+[Full privacy statement](https://djconnect.dev/en/privacy) ·
+[Nederlandse privacyverklaring](https://djconnect.dev/privacy)
