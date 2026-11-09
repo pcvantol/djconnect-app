@@ -9431,7 +9431,7 @@ struct VibeCastSessionStartDialog: View {
 
     var body: some View {
         Group {
-            if showsDestinations {
+            if showsDestinations && !model.blocksVibeCastScreenSelection {
                 VibeCastDestinationPicker(language: model.language, scansNetwork: !model.isDemoMode) {
                     showsDestinations = false
                 }
@@ -9469,7 +9469,7 @@ struct VibeCastSessionStartDialog: View {
                     .padding(.horizontal, 16)
                     .accessibilityIdentifier("vibecast-session-start-hero")
                 #if os(iOS) && DJCONNECT_VIBECAST_FIXED_QA
-                if !model.isVibeCastSharing {
+                if !model.blocksVibeCastScreenSelection && model.displayConsentState != .revoked {
                     Button(localizedKey(model.language, "ui.rendezvous.scan")) {
                         model.cancelRendezvous()
                         model.isShowingVibeCastSessionStart = false
@@ -9480,8 +9480,15 @@ struct VibeCastSessionStartDialog: View {
                 }
                 #endif
                 VibeCastHandoffForm(model: model)
+                if model.displayConsentState == .revoked {
+                    Button(localizedKey(model.language, "ui.vibecast.destinations.title")) {
+                        showsDestinations = true
+                    }
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .accessibilityIdentifier("vibecast-choose-after-stop")
+                }
                 DJConnectNotNowLinkButton(language: model.language,
-                    key: model.isVibeCastSharing || model.displayConsentState == .revoked ? "ui.close" : "ui.not.now.b1e535") {
+                    key: model.blocksVibeCastScreenSelection || model.displayConsentState == .revoked ? "ui.close" : "ui.not.now.b1e535") {
                     resignPlatformFirstResponder()
                     dismiss()
                 }
@@ -9730,7 +9737,8 @@ struct VibeCastDisplayConsentForm: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                if !model.isVibeCastSharing && model.displayConsentState != .revokeUncertain {
+                if !model.blocksVibeCastScreenSelection && model.displayConsentState != .revoked &&
+                    model.displayConsentState != .revokeUncertain {
                     Text(localizedKey(model.language, "ui.displayConsent.instructions"))
                     VibeCastCodeEntry(code: Binding(get: { code }, set: { value in
                         guard value != code else { return }
@@ -9742,7 +9750,7 @@ struct VibeCastDisplayConsentForm: View {
                     .frame(height: 64)
                     .disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .uncertain)
                 }
-                if model.displayConsentState == .idle || model.displayConsentState == .unavailable || model.displayConsentState == .revoked {
+                if model.displayConsentState == .idle || model.displayConsentState == .unavailable {
                     Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
                         resignPlatformFirstResponder()
                         Task { await model.resolveDisplayConsent(code: code) }
@@ -9775,7 +9783,7 @@ struct VibeCastDisplayConsentForm: View {
                 if model.displayConsentState == .uncertain { Text(localizedKey(model.language, "ui.displayConsent.uncertain")) }
                 if model.displayConsentState == .unavailable { Text(localizedKey(model.language, "ui.displayConsent.unavailable")) }
                 if !embedded {
-                    Button(localizedKey(model.language, model.isVibeCastSharing || model.displayConsentState == .revoked
+                    Button(localizedKey(model.language, model.blocksVibeCastScreenSelection || model.displayConsentState == .revoked
                         ? "ui.close" : "ui.not.now.b1e535")) { dismiss() }
                         .accessibilityIdentifier("display-consent-close")
                 }

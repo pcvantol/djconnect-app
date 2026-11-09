@@ -93,7 +93,7 @@ struct VibeCastRendezvousView: View {
                     Button(rendezvousText(model.language, "ui.rendezvous.tv_code")) {
                         model.openRendezvousDisplayConsent()
                     }
-                    .disabled(!model.canResolveDisplayConsent || model.rendezvousBusy)
+                    .disabled(!model.canResolveDisplayConsent || model.blocksVibeCastScreenSelection || model.rendezvousBusy)
                     .accessibilityIdentifier("vibecast-rendezvous-tv-code")
                 }
                 .djConnectButtonStyle(DJConnectButtonStyle(expands: true))

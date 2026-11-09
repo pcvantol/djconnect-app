@@ -897,16 +897,24 @@ public final class DJConnectAppModel: ObservableObject {
         displayConsentState == .approved || displayConsentState == .revoking
     }
 
-    func resetDisplayConsent() { cancelDisplayConsent(); displayConsentState = .idle }
+    var blocksVibeCastScreenSelection: Bool {
+        isVibeCastSharing || (displayConsentState == .revokeUncertain && displayConsentFlow != nil)
+    }
+
+    func resetDisplayConsent() {
+        guard !blocksVibeCastScreenSelection else { return }
+        cancelDisplayConsent()
+        displayConsentState = .idle
+    }
 
     func prepareDisplayConsentPresentation() {
         refreshDisplayConsentPresentation()
-        if !isVibeCastSharing { resetDisplayConsent() }
+        if !blocksVibeCastScreenSelection { resetDisplayConsent() }
     }
 
     func dismissDisplayConsentPresentation() {
         // Closing the controls is separate from stopping the approved share.
-        if !isVibeCastSharing { cancelDisplayConsent() }
+        if !blocksVibeCastScreenSelection { cancelDisplayConsent() }
     }
 
     func cancelDisplayConsent() {
@@ -918,6 +926,7 @@ public final class DJConnectAppModel: ObservableObject {
         displayConsentState = revokeUncertain ? .revokeUncertain : uncertain ? .uncertain : .unavailable
     }
     func resolveDisplayConsent(code: String) async {
+        guard !blocksVibeCastScreenSelection else { return }
         cancelDisplayConsent()
         guard !isDemoMode, [.ios, .macos].contains(identity.clientType), pairingStatus == .paired, isAppInForeground,
               let session = activeDJSession, session.runtimeState == "active",
@@ -985,12 +994,12 @@ public final class DJConnectAppModel: ObservableObject {
     }
     func openVibeCastDestinationPicker() {
         refreshDisplayConsentPresentation()
-        startsVibeCastWithDestinationPicker = !isVibeCastSharing
+        startsVibeCastWithDestinationPicker = !blocksVibeCastScreenSelection
         isShowingVibeCastSessionStart = true
     }
 
     func openRendezvousDisplayConsent() {
-        guard canResolveDisplayConsent else { return }
+        guard canResolveDisplayConsent, !blocksVibeCastScreenSelection else { return }
         cancelRendezvous()
         isShowingRendezvous = false
         startsVibeCastWithDestinationPicker = false

@@ -1005,7 +1005,34 @@ extension DisplayConsentSessionTests {
         model.prepareDisplayConsentPresentation()
         #expect(model.displayConsentState == .approved)
         await model.approveDisplayConsent()
+        let requestsBeforeLookup = ConsentWire.requests.count
+        await model.resolveDisplayConsent(code: "123456")
+        #expect(ConsentWire.requests.count == requestsBeforeLookup)
+        #expect(model.displayConsentState == .approved)
         #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == 1)
+
+        await model.revokeDisplayConsent()
+        #expect(model.displayConsentState == .revoked)
+        model.openVibeCastDestinationPicker()
+        #expect(model.startsVibeCastWithDestinationPicker)
+    }
+
+    @Test(.isolatedClientResources) func actualIOSModelUnconfirmedStopKeepsScreenSelectionBlocked() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel("unknown-revoke")
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        await model.resolveDisplayConsent(code: "000000")
+        await model.approveDisplayConsent()
+        await model.revokeDisplayConsent()
+        #expect(model.displayConsentState == .revokeUncertain)
+
+        model.dismissDisplayConsentPresentation()
+        model.openVibeCastDestinationPicker()
+        model.prepareDisplayConsentPresentation()
+        #expect(!model.startsVibeCastWithDestinationPicker)
+        #expect(model.displayConsentState == .revokeUncertain)
+        let requestsBeforeLookup = ConsentWire.requests.count
+        await model.resolveDisplayConsent(code: "123456")
+        #expect(ConsentWire.requests.count == requestsBeforeLookup)
     }
 
     @Test(.isolatedClientResources) func actualIOSModelWithdrawalPreventsLateApproval() async throws {
