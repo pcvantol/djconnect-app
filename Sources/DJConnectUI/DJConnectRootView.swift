@@ -1544,6 +1544,8 @@ private struct PermissionExplanationView: View {
         switch model.permissionExplanationKind {
         case .notifications:
             localizedKey(model.language, "ui.needed.for.server.push.notifications.when.ask.dj.answers")
+        case .momentNotifications:
+            localizedKey(model.language, "ui.settings.moment.notifications.detail")
         case .microphone:
             localizedKey(model.language, "watch.djconnect.only.uses.the.microphone.when.you.start")
         }

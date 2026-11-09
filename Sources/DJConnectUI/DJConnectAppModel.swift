@@ -370,11 +370,13 @@ public typealias DJConnectWebSocketFastPathFactory = @Sendable (
 
 public enum DJConnectPermissionExplanationKind: Equatable, Sendable {
     case notifications
+    case momentNotifications
     case microphone
 }
 
 private enum DJConnectPendingPermissionRequest {
     case appPermissions
+    case momentNotifications
     case voiceRecording
 }
 
@@ -2293,7 +2295,6 @@ public final class DJConnectAppModel: ObservableObject {
     private var hostWakeAPNSTokenEpoch = UUID()
     private weak var hostWakePreparingOwner: DJConnectHostWakeFirstKeyOwner?
     private var remoteNotificationRegistrationInProgress = false
-    private var pendingRemoteNotificationPromptPairing: UUID?
     private var pushRegistrationInFlightSignature: String?
     private var pushRegistrationAttemptEpoch: UUID?
     private var discoveryArtworkRenewalTask: Task<Void, Never>?
@@ -4574,7 +4575,7 @@ public final class DJConnectAppModel: ObservableObject {
         presentPairingSuccessScreenAfterPairing()
         presentWakeWordActivationPromptAfterPairing()
         if !Self.isRunningUnderSwiftPMTests {
-            requestRemoteNotificationRegistration(allowSystemPrompt: startBackgroundTasks)
+            requestRemoteNotificationRegistration()
         }
         registerStoredPushTokenIfPossible()
         // The authenticated completion read can discover device transport
@@ -13604,7 +13605,11 @@ public final class DJConnectAppModel: ObservableObject {
     public func retryPushNotificationRegistration() {
         guard pairingStatus == .paired, !isDemoMode else { return }
         defaults.removeObject(forKey: registeredPushSignatureKey)
-        requestRemoteNotificationRegistration(allowSystemPrompt: true)
+        if notificationPermissionStatus == .granted {
+            requestRemoteNotificationRegistration()
+        } else {
+            requestAppPermissions()
+        }
     }
 
     public func openNotificationSettings() {
@@ -14464,30 +14469,19 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
     }
 
-    public func requestRemoteNotificationRegistration(allowSystemPrompt: Bool = false) {
+    public func requestRemoteNotificationRegistration() {
         #if canImport(UserNotifications)
         guard pairingStatus == .paired, !isDemoMode else { return }
         let pairing = pairingTaskGeneration
-        if remoteNotificationRegistrationInProgress {
-            if allowSystemPrompt { pendingRemoteNotificationPromptPairing = pairing }
-            return
-        }
+        guard !remoteNotificationRegistrationInProgress else { return }
         remoteNotificationRegistrationInProgress = true
         Task { @MainActor in
-            defer {
-                remoteNotificationRegistrationInProgress = false
-                let pending = pendingRemoteNotificationPromptPairing
-                pendingRemoteNotificationPromptPairing = nil
-                if let pending, pending == pairingTaskGeneration {
-                    requestRemoteNotificationRegistration(allowSystemPrompt: true)
-                }
-            }
+            defer { remoteNotificationRegistrationInProgress = false }
             guard pairingStatus == .paired, !isDemoMode, pairingTaskGeneration == pairing else { return }
             let center = UNUserNotificationCenter.current()
             logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(appVersion) app_build=\(buildVersion) protocol_version=\(Self.protocolVersion) env=\(Self.pushEnvironment.rawValue)", level: .info)
             let authorized = await requestRemoteNotificationAuthorizationIfNeeded(
-                center: center,
-                allowSystemPrompt: allowSystemPrompt
+                center: center
             )
             refreshPermissionStatuses()
             guard pairingStatus == .paired, !isDemoMode, pairingTaskGeneration == pairing else { return }
@@ -14530,14 +14524,30 @@ public final class DJConnectAppModel: ObservableObject {
 
     func setMomentNotificationsEnabled(_ enabled: Bool) {
         guard enabled != momentNotificationsEnabled else { return }
-        defaults.set(enabled, forKey: Self.momentNotificationsKey)
-        momentNotificationsEnabled = enabled
         if enabled {
-            requestRemoteNotificationRegistration(allowSystemPrompt: true)
+            guard !isRequestingPermissions, pendingPermissionRequest == nil else { return }
+            switch notificationPermissionStatus {
+            case .granted:
+                saveMomentNotificationsEnabled(true)
+                requestRemoteNotificationRegistration()
+            case .denied, .restricted:
+                openAppPermissionSettings()
+                schedulePermissionStatusRefreshes()
+            case .unknown, .unavailable:
+                pendingPermissionRequest = .momentNotifications
+                permissionExplanationKind = .momentNotifications
+                isShowingPermissionExplanation = true
+            }
         } else {
+            saveMomentNotificationsEnabled(false)
             pendingMomentOpen = nil
             pendingMomentPairing = nil
         }
+    }
+
+    private func saveMomentNotificationsEnabled(_ enabled: Bool) {
+        defaults.set(enabled, forKey: Self.momentNotificationsKey)
+        momentNotificationsEnabled = enabled
     }
 
     public func shouldPresentRemoteNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
@@ -17610,7 +17620,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func requestAppPermissions() {
-        guard !isRequestingPermissions else {
+        guard !isRequestingPermissions, pendingPermissionRequest == nil else {
             log(.debug, "Ignoring permission request because one is already running")
             return
         }
@@ -17642,6 +17652,8 @@ public final class DJConnectAppModel: ObservableObject {
         switch pending {
         case .appPermissions:
             requestAppPermissionsAfterExplanation()
+        case .momentNotifications:
+            requestAppPermissionsAfterExplanation(enablesMomentNotifications: true)
         case .voiceRecording:
             shouldBypassPermissionExplanationOnce = true
             startVoiceRecording()
@@ -17661,7 +17673,7 @@ public final class DJConnectAppModel: ObservableObject {
         log(.debug, "User cancelled permission explanation")
     }
 
-    private func requestAppPermissionsAfterExplanation() {
+    private func requestAppPermissionsAfterExplanation(enablesMomentNotifications: Bool = false) {
         guard !isRequestingPermissions else {
             return
         }
@@ -17681,6 +17693,9 @@ public final class DJConnectAppModel: ObservableObject {
                 hasRequestedAskDJNotificationPermission = true
             }
             if notificationGranted {
+                if enablesMomentNotifications {
+                    saveMomentNotificationsEnabled(true)
+                }
                 registerForSystemRemoteNotifications()
                 if let preview = askDJNotificationPreview {
                     await scheduleAskDJLocalNotification(center: UNUserNotificationCenter.current(), preview: preview)
