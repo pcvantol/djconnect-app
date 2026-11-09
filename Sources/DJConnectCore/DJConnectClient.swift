@@ -157,7 +157,43 @@ public final class DJConnectClient: Sendable {
         return context
     }
 
-    // Only the Core B coordinator invokes these ordinary paired routes.
+    /// Stop only the displayed Core connection. A fresh paired read fences route,
+    /// epoch, Session and generation before the user-authorized mutation.
+    public func stopLiveDisplay(_ display: DJConnectDisplayOwnerContext.Display,
+                                observed: DJConnectDisplayOwnerContext.DisplayObservation,
+                                expectedInstallationID: String, pairedLocalOrigin: URL?,
+                                isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Int {
+        let token = try loadedToken()
+        guard observed.displays.contains(display) else { throw DJConnectError.invalidResponse }
+        let context = try await displayOwnerContext(expectedInstallationID: expectedInstallationID,
+            pairedLocalOrigin: pairedLocalOrigin, isCurrent: {
+                isCurrent() && (try? self.tokenStore.loadToken()) == token
+            })
+        guard await isCurrent(), try loadedToken() == token, let fresh = context.displayObservation,
+              fresh.sessionID == observed.sessionID, fresh.issuerEpoch == observed.issuerEpoch,
+              fresh.revision >= observed.revision, fresh.displays.contains(display) else {
+            throw DJConnectError.invalidResponse
+        }
+        let body = try JSONSerialization.data(withJSONObject: [
+            "contract_version": 1,
+            "identity": ["device_id": identity.deviceID, "client_type": identity.clientType.rawValue],
+            "session_id": fresh.sessionID, "issuer_epoch": fresh.issuerEpoch,
+            "share_id": display.shareID, "display_id": display.id,
+            "connection_generation": display.connectionGeneration
+        ])
+        let data = try await displayConsentExchange(path: "revoke", body: body, isCurrent: {
+            isCurrent() && (try? self.tokenStore.loadToken()) == token
+        })
+        struct Reply: Decodable { let success: Bool; let contract_version: Int; let observation_revision: Int }
+        let reply = try decoder.decode(Reply.self, from: data)
+        guard await isCurrent(), try loadedToken() == token, reply.success, reply.contract_version == 1,
+              reply.observation_revision > fresh.revision, reply.observation_revision <= 9_007_199_254_740_991 else {
+            throw DJConnectError.invalidResponse
+        }
+        return reply.observation_revision
+    }
+
+    // The display consent coordinator and the generation-fenced stop use these paired routes.
     // It first validates a fresh selected-installation/owner context. The same
     // predicate is carried through the budget hop into synchronous dispatch.
     func displayConsentExchange(path: String, body: Data,

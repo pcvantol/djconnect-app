@@ -1746,3 +1746,7 @@
 "ui.vibecast.destinations.empty" = "Keine Google Cast-Geräte gefunden.";
 "ui.vibecast.destinations.network" = "Prüfe, ob DJConnect Zugriff auf das lokale Netzwerk hat.";
 "ui.vibecast.destinations.unavailable" = "Teilen über Google Cast ist noch nicht verfügbar.";
+
+"ui.displayConsent.inactive" = "VibeCast ist inaktiv";
+"ui.displayConsent.status_unknown" = "Bildschirmstatus nicht verfügbar";
+"ui.displayConsent.stop_numbered" = "Freigabe für Bildschirm %d beenden";

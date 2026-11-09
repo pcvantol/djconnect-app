@@ -13,11 +13,56 @@ public struct DJConnectDisplayOwnerContext: Decodable, Equatable, Sendable {
     public let shareGeneration: Int?
     public let expiresAt: String?
     public let expiresIn: Double?
+    private let liveDisplayStatus: LiveDisplays?
     enum CodingKeys: String, CodingKey {
         case success, contractVersion = "contract_version", sessionID = "session_id"
         case displayEntryURL = "display_entry_url", routeTrust = "route_trust", issuerEpoch = "issuer_epoch"
         case shareID = "share_id", shareGeneration = "share_generation", expiresAt = "expires_at", expiresIn = "expires_in"
+        case liveDisplayStatus = "live_display_status"
     }
+    public struct Display: Decodable, Equatable, Sendable, Identifiable {
+        public let id: String
+        public let shareID: String
+        public let connectionGeneration: Int
+        enum CodingKeys: String, CodingKey {
+            case id = "display_id", shareID = "share_id", connectionGeneration = "connection_generation"
+        }
+    }
+
+    public struct DisplayObservation: Equatable, Sendable {
+        public let sessionID: String
+        public let issuerEpoch: String
+        public let revision: Int
+        public let displays: [Display]
+    }
+
+    private struct LiveDisplays: Decodable, Equatable, Sendable {
+        let version: Int
+        let observationRevision: Int
+        let displays: [Display]
+        enum CodingKeys: String, CodingKey {
+            case version, observationRevision = "observation_revision", displays
+        }
+    }
+
+    /// An absent or unsupported observation is unknown, including on older HA installations.
+    public var displayObservation: DisplayObservation? {
+        guard isAdmissible, let sessionID, !sessionID.isEmpty,
+              let status = liveDisplayStatus, status.version == 1,
+              (1...9_007_199_254_740_991).contains(status.observationRevision),
+              status.displays.count <= 64,
+              Set(status.displays.map(\.id)).count == status.displays.count,
+              status.displays.allSatisfy({
+                  DJConnectRendezvousQR.canonicalToken($0.id) &&
+                  DJConnectRendezvousQR.canonicalToken($0.shareID) &&
+                  (1...9_007_199_254_740_991).contains($0.connectionGeneration)
+              }) else { return nil }
+        return DisplayObservation(sessionID: sessionID, issuerEpoch: issuerEpoch,
+            revision: status.observationRevision, displays: status.displays)
+    }
+
+    public var advertisesDisplayStatus: Bool { liveDisplayStatus != nil }
+
     public var isAdmissible: Bool {
         guard success, contractVersion == 1, routeTrust == "paired_owner_response",
               DJConnectRendezvousQR.canonicalToken(issuerEpoch),

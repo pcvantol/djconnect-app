@@ -968,11 +968,8 @@ public struct DJConnectRootView: View {
             await model.refreshActiveDJSession()
         }
         .task(id: model.pairingStatus) { await history.prepare() }
-        .task(id: model.isVibeCastSharing) {
-            while model.isVibeCastSharing && !Task.isCancelled {
-                model.refreshDisplayConsentPresentation()
-                do { try await Task.sleep(for: .seconds(1)) } catch { return }
-            }
+        .task(id: scenePhase == .active ? model.vibeCastStatusScope : nil) {
+            await model.pollVibeCastDisplays(scope: scenePhase == .active ? model.vibeCastStatusScope : nil)
         }
         .task(id: scenePhase == .active && model.pairingStatus == .paired ? model.pendingMomentOpen : nil) {
             guard scenePhase == .active, let intent = model.pendingMomentOpen else { return }
@@ -9770,7 +9767,34 @@ struct VibeCastDisplayConsentForm: View {
                 }
                 if busy { ProgressView() }
                 if model.displayConsentState == .approved { Text(localizedKey(model.language, "ui.displayConsent.approved")) }
-                if model.displayConsentState == .approved {
+                if let displays = model.liveVibeCastDisplays {
+                    if displays.isEmpty && model.canResolveDisplayConsent {
+                        Text(localizedKey(model.language, "ui.displayConsent.inactive"))
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("display-status-inactive")
+                    }
+                    ForEach(Array(displays.enumerated()), id: \.element.id) { index, display in
+                        Button(role: .destructive) { Task { await model.stopLiveVibeCastDisplay(display) } } label: {
+                            Label {
+                                if displays.count == 1 {
+                                    Text(localizedKey(model.language, "ui.displayConsent.stop"))
+                                } else {
+                                    Text(String(format: localizedKey(model.language, "ui.displayConsent.stop_numbered"), index + 1))
+                                }
+                            } icon: {
+                                Image(systemName: "display.trianglebadge.exclamationmark")
+                            }
+                        }
+                        .djConnectButtonStyle(DJConnectButtonStyle(expands: true))
+                        .disabled(model.stoppingLiveDisplay)
+                        .accessibilityIdentifier("display-status-stop-\(index)")
+                    }
+                } else if model.canResolveDisplayConsent && !model.usesLegacyVibeCastStatus {
+                    Text(localizedKey(model.language, "ui.displayConsent.status_unknown"))
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("display-status-unknown")
+                }
+                if model.displayConsentState == .approved && model.usesLegacyVibeCastStatus {
                     Button(role: .destructive) { Task { await model.revokeDisplayConsent() } } label: {
                         Label(localizedKey(model.language, "ui.displayConsent.stop"), systemImage: "display.trianglebadge.exclamationmark")
                     }
