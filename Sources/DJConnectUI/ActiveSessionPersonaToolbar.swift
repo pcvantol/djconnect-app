@@ -112,7 +112,8 @@ struct ActiveSessionPersonaControl: View {
             .disabled(!canChange || (model.profileDJSettings.negotiated && !model.profileDJSettings.canEdit))
             if let error = model.activePersonaError {
                 Text(error).font(.caption).foregroundStyle(.secondary)
-            } else if !canChange && !model.activePersonaPending {
+            } else if !canChange && !model.activePersonaPending &&
+                        model.activePresenceCapabilityStatus != .loading {
                 Text(text("ui.session.persona.unavailable")).font(.caption).foregroundStyle(.secondary)
             }
         }

@@ -7732,12 +7732,12 @@ public final class DJConnectAppModel: ObservableObject {
             activePresenceCapabilityStatus = activePresenceAvailable ? .supported : .unsupported
             return
         }
-        let previous = (mood: activeMoodAvailable, persona: activePersonaAvailable, presence: activePresenceAvailable, status: activePresenceCapabilityStatus, shared: activeSharedSettingsRequired, reaction: activePersonaReactionAvailable)
+        let previous = (mood: activeMoodAvailable, presence: activePresenceAvailable, status: activePresenceCapabilityStatus, shared: activeSharedSettingsRequired, reaction: activePersonaReactionAvailable)
         activePersonaReactionAvailable = false
         activeMoodAvailable = false
-        activePersonaAvailable = false
         activePresenceAvailable = false
         guard isAppInForeground, pairingStatus == .paired else {
+            activePersonaAvailable = false
             activePresenceCapabilityStatus = .notLoaded
             return
         }
@@ -7753,7 +7753,6 @@ public final class DJConnectAppModel: ObservableObject {
                 activePersonaReactionAvailable = previous.reaction
                 activeSharedSettingsRequired = previous.shared
                 activeMoodAvailable = previous.mood
-                activePersonaAvailable = previous.persona
                 activePresenceAvailable = previous.presence
                 activePresenceCapabilityStatus = previous.status == .loading ? .notLoaded : previous.status
             }
@@ -7777,6 +7776,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch,
                   isAppInForeground, pairingStatus == .paired else { return }
+            activePersonaAvailable = false
             if sessionHistory.withdrawAuthority(for: error) { return }
             switch error {
             case DJConnectError.decodingFailed, DJConnectError.invalidResponse, DJConnectError.versionMismatch:

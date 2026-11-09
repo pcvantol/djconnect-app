@@ -4739,6 +4739,38 @@ private func activePersonaRuntimeWire() throws -> Data {
     return try historyData(response)
 }
 
+@Test(.isolatedClientResources) @MainActor func overlappingPersonaCapabilityReadsPreserveConfirmedSupportWhenCancelled() async throws {
+    let discovery = try activePersonaCapsWire()
+    let phase = HistoryAuthorityGate()
+    let fixture = HistoryWireFixture { request in
+        guard request.url?.path.hasSuffix("/capabilities") == true else { return (404, Data(), 0) }
+        return (200, discovery, phase.denied ? 1 : 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePersonaAvailable)
+    let initialCount = fixture.requests.count
+    phase.denied = true
+    let first = Task { await model.refreshActiveMoodCapability() }
+    for _ in 0..<100 where fixture.requests.count < initialCount + 1 {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    let second = Task { await model.refreshActiveMoodCapability() }
+    for _ in 0..<100 where fixture.requests.count < initialCount + 2 {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    #expect(fixture.requests.count >= initialCount + 2)
+    #expect(model.activePersonaAvailable)
+    second.cancel()
+    first.cancel()
+    await second.value
+    await first.value
+    #expect(model.activePersonaAvailable)
+}
+
 @Test(.isolatedClientResources) func activePersonaExactRequestAndRealProducerResponses() throws {
     let fixture = HistoryWireFixture { _ in (200,Data(),0) }; defer {fixture.close()}
     let request = try fixture.client().sessionPersonaRequest(sessionID:"current",persona:.radioDJ,expectedRevision:0)
