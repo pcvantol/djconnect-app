@@ -2465,6 +2465,15 @@ extension DJConnectIOSUITests {
 
     func testVibeCastCenteredBlockingDialogAndGenericCopy() {
         let app = launchSessionUIDemo(additionalArguments: ["--uitest-vibecast-dialog"])
+        let isIPad = UIDevice.current.userInterfaceIdiom == .pad
+        defer { if isIPad { XCUIDevice.shared.orientation = .portrait } }
+        if isIPad {
+            XCUIDevice.shared.orientation = .landscapeLeft
+            let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                app.frame.width > app.frame.height
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 5), .completed)
+        }
         let handoff = app.buttons["session-handoff-toggle"]
         if !handoff.exists {
             app.buttons["session-more-menu"].tap()
