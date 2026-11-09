@@ -9801,8 +9801,12 @@ struct VibeCastDisplayConsentForm: View {
                 if model.displayConsentState == .revoked { Text(localizedKey(model.language, "ui.displayConsent.stopped")) }
                 if model.displayConsentState == .revokeUncertain { Text(localizedKey(model.language, "ui.displayConsent.stop_uncertain")) }
 
-                if model.displayConsentState == .uncertain { Text(localizedKey(model.language, "ui.displayConsent.uncertain")) }
-                if model.displayConsentState == .unavailable { Text(localizedKey(model.language, "ui.displayConsent.unavailable")) }
+                if !model.isVibeCastSharing && model.displayConsentState == .uncertain {
+                    Text(localizedKey(model.language, "ui.displayConsent.uncertain"))
+                }
+                if model.canSelectVibeCastScreen && model.displayConsentState == .unavailable {
+                    Text(localizedKey(model.language, "ui.displayConsent.unavailable"))
+                }
                 if !embedded {
                     Button(localizedKey(model.language, model.blocksVibeCastScreenSelection || model.displayConsentState == .revoked
                         ? "ui.close" : "ui.not.now.b1e535")) { dismiss() }
