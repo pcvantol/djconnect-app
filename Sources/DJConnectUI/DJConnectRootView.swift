@@ -9452,7 +9452,7 @@ struct VibeCastSessionStartDialog: View {
         #if os(iOS)
         // Keep the sheet tall enough when moving from the compact picker to code entry.
         .presentationSizing(.form)
-        .presentationBackground(.clear)
+        .presentationBackground { DJConnectCanvasBackground() }
         #else
         .background { DJConnectCanvasBackground() }
         #endif
