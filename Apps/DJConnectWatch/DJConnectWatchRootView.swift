@@ -1793,7 +1793,7 @@ private struct DJConnectWatchAboutView: View {
 
                     DJConnectWatchSettingsSection(title: watchLocalizedKey(model.language, "ui.notices")) {
                         aboutRow("Copyright", "2026 Peter van Tol")
-                        Link(destination: URL(string: "https://github.com/pcvantol/djconnect")!) {
+                        Link(destination: URL(string: "https://github.com/djconnect-music-dj/djconnect")!) {
                             Label("GitHub", systemImage: "arrow.up.right.square")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.white)
@@ -2024,7 +2024,7 @@ private struct DJConnectWatchFeedbackView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
 
     private var feedbackURL: URL {
-        var components = URLComponents(string: "https://github.com/pcvantol/djconnect/issues/new")
+        var components = URLComponents(string: "https://github.com/djconnect-music-dj/djconnect/issues/new")
         components?.queryItems = [
             URLQueryItem(name: "title", value: "DJConnect watchOS feedback"),
             URLQueryItem(name: "body", value: """
@@ -2038,7 +2038,7 @@ private struct DJConnectWatchFeedbackView: View {
             ```
             """)
         ]
-        return components?.url ?? URL(string: "https://github.com/pcvantol/djconnect/issues/new")!
+        return components?.url ?? URL(string: "https://github.com/djconnect-music-dj/djconnect/issues/new")!
     }
 
     var body: some View {
@@ -2077,7 +2077,7 @@ private struct DJConnectWatchFeedbackView: View {
                         Text(watchLocalizedKey(model.language, "watch.use.this.link.on.iphone.or.mac"))
                             .font(.caption2)
                             .foregroundStyle(.white.opacity(0.62))
-                        Text("github.com/pcvantol/djconnect/issues/new")
+                        Text("github.com/djconnect-music-dj/djconnect/issues/new")
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
                             .foregroundStyle(watchAccentPurple.opacity(0.92))
                             .lineLimit(3)

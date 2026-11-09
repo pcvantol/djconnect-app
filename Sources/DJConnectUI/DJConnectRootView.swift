@@ -18695,7 +18695,7 @@ private struct AboutView: View {
                             SelectableValue("2026 Peter van Tol")
                         }
                         AboutStackedRow(label: "GitHub") {
-                            Link(destination: URL(string: "https://github.com/pcvantol/djconnect")!) {
+                            Link(destination: URL(string: "https://github.com/djconnect-music-dj/djconnect")!) {
                                 Label("pcvantol/djconnect", systemImage: "arrow.up.right.square")
                                     .font(.body)
                                     .foregroundStyle(.white)
