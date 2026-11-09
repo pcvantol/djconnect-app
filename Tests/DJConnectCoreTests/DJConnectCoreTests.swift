@@ -8860,21 +8860,33 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test(.isolatedClientResources) func pairingURLPolicyRejectsNonWhitelistedRemoteHTTPS() throws {
-    let nabuCasa = try #require(URL(string: "https://example.ui.nabu.casa"))
+@Test(.isolatedClientResources) func pairingURLPolicyAllowsExternalHTTPSForIPhoneAndIPad() throws {
+    let url = try #require(URL(string: "https://ha.example.com"))
+    #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(url, clientType: .ios))
+    #expect(!DJConnectPairingURLPolicy.isAllowedPairingURL(url, clientType: .macos))
+    #expect(!DJConnectPairingURLPolicy.isAllowedPairingURL(url, clientType: .watchos))
 
-    #expect(!DJConnectPairingURLPolicy.isAllowedPairingURL(nabuCasa))
-    #expect(!DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(nabuCasa))
+    for address in ["http://ha.example.com", "https://user@ha.example.com",
+                    "https://ha.example.com/login", "https://ha.example.com?token=value"] {
+        let invalidURL = try #require(URL(string: address))
+        #expect(!DJConnectPairingURLPolicy.isAllowedPairingURL(invalidURL, clientType: .ios))
+    }
+}
+
+@Test(.isolatedClientResources) func iOSPairingDeepLinkAcceptsExternalHTTPS() throws {
+    let url = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fexample.ui.nabu.casa&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+    let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .ios)
+    #expect(payload.homeAssistantURL == "https://example.ui.nabu.casa")
 }
 
 @Test(.isolatedClientResources) func iOSPairingDeepLinkRejectsInvalidPayloads() throws {
     let missingURL = try #require(URL(string: "djconnect://pair?pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
-    let remoteURL = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fexample.ui.nabu.casa&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+    let insecureURL = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fexample.ui.nabu.casa&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
     let badCode = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=12AB56&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
     let wrongClient = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=macos&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
     let wrongPath = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdevice%2Fpair"))
 
-    for url in [missingURL, remoteURL, badCode, wrongClient, wrongPath] {
+    for url in [missingURL, insecureURL, badCode, wrongClient, wrongPath] {
         #expect(throws: DJConnectError.self) {
             _ = try DJConnectPairingDeepLink.parse(url, expectedClientType: .ios)
         }

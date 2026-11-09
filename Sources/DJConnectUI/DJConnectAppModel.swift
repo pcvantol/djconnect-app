@@ -1280,6 +1280,10 @@ public final class DJConnectAppModel: ObservableObject {
                     Self.normalizedHomeAssistantURL(from: oldValue) != Self.normalizedHomeAssistantURL(from: homeAssistantURL))
             }
             defaults.set(homeAssistantURL, forKey: homeAssistantURLKey)
+            if hasRemotePairingAddress,
+               pairingMessage == localized(key: "appModel.pairing.use.external.https.or.local.network") {
+                pairingMessage = nil
+            }
         }
     }
     @Published public private(set) var haLocalURL = "" {
@@ -2447,6 +2451,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let pairingSessionIDKey = "DJConnectPairingSessionID"
     private let pairingTokenKey = "DJConnectPairingToken"
     private let pendingHomeAssistantSetupKey = "DJConnectHomeAssistantSetupPending"
+    private let pendingHomeAssistantSetupURLKey = "DJConnectHomeAssistantSetupURL"
     private let watchProxyDeviceIDKey = "DJConnectWatchProxyDeviceID"
     private let watchProxyDeviceNameKey = "DJConnectWatchProxyDeviceName"
     private let watchProxyPairCodeKey = "DJConnectWatchProxyPairCode"
@@ -2752,8 +2757,21 @@ public final class DJConnectAppModel: ObservableObject {
         isDemoMode || (canUsePlaybackFeatures && hasActiveNowPlaying)
     }
 
+    var pairingClientType: DJConnectClientType {
+        pairingFlowTarget == .appleWatch ? .watchos : identity.clientType
+    }
+
+    private var hasRemotePairingAddress: Bool {
+        let address = pairingStatus == .waitingForHomeAssistantCompletion
+            ? defaults.string(forKey: pendingHomeAssistantSetupURLKey) ?? homeAssistantURL : homeAssistantURL
+        return pairingClientType == .ios
+            && Self.normalizedHomeAssistantURL(from: address).map(DJConnectPairingURLPolicy.isRemotePairingURL) == true
+    }
+
     public var localNetworkRequirementMessage: String? {
-        (!hasEvaluatedLocalNetwork || isLocalNetworkAvailable) ? nil : localized(key: "appModel.local.wi.fi.lan.is.required.connect.this.device")
+        guard hasEvaluatedLocalNetwork, !isLocalNetworkAvailable, !hasRemotePairingAddress else { return nil }
+        return localized(key: pairingClientType == .ios ? "appModel.pairing.use.external.https.or.local.network"
+            : "appModel.local.wi.fi.lan.is.required.connect.this.device")
     }
 
     public var isOfflineModeActive: Bool {
@@ -2761,7 +2779,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var shouldShowPairingWiFiSettingsLink: Bool {
-        !isDemoMode && hasEvaluatedLocalNetwork && !isLocalNetworkAvailable
+        !isDemoMode && localNetworkRequirementMessage != nil
     }
 
     public var shouldShowPairingScreen: Bool {
@@ -2923,7 +2941,7 @@ public final class DJConnectAppModel: ObservableObject {
                 applyDemoState()
                 log(.info, "App started in demo mode")
             } else {
-                defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+                clearPendingHomeAssistantSetup()
                 clearPairingToken()
                 log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
             }
@@ -3292,7 +3310,7 @@ public final class DJConnectAppModel: ObservableObject {
                 }
             } else {
                 isShowingTokenStorageError = false
-                defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+                clearPendingHomeAssistantSetup()
                 pairingStatus = .unpaired
                 isConnected = false
                 pairingMessage = localized(key: "appModel.no.djconnect.token.found.pair.again.to.continue")
@@ -4344,10 +4362,13 @@ public final class DJConnectAppModel: ObservableObject {
               defaults.bool(forKey: pendingHomeAssistantSetupKey),
               pairingStatus == .waitingForHomeAssistantCompletion,
               pairingTask == nil,
-              let baseURL = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()) else {
+              let baseURL = Self.normalizedHomeAssistantURL(
+                from: defaults.string(forKey: pendingHomeAssistantSetupURLKey) ?? localHomeAssistantURL()) else {
             return
         }
-        guard requestLocalNetworkExplanation(then: { [weak self] in self?.resumePendingHomeAssistantPairingIfNeeded() }) else { return }
+        if identity.clientType != .ios || !DJConnectPairingURLPolicy.isRemotePairingURL(baseURL) {
+            guard requestLocalNetworkExplanation(then: { [weak self] in self?.resumePendingHomeAssistantPairingIfNeeded() }) else { return }
+        }
         log(.info, "Resuming Home Assistant setup completion check")
         isPairing = true
         let generation = UUID(); pairingTaskGeneration = generation
@@ -4383,26 +4404,27 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Ignoring pairing wait because device is already paired")
             return
         }
-        guard !hasEvaluatedLocalNetwork || isLocalNetworkAvailable else {
-            log(.warning, "Pairing wait cannot start because local network is unavailable")
-            pairingStatus = .unpaired
-            isConnected = false
-            isPairing = false
-            pairingMessage = localNetworkRequirementMessage
-            return
-        }
-
         scheduledPairingTask?.cancel()
         scheduledPairingTask = nil
         pairingTask?.cancel()
 
         guard let baseURL = Self.normalizedHomeAssistantURL(from: homeAssistantURL),
-              DJConnectPairingURLPolicy.isAllowedPairingURL(baseURL) else {
+              DJConnectPairingURLPolicy.isAllowedPairingURL(baseURL, clientType: identity.clientType) else {
             log(.warning, "Pairing wait cannot start because the Home Assistant URL is invalid")
             pairingMessage = localized(key: "appModel.enter.your.home.assistant.url.for.example.192.168")
             pairingStatus = .unpaired
             isConnected = false
             isPairing = false
+            return
+        }
+
+        let isRemotePairing = identity.clientType == .ios && DJConnectPairingURLPolicy.isRemotePairingURL(baseURL)
+        guard isRemotePairing || !hasEvaluatedLocalNetwork || isLocalNetworkAvailable else {
+            log(.warning, "Pairing wait cannot start because local network is unavailable")
+            pairingStatus = .unpaired
+            isConnected = false
+            isPairing = false
+            pairingMessage = localNetworkRequirementMessage
             return
         }
 
@@ -4415,7 +4437,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
-        if startBackgroundTasks, !requestLocalNetworkExplanation(then: { [weak self] in self?.startPairingWait() }) { return }
+        if !isRemotePairing, startBackgroundTasks, !requestLocalNetworkExplanation(then: { [weak self] in self?.startPairingWait() }) { return }
 
         log(.info, "Starting pairing wait against \(Self.redactedURL(baseURL))")
         pairingStatus = .pairing
@@ -4442,7 +4464,7 @@ public final class DJConnectAppModel: ObservableObject {
         if pairingStatus == .pairing || pairingStatus == .waitingForHomeAssistantCompletion {
             log(.info, "Pairing wait stopped")
             if defaults.bool(forKey: pendingHomeAssistantSetupKey) {
-                defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+                clearPendingHomeAssistantSetup()
                 try? tokenStore.clearToken()
             }
             isConnected = false
@@ -4459,23 +4481,22 @@ public final class DJConnectAppModel: ObservableObject {
 
         let client = makeClient(baseURL: baseURL)
         do {
-            if baseURL.scheme?.lowercased() == "https",
-               !DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(baseURL) {
-                throw DJConnectError.invalidConfiguration(localized(key: "appModel.pairing.must.be.completed.on.the.same.local.network"))
-            }
+            let isRemotePairing = identity.clientType == .ios && DJConnectPairingURLPolicy.isRemotePairingURL(baseURL)
             let response = try await client.pair(DJConnectPairingPayload(
                 identity: identity,
                 pairingToken: pairCode,
-                haLocalURL: Self.normalizedHomeAssistantURL(from: homeAssistantURL).map(Self.redactedURL),
+                haLocalURL: isRemotePairing ? nil : Self.redactedURL(baseURL),
                 assistPipelineID: assistPipelineID.isEmpty ? nil : assistPipelineID
             ))
             guard !Task.isCancelled, pairingTaskGeneration == generation else { return }
             apply(pairingResponse: response, fallbackBaseURL: baseURL)
             log(.info, "Pairing accepted by Home Assistant")
+            if isRemotePairing { recordConnectionMode(.remote, baseURL: baseURL) }
             if response.setupPending == false {
                 completeHomeAssistantPairing()
                 return
             }
+            defaults.set(Self.redactedURL(baseURL), forKey: pendingHomeAssistantSetupURLKey)
             defaults.set(true, forKey: pendingHomeAssistantSetupKey)
             pairingStatus = .waitingForHomeAssistantCompletion
             isConnected = false
@@ -4555,7 +4576,7 @@ public final class DJConnectAppModel: ObservableObject {
                     continue
                 }
                 if isPairingTokenRejectedAfterPair(error) {
-                    defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+                    clearPendingHomeAssistantSetup()
                     try? tokenStore.clearToken()
                     applyPairingWait(error: error, pairingToken: pairingToken)
                     return
@@ -4565,8 +4586,13 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func completeHomeAssistantPairing() {
+    private func clearPendingHomeAssistantSetup() {
         defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+        defaults.removeObject(forKey: pendingHomeAssistantSetupURLKey)
+    }
+
+    private func completeHomeAssistantPairing() {
+        clearPendingHomeAssistantSetup()
         pairingStatus = .paired
         isConnected = true
         isPairing = false
@@ -4617,7 +4643,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingTask = nil
         unregisterPushNotifications()
         try? tokenStore.clearToken()
-        defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+        clearPendingHomeAssistantSetup()
         isDemoMode = false
         defaults.removeObject(forKey: demoModeKey)
         clearStoredHomeAssistantURLs()
@@ -7323,27 +7349,37 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func apply(pairingResponse response: DJConnectPairingResponse, fallbackBaseURL: URL) {
-        let localURL = response.haLocalURL.flatMap(Self.normalizedHomeAssistantURL(from:))
-            ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL)
-            ?? fallbackBaseURL
-        haLocalURL = Self.redactedURL(localURL)
+        let pairedOverHTTPS = identity.clientType == .ios && DJConnectPairingURLPolicy.isRemotePairingURL(fallbackBaseURL)
+        let advertisedLocalURL = response.haLocalURL.flatMap(Self.normalizedHomeAssistantURL(from:))
+        let localURL: URL?
+        if pairedOverHTTPS {
+            localURL = advertisedLocalURL.flatMap { url in
+                url != fallbackBaseURL && (DJConnectHybridTransport.isLocalTransportCandidate(url)
+                    || DJConnectPairingURLPolicy.isRemotePairingURL(url)) ? url : nil
+            }
+        } else {
+            localURL = advertisedLocalURL ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL) ?? fallbackBaseURL
+        }
+        haLocalURL = localURL.map(Self.redactedURL) ?? ""
         homeAssistantURL = haLocalURL
         defaults.set(haLocalURL, forKey: haLocalURLKey)
-        if let remoteURL = response.haRemoteURL.flatMap(Self.normalizedHomeAssistantURL(from:)) {
+        let remoteURL = pairedOverHTTPS ? fallbackBaseURL
+            : response.haRemoteURL.flatMap(Self.normalizedHomeAssistantURL(from:))
+        if let remoteURL {
             haRemoteURL = Self.redactedURL(remoteURL)
             defaults.set(haRemoteURL, forKey: haRemoteURLKey)
         } else {
             haRemoteURL = ""
             defaults.removeObject(forKey: haRemoteURLKey)
         }
-        remoteSupported = response.remoteSupported ?? !haRemoteURL.isEmpty
+        remoteSupported = pairedOverHTTPS || (response.remoteSupported ?? !haRemoteURL.isEmpty)
         applyBootstrapContext(
             haInstallID: response.haInstallID,
             integrationVersion: response.integrationVersion,
             pairingSessionID: response.pairingSessionID
         )
         apply(musicBackendSummary: DJConnectMusicBackendSummary(
-            remoteSupported: response.remoteSupported,
+            remoteSupported: pairedOverHTTPS ? true : response.remoteSupported,
             musicBackend: response.musicBackend,
             musicBackendName: response.musicBackendName,
             musicBackendAvailable: response.musicBackendAvailable,
@@ -7493,7 +7529,7 @@ public final class DJConnectAppModel: ObservableObject {
         scheduledPairingTask?.cancel()
         scheduledPairingTask = nil
         try? tokenStore.clearToken()
-        defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+        clearPendingHomeAssistantSetup()
         clearPairingToken()
         clearAskDJHistoryLocally()
         clearMusicDNADisplay()
@@ -15820,8 +15856,9 @@ public final class DJConnectAppModel: ObservableObject {
                     self.schedulePairingWait()
                 } else {
                     self.log(.warning, "Local network unavailable")
-                    if !self.isDemoMode {
-                        self.pairingMessage = self.localNetworkRequirementMessage
+                    if !self.isDemoMode, self.pairingStatus == .unpaired,
+                       let message = self.localNetworkRequirementMessage {
+                        self.pairingMessage = message
                     }
                 }
             }

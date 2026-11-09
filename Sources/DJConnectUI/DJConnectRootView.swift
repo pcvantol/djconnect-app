@@ -1895,6 +1895,7 @@ private struct PairingSheetView: View {
                     PairingEditableURLCard(
                         title: localizedKey(model.language, "ui.local.home.assistant.url"),
                         language: model.language,
+                        clientType: model.pairingClientType,
                         text: $model.homeAssistantURL
                     ) {}
 
@@ -2098,7 +2099,7 @@ private struct PairingSheetView: View {
               url.scheme?.lowercased() == "https" else {
             return false
         }
-        return !DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(url)
+        return !DJConnectPairingURLPolicy.isAllowedPairingURL(url, clientType: model.pairingClientType)
     }
 
     private var canSubmitPairing: Bool {
@@ -2109,7 +2110,7 @@ private struct PairingSheetView: View {
         guard let url = DJConnectAppModel.normalizedHomeAssistantURL(from: model.homeAssistantURL) else {
             return false
         }
-        return DJConnectPairingURLPolicy.isAllowedPairingURL(url)
+        return DJConnectPairingURLPolicy.isAllowedPairingURL(url, clientType: model.pairingClientType)
     }
 
     private var isPairingCodeValid: Bool {
@@ -2286,6 +2287,7 @@ private struct OfflineNetworkBanner: View {
 private struct PairingEditableURLCard: View {
     let title: String
     let language: String
+    let clientType: DJConnectClientType
     @Binding var text: String
     let onConfirm: () -> Void
     @FocusState private var isURLFocused: Bool
@@ -2299,7 +2301,7 @@ private struct PairingEditableURLCard: View {
         guard let url = DJConnectAppModel.normalizedHomeAssistantURL(from: trimmedText) else {
             return false
         }
-        return DJConnectPairingURLPolicy.isAllowedPairingURL(url)
+        return DJConnectPairingURLPolicy.isAllowedPairingURL(url, clientType: clientType)
     }
 
     var body: some View {

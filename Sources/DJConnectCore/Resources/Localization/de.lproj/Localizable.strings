@@ -652,6 +652,7 @@
 "watch.warnings" = "Warnings";
 "watch.errors" = "Errors";
 "appModel.local.wi.fi.lan.is.required.connect.this.device" = "A local network is required. Connect this device to the same local network as Home Assistant.";
+"appModel.pairing.use.external.https.or.local.network" = "Gib die externe HTTPS-Adresse von Home Assistant ein oder verbinde dich mit dem lokalen Netzwerk.";
 "appModel.loading.release.notes" = "Loading release notes...";
 "appModel.release.notes.could.not.be.loaded.see.https.djconnect" = "Release notes could not be loaded. See https://djconnect.dev for more information.";
 "appModel.djconnect.token.restored.checking.home.assistant.pairing" = "DJConnect token restored. Checking Home Assistant pairing...";
