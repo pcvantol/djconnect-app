@@ -968,11 +968,8 @@ public struct DJConnectRootView: View {
             await model.refreshActiveDJSession()
         }
         .task(id: model.pairingStatus) { await history.prepare() }
-        .task(id: model.isVibeCastSharing) {
-            while model.isVibeCastSharing && !Task.isCancelled {
-                model.refreshDisplayConsentPresentation()
-                do { try await Task.sleep(for: .seconds(1)) } catch { return }
-            }
+        .task(id: scenePhase == .active ? model.vibeCastStatusScope : nil) {
+            await model.pollVibeCastDisplays(scope: scenePhase == .active ? model.vibeCastStatusScope : nil)
         }
         .task(id: scenePhase == .active && model.pairingStatus == .paired ? model.pendingMomentOpen : nil) {
             guard scenePhase == .active, let intent = model.pendingMomentOpen else { return }
@@ -9433,7 +9430,7 @@ struct VibeCastSessionStartDialog: View {
 
     var body: some View {
         Group {
-            if showsDestinations && !model.blocksVibeCastScreenSelection {
+            if showsDestinations && model.canSelectVibeCastScreen {
                 VibeCastDestinationPicker(language: model.language, scansNetwork: !model.isDemoMode) {
                     showsDestinations = false
                 }
@@ -9473,7 +9470,7 @@ struct VibeCastSessionStartDialog: View {
                     .padding(.horizontal, 16)
                     .accessibilityIdentifier("vibecast-session-start-hero")
                 #if os(iOS) && DJCONNECT_VIBECAST_FIXED_QA
-                if !model.blocksVibeCastScreenSelection && model.displayConsentState != .revoked {
+                if model.canSelectVibeCastScreen && model.displayConsentState != .revoked {
                     Button(localizedKey(model.language, "ui.rendezvous.scan")) {
                         model.cancelRendezvous()
                         model.isShowingVibeCastSessionStart = false
@@ -9484,7 +9481,7 @@ struct VibeCastSessionStartDialog: View {
                 }
                 #endif
                 VibeCastHandoffForm(model: model)
-                if model.displayConsentState == .revoked {
+                if model.canSelectVibeCastScreen && model.displayConsentState == .revoked {
                     Button(localizedKey(model.language, "ui.vibecast.destinations.title")) {
                         showsDestinations = true
                     }
@@ -9741,7 +9738,7 @@ struct VibeCastDisplayConsentForm: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                if !model.blocksVibeCastScreenSelection && model.displayConsentState != .revoked &&
+                if model.canSelectVibeCastScreen && model.displayConsentState != .revoked &&
                     model.displayConsentState != .revokeUncertain {
                     Text(localizedKey(model.language, "ui.displayConsent.instructions"))
                     VibeCastCodeEntry(code: Binding(get: { code }, set: { value in
@@ -9754,7 +9751,7 @@ struct VibeCastDisplayConsentForm: View {
                     .frame(height: 64)
                     .disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .uncertain)
                 }
-                if model.displayConsentState == .idle || model.displayConsentState == .unavailable {
+                if model.canSelectVibeCastScreen && (model.displayConsentState == .idle || model.displayConsentState == .unavailable) {
                     Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
                         resignPlatformFirstResponder()
                         Task { await model.resolveDisplayConsent(code: code) }
@@ -9766,7 +9763,7 @@ struct VibeCastDisplayConsentForm: View {
                     .keyboardShortcut(.defaultAction)
                     .accessibilityIdentifier("display-consent-lookup")
                 }
-                if model.displayConsentState == .ready {
+                if model.canSelectVibeCastScreen && model.displayConsentState == .ready {
                     Text(localizedKey(model.language, model.displayConsentExistingShare == nil ? "ui.displayConsent.create" : "ui.displayConsent.existing"))
                     Button {
                         Task { await model.approveDisplayConsent() }
@@ -9777,8 +9774,26 @@ struct VibeCastDisplayConsentForm: View {
                     .accessibilityIdentifier("display-consent-confirm")
                 }
                 if busy { ProgressView() }
-                if model.displayConsentState == .approved { Text(localizedKey(model.language, "ui.displayConsent.approved")) }
-                if model.displayConsentState == .approved {
+                if model.displayConsentState == .approved && model.vibeCastStopTarget == nil {
+                    Text(localizedKey(model.language, "ui.displayConsent.approved"))
+                }
+                if let display = model.vibeCastStopTarget {
+                    Button(role: .destructive) { Task { await model.stopLiveVibeCastDisplay(display) } } label: {
+                        Label(localizedKey(model.language, "ui.displayConsent.stop"), systemImage: "display.trianglebadge.exclamationmark")
+                    }
+                    .djConnectButtonStyle(DJConnectButtonStyle(expands: true))
+                    .disabled(model.stoppingLiveDisplay)
+                    .accessibilityIdentifier("display-consent-stop")
+                } else if model.vibeCastScreenSlot?.state == .available {
+                    Text(localizedKey(model.language, "ui.displayConsent.inactive"))
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("display-status-inactive")
+                } else if model.canResolveDisplayConsent {
+                    Text(localizedKey(model.language, "ui.displayConsent.status_unknown"))
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("display-status-unknown")
+                }
+                if model.displayConsentState == .approved && model.usesLegacyVibeCastStatus {
                     Button(role: .destructive) { Task { await model.revokeDisplayConsent() } } label: {
                         Label(localizedKey(model.language, "ui.displayConsent.stop"), systemImage: "display.trianglebadge.exclamationmark")
                     }

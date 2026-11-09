@@ -1750,3 +1750,7 @@
 "ui.vibecast.destinations.empty" = "Geen Google Cast-apparaten gevonden.";
 "ui.vibecast.destinations.network" = "Controleer of DJConnect toegang heeft tot het lokale netwerk.";
 "ui.vibecast.destinations.unavailable" = "Delen via Google Cast is nog niet beschikbaar.";
+
+"ui.displayConsent.inactive" = "Geen scherm verbonden";
+"ui.displayConsent.status_unknown" = "Schermstatus niet beschikbaar";
+"ui.displayConsent.stop_numbered" = "Stop schermdelen op scherm %d";

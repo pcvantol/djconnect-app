@@ -889,16 +889,167 @@ public final class DJConnectAppModel: ObservableObject {
     private var displayConsentFlow: DJConnectDisplayConsentSession?
     private var displayConsentOperation = UUID()
     private var displayConsentOwner: (@MainActor @Sendable () -> Bool)?
+    struct VibeCastStatusScope: Equatable {
+        let sessionID: String
+        let installationID: String
+        let ownerEpoch: UUID
+        let broadcastGeneration: UUID
+        fileprivate let pairing: [String]
+    }
+
+    private typealias DisplayObservation = DJConnectDisplayOwnerContext.DisplayObservation
+    private var liveDisplayScope: VibeCastStatusScope?
+    private var liveDisplayRequest = UUID()
+    private var lastDisplayObservation: DisplayObservation?
+    private var lastDisplayStop: (epoch: String, revision: Int64)?
+    private var approvedDisplayWasLive = false
+    @Published private var acceptedDisplayObservation: DisplayObservation?
+    @Published private(set) var stoppingLiveDisplay = false
+    @Published private var legacyDisplayStatus = false
+
+    var vibeCastStatusScope: VibeCastStatusScope? {
+        guard canResolveDisplayConsent, let session = activeDJSession,
+              let installation = defaults.string(forKey: haInstallIDKey), !installation.isEmpty else { return nil }
+        return VibeCastStatusScope(sessionID: session.id, installationID: installation,
+            ownerEpoch: sessionHistory.responseEpoch, broadcastGeneration: sessionBroadcastGeneration,
+            pairing: currentDeviceSpeechContext)
+    }
+
+    private var currentDisplayObservation: DisplayObservation? {
+        guard liveDisplayScope != nil, liveDisplayScope == vibeCastStatusScope else { return nil }
+        return acceptedDisplayObservation
+    }
+
+    var liveVibeCastDisplays: [DJConnectDisplayOwnerContext.Display]? { currentDisplayObservation?.displays }
+    var vibeCastScreenSlot: DJConnectDisplayOwnerContext.ScreenSlot? { currentDisplayObservation?.screenSlot }
+    var vibeCastStopTarget: DJConnectDisplayOwnerContext.Display? {
+        vibeCastScreenSlot?.display ?? liveVibeCastDisplays?.first
+    }
+
+    var usesLegacyVibeCastStatus: Bool {
+        liveDisplayScope != nil && liveDisplayScope == vibeCastStatusScope && legacyDisplayStatus
+    }
+
+    func pollVibeCastDisplays(scope: VibeCastStatusScope?) async {
+        guard !Task.isCancelled else { return }
+        guard let scope, vibeCastStatusScope == scope else {
+            liveDisplayRequest = UUID(); liveDisplayScope = nil
+            lastDisplayObservation = nil; lastDisplayStop = nil
+            acceptedDisplayObservation = nil; legacyDisplayStatus = false
+            return
+        }
+        while !Task.isCancelled && vibeCastStatusScope == scope {
+            refreshDisplayConsentPresentation()
+            await refreshLiveVibeCastDisplays(scope: scope)
+            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+        }
+    }
+
+    private func displayOwnerClient() throws -> DJConnectClient {
+        if let baseURL = homeAssistantBaseURLs().first(where: DJConnectHybridTransport.trustedOrigin) {
+            return makeClient(baseURL: baseURL)
+        }
+        return try makeClient()
+    }
+
+    private func refreshLiveVibeCastDisplays(scope: VibeCastStatusScope) async {
+        guard !stoppingLiveDisplay, displayConsentState != .approving,
+              !Task.isCancelled, vibeCastStatusScope == scope else { return }
+        if liveDisplayScope != scope {
+            liveDisplayScope = scope
+            lastDisplayObservation = nil; lastDisplayStop = nil
+            acceptedDisplayObservation = nil; legacyDisplayStatus = false
+        }
+        let request = UUID(); liveDisplayRequest = request
+        let current: @MainActor @Sendable () -> Bool = { [weak self] in
+            self?.liveDisplayRequest == request && self?.vibeCastStatusScope == scope
+        }
+        do {
+            let context = try await displayOwnerClient().displayOwnerContext(
+                expectedInstallationID: scope.installationID,
+                pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()),
+                isCurrent: current)
+            guard current(), !Task.isCancelled else { return }
+            guard context.sessionID == scope.sessionID else {
+                acceptedDisplayObservation = nil; legacyDisplayStatus = false
+                return
+            }
+            guard let observation = context.displayObservation else {
+                acceptedDisplayObservation = nil
+                legacyDisplayStatus = !context.advertisesDisplayStatus && lastDisplayObservation == nil
+                return
+            }
+            if let stop = lastDisplayStop, stop.epoch == observation.issuerEpoch, observation.revision <= stop.revision { return }
+            if let previous = lastDisplayObservation, previous.issuerEpoch == observation.issuerEpoch,
+               observation.revision <= previous.revision { return }
+            if let receipt = displayConsentFlow?.receipt {
+                let present = observation.screenSlot?.display?.id == receipt.displayID ||
+                    observation.displays.contains { $0.id == receipt.displayID }
+                if !present && (approvedDisplayWasLive || observation.screenSlot?.state == .available) {
+                    cancelDisplayConsent()
+                    displayConsentState = .idle
+                } else if present {
+                    approvedDisplayWasLive = true
+                }
+            }
+            lastDisplayObservation = observation
+            legacyDisplayStatus = false
+            if acceptedDisplayObservation != observation { acceptedDisplayObservation = observation }
+        } catch {
+            guard current(), !Task.isCancelled else { return }
+            acceptedDisplayObservation = nil
+            legacyDisplayStatus = false
+        }
+    }
+
+    func stopLiveVibeCastDisplay(_ display: DJConnectDisplayOwnerContext.Display) async {
+        guard !stoppingLiveDisplay, let scope = vibeCastStatusScope,
+              let observation = currentDisplayObservation, vibeCastStopTarget == display else { return }
+        let request = UUID(); liveDisplayRequest = request
+        stoppingLiveDisplay = true
+        let current: @MainActor @Sendable () -> Bool = { [weak self] in
+            self?.liveDisplayRequest == request && self?.vibeCastStatusScope == scope
+        }
+        do {
+            let revision = try await displayOwnerClient().stopLiveDisplay(display, observed: observation,
+                expectedInstallationID: scope.installationID,
+                pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()),
+                isCurrent: current)
+            if current(), !Task.isCancelled {
+                lastDisplayStop = (observation.issuerEpoch, revision)
+                if displayConsentFlow?.receipt?.displayID == display.id {
+                    cancelDisplayConsent()
+                    displayConsentState = .revoked
+                }
+            }
+        } catch { }
+        stoppingLiveDisplay = false
+        guard current(), !Task.isCancelled else { return }
+        acceptedDisplayObservation = nil
+        await refreshLiveVibeCastDisplays(scope: scope)
+        if !Task.isCancelled, vibeCastStatusScope == scope, vibeCastScreenSlot?.state == .available {
+            displayConsentState = .revoked
+        }
+    }
+
     var canResolveDisplayConsent: Bool {
         !isDemoMode && [.ios, .macos].contains(identity.clientType) && pairingStatus == .paired && isAppInForeground &&
             activeDJSession?.runtimeState == "active" && sessionHistory.authorizedProfileID != nil
     }
     var isVibeCastSharing: Bool {
-        displayConsentState == .approved || displayConsentState == .revoking
+        if let slot = vibeCastScreenSlot { return slot.display != nil }
+        if let displays = liveVibeCastDisplays { return !displays.isEmpty }
+        return usesLegacyVibeCastStatus && (displayConsentState == .approved || displayConsentState == .revoking)
     }
 
     var blocksVibeCastScreenSelection: Bool {
-        isVibeCastSharing || (displayConsentState == .revokeUncertain && displayConsentFlow != nil)
+        isVibeCastSharing || displayConsentState == .approved || displayConsentState == .revoking ||
+            (displayConsentState == .revokeUncertain && displayConsentFlow != nil)
+    }
+
+    var canSelectVibeCastScreen: Bool {
+        !blocksVibeCastScreenSelection &&
+            (isDemoMode || (canResolveDisplayConsent && vibeCastScreenSlot?.state == .available))
     }
 
     func resetDisplayConsent() {
@@ -921,12 +1072,14 @@ public final class DJConnectAppModel: ObservableObject {
         let uncertain = displayConsentFlow?.state == .approving || displayConsentFlow?.state == .uncertain
         let revokeUncertain = displayConsentFlow?.state == .revoking || displayConsentFlow?.state == .revokeUncertain
         displayConsentOperation = UUID()
+        approvedDisplayWasLive = false
         displayConsentFlow?.withdraw(); displayConsentFlow = nil; displayConsentOwner = nil
         displayConsentExistingShare = nil
         displayConsentState = revokeUncertain ? .revokeUncertain : uncertain ? .uncertain : .unavailable
     }
     func resolveDisplayConsent(code: String) async {
-        guard !blocksVibeCastScreenSelection else { return }
+        guard canResolveDisplayConsent else { cancelDisplayConsent(); return }
+        guard canSelectVibeCastScreen else { return }
         cancelDisplayConsent()
         guard !isDemoMode, [.ios, .macos].contains(identity.clientType), pairingStatus == .paired, isAppInForeground,
               let session = activeDJSession, session.runtimeState == "active",
@@ -948,12 +1101,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             // The display owner endpoints require secure ingress. Ordinary
             // playback may prefer the paired HTTP LAN route even when HTTPS is configured.
-            let client: DJConnectClient
-            if let baseURL = homeAssistantBaseURLs().first(where: DJConnectHybridTransport.trustedOrigin) {
-                client = makeClient(baseURL: baseURL)
-            } else {
-                client = try makeClient()
-            }
+            let client = try displayOwnerClient()
             guard owner(), !Task.isCancelled else { throw CancellationError() }
             let flow = try DJConnectDisplayConsentSession(client: client, installationID: installation,
                 sessionID: session.id, pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()), isCurrent: owner)
@@ -971,12 +1119,14 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
     func approveDisplayConsent() async {
-        guard displayConsentState == .ready, let flow = displayConsentFlow else { return }
+        guard canSelectVibeCastScreen, displayConsentState == .ready, let flow = displayConsentFlow else { return }
         guard displayConsentOwner?() == true else { cancelDisplayConsent(); return }
         let operation = displayConsentOperation
         let share: DJConnectDisplayClaim.Share = displayConsentExistingShare.map {
             .existing(id: $0.identifier, generation: $0.generation)
         } ?? .createTwoHours
+        liveDisplayRequest = UUID()
+        acceptedDisplayObservation = nil
         displayConsentState = .approving
         do { _ = try await flow.approve(share: share) } catch { }
         guard displayConsentOperation == operation else { return }
@@ -994,12 +1144,12 @@ public final class DJConnectAppModel: ObservableObject {
     }
     func openVibeCastDestinationPicker() {
         refreshDisplayConsentPresentation()
-        startsVibeCastWithDestinationPicker = !blocksVibeCastScreenSelection
+        startsVibeCastWithDestinationPicker = canSelectVibeCastScreen
         isShowingVibeCastSessionStart = true
     }
 
     func openRendezvousDisplayConsent() {
-        guard canResolveDisplayConsent, !blocksVibeCastScreenSelection else { return }
+        guard canResolveDisplayConsent, canSelectVibeCastScreen else { return }
         cancelRendezvous()
         isShowingRendezvous = false
         startsVibeCastWithDestinationPicker = false
