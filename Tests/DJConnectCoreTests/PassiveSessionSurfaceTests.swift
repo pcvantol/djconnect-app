@@ -824,6 +824,70 @@ private func passiveProgressV3Fixture() throws -> [String: Any] {
     return try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
 }
 
+private func passiveRetainedV4Fixture() throws -> [String: Any] {
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/passive-retained-v4-core-wire.json")
+    return try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+}
+
+@Test(.isolatedClientResources) func passiveWidgetV4RetainsOnlyTheQualifiedLatestContribution() throws {
+    let fixture = try passiveRetainedV4Fixture()
+    let examples = try #require(fixture["examples"] as? [[String: Any]])
+    func projection(_ fields: [String: Any]) throws -> DJConnectPassiveSession {
+        try JSONDecoder().decode(DJConnectPassiveSession.self, from: JSONSerialization.data(withJSONObject: fields))
+    }
+    for example in examples {
+        let fields = try #require(example["passive_session"] as? [String: Any])
+        let value = try projection(fields)
+        let now = try #require(DJConnectHistoryEntry.date(value.as_of))
+        let latest = try #require(value.currentWidgetContribution(at: now))
+        let expiry = try #require(DJConnectHistoryEntry.date(latest.expires_at))
+        #expect(latest.purpose == "retained_latest")
+        #expect(value.deadlines.contains(expiry))
+        #expect(value.currentWidgetContribution(at: expiry) == nil)
+        #expect(value.removingExpiredFields(at: expiry).latest_contribution == nil)
+
+        var withdrawn = fields
+        withdrawn["latest_contribution"] = NSNull()
+        withdrawn["latest_contribution_status"] = ["state": "withdrawn", "reason": "authority_withdrawn"]
+        let empty = try projection(withdrawn)
+        #expect(empty.isValid)
+        #expect(empty.currentWidgetContribution(at: now) == nil)
+        #expect(!empty.hasSameOriginalObservation(as: value, at: now))
+
+        var wrongSurface = fields
+        wrongSurface["surface"] = "live_activity"
+        #expect(try !projection(wrongSurface).isValid)
+    }
+}
+
+@Test(.isolatedClientResources) func passiveWidgetV4RequiresExplicitConsentAndLeavesTheDefaultAtV3() async throws {
+    let fixture = try passiveRetainedV4Fixture()
+    let examples = try #require(fixture["examples"] as? [[String: Any]])
+    let projection = try #require(examples.first?["passive_session"] as? [String: Any])
+    let sessionID = try #require(projection["session_id"] as? String)
+    let caps = try JSONSerialization.data(withJSONObject: ["success": true, "passive_session_surface": fixture["capabilities"]!])
+    let accepted = try JSONSerialization.data(withJSONObject: ["success": true, "contract_version": 1,
+        "grant_id": "fixture-v4-grant", "passive_session": projection])
+    let wire = PassiveWire { request in
+        if request.url?.path.hasSuffix("capabilities") == true { return (200, "application/json", caps) }
+        let body = try passiveBody(request)
+        #expect(body["projection_version"] as? Int == 4 && body["surface"] as? String == "widget")
+        #expect(body["retained_latest"] as? Bool == true)
+        return (200, "application/json", accepted)
+    }
+    defer { wire.close() }
+    let client = wire.client()
+    #expect(try await client.passiveSurfaceProjectionVersion() == 3)
+    #expect(try await client.passiveSurfaceProjectionVersion(retainedWidget: true) == 4)
+    await #expect(throws: DJConnectError.invalidResponse) {
+        try await client.authorizePassiveSurface(sessionID: sessionID, surface: .widget, enabled: true, projectionVersion: 4)
+    }
+    let result = try await client.authorizePassiveSurface(sessionID: sessionID, surface: .widget, enabled: true,
+                                                          projectionVersion: 4, retainedLatest: true)
+    #expect(result?.passive_session.schema_version == 4)
+}
+
 @Test(.isolatedClientResources) func passiveV3ActivityTrackOutlivesOnlyTheShorterContributionWithinItsOwnLease() throws {
     let fixture = try passiveProgressV3Fixture()
     let examples = try #require(fixture["examples"] as? [[String: Any]])

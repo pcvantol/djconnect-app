@@ -125,7 +125,7 @@ public struct DJConnectSurfacePushStatus: Decodable, Sendable {
         guard let c = URLComponents(url:baseURL,resolvingAgainstBaseURL:false),
               ["https","http"].contains(c.scheme), c.host?.isEmpty == false,
               c.user == nil, c.password == nil, c.query == nil, c.fragment == nil else { throw DJConnectError.invalidResponse }
-        url = baseURL.appendingPathComponent("api/djconnect/v1/push/surface/read")
+        url = baseURL.appendingPathComponent("api/djconnect/v1/push/surface")
         transport = DJConnectSurfacePushHTTP(configuration:configuration)
         self.nowMS = nowMS
     }
@@ -135,17 +135,46 @@ public struct DJConnectSurfacePushStatus: Decodable, Sendable {
               original.scope == "exact_original_surface_read_only", original.cache_policy == "private,no-store",
               DJConnectSurfacePushCoordinate.identifier(original.registration_id),
               original.expires_at_ms > nowMS(), original.expires_at_ms <= 9_007_199_254_740_991 else { throw DJConnectError.invalidResponse }
-        var request = URLRequest(url:url)
+        let data = try await sendRead(path: "read", registrationID: original.registration_id, credential: original.credential,
+            isCurrent: { isCurrent() && self.nowMS() < original.expires_at_ms })
+        guard let response = try? JSONDecoder().decode(DJConnectSurfacePushReadResponse.self,from:data) else { throw DJConnectError.invalidResponse }
+        return response // Original admission, IDs/rights/deadlines still checked by the owner.
+    }
+
+    func retainedWidgetRead(_ authorization: DJConnectRetainedWidgetAuthorization,
+                            original: DJConnectSurfacePushReceipt, grant: DJConnectRetainedWidgetGrant,
+                            originalDeadline: ContinuousClock.Instant,
+                            isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectPassiveSession {
+        guard authorization.matches(original), DJConnectSurfacePushCoordinate.identifier(grant.sessionID),
+              DJConnectSurfacePushCoordinate.identifier(grant.bindingID),
+              DJConnectSurfacePushCoordinate.identifier(grant.generation) else {
+            throw DJConnectError.invalidResponse
+        }
+        let data = try await sendRead(path: "retained-read", registrationID: original.registration_id,
+            credential: authorization.credential, isCurrent: {
+                isCurrent() && ContinuousClock.now < originalDeadline && self.nowMS() < original.expires_at_ms
+            })
+        guard let response = try? JSONDecoder().decode(DJConnectRetainedWidgetRead.self, from: data),
+              response.matches(original, grant: grant, now: Date(timeIntervalSince1970: Double(nowMS()) / 1000)) else {
+            throw DJConnectError.invalidResponse
+        }
+        guard isCurrent(), !Task.isCancelled, ContinuousClock.now < originalDeadline else {
+            throw CancellationError()
+        }
+        return response.passive_session
+    }
+
+    private func sendRead(path: String, registrationID: String, credential: String,
+                          isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
+        var request = URLRequest(url: url.appendingPathComponent(path))
         request.httpMethod = "POST"; request.timeoutInterval = 10
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.setValue("Bearer " + original.credential,forHTTPHeaderField:"Authorization")
+        request.setValue("Bearer " + credential,forHTTPHeaderField:"Authorization")
         request.setValue("application/json",forHTTPHeaderField:"Content-Type")
         request.setValue("application/json",forHTTPHeaderField:"Accept")
         request.setValue("identity",forHTTPHeaderField:"Accept-Encoding")
         request.setValue("no-store",forHTTPHeaderField:"Cache-Control")
-        request.httpBody = try JSONSerialization.data(withJSONObject:["contract_version":1,"registration_id":original.registration_id])
-        let data = try await transport.send(request,isCurrent:{ isCurrent() && self.nowMS() < original.expires_at_ms })
-        guard let response = try? JSONDecoder().decode(DJConnectSurfacePushReadResponse.self,from:data) else { throw DJConnectError.invalidResponse }
-        return response // Original admission, IDs/rights/deadlines still checked by the owner.
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["contract_version": 1, "registration_id": registrationID])
+        return try await transport.send(request, isCurrent: isCurrent)
     }
 }

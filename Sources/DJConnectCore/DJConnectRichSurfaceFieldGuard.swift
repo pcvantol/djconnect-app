@@ -11,7 +11,7 @@ public extension DJConnectPassiveSession {
             a.playback_state == b.playback_state && a.observed_at == b.observed_at && a.expires_at == b.expires_at &&
             a.cache_policy == b.cache_policy && a.mood == b.mood && a.presence == b.presence &&
             a.persona == b.persona && a.navigation == b.navigation && a.contribution == b.contribution &&
-            a.now_playing == b.now_playing && a.artwork == b.artwork
+            a.latest_contribution == b.latest_contribution && a.now_playing == b.now_playing && a.artwork == b.artwork
     }
 }
 

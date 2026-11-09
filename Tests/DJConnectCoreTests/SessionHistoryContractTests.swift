@@ -36,6 +36,133 @@ private func historyObject(_ name: String = "producer-receipt") throws -> [Strin
 }
 private func historyData(_ value: Any) throws -> Data { try JSONSerialization.data(withJSONObject: value) }
 
+private struct GoldenCatalogueTransport: Decodable {
+    struct Row: Decodable {
+        let id: String
+        let language: String
+        let question: String
+        let active_session: Bool?
+        let chain: String?
+        let operation: String?
+    }
+    let rows: [Row]
+    let live_gate_ids: [String]
+}
+
+@Test(.isolatedClientResources, arguments: ["en", "nl", "de", "fr", "es"])
+@MainActor func goldenCatalogueOrdinaryAppleTransport(_ language: String) async throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let data = try Data(contentsOf: root.appendingPathComponent("Fixtures/askdj-golden-catalogue-transport-v1.json"))
+    let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    try #require(digest == "0b5a6b7ba391090a573c874dcdff835b09213b6222f91d8dc00dd98a2efeda7e")
+    let corpus = try JSONDecoder().decode(GoldenCatalogueTransport.self, from: data)
+    #expect(corpus.rows.count == 100 && Set(corpus.rows.map(\.id)).count == 100)
+    #expect(corpus.live_gate_ids.count == 2)
+    let rows = corpus.rows.filter { $0.language == language }
+    #expect(rows.count == 20 && rows.filter { $0.chain == nil }.count == 14)
+    let locale = try #require(["en": "en-US", "nl": "nl-NL", "de": "de-DE", "fr": "fr-FR", "es": "es-ES"][language])
+    let startup = try startupFixtureObject()
+    let output = try #require(startup["output"] as? [String: Any])
+    let resultSet = try #require(output["result_set"])
+    let offer = try historyData(["success": true, "text": "Synthetic offer", "result_set": resultSet])
+    let answered = Data(#"{"success":true,"text":"Synthetic answer"}"#.utf8)
+    let sessionID = "golden-catalogue-session"
+    let producer = try historyObject()
+    var activeTurn = try #require(producer["text_turn"] as? [String: Any])
+    var conversation = try #require(activeTurn["conversation"] as? [String: Any])
+    conversation["context"] = ["session_id": sessionID]
+    conversation["entry_ids"] = []
+    activeTurn["conversation"] = conversation
+    activeTurn["text"] = "Synthetic answer"
+    activeTurn["dj_text"] = "Synthetic answer"
+    let sessionAnswer = try historyData(activeTurn)
+    let sessionRequests = Set(rows.filter { $0.active_session == true }.map(\.id))
+    let fixture = HistoryWireFixture { request in
+        guard request.httpMethod == "POST", request.url?.path == "/api/djconnect/v1/ask_dj/message" else {
+            return (404, Data(), 0)
+        }
+        let wire = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+        let id = try #require(wire["client_message_id"] as? String)
+        if sessionRequests.contains(id) { return (200, sessionAnswer, 0) }
+        if id.hasPrefix("catalogue-chain-speaker-"), id.hasSuffix("-offer") { return (200, offer, 0) }
+        return (200, answered, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.language = language
+    let client = DJConnectClient(baseURL: fixture.baseURL, identity: model.identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"), session: fixture.session())
+    var speakerChoices: [String: DJConnectConversationChoice] = [:]
+    var acceptedPayloads: [String: DJConnectAskDJRequest] = [:]
+    var acceptedBodies: [String: NSDictionary] = [:]
+
+    for row in rows {
+        let count = fixture.requests.count
+        let response: DJConnectAskDJMessageResponse
+        if row.chain == nil && row.active_session == false {
+            response = try await model.sendAskDJTextWithFallback(row.question, clientMessageID: row.id)
+        } else {
+            var payload = model.profileConversationPayload(text: row.question, clientMessageID: row.id,
+                context: .init(sessionID: row.active_session == true ? sessionID : nil))
+            if row.active_session != true { payload.conversationContext = nil }
+            if let chain = row.chain {
+                if row.operation == "accept" {
+                    if chain.hasPrefix("catalogue-chain-speaker-") {
+                        payload.choiceAction = try #require(speakerChoices[chain])
+                    }
+                    acceptedPayloads[chain] = payload
+                } else if row.operation == "duplicate" {
+                    payload = try #require(acceptedPayloads[chain])
+                }
+            }
+            if row.active_session == true {
+                let reply = try await client.sendSessionConversation(payload)
+                #expect(reply.conversation.context.sessionID == sessionID)
+                response = reply.base
+            } else {
+                response = try await client.sendAskDJMessage(payload)
+            }
+        }
+
+        try #require(fixture.requests.count == count + 1, Comment(rawValue: row.id))
+        let request = try #require(fixture.requests.last)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-fixture-token")
+        let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? NSDictionary)
+        #expect(body["text"] as? String == row.question, Comment(rawValue: row.id))
+        #expect(body["language"] as? String == locale)
+        #expect(body["audio_response"] as? String == "never")
+        let context = body["conversation_context"] as? [String: Any]
+        #expect(context?["session_id"] as? String == (row.active_session == true ? sessionID : nil))
+        if row.active_session != true { #expect(context == nil) }
+        #expect(body["device_id"] as? String == model.identity.deviceID)
+        #expect(body["client_type"] as? String == model.identity.clientType.rawValue)
+        #expect(body["entry_id"] == nil && body["uri"] == nil && body["uris"] == nil)
+        if let chain = row.chain, row.operation == "duplicate" {
+            let original = try #require(acceptedBodies[chain])
+            #expect(body == original, Comment(rawValue: row.id))
+        } else {
+            #expect(body["client_message_id"] as? String == row.id)
+        }
+        if let chain = row.chain, row.operation == "offer", chain.hasPrefix("catalogue-chain-speaker-") {
+            let result = try #require(response.resultSet)
+            let action = try #require(result.admittedPlaybackActions.first?.actionID)
+            speakerChoices[chain] = .init(resultSetID: result.resultSetID, actionID: action)
+        }
+        if let chain = row.chain, row.operation == "accept" {
+            acceptedBodies[chain] = body
+            let choice = body["choice_action"] as? [String: String]
+            let selected = speakerChoices[chain]
+            #expect(choice?["result_set_id"] == selected?.result_set_id && choice?["action_id"] == selected?.action_id)
+            #expect(choice?["operation"] == selected?.operation)
+        } else if row.operation != "duplicate" {
+            #expect(body["choice_action"] == nil)
+        }
+        #expect(response.text == (row.operation == "offer" && row.chain?.hasPrefix("catalogue-chain-speaker-") == true
+            ? "Synthetic offer" : "Synthetic answer"))
+    }
+}
+
 @Test(.isolatedClientResources, arguments: ["missing", "wrong_session", "withdrawn", "known"])
 @MainActor func artworkSpeakerChoiceUsesScopedConversationAndPreservesDraft(_ state: String) async throws {
     let receipt = try historyObject()
@@ -227,16 +354,55 @@ private final class HistoryWireFixture: @unchecked Sendable {
         let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [HistoryWireProtocol.self]
         return URLSession(configuration: config)
     }
-    @MainActor func model(remoteURL: URL? = nil) -> (DJConnectAppModel, UserDefaults, String) {
+    @MainActor func model(remoteURL: URL? = nil, momentNotifications: Bool = false) -> (DJConnectAppModel, UserDefaults, String) {
         let name = "session-history-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!
         defaults.set(baseURL.absoluteString, forKey: "DJConnectHomeAssistantURL")
         defaults.set(baseURL.absoluteString, forKey: "DJConnectHALocalURL")
         defaults.set("local", forKey: "DJConnectHAConnectionMode")
+        if momentNotifications { defaults.set(true, forKey: "DJConnectMomentNotificationsEnabled") }
         if let remoteURL { defaults.set(remoteURL.absoluteString, forKey: "DJConnectHARemoteURL") }
         return (DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"),
                                  urlSession: session(), startBackgroundTasks: false), defaults, name)
     }
+}
+
+@Test(.isolatedClientResources) @MainActor func sessionStartIndicatorIgnoresAnInFlightSessionRead() async throws {
+    let read = HistoryWireResponseGate()
+    let start = HistoryWireResponseGate()
+    let fixture = HistoryWireFixture { request in
+        switch request.url?.path {
+        case "/api/djconnect/v1/session/active":
+            throw HistoryWireHeldResponse(data: Data(#"{"success":true,"active_session":null}"#.utf8), gate: read)
+        case "/api/djconnect/v1/session/start":
+            throw HistoryWireHeldResponse(data: Data(#"{"success":false}"#.utf8), gate: start)
+        default:
+            return (404, Data(), 0)
+        }
+    }
+    let (model, defaults, name) = fixture.model()
+    defer {
+        read.release()
+        start.release()
+        model.markInactiveSession()
+        fixture.close()
+        defaults.removePersistentDomain(forName: name)
+    }
+
+    let refresh = Task { await model.refreshActiveDJSession() }
+    for _ in 0..<100 where !read.hasHeldResponse { try await Task.sleep(for: .milliseconds(10)) }
+    try #require(read.hasHeldResponse)
+    #expect(model.isLoadingDJSession && !model.isStartingDJSession)
+    read.release()
+    #expect(await refresh.value)
+
+    let submission = Task { await model.startDJSession() }
+    for _ in 0..<100 where !start.hasHeldResponse { try await Task.sleep(for: .milliseconds(10)) }
+    try #require(start.hasHeldResponse)
+    #expect(model.isLoadingDJSession && model.isStartingDJSession)
+    start.release()
+    await submission.value
+    #expect(!model.isLoadingDJSession && !model.isStartingDJSession)
 }
 
 private struct HistoryWireDelayedFailure: Error {
@@ -715,6 +881,101 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(restored && model.sessionHistory.openTarget == action.reference)
     #expect(model.sessionHistory.timelines[action.sessionID]?.entries.map(\.id) == [target.entry.id])
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" || ($0.httpMethod == "POST" && $0.url!.path.hasSuffix("/session/history/open")) })
+}
+
+@Test(.isolatedClientResources, arguments: [false, true])
+@MainActor func momentNotificationTapOpensExactSessionEntryOnlyOnOptedInDevice(_ revokeDuringRead: Bool) async throws {
+    let receipt = try historyObject()
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    var opened = try #require(receipt["validated_open_target"] as? [String: Any])
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let entries = try #require(timeline["entries"] as? [[String: Any]])
+    var moment = try #require(entries.first { $0["kind"] as? String == "dj_moment" })
+    moment["retained_until"] = "9999-12-31T00:00:00+00:00"
+    opened["entry"] = moment
+    let body = try historyData(opened)
+    let target = try JSONDecoder().decode(DJConnectSessionOpenResponse.self, from: body)
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8)
+    let openReply = HistoryWireResponseGate()
+    defer { openReply.release() }
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/history/open") {
+            if revokeDuringRead { throw HistoryWireHeldResponse(data: body, gate: openReply) }
+            return (200, body, 0)
+        }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(momentNotifications: true)
+    defer { defaults.removePersistentDomain(forName: name) }
+    #expect(model.momentNotificationsEnabled)
+    let payload: [AnyHashable: Any] = [
+        "version": "djc-watch-moment/1", "event_type": "dj_moment_published",
+        "open_target": "dj_moment", "event_id": "moment-test",
+        "session_id": target.session.id, "moment_id": try #require(target.entry.momentID),
+        "transport_expires_at_ms": Int64(Date().addingTimeInterval(60).timeIntervalSince1970 * 1_000),
+        "aps": ["category": "DJCONNECT_MOMENT_V1"]
+    ]
+    #expect(await model.handleRemoteNotificationPayload(payload))
+    #expect(model.pendingMomentOpen == nil)
+    #expect(await model.handleRemoteNotificationPayload(payload, openedFromTap: true))
+    let intent = try #require(model.pendingMomentOpen)
+    if revokeDuringRead {
+        let opening = Task { await model.openPendingMoment(intent) }
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !openReply.hasHeldResponse && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(openReply.hasHeldResponse)
+        model.setMomentNotificationsEnabled(false)
+        openReply.release()
+        await opening.value
+        #expect(model.pendingMomentOpen == nil)
+        #expect(model.sessionHistory.openTarget == nil)
+        #expect(model.sessionHistory.timelines[target.session.id] == nil)
+        return
+    }
+    await model.openPendingMoment(intent)
+    #expect(model.sessionHistory.openTarget == target.entry.reference)
+    #expect(model.sessionHistory.timelines[target.session.id]?.entries.map(\.id) == [target.entry.id])
+    #expect(model.pendingMomentOpen == nil)
+    #expect(await model.handleRemoteNotificationPayload(payload, openedFromTap: true))
+    #expect(model.pendingMomentOpen == nil)
+    model.setMomentNotificationsEnabled(false)
+    #expect(!defaults.bool(forKey: "DJConnectMomentNotificationsEnabled"))
+    var nextPayload = payload
+    nextPayload["event_id"] = "moment-next-test"
+    #expect(await model.handleRemoteNotificationPayload(nextPayload, openedFromTap: true))
+    #expect(model.pendingMomentOpen == nil)
+}
+
+@Test(.isolatedClientResources) @MainActor func nativeSurfacePushConsentIsExplicitAndScopedPerPairingAndRole() throws {
+    let fixture = HistoryWireFixture { _ in (500, Data(), 0) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    defaults.set("ha-install-test", forKey: "DJConnectHAInstallID")
+    #expect(model.canChooseNativePushConsent)
+    #expect(!model.nativePushAllowed(.widget))
+    #expect(!model.nativePushAllowed(.liveActivityUpdate))
+
+    model.setNativePushAllowed(true, for: .widget)
+    let firstWidget = try #require(model.nativePushConsentGeneration(.widget))
+    #expect(!model.nativePushAllowed(.liveActivityUpdate))
+    model.setNativePushAllowed(true, for: .liveActivityUpdate)
+    let activity = try #require(model.nativePushConsentGeneration(.liveActivityUpdate))
+    model.setNativePushAllowed(false, for: .widget)
+    #expect(!model.nativePushAllowed(.widget))
+    #expect(model.nativePushConsentGeneration(.liveActivityUpdate) == activity)
+    model.setNativePushAllowed(true, for: .widget)
+    let nextWidget = try #require(model.nativePushConsentGeneration(.widget))
+    #expect(nextWidget != firstWidget)
+
+    defaults.set("another-ha-install", forKey: "DJConnectHAInstallID")
+    #expect(!model.nativePushAllowed(.widget))
+    #expect(!model.nativePushAllowed(.liveActivityUpdate))
+    #expect(fixture.requests.isEmpty)
 }
 
 @Test(.isolatedClientResources) @MainActor func sessionHistoryProfileChangeDiscardsLatePreviouslyAuthorizedOpen() async throws {
@@ -8444,6 +8705,54 @@ func frozenCatalogueReplayDecodesOriginalActionsAndIdentity(_ scenario: String) 
     #expect(message.catalogueTextForDisplay == message.text)
 }
 
+@Test(.isolatedClientResources, arguments: ["valid", "expired", "missing-layout", "reversed-layout"])
+func goldenAlbumHeaderAndTrackActionsStayDistinct(_ scenario: String) throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let file = root.appendingPathComponent("Fixtures/askdj-golden-album-core-wire.json")
+    let fixture = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+    var body = try #require(fixture["response"] as? [String: Any])
+    var frozen = try #require(body["result_set"] as? [String: Any])
+    let rows = try #require(frozen["items"] as? [[String: Any]])
+    let caption = try #require(body["text"] as? String)
+    let first = try #require(rows.first)
+    let albumURI = try #require(first["uri"] as? String)
+    let artwork = try #require(first["image_url"] as? String)
+    let lastURI = try #require(rows.last?["uri"] as? String)
+    switch scenario {
+    case "expired":
+        frozen["expires_in"] = 0
+    case "missing-layout":
+        frozen.removeValue(forKey: "presentation")
+    case "reversed-layout":
+        var layout = try #require(frozen["presentation"] as? [String: Any])
+        let ids = try #require(layout["track_action_ids"] as? [String])
+        layout["track_action_ids"] = Array(ids.reversed())
+        frozen["presentation"] = layout
+    default:
+        break
+    }
+    // Exercise the frozen representation used when replay has no top-level actions.
+    body["result_set"] = frozen
+    body["items"] = rows
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: historyData(body))
+    let assistant = try #require(response.assistantMessage)
+    let message = DJConnectAskDJMessage(role: .dj, textSource: assistant.textSource, text: assistant.text,
+        playbackActions: assistant.playbackActions, items: assistant.items)
+    try #require(message.items.count == 51)
+    #expect(message.catalogueTextForDisplay == caption)
+    #expect(message.items.first?.kind == "album")
+    #expect(message.items.dropFirst().allSatisfy { $0.kind == "track" })
+    #expect(message.items.allSatisfy { $0.imageURL?.absoluteString == artwork })
+    if scenario != "valid" {
+        #expect(message.items.allSatisfy { message.playbackAction(forHistoryItem: $0) == nil })
+    } else {
+        let actions = message.items.compactMap { message.playbackAction(forHistoryItem: $0) }
+        #expect(actions.count == 51 && Set(actions.map(\.actionID)).count == 51)
+        #expect(actions.first?.uri == albumURI && actions.first?.kind == "album" && actions.first?.contextURI == albumURI)
+        #expect(actions.last?.uri == lastURI && actions.last?.kind == "track")
+    }
+}
+
 @Test(.isolatedClientResources) func catalogueCardUsesOriginalIdentityAndRejectsMismatchedOrAmbiguousActions() throws {
     let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: Data(#"{"id":"album-row","title":"Album","kind":"album","uri":"spotify:album:AAAAAAAAAAAAAAAAAAAAAA","result_set_id":"set-a","action_id":"action-a","command":"ask_dj_play_recommendation"}"#.utf8))
     var item = DJConnectAskDJHistoryItem(kind: "album", title: "Album", uri: action.uri, resultSetID: "set-a", actionID: "action-a")
@@ -9886,7 +10195,7 @@ private final class StartupReadFailure: @unchecked Sendable {
         if path.hasSuffix("/session/active") { return (200, runtimeData, 0) }
         if path.hasSuffix("/ask_dj/message") {
             if scenario == "unknown" || scenario == "unknown_expired_refresh" { return (503, Data(), 0) }
-            if scenario == "dismiss" {
+            if scenario == "dismiss" || scenario == "dismiss_expired" {
                 return (200, try historyData(["success": true, "for_you": ["schema_version": 1, "state": "dismissed", "visible": false]]), 0)
             }
             return (200, answerData, 0)
@@ -9915,6 +10224,9 @@ private final class StartupReadFailure: @unchecked Sendable {
             #expect(projection.isPresented == !["confirmed", "closed", "dismissed"].contains(state))
             #expect(!projection.canChoose)
         }
+        // A read sent before another device closed the offer may arrive later.
+        projection.observe(try JSONDecoder().decode(DJConnectForYou.self, from: historyData(offer)))
+        #expect(!projection.isPresented && !projection.canChoose)
         #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
         return
     }
@@ -9966,7 +10278,17 @@ private final class StartupReadFailure: @unchecked Sendable {
         // A delayed same-offer projection must not re-open the closed card.
         projection.observe(try JSONDecoder().decode(DJConnectForYou.self, from: historyData(offer)))
         #expect(!projection.isPresented)
-        #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+        for _ in 0..<200 where projection.busy { try await Task.sleep(for: .milliseconds(10)) }
+        let posts = fixture.requests.filter { $0.httpMethod == "POST" }
+        if scenario == "dismiss_expired" {
+            let request = try #require(posts.first)
+            let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+            let choice = try #require(body["choice_action"] as? [String: String])
+            #expect(posts.count == 1 && choice["operation"] == "dismiss")
+            #expect(choice["result_set_id"] == offer["offer_id"] as? String)
+        } else {
+            #expect(posts.isEmpty)
+        }
         return
     }
     if scenario == "expired" {

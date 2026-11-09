@@ -147,7 +147,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         let receipt = try await flow.approve(share: .createTwoHours)
         try await flow.revokeDisplay()
         #expect(flow.state == .revoked && flow.receipt == nil)
-        for suffix in ["/owner/context", "/owner/resolve", "/owner/approve", "/owner/revoke"] {
+        for suffix in ["/transport/context", "/owner/context", "/owner/resolve", "/owner/approve", "/owner/revoke"] {
             let body = try ConsentWire.body(for: suffix)
             #expect((body["identity"] as? [String: String])?["client_type"] == "macos")
         }

@@ -6256,12 +6256,23 @@ public struct DJConnectMusicDNASignal: Codable, Equatable, Sendable, Identifiabl
 }
 
 public struct DJConnectResultSet: Codable, Equatable, Sendable {
+    private struct AlbumPresentation: Codable, Equatable, Sendable {
+        let kind: String
+        let primaryActionID: String
+        let trackActionIDs: [String]
+
+        enum CodingKeys: String, CodingKey {
+            case kind, primaryActionID = "primary_action_id", trackActionIDs = "track_action_ids"
+        }
+    }
+
     public let schemaVersion: Int
     public let resultSetID: String
     public let expiresIn: Double
     public let items: [DJConnectAskDJPlaybackAction]
+    private let presentation: AlbumPresentation?
     enum CodingKeys: String, CodingKey {
-        case schemaVersion = "schema_version", resultSetID = "result_set_id", expiresIn = "expires_in", items
+        case schemaVersion = "schema_version", resultSetID = "result_set_id", expiresIn = "expires_in", items, presentation
     }
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -6269,15 +6280,28 @@ public struct DJConnectResultSet: Codable, Equatable, Sendable {
         resultSetID = try container.decode(String.self, forKey: .resultSetID)
         expiresIn = try container.decode(Double.self, forKey: .expiresIn)
         items = try container.decodeIfPresent([DJConnectAskDJPlaybackAction].self, forKey: .items) ?? []
+        presentation = try? container.decode(AlbumPresentation.self, forKey: .presentation)
     }
     /// Original actions only; no URI-derived command or renewed lifetime.
     public var admittedPlaybackActions: [DJConnectAskDJPlaybackAction] {
         guard schemaVersion == 1, !resultSetID.isEmpty, resultSetID.count <= 256,
-              expiresIn.isFinite, expiresIn > 0, expiresIn <= 600, items.count <= 50,
+              expiresIn.isFinite, expiresIn > 0, expiresIn <= 600,
+              items.count <= 50 || isFullAlbumTrackList,
               items.allSatisfy({ $0.hasConsistentResultIdentity && $0.resultSetID == resultSetID &&
                   $0.actionID?.isEmpty == false && ($0.actionID?.count ?? 0) <= 256 }),
               Set(items.compactMap(\.actionID)).count == items.count else { return [] }
         return items
+    }
+
+    private var isFullAlbumTrackList: Bool {
+        guard items.count == 51, let presentation, presentation.kind == "album_tracks",
+              let album = items.first, album.kind == "album",
+              album.actionID == presentation.primaryActionID,
+              let albumURI = album.uri, albumURI.hasPrefix("spotify:album:"),
+              album.contextURI == albumURI else { return false }
+        let tracks = items.dropFirst()
+        return tracks.allSatisfy { $0.kind == "track" && $0.uri?.hasPrefix("spotify:track:") == true }
+            && tracks.map(\.actionID) == presentation.trackActionIDs.map(Optional.some)
     }
 }
 

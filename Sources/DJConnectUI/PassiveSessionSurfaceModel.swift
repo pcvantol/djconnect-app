@@ -65,10 +65,26 @@ import DJConnectCore
     private var pendingInvalidations: Set<DJConnectPassiveSurface> = []
     private var lastInvalidationSequence = -1
     private var automaticAttempts: Set<DJConnectPassiveSurface> = []
+    private var retainedWidgetRequested = false
     private var lastDiagnosticConfiguration: Set<DJConnectPassiveSurface>?
     public init() {}
     public func enabled(_ surface: DJConnectPassiveSurface) -> Bool { grants[surface] != nil }
     public func busy(_ surface: DJConnectPassiveSurface) -> Bool { tasks[surface] != nil }
+    public var retainedWidgetEnabled: Bool { retainedWidgetRequested || grants[.widget]?.projectionVersion == 4 }
+
+    func setRetainedWidgetEnabled(_ enabled: Bool, services: Services) async {
+        let captured = epoch
+        guard active, !busy(.widget), enabled != retainedWidgetEnabled else { return }
+        let restoreOrdinaryWidget = !enabled && automaticAttempts.contains(.widget)
+        if !enabled { retainedWidgetRequested = false }
+        await setEnabled(enabled, surface: .widget, services: services, retainedLatest: enabled)
+        if enabled, epoch == captured, grants[.widget]?.projectionVersion == 4 {
+            retainedWidgetRequested = true
+        }
+        if restoreOrdinaryWidget, active, epoch == captured, phases[.widget] == .idle {
+            await setEnabled(true, surface: .widget, services: services)
+        }
+    }
 
     /// Typed receiving input from the actual original foreground read only.
     /// No cache/DTO constructor can create this C0, and it is not a successor
@@ -82,7 +98,9 @@ import DJConnectCore
 
     public func bind(owner nextOwner: String?, sessionID nextSession: String?, foreground: Bool,
                      settingsRevision nextRevision: Int? = nil, settingsGeneration nextGeneration: String? = nil) {
-        let changed = owner != nextOwner || sessionID != nextSession || settingsRevision != nextRevision || settingsGeneration != nextGeneration
+        let subjectChanged = owner != nextOwner || sessionID != nextSession
+        let changed = subjectChanged || settingsRevision != nextRevision || settingsGeneration != nextGeneration
+        if subjectChanged { retainedWidgetRequested = false }
         if changed || active != foreground {
             epoch = UUID(); discovering = false
             if foreground { lastRead = [:] }
@@ -118,6 +136,7 @@ import DJConnectCore
             guard active, captured == epoch else { return }
             if !surfaces.contains(surface) {
                 automaticAttempts.remove(surface)
+                if surface == .widget { retainedWidgetRequested = false }
                 if enabled(surface) || busy(surface) {
                     tasks[surface]?.cancel(); tasks[surface] = nil
                     versions[surface] = UUID()
@@ -125,7 +144,8 @@ import DJConnectCore
                 }
             } else if !enabled(surface), !busy(surface), !automaticAttempts.contains(surface) {
                 automaticAttempts.insert(surface)
-                await setEnabled(true, surface: surface, services: services)
+                await setEnabled(true, surface: surface, services: services,
+                                 retainedLatest: surface == .widget && retainedWidgetRequested)
             }
         }
     }
@@ -164,11 +184,16 @@ import DJConnectCore
     }
     /// Performs one requested state change. Callers fence automatic attempts;
     /// uncertain writes are never replayed here.
-    public func setEnabled(_ enabled: Bool, surface: DJConnectPassiveSurface, services: Services) async {
+    public func setEnabled(_ enabled: Bool, surface: DJConnectPassiveSurface, services: Services,
+                           retainedLatest: Bool = false) async {
         guard active, (!enabled || available), !busy(surface), let sessionID else { return }
-        let captured = epoch, version = UUID(), selectedProjection = projectionVersion; versions[surface] = version
+        guard !retainedLatest || (enabled && surface == .widget) else { return }
+        let selectedProjection = retainedLatest ? 4 : (!enabled ? grants[surface]?.projectionVersion ?? projectionVersion : projectionVersion)
+        let captured = epoch, version = UUID(); versions[surface] = version
         // Local revocation is immediate even when the server is unreachable.
-        if !enabled { grants[surface] = nil; caches[surface] = nil; nativeCaptures[surface] = nil; invalidatedPlayback[surface] = nil; notify() }
+        if !enabled || (retainedLatest && grants[surface] != nil) {
+            grants[surface] = nil; caches[surface] = nil; nativeCaptures[surface] = nil; invalidatedPlayback[surface] = nil; notify()
+        }
         phases[surface] = .loading
         onDiagnostic?("authorize surface=\(surface.rawValue) enabled=\(enabled)")
         let originalClock = DJConnectNativeSurfaceClockCapture.capture()
@@ -195,6 +220,7 @@ import DJConnectCore
                 } else { phases[surface] = .idle }
             } catch {
                 guard current(captured, version, surface) else { return }
+                if retainedLatest { retainedWidgetRequested = false }
                 onDiagnostic?("authorize_failed surface=\(surface.rawValue) reason=\(Self.diagnosticCode(error))")
                 grants[surface] = nil; caches[surface] = nil; nativeCaptures[surface] = nil; phases[surface] = .unavailable; notify()
             }
@@ -294,6 +320,7 @@ import DJConnectCore
                     guard current(captured, version, surface) else { return }
                     onDiagnostic?("read_failed surface=\(surface.rawValue) withdraws=\(Self.withdraws(error)) reason=\(Self.diagnosticCode(error))")
                     if Self.withdraws(error) {
+                        if surface == .widget { retainedWidgetRequested = false }
                         grants[surface] = nil; caches[surface] = nil; nativeCaptures[surface] = nil; phases[surface] = .unavailable; notify()
                     }
                     // A network failure is not a fresh observation. Original

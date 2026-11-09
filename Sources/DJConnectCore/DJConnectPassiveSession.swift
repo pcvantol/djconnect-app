@@ -44,13 +44,17 @@ public struct DJConnectPassiveSession: Codable, Equatable, Hashable, Sendable {
         public let rights: DJConnectBackgroundSession.Rights?
         public let sources: [[String: String]]?
         public let expression_license: DJConnectBackgroundSession.ExpressionLicense?
+        public let purpose: String?
+        public let retained_expires_at: String?
         public init(moment_id: String, published_at: String, text: String, persona: String,
                     source_attribution: [String: String], usage_basis: String, expires_at: String,
                     rights: DJConnectBackgroundSession.Rights? = nil, sources: [[String: String]]? = nil,
-                    expression_license: DJConnectBackgroundSession.ExpressionLicense? = nil) {
+                    expression_license: DJConnectBackgroundSession.ExpressionLicense? = nil,
+                    purpose: String? = nil, retained_expires_at: String? = nil) {
             self.moment_id = moment_id; self.published_at = published_at; self.text = text; self.persona = persona
             self.source_attribution = source_attribution; self.usage_basis = usage_basis; self.expires_at = expires_at
             self.rights = rights; self.sources = sources; self.expression_license = expression_license
+            self.purpose = purpose; self.retained_expires_at = retained_expires_at
         }
         public func isCurrent(at now: Date) -> Bool { DJConnectPassiveSession.current(from: published_at, until: expires_at, at: now) }
     }
@@ -142,6 +146,8 @@ public struct DJConnectPassiveSession: Codable, Equatable, Hashable, Sendable {
     public private(set) var contribution_status: DJConnectBackgroundSession.Status?
     public private(set) var now_playing_status: DJConnectBackgroundSession.Status?
     public private(set) var artwork_status: DJConnectBackgroundSession.Status?
+    public private(set) var latest_contribution: Contribution?
+    public private(set) var latest_contribution_status: DJConnectBackgroundSession.Status?
 
     public static func identifier(_ value: String) -> Bool {
         !value.isEmpty && value.utf8.count <= 128 && value.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil
@@ -168,8 +174,18 @@ public struct DJConnectPassiveSession: Codable, Equatable, Hashable, Sendable {
         return a <= now && now < b
     }
     public var isValid: Bool {
+        if schema_version == 4 {
+            guard surface == .widget, let latest_contribution_status, latest_contribution_status.isValid,
+                  (latest_contribution == nil) == (latest_contribution_status.state != "available") else { return false }
+            if let latest_contribution {
+                guard latest_contribution_status.reason == "qualified",
+                      hasValidRetainedContribution(latest_contribution) else { return false }
+            }
+        } else if latest_contribution != nil || latest_contribution_status != nil {
+            return false
+        }
         if schema_version == 1 { return hasValidFields(allowPublicResearch: false) }
-        guard schema_version == 3, hasValidFields(allowPublicResearch: true),
+        guard (schema_version == 3 || schema_version == 4), hasValidFields(allowPublicResearch: true),
               let contribution_status, let now_playing_status, let artwork_status,
               contribution_status.isValid, now_playing_status.isValid, artwork_status.isValid,
               (contribution == nil) == (contribution_status.state != "available"),
@@ -181,6 +197,22 @@ public struct DJConnectPassiveSession: Codable, Equatable, Hashable, Sendable {
                     expression_license: contribution.expression_license).validates(contribution) else { return false }
         }
         return now_playing == nil || now_playing_status.reason == "qualified"
+    }
+    private func hasValidRetainedContribution(_ value: Contribution) -> Bool {
+        guard value.purpose == "retained_latest", presence != "music_only",
+              Self.identifier(value.moment_id), Self.bounded(value.text, limit: 640),
+              DJConnectSessionPersonaValue(rawValue: value.persona) != nil,
+              Self.attribution(value.source_attribution, allowEmpty: value.usage_basis == "runtime_authored_direction"),
+              ["cc0_facts_authored_expression", "runtime_authored_direction", "public_artist_narration_v1"].contains(value.usage_basis),
+              let published = DJConnectHistoryEntry.date(value.published_at),
+              let retained = value.retained_expires_at.flatMap(DJConnectHistoryEntry.date),
+              let expiry = DJConnectHistoryEntry.date(value.expires_at),
+              let snapshotExpiry = DJConnectHistoryEntry.date(expires_at),
+              let readAt = DJConnectHistoryEntry.date(as_of),
+              published <= readAt, published < expiry, expiry <= min(retained, snapshotExpiry),
+              retained.timeIntervalSince(published) <= 1_800.001, let rights = value.rights else { return false }
+        return DJConnectBackgroundSession.Contribution(rights: rights, sources: value.sources,
+            expression_license: value.expression_license).validates(value)
     }
     // Background v2 has its own decoder and explicit rights/status validation.
     // This common field checker never changes foreground v1 admission.
@@ -197,14 +229,15 @@ public struct DJConnectPassiveSession: Codable, Equatable, Hashable, Sendable {
               navigation.kind == "open_session", navigation.session_id == session_id,
               artwork.count <= 2, Set(artwork.map(\.slot)).count == artwork.count else { return false }
         if let c = contribution {
-            guard Self.identifier(c.moment_id), Self.bounded(c.text, limit: 640),
+            guard c.purpose == nil, c.retained_expires_at == nil,
+                  Self.identifier(c.moment_id), Self.bounded(c.text, limit: 640),
                   DJConnectSessionPersonaValue(rawValue: c.persona) != nil, Self.interval(c.published_at, c.expires_at),
                   Self.attribution(c.source_attribution, allowEmpty: c.usage_basis == "runtime_authored_direction"), (["cc0_facts_authored_expression", "runtime_authored_direction"].contains(c.usage_basis) ||
                     (allowPublicResearch && c.usage_basis == "public_artist_narration_v1")),
                   presence != "music_only" else { return false }
         }
         if let n = now_playing {
-            guard schema_version == 3 || n.progress == nil else { return false }
+            guard schema_version == 3 || schema_version == 4 || n.progress == nil else { return false }
             guard Self.identifier(n.item_id), Self.spotify(n.subject_uri, type: "track"), Self.bounded(n.track, limit: 640),
                   Self.bounded(n.artist, limit: 256, empty: true), Self.bounded(n.album, limit: 256, empty: true),
                   Self.interval(n.observed_at, n.expires_at), Self.publicURL(n.source_url), Self.attribution(n.attribution),
@@ -235,6 +268,11 @@ public struct DJConnectPassiveSession: Codable, Equatable, Hashable, Sendable {
     public func currentContribution(at now: Date) -> Contribution? {
         isCurrent(at: now) && contribution?.isCurrent(at: now) == true ? contribution : nil
     }
+    public func currentWidgetContribution(at now: Date) -> Contribution? {
+        guard surface == .widget else { return nil }
+        guard schema_version == 4 else { return currentContribution(at: now) }
+        return isCurrent(at: now) && latest_contribution?.isCurrent(at: now) == true ? latest_contribution : nil
+    }
     public func currentPlayback(at now: Date) -> NowPlaying? {
         isCurrent(at: now) && now_playing?.isCurrent(at: now) == true ? now_playing : nil
     }
@@ -245,9 +283,15 @@ public struct DJConnectPassiveSession: Codable, Equatable, Hashable, Sendable {
     public func removingExpiredFields(at now: Date) -> Self {
         var copy = self
         copy.contribution = currentContribution(at: now)
+        if schema_version == 4 {
+            copy.latest_contribution = currentWidgetContribution(at: now)
+            if latest_contribution != nil && copy.latest_contribution == nil {
+                copy.latest_contribution_status = .init(state: "stale", reason: "expired")
+            }
+        }
         copy.now_playing = currentPlayback(at: now)
         copy.artwork = artwork.filter { currentArtwork(slot: $0.slot, at: now) != nil }
-        if schema_version == 3 {
+        if schema_version == 3 || schema_version == 4 {
             if contribution != nil && copy.contribution == nil { copy.contribution_status = .init(state: "stale", reason: "expired") }
             if now_playing != nil && copy.now_playing == nil { copy.now_playing_status = .init(state: "stale", reason: "expired") }
             if !artwork.isEmpty && copy.artwork.isEmpty { copy.artwork_status = .init(state: "stale", reason: "expired") }
@@ -255,7 +299,7 @@ public struct DJConnectPassiveSession: Codable, Equatable, Hashable, Sendable {
         return copy
     }
     public var deadlines: [Date] {
-        Set(([expires_at, contribution?.expires_at, now_playing?.expires_at] + artwork.map { Optional($0.expires_at) })
+        Set(([expires_at, contribution?.expires_at, latest_contribution?.expires_at, now_playing?.expires_at] + artwork.map { Optional($0.expires_at) })
             .compactMap { $0.flatMap(DJConnectHistoryEntry.date) }).sorted()
     }
 }
@@ -310,7 +354,8 @@ public struct DJConnectPassiveSurfaceCache: Codable, Equatable, Sendable {
             a.now_playing?.progress?.duration_ms == b.now_playing?.progress?.duration_ms && a.playback_state == b.playback_state
         return a.binding_id == b.binding_id && a.generation == b.generation && a.state == b.state &&
             a.mood == b.mood && a.presence == b.presence && a.persona == b.persona &&
-            a.contribution == b.contribution && musicEqual && a.artwork == b.artwork && pixels == other.pixels
+            a.contribution == b.contribution && a.latest_contribution == b.latest_contribution &&
+            musicEqual && a.artwork == b.artwork && pixels == other.pixels
     }
     public static func key(_ surface: DJConnectPassiveSurface) -> String { "DJConnectPassiveSurface.v1." + surface.rawValue }
     public static func replace(_ value: Self?, surface: DJConnectPassiveSurface, in defaults: UserDefaults) throws {

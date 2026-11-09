@@ -703,7 +703,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         isAppForeground = foreground
-        if !foreground { settingsOperationConfirmation = nil }
+        if !foreground {
+            settingsOperationConfirmation = nil
+            liveAnswerActions = []
+        }
         foregroundSession.bind(owner: canUseBackend && !isDemoMode ? stableInstallID : nil, active: foreground)
         profileDJSettings.bind(owner: profileDJSettings.response?.binding, active: foreground && canUseBackend)
         if !foreground { watchWidgetEpoch = UUID(); companionRequests.cancelAll() }
@@ -2628,6 +2631,56 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         return true
     }
 
+    struct LiveAnswerActions {
+        let answerID: String
+        let clientMessageID: String
+        let text: String
+        let binding: String
+        let sessionID: String?
+        let owner: String
+        let expiresAt: Date
+        let deadline: ContinuousClock.Instant
+        let actions: [DJConnectAskDJPlaybackAction]
+    }
+
+    @Published private var liveAnswerActions: [LiveAnswerActions] = []
+    @Published private(set) var lastWatchVoiceAnswerID: String?
+
+    private func rememberAnswerActions(
+        _ response: DJConnectAskDJMessageResponse, operationID: String, binding: String,
+        context: DJConnectConversationContext
+    ) {
+        guard let answer = response.assistantMessage, !answer.id.isEmpty,
+              answer.clientMessageID == operationID,
+              let result = response.resultSet else { return }
+        let actions = result.admittedPlaybackActions
+        guard !actions.isEmpty else { return }
+        let now = Date()
+        let expires = min(response.serverTime ?? now, now).addingTimeInterval(result.expiresIn)
+        guard expires > now,
+              !liveAnswerActions.contains(where: { $0.answerID == answer.id }) else { return }
+        let offer = LiveAnswerActions(answerID: answer.id, clientMessageID: operationID, text: answer.text,
+            binding: binding, sessionID: context.sessionID, owner: stableInstallID, expiresAt: expires,
+            deadline: .now.advanced(by: .seconds(expires.timeIntervalSince(now))), actions: actions)
+        liveAnswerActions = Array((liveAnswerActions + [offer]).suffix(20))
+    }
+
+    func answerActions(id: String?, binding: String, sessionID: String?) -> LiveAnswerActions? {
+        guard let id, isAppForeground, canUseBackend, !isDemoMode,
+              let snapshot = foregroundSession.current(), snapshot.settings.binding == binding,
+              sessionID == nil || snapshot.session?.id == sessionID else { return nil }
+        return liveAnswerActions.first {
+            $0.answerID == id && $0.binding == binding && $0.sessionID == sessionID &&
+            $0.owner == stableInstallID && $0.expiresAt > Date() && $0.deadline > .now
+        }
+    }
+
+    func playLiveAnswerAction(_ action: DJConnectAskDJPlaybackAction, offer: LiveAnswerActions) async {
+        guard let current = answerActions(id: offer.answerID, binding: offer.binding, sessionID: offer.sessionID),
+              current.clientMessageID == offer.clientMessageID, current.actions.contains(action) else { return }
+        await playAskDJRecommendation(action)
+    }
+
     func sendWatchText(_ original: String, context: DJConnectConversationContext, expectedBinding: String?) async -> Bool {
         let text = original.trimmingCharacters(in: .whitespacesAndNewlines)
         if isDemoMode { return await sendDemoWatchText(text, context: context) }
@@ -2652,8 +2705,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             guard canUseBackend, isAppForeground, stableInstallID == owner,
                   foregroundSession.current()?.settings.binding == binding else { return false }
             applyAskDJMessageResponse(response)
+            rememberAnswerActions(response, operationID: operationID, binding: binding, context: context)
             let reply = response.assistantMessage?.text ?? response.djText ?? response.text
-            lastWatchTextReply = reply.map { DJConnectWatchAskDJMessage(role: .dj, text: $0) }
+            lastWatchTextReply = reply.map {
+                DJConnectWatchAskDJMessage(serverID: response.assistantMessage?.id, role: .dj, text: $0)
+            }
             return true
         } catch {
             watchTextOutcomeUnknown = true
@@ -4221,6 +4277,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 guard let originalOperation else { throw DJConnectError.invalidResponse }
                 appendAskDJMessage(role: .user, text: "Stemverzoek")
                 let response: DJConnectVoiceResponse?
+                let conversation: DJConnectAskDJMessageResponse?
                 let reply: String
                 do {
                     let received = try await sendWatchVoice(
@@ -4235,10 +4292,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                         operation: originalOperation,
                         generation: originalGeneration
                     )
-                    guard received.success, let text = nonEmptyString(received.text) ?? nonEmptyString(received.djText) else {
+                    guard received.voice.success, let text = nonEmptyString(received.voice.text) ?? nonEmptyString(received.voice.djText) else {
                         throw DJConnectError.invalidResponse
                     }
-                    response = received
+                    response = received.voice
+                    conversation = received.conversation
                     reply = text
                 } catch DJConnectHybridTransportError.deliveryUnknown {
                     guard originalGeneration == watchRecordingGeneration, let originalBinding,
@@ -4252,11 +4310,19 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                         throw DJConnectHybridTransportError.deliveryUnknown
                     }
                     response = nil
+                    conversation = nil
                     reply = recovered
                 }
                 guard originalGeneration == watchRecordingGeneration,
                       originalOwner == nil || (isAppForeground && canUseBackend && stableInstallID == originalOwner) else { return }
                 voiceState = .idle
+                lastWatchVoiceAnswerID = nil
+                if let conversation, let originalContext, let originalBinding,
+                   foregroundSession.current()?.settings.binding == originalBinding {
+                    rememberAnswerActions(conversation, operationID: originalOperation.id,
+                                          binding: originalBinding, context: originalContext)
+                    lastWatchVoiceAnswerID = conversation.assistantMessage?.id
+                }
                 lastWatchVoiceReply = reply
                 statusMessage = reply
                 responseImages = proxiedResponseImages(response?.images)
@@ -4296,7 +4362,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         _ payload: DJConnectWatchProxyVoicePayload,
         operation: DJConnectWatchVoiceOperation,
         generation: UUID
-    ) async throws -> DJConnectVoiceResponse {
+    ) async throws -> (voice: DJConnectVoiceResponse, conversation: DJConnectAskDJMessageResponse?) {
         #if canImport(WatchConnectivity)
         guard payload.conversationContext != nil, !payload.wavData.isEmpty,
               payload.wavData.count <= DJConnectWatchVoiceAssembly.maximumBytes else { throw DJConnectError.invalidResponse }
@@ -4319,7 +4385,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 throw DJConnectHybridTransportError.deliveryUnknown
             }
             guard response.success, let data = response.payload else { throw Self.errorFromCompanionProxy(response) }
-            if final { return try JSONDecoder().decode(DJConnectVoiceResponse.self, from: data) }
+            if final {
+                let decoder = JSONDecoder()
+                return (try decoder.decode(DJConnectVoiceResponse.self, from: data),
+                        try? decoder.decode(DJConnectAskDJMessageResponse.self, from: data))
+            }
             guard (try? JSONDecoder().decode(Bool.self, from: data)) == true else { throw DJConnectError.invalidResponse }
         }
         #endif

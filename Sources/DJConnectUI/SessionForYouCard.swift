@@ -14,7 +14,7 @@ import DJConnectCore
     @Published private(set) var busy = false
     @Published private(set) var uncertain = false
     @Published private(set) var expired = false
-    @Published private var hiddenOfferID: String?
+    @Published private var hiddenOfferIDs = Set<String>()
     private weak var host: DJConnectAppModel?
     private var captured: Scope?
     private var qualified = false
@@ -66,7 +66,7 @@ import DJConnectCore
             expiryTask?.cancel(); expiryTask = nil
             captured = scope; generation = UUID(); qualified = false; readCompleted = false
             offer = nil; ownedOutputs = []; pendingOutputs = []; outputDeadline = nil; outputInstant = nil; busy = false; uncertain = false; expired = false
-            hiddenOfferID = nil
+            hiddenOfferIDs = []
             wallDeadline = nil; monotonicDeadline = nil; settings = nil; settingsChanged = false
             outputResultSetID = nil; submittedOutputs = []; outputContext = nil
             awaitingOutput = false
@@ -124,6 +124,10 @@ import DJConnectCore
               incoming.isSupported, incoming.session_id == captured.session else { return }
         if let session, Self.settingsData(session) != host?.activeDJSession.flatMap(Self.settingsData) { return }
         if let policy = incoming.refresh_policy, policy.mood_revision != host?.activeDJSession?.moodRevision { return }
+        guard !hiddenOfferIDs.contains(incoming.offer_id) else { return }
+        if incoming.state == "dismissed" {
+            hiddenOfferIDs.insert(incoming.offer_id)
+        }
         let replacement = offer?.offer_id != incoming.offer_id
         host?.recordForYouObservation(state: incoming.state, remaining: incoming.expires_in,
                                      outputs: incoming.continuation?.admittedOutputActions.count ?? 0,
@@ -183,7 +187,9 @@ import DJConnectCore
     /// Terminal Core states close presentation, even if an older server leaves
     /// its visible bit set. An unknown/unavailable outcome is never success.
     var isPresented: Bool {
-        offer?.visible == true && offer?.offer_id != hiddenOfferID && !["confirmed", "closed", "dismissed"].contains(offer?.state ?? "")
+        guard let offer else { return false }
+        return offer.visible && !hiddenOfferIDs.contains(offer.offer_id) &&
+            !["confirmed", "closed", "dismissed"].contains(offer.state)
     }
     var canChoose: Bool {
         isPresented && offer?.actions_available == true && !busy && !uncertain &&
@@ -240,7 +246,7 @@ import DJConnectCore
         ownedOutputs.formUnion(actions.map(\.id))
     }
     private func submit(text: String, choice: DJConnectConversationChoice?, context: DJConnectConversationContext) {
-        guard let host, let captured else { return }
+        guard let host, let captured, let submittedOfferID = offer?.offer_id else { return }
         let token = generation
         let submittedSettings = host.activeDJSession.flatMap(Self.settingsData)
         busy = true
@@ -250,13 +256,16 @@ import DJConnectCore
         Task { [weak self] in
             guard let self else { return }
             defer { if current(captured, token) { busy = false } }
+            guard !hiddenOfferIDs.contains(submittedOfferID) else { return }
             do {
                 let response = try await host.sessionHistory.sendStartupChoice(text: text, choice: choice,
                     sessionID: captured.session, suppliedContext: context, isCurrent: { [weak self] in
-                        self?.current(captured, token) == true && host.activeDJSession.flatMap(Self.settingsData) == submittedSettings &&
+                        self?.current(captured, token) == true &&
+                        host.activeDJSession.flatMap(Self.settingsData) == submittedSettings &&
                         (choice == nil || self?.withinDeadline == true)
                     })
-                guard current(captured, token), host.activeDJSession.flatMap(Self.settingsData) == submittedSettings else { return }
+                guard current(captured, token), !hiddenOfferIDs.contains(submittedOfferID),
+                      host.activeDJSession.flatMap(Self.settingsData) == submittedSettings else { return }
                 // The ordinary reducer renders an output choice as a Session speaker bubble.
                 // Only an authenticated projection may hide the card; an ACK cannot.
                 if let next = response.forYou { observe(next) }
@@ -273,24 +282,23 @@ import DJConnectCore
                 awaitingOutput = response.firstPlay?.state == "output" && response.forYou?.state == "awaiting_output"
                 _ = await host.refreshActiveDJSession()
             } catch {
-                if current(captured, token) { uncertain = true }
+                if current(captured, token), !hiddenOfferIDs.contains(submittedOfferID) { uncertain = true }
             }
         }
     }
     func dismiss() {
-        guard let offer else { return }
-        // Closing a panel is a local presentation choice, never playback authority.
-        // Keep the tombstone across stale same-offer polls even when expiry or an
-        // unknown operation makes a server dismissal unavailable.
-        hiddenOfferID = offer.offer_id
+        guard isPresented, let offer else { return }
+        // A dismissal is independent of the playback choice's deadline.
+        hiddenOfferIDs.insert(offer.offer_id)
         pendingOutputs = []
-        guard !busy, !uncertain, withinDeadline, let host, let context = offer.conversation_context,
+        guard let host, let context = offer.conversation_context,
               let captured, scope == captured else { return }
         let token = generation
-        busy = true
+        let ownsBusy = !busy
+        if ownsBusy { busy = true }
         Task { [weak self] in
-            guard let self else { return }
-            defer { if current(captured, token) { busy = false } }
+            guard let self, current(captured, token) else { return }
+            defer { if ownsBusy, current(captured, token) { busy = false } }
             do {
                 var payload = host.profileConversationPayload(text: "", clientMessageID: "", context: context)
                 payload.clientMessageID = nil; payload.audioResponse = .never
@@ -299,7 +307,7 @@ import DJConnectCore
                     try await $0.sendAskDJMessage(payload)
                 }
                 guard current(captured, token) else { return }
-                if response.forYouDismissed { self.offer = nil }
+                if response.forYouDismissed, self.offer?.offer_id == offer.offer_id { self.offer = nil }
             } catch { /* Dismissal failure grants no new playback operation. */ }
         }
     }
@@ -311,18 +319,26 @@ struct SessionForYouCard: View {
     init(model: DJConnectAppModel) { self.model = model; projection = model.sessionForYou }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     var body: some View {
-        VStack(spacing: 0) {
+        // An absent offer must not occupy a slot in the parent Flow stack.
+        Group {
             if let offer = projection.offer, projection.isPresented {
+                let outputChoices = projection.outputChoices
+                let waitingForConfirmation = !projection.expired && outputChoices.isEmpty &&
+                    (projection.uncertain || ["attempted", "awaiting_output", "uncertain"].contains(offer.state))
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text(offer.title).font(.headline).accessibilityAddTraits(.isHeader)
+                        Label(offer.title, systemImage: "wand.and.stars")
+                            .font(.headline)
+                            .accessibilityAddTraits(.isHeader)
                         Spacer()
-                        if projection.busy { ProgressView() }
+                        if projection.busy || waitingForConfirmation { ProgressView() }
                         if offer.refresh_request?.automatic == false {
                             Button(action: projection.renew) {
-                                Image(systemName: "arrow.clockwise").frame(width: 44, height: 44)
+                                Image(systemName: "arrow.clockwise")
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
                             }
-                            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
+                            .buttonStyle(.plain)
                             .disabled(!projection.canRefresh)
                             .accessibilityLabel(text("ui.for_you.refresh"))
                             .accessibilityIdentifier("session-for-you-refresh")
@@ -351,9 +367,9 @@ struct SessionForYouCard: View {
                     }
                     if offer.refresh_policy?.state == "pending" {
                         Text(text("ui.for_you.preparing")).font(.caption).foregroundStyle(.secondary)
-                    } else if !projection.outputChoices.isEmpty {
+                    } else if !outputChoices.isEmpty {
                         Text(text("ui.for_you.choose_output")).font(.subheadline)
-                        ForEach(projection.outputChoices) { action in
+                        ForEach(outputChoices) { action in
                             Button { _ = projection.handleOutput(action) } label: {
                                 Label(action.deviceName.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? action.title, systemImage: "speaker.wave.2")
                                     .frame(maxWidth: .infinity)
@@ -361,9 +377,7 @@ struct SessionForYouCard: View {
                             .djConnectButtonStyle(DJConnectButtonStyle(expands: true))
                             .accessibilityIdentifier("session-for-you-output-" + action.id)
                         }
-                    } else if projection.uncertain || ["attempted", "awaiting_output", "uncertain"].contains(offer.state) {
-                        Text(text("ui.for_you.pending")).font(.caption).foregroundStyle(.secondary)
-                    } else if projection.expired || offer.state == "unavailable" {
+                    } else if !waitingForConfirmation && (projection.expired || offer.state == "unavailable") {
                         Text(text("ui.for_you.unavailable")).font(.caption).foregroundStyle(.secondary)
                     }
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading).djSessionFrostedSurface()

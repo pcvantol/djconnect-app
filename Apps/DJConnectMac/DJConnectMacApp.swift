@@ -184,7 +184,9 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
             let payload = notification.request.content.userInfo
             if let model { _ = await model.handleRemoteNotificationPayload(payload) }
             else { pendingPush.enqueue(payload) }
-            completionHandler([.banner, .list, .sound])
+            let shouldPresent = model?.shouldPresentRemoteNotification(payload)
+                ?? ((payload["event_type"] as? String) != "dj_moment_published")
+            completionHandler(shouldPresent ? [.banner, .list, .sound] : [])
         }
     }
 
@@ -193,9 +195,10 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        NSApp.activate(ignoringOtherApps: true)
         Task { @MainActor [weak self] in
             guard let self else { completionHandler(); return }
+            guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { completionHandler(); return }
+            presentMainWindow()
             let payload = response.notification.request.content.userInfo
             let handled: Bool
             if let model { handled = await model.handleRemoteNotificationPayload(payload, openedFromTap: true) }
@@ -218,7 +221,8 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
         Task { @MainActor [weak model] in
             for delivery in batch.deliveries {
                 guard let model else { return }
-                _ = await model.handleRemoteNotificationPayload(delivery.userInfo, openedFromTap: delivery.openedFromTap)
+                if let moment = delivery.moment { model.queueMomentOpen(moment) }
+                else { _ = await model.handleRemoteNotificationPayload(delivery.userInfo, openedFromTap: delivery.openedFromTap) }
             }
         }
     }

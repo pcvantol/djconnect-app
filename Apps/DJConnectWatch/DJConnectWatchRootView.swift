@@ -3711,6 +3711,50 @@ private struct AskDJWatchItemList: View {
     }
 }
 
+private struct AskDJWatchActionPopover: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+    @State private var isPresented = false
+    let offer: DJConnectWatchModel.LiveAnswerActions
+
+    var body: some View {
+        TimelineView(.explicit([Date(), offer.expiresAt])) { _ in
+            if !availableActions.isEmpty {
+                Button {
+                    isPresented = true
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(watchLocalizedKey(model.language, "ui.more"))
+                .accessibilityIdentifier("watch-ask-dj-answer-actions")
+                .sheet(isPresented: $isPresented) {
+                    TimelineView(.explicit([Date(), offer.expiresAt])) { _ in
+                        ScrollView {
+                            AskDJWatchPlaybackActionStack(
+                                actions: availableActions, playingActionID: nil
+                            ) { action in
+                                isPresented = false
+                                Task { await model.playLiveAnswerAction(action, offer: offer) }
+                            }
+                            .padding(watchListItemPadding)
+                        }
+                    }
+                    .watchStandardBackground()
+                }
+            }
+        }
+    }
+
+    private var availableActions: [DJConnectAskDJPlaybackAction] {
+        guard let current = model.answerActions(id: offer.answerID, binding: offer.binding, sessionID: offer.sessionID),
+              current.clientMessageID == offer.clientMessageID else { return [] }
+        return current.actions.filter(AskDJWatchPlaybackActionStack.isSupportedAction)
+    }
+}
+
 private struct AskDJWatchPlaybackActionStack: View {
     let actions: [DJConnectAskDJPlaybackAction]
     let playingActionID: String?
@@ -3808,7 +3852,7 @@ private struct AskDJWatchPlaybackActionStack: View {
         }
     }
 
-    private static func isSupportedAction(_ action: DJConnectAskDJPlaybackAction) -> Bool {
+    static func isSupportedAction(_ action: DJConnectAskDJPlaybackAction) -> Bool {
         if action.isSaveCurrentTrackControlAction {
             return true
         }
@@ -4503,6 +4547,20 @@ private struct DJConnectWatchCompanionPages: View {
         .navigationTitle(page == 2 ? text("watch.v2.more") : page == 1 || page == 3 || demoSession != nil || needsSessionReadback || session != nil ? "" : "Ask DJ")
         .toolbarForegroundStyle(page == 2 ? moreTitleColor :
             (page == 0 && session == nil && demoSession == nil ? watchAccentPurple : .white), for: .navigationBar)
+        .toolbar {
+            if page == 2 && destination == nil {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        flowPosition = 0
+                        page = 0
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .foregroundStyle(.white)
+                    }
+                    .accessibilityLabel(text("ui.session.intro.back"))
+                }
+            }
+        }
         .onChange(of: model.watchHomeOpenSequence) { _, _ in page = 0; flowPosition = 0; destination = nil }
         .onChange(of: model.watchMomentOpenIntent, initial: true) { _, intent in
             if let intent { destination = .notification(intent) }
@@ -4991,8 +5049,16 @@ private struct DJConnectWatchCompanionPages: View {
                         if ["ui.session.history.playback", "ui.session.moment.music_announcement"].contains(row.labelKey), let reference = row.reference {
                             DJConnectWatchFlowArtworkView(reference: reference, binding: binding)
                         }
-                        Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
-                            .padding(.vertical, 4)
+                        HStack(alignment: .top, spacing: 4) {
+                            Text(row.text.isEmpty ? text("ui.session.history.contribution_unavailable") : row.text)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.vertical, 4)
+                            if let offer = model.answerActions(id: row.answerID, binding: binding, sessionID: sessionID),
+                               offer.clientMessageID == row.answerClientMessageID,
+                               DJConnectWatchFlowRow.previewText(offer.text) == row.text {
+                                AskDJWatchActionPopover(offer: offer)
+                            }
+                        }
                         if row.spotifyAttribution { flowSpotifyAttribution }
                         ForEach(row.sources.indices, id: \.self) { index in
                             let source = row.sources[index]
@@ -5473,7 +5539,15 @@ private struct DJConnectWatchCompanionTextView: View {
                     Text(watchLocalizedKey(model.language, "ui.session.history.contribution_unavailable")).font(.caption)
                 }
                 if model.watchTextPending { ProgressView() }
-                if sent, let answer { Text(answer.text) }
+                if sent, let answer {
+                    HStack(alignment: .top, spacing: 4) {
+                        Text(answer.text).fixedSize(horizontal: false, vertical: true)
+                        if let originalBinding,
+                           let offer = model.answerActions(id: answer.serverID, binding: originalBinding, sessionID: context.sessionID) {
+                            AskDJWatchActionPopover(offer: offer)
+                        }
+                    }
+                }
                 if !model.isDemoMode && model.watchTextOutcomeUnknown {
                     Button(watchLocalizedKey(model.language, "ui.refresh")) {
                         Task { await model.checkWatchTextOutcome(); if !model.watchTextOutcomeUnknown { answer = model.lastWatchTextReply; sent = true; text = "" } }
@@ -5533,7 +5607,15 @@ private struct DJConnectWatchCompanionVoiceView: View {
                                     speechIsPlaying: evidence.speaking)
                     .frame(width: 64, height: 64)
                 if let reply = model.lastWatchVoiceReply {
-                    Text(reply).font(.caption).multilineTextAlignment(.center)
+                    HStack(alignment: .top, spacing: 4) {
+                        Text(reply).font(.caption).multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let binding = state.current()?.settings.binding,
+                           let offer = model.answerActions(id: model.lastWatchVoiceAnswerID, binding: binding, sessionID: context.sessionID),
+                           offer.text == reply {
+                            AskDJWatchActionPopover(offer: offer)
+                        }
+                    }
                 } else if case .failed(let message) = model.voiceState {
                     Text(message).font(.caption).multilineTextAlignment(.center)
                 } else if !model.statusMessage.isEmpty && model.statusMessage != "Gereed" {

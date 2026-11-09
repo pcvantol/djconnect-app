@@ -234,7 +234,8 @@ HA installation was changed, and no real provider/session run was performed.
 
 Run **Apple E2E fixtures** from GitHub Actions when checking Session UI and Ask DJ
 changes across Apple targets. It runs iPhone and iPad simulator UI flows, macOS
-UI smoke and Watch companion/Moment contract tests. Each job requires a minimum
+UI smoke, Watch companion/Moment contract tests and a surface contract job for
+pairing, notification consent and background state. Each job requires a minimum
 number of passed tests and rejects skips. It uploads only fixture-run evidence.
 The ordinary PR workflow continues to run the cheap contract and orchestration
 checks.
@@ -242,3 +243,132 @@ checks.
 This CI workflow does not arm a Golden plan. It uses the existing local demo
 fixtures and Watch contract tests. A real Golden run still requires the qualified
 Core producer handoff, supported host and provider evidence described above.
+
+## Audit against the current Core inventory
+
+With a local Core checkout, compare the hosted adapter to Core's 44 families
+and 385 steps:
+
+```sh
+python3 Tools/qualification/askdj-golden/audit_core_catalog.py \
+  --core-repo '/path/to/djconnect'
+```
+
+The audit checks the inventory at the local Core `origin/main` against the
+reviewed digest. It reports missing cases, changed expectations, chain changes,
+and language, route, or model-policy gaps per family. Exit 1 means there are
+gaps or the inventory pin needs review. The audit performs no session or
+provider calls and produces no execution receipt.
+
+## Apple transport coverage for the exact Core catalogue
+
+`goldenCatalogueOrdinaryAppleTransport` exercises the paired Apple HTTP client
+with 70 original prompts and 30 continuation steps across EN, NL, DE, FR and ES.
+The fixture checks locale, Session scope, opaque speaker-choice identity and
+the unchanged request body when the duplicate probe resends an accepted turn.
+It uses a synthetic HTTP responder. Core's two catalogue execution gates
+remain separate and require actual Core answers, provider effects and variation
+evidence. The test does not exercise native UI gestures.
+
+Reproduce the test fixture from the pinned Core Git object with
+`export_catalogue_transport.py --core-repo <core-checkout> --output <new-file>`.
+Compare the output byte for byte with
+`Tests/Fixtures/askdj-golden-catalogue-transport-v1.json`.
+Run the Swift test explicitly with the `DJConnectMac` scheme and selector
+`-only-testing:DJConnectCoreTests/goldenCatalogueOrdinaryAppleTransport(_:)`.
+
+## Golden delta contract verification
+
+Use `audit_core_catalog.py --execution-plan` to export the exact new and
+changed steps alongside the old and new order of each affected family.
+The report covers 218 additions and six revisions, including all eight
+changed sequences. It is a planning input and leaves the historical
+167-step hosted admission pin intact.
+
+For producer-side regression verification, export the pinned Core Git
+tree to an empty directory with `git archive`. In a Python environment
+with that revision's development dependencies installed, run
+`run_core_delta_contracts.py --core-snapshot <export> --output <new-directory>`.
+The runner selects the named owning tests by exact file and method, fails
+if any named test is absent, and records fixture outcomes by case.
+It reports separately which cases still require live quality evidence.
+
+On Apple, the manual workflow's `golden-contract` job runs the catalogue
+transport and targeted album, Help, retained speech, contribution,
+Mood, archive deletion and content deletion checks. The album fixture
+contains the frozen result set emitted by Core's 50-track owner test.
+Apple checks that the album and last track keep different actions and
+that invalid or expired album layouts cannot supply frozen actions.
+These checks qualify client contracts. Live model answers, provider
+effects, physical audio and full native UI sequences need separate runs.
+
+## Online catalogue UI suite on iPhone or iPad Simulator
+
+Build `DJConnectIOS` in Debug for the iOS simulator with
+`xcodebuild build-for-testing` and a new DerivedData directory. Install its
+`DJConnect.app` on a dedicated simulator. Open the app normally, pair to the
+authorized disposable HA-dev Profile, set the app language to Dutch, and open
+the already active DJ Session. Keep a current track with an album, a confirmed
+test output, and an available forecast. The fixture also needs an available
+backend with queue, search, output, playlist and recent-history capabilities.
+Use an isolated playback fixture or the currently confirmed Schuur output.
+The play prompts can change playback. The suite does not tap additional
+playback choices.
+
+For a fresh Dutch simulator, the opt-in
+`testPrepareOnlineCataloguePairing` UI test can handle the pending DJConnect
+pairing-link prompt and local network onboarding. Run only that selector with
+`DJCONNECT_ONLINE_PAIRING_SETUP=1` in the UI test target environment. Deliver
+the fresh link through the normal pairing flow first. Finish the HA-dev
+wizard with a separate Profile and complete its provider sign-in, then
+confirm the actual Profile, Session and output before arming any online sends.
+
+Create a mode-0600 JSON plan with these fields:
+
+- `execute: true` and `fixture: "DISPOSABLE_ONLINE_SESSION"`.
+- `session_id`, `profile_id` and `output_id` from the confirmed fixture.
+- `artist` for the three Help actions that insert an editable artist slot.
+- `reply_patterns`, a dictionary of 14 case-insensitive regular expressions
+  keyed by the catalogue's entry IDs. Write each pattern for the fixture's
+  expected answer or valid next step. For example, the current-track response
+  can be checked against the fixture track title. Patterns must cover both the
+  completed Help prompt and its rotating suggestion counterpart. Use the full
+  `entries[].id` list from `ask_dj_examples_v1.json`.
+
+Run the generated simulator `.xctestrun` with the dedicated simulator UUID:
+
+```sh
+python3 Tools/qualification/askdj-golden/run_online_simulator.py \
+  --xctestrun "$DERIVED/Build/Products/<simulator-test-run>.xctestrun" \
+  --plan "$PRIVATE_PLAN" --simulator "$SIMULATOR_UDID" --output "$NEW_PRIVATE_OUTPUT"
+```
+
+The suite opens each of the 14 Help actions through the active Session
+composer and verifies draft completion for the three artist templates. It also
+reopens compact suggestions until every catalogue ID has been tapped, checking
+that each visit shows three distinct choices. Each send must produce a new
+matching question and correlated server reply in the original Session, and
+each reply must satisfy its expected pattern. Missing capability, stale or
+changed scope, absent answer and incomplete rotation coverage fail the run.
+The runner also rejects a skipped test. Keep the result bundle and logs private.
+This UI suite does not establish audible playback or independent provider receipts.
+
+## Regression coverage by layer
+
+| Critical path | Fast unit and contract coverage | Integration and E2E evidence still required |
+| --- | --- | --- |
+| Pairing and recovery | Pairing URL and identity validation, credential storage, authenticated status confirmation and Watch proxy identity | Fresh paired simulator flow and signed Watch recovery after revocation |
+| Session Flow and Ask DJ | Golden transport, ordering, playback and history fixtures, including stale responses and deletes | Existing simulator/macOS smoke exercises native session UI. Run ordered Golden scenarios against a qualified live session to establish model and provider outcomes. |
+| Help and suggestions | Catalogue contract and runner checks | The manual online simulator suite exercises all 14 Help actions and all 14 suggestions with a pinned active session. It requires an authorized fixture. |
+| WidgetKit and Live Activity | Manual `surface-contract` job exercises device/role consent, paired discovery, background credentials, expiry, and delayed artwork | Signed-device delivery after a real DJ publication on Mac, iPhone and iPad, plus artwork and track changes on the lock screen and Dynamic Island |
+| Watch and app Moment alerts | Watch locator and retained Moment tests, and app navigation including revoked consent during a pending read | Loopback WebSocket suite exercises subscription, admission and withdrawal. Signed APNs receipt and opening the exact Moment on each target require device runs. |
+
+Run the six loopback Moment integration tests using a macOS Debug
+`build-for-testing` result and a Core checkout containing the pinned producer
+commits. The runner starts and stops its own local server and requires all six
+tests to pass without skips.
+
+```sh
+python3 Tools/qualification/run_moment_network_tests.py \
+  --core "$CORE_CHECKOUT" --xctestrun "$MAC_XCTESTRUN" --output "$NEW_PRIVATE_OUTPUT"
+```

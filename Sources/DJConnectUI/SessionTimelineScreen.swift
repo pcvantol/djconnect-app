@@ -546,6 +546,36 @@ struct SessionTimelineScreen: View {
         } else { DJConnectCanvasBackground() }
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
+    #if DEBUG && targetEnvironment(simulator)
+    /// Read-only receipt for the manual simulator suite. The normal paired
+    /// client still owns every request, response and playback decision.
+    private var onlineCatalogueTestState: String? {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["DJCONNECT_ONLINE_CATALOGUE_TEST"] == "1" else { return nil }
+        guard let activeSession, activeSession.runtimeState == "active",
+              activeSession.id == environment["DJCONNECT_ONLINE_SESSION"] else { return #"{"scope":"session"}"# }
+        guard let owner = history.authorizedProfileID, owner == environment["DJCONNECT_ONLINE_PROFILE"],
+              model.canUseProfileConversation else { return #"{"scope":"profile"}"# }
+        guard !model.isDemoMode, model.isConnected, model.backendAvailable,
+              !model.isOfflineModeActive, model.language == "nl" else { return #"{"scope":"connection-or-language"}"# }
+        guard model.sessionPlaybackOutputName != nil, let output = model.playback?.device?.id,
+              output == environment["DJCONNECT_ONLINE_OUTPUT"] else { return #"{"scope":"output"}"# }
+        var state = ["scope": "ready"]
+        if let question = model.askDJMessages.last(where: { $0.role == .user }), let id = question.clientMessageID {
+            state["turn"] = id
+            state["question"] = question.text
+            if let reply = model.askDJMessages.last(where: {
+                $0.role == .dj && $0.clientMessageID == id && $0.serverID != nil && !$0.text.isEmpty
+            }), !model.isSendingAskDJText, model.askDJErrorMessage == nil {
+                state["reply"] = reply.text
+            } else if !model.isSendingAskDJText, model.askDJErrorMessage != nil {
+                state["failed"] = "1"
+            }
+        }
+        guard let bytes = try? JSONEncoder().encode(state) else { return "receipt-unavailable" }
+        return String(decoding: bytes, as: UTF8.self)
+    }
+    #endif
     private var matches: [DJConnectHistoryEntry] {
         history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? history.searchMatches.reversed().filter { $0.isRetained() } : []
     }
@@ -651,9 +681,17 @@ struct SessionTimelineScreen: View {
                                         }
                                         VStack(alignment: .leading, spacing: 6) {
                                             if let session = archivedSession {
-                                                Text(SessionArchiveSummary.text(session, language: model.language))
-                                                    .font(.headline).accessibilityAddTraits(.isHeader)
-                                                    .accessibilityIdentifier("session-archive-summary")
+                                                if let timing = SessionArchiveSummary.timing(session, language: model.language) {
+                                                    Text(timing.title)
+                                                        .font(.headline).accessibilityAddTraits(.isHeader)
+                                                        .accessibilityIdentifier("session-archive-summary")
+                                                    VStack(alignment: .leading, spacing: 2) {
+                                                        Text("\(text("ui.session.history.start_time")): \(timing.start)")
+                                                        Text("\(text("ui.session.history.end_time")): \(timing.end)")
+                                                    }
+                                                    .font(.footnote)
+                                                    .foregroundStyle(.white.opacity(0.82))
+                                                }
                                                 if session.lifecycleStatus == "INTERRUPTED" {
                                                     Text(text("ui.session.history.interrupted"))
                                                         .font(.caption).foregroundStyle(.secondary)
@@ -716,7 +754,9 @@ struct SessionTimelineScreen: View {
                         }
                         .modifier(ContentRemovalAnimation(history: history))
                         .frame(width: min(1000, viewport.size.width), alignment: .leading)
-                        .frame(maxWidth: .infinity)
+                        // Keep the scroll content as wide as its viewport even
+                        // when its layout proposal changes during app resume.
+                        .frame(width: viewport.size.width, alignment: .center)
                         .padding(.top, activeSession != nil ? 0 : archivedTopPadding).padding(.bottom, 20)
                         #if os(iOS)
                         .simultaneousGesture(
@@ -906,7 +946,7 @@ struct SessionTimelineScreen: View {
                     sessionSearchToolbarButton(proxy: proxy)
                     sessionToolbarActions(proxy: proxy)
                     if allowsHandoffPresentation {
-                        Button { model.isShowingVibeCastSessionStart = true } label: {
+                        Button { model.openVibeCastDestinationPicker() } label: {
                             Image(systemName: "tv.badge.wifi")
                                 .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
                         }
@@ -1087,8 +1127,19 @@ struct SessionTimelineScreen: View {
             }
             .onDisappear(perform: timelineDidDisappear)
             .accessibilityElement(children: .contain)
-            .accessibilityIdentifier(activeSession == nil ? "screen-history-timeline" : "screen-session-conversation")
+            .modifier(timelineAccessibility)
         }
+    }
+
+    private var timelineAccessibility: SessionTimelineAccessibility {
+        #if DEBUG && targetEnvironment(simulator)
+        let state = onlineCatalogueTestState
+        #else
+        let state: String? = nil
+        #endif
+        return SessionTimelineAccessibility(
+            identifier: activeSession == nil ? "screen-history-timeline" : "screen-session-conversation",
+            testState: state)
     }
 
     private func timelineDidDisappear() {
@@ -1202,7 +1253,7 @@ struct SessionTimelineScreen: View {
                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.voice] = $0 }
                 }
                 if allowsHandoffPresentation {
-                    Button { model.isShowingVibeCastSessionStart = true } label: {
+                    Button { model.openVibeCastDestinationPicker() } label: {
                         Image(systemName: "tv.badge.wifi")
                             .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
                     }
@@ -1332,6 +1383,7 @@ struct SessionTimelineScreen: View {
             let actionEpoch = history.responseEpoch
             SessionEntryView(entry: entry, language: model.language,
                 messageAdapter: liveMessage ?? prepared.message, contextEpoch: actionEpoch,
+                settingsConfirmationMood: entry.archiveBasis == "runtime_accepted_settings_v1" ? activeSession?.selectedMood : nil,
                 opensActiveComposer: activeSession != nil,
                 allowsPlaybackActions: liveMessage != nil,
                 playingActionID: model.playingAskDJActionID,
@@ -1697,6 +1749,7 @@ struct SessionEntryView: View, Equatable {
     let language: String
     var messageAdapter: DJConnectAskDJMessage? = nil
     var contextEpoch: UUID? = nil
+    var settingsConfirmationMood: String? = nil
     var opensActiveComposer = false
     var allowsPlaybackActions = false
     var playingActionID: String? = nil
@@ -1714,7 +1767,8 @@ struct SessionEntryView: View, Equatable {
     var askAction: () -> Void = {}
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.entry == rhs.entry && lhs.language == rhs.language && lhs.messageAdapter == rhs.messageAdapter &&
-        lhs.contextEpoch == rhs.contextEpoch && lhs.opensActiveComposer == rhs.opensActiveComposer &&
+        lhs.contextEpoch == rhs.contextEpoch && lhs.settingsConfirmationMood == rhs.settingsConfirmationMood &&
+        lhs.opensActiveComposer == rhs.opensActiveComposer &&
         lhs.allowsPlaybackActions == rhs.allowsPlaybackActions && lhs.playingActionID == rhs.playingActionID &&
         (lhs.replayAction != nil) == (rhs.replayAction != nil) && lhs.isReplayBusy == rhs.isReplayBusy &&
         lhs.artworkModel === rhs.artworkModel && lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected &&
@@ -1773,8 +1827,15 @@ struct SessionEntryView: View, Equatable {
                         } else {
                             entryArtwork
                             entryHeading
-                            SessionHighlightedText(text: entry.text ?? "", highlights: highlights).font(.title3)
-                                .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
+                            HStack(alignment: .top, spacing: 12) {
+                                if let settingsConfirmationMood {
+                                    DJPersonaAvatarView(confirmedMood: settingsConfirmationMood, language: language)
+                                        .frame(width: 44, height: 44)
+                                        .accessibilityHidden(true)
+                                }
+                                SessionHighlightedText(text: entry.text ?? "", highlights: highlights).font(.title3)
+                                    .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
+                            }
                         }
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
                         ForEach(SessionSourceLinks.groups(urls: sourceURLs.filter { !SessionSourceLinks.isSpotify($0) }, label: sourceLabel)) { group in
@@ -1862,8 +1923,20 @@ struct SessionEntryView: View, Equatable {
         }
     }
     private var entryHeading: some View {
-        Label(text(entry.kind == .djMoment ? (entry.momentType == "music_announcement" ? "ui.session.moment.music_announcement" : "ui.session.moment.generic") : "ui.session.history.playback"),
-              systemImage: entry.kind == .djMoment ? "sparkles" : "music.note")
+        let titleKey: String
+        let symbol: String
+        switch (entry.kind, entry.momentType) {
+        case (.djMoment, "music_announcement"):
+            titleKey = "ui.session.moment.music_announcement"
+            symbol = "megaphone.fill"
+        case (.djMoment, _):
+            titleKey = "ui.session.moment.generic"
+            symbol = "sparkles"
+        default:
+            titleKey = "ui.session.history.playback"
+            symbol = "music.note"
+        }
+        return Label(text(titleKey), systemImage: symbol)
             .font(.caption.weight(.semibold))
     }
     private var playbackDescription: some View {
@@ -2103,7 +2176,14 @@ enum SessionStartMetadata {
 enum SessionArchiveSummary {
     static func text(_ session: DJConnectSavedSession, language: String,
                      timeZone: TimeZone = .current, compact: Bool = false) -> String {
-        guard let created = DJConnectHistoryEntry.date(session.createdAt) else { return "" }
+        guard let timing = timing(session, language: language, timeZone: timeZone) else { return "" }
+        if compact && timing.hasDuration { return timing.title }
+        return timing.title + " (" + timing.start + " – " + timing.end + ")"
+    }
+
+    static func timing(_ session: DJConnectSavedSession, language: String,
+                       timeZone: TimeZone = .current) -> (title: String, start: String, end: String, hasDuration: Bool)? {
+        guard let created = DJConnectHistoryEntry.date(session.createdAt) else { return nil }
         let locale = Locale(identifier: language)
         let date = DateFormatter()
         date.locale = locale; date.timeZone = timeZone
@@ -2111,14 +2191,15 @@ enum SessionArchiveSummary {
         let time = DateFormatter()
         time.locale = locale; time.timeZone = timeZone; time.dateFormat = "HH:mm"
         let endValue = session.endedAt.isEmpty && session.lifecycleStatus == "INTERRUPTED" ? session.interruptedAt : session.endedAt
+        let unknownEnd = DJConnectLocalization.localized(key: "ui.session.history.end_unknown", language: language)
         guard let start = DJConnectHistoryEntry.date(session.startedAt) else {
             let endLabel = DJConnectHistoryEntry.date(endValue).map { date.string(from: $0) + " " + time.string(from: $0) }
-                ?? DJConnectLocalization.localized(key: "ui.session.history.end_unknown", language: language)
-            return date.string(from: created) + " (" + DJConnectLocalization.localized(key: "ui.session.history.start_unknown", language: language) + " – " + endLabel + ")"
+                ?? unknownEnd
+            let unknownStart = DJConnectLocalization.localized(key: "ui.session.history.start_unknown", language: language)
+            return (date.string(from: created), unknownStart, endLabel, false)
         }
         guard let end = DJConnectHistoryEntry.date(endValue), end >= start else {
-            return date.string(from: start) + " (" + time.string(from: start) + " – " +
-                DJConnectLocalization.localized(key: "ui.session.history.end_unknown", language: language) + ")"
+            return (date.string(from: start), time.string(from: start), unknownEnd, false)
         }
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = locale; calendar.timeZone = timeZone
@@ -2130,9 +2211,8 @@ enum SessionArchiveSummary {
         let length = elapsed < 60
             ? DJConnectLocalization.localized(key: "ui.session.history.less_than_minute", language: language)
             : duration.string(from: floor(elapsed / 60) * 60) ?? ""
-        if compact { return date.string(from: start) + " – " + length }
         let endLabel = calendar.isDate(start, inSameDayAs: end) ? time.string(from: end) : date.string(from: end) + " " + time.string(from: end)
-        return date.string(from: start) + " – " + length + " (" + time.string(from: start) + " – " + endLabel + ")"
+        return (date.string(from: start) + " – " + length, time.string(from: start), endLabel, true)
     }
 
 }
@@ -2242,7 +2322,7 @@ struct SessionControlPopoverHost: View {
         switch action {
         case .handoff:
             guard showsHandoff, captured.sessionID == model.activeDJSession?.id else { return }
-            model.isShowingVibeCastSessionStart = true
+            model.openVibeCastDestinationPicker()
         case .voice:
             guard captured.sessionID == model.activeDJSession?.id else { return }
             intent = SessionControlIntent(kind: .voice, sessionID: captured.sessionID, epoch: captured.epoch, sourceRect: captured.sourceRect)
@@ -2254,22 +2334,40 @@ struct SessionControlPopoverHost: View {
             refreshAction?()
         }
     }
+    private func popoverAnchor(in geometry: GeometryProxy) -> CGRect {
+        guard let intent, !intent.sourceRect.isEmpty else {
+            return CGRect(x: max(0, geometry.size.width - 24), y: 0, width: 1, height: 1)
+        }
+        let frame = geometry.frame(in: .global)
+        let source = intent.sourceRect.offsetBy(dx: -frame.minX, dy: -frame.minY)
+        if intent.kind == .playbackVolume {
+            // UIKit can place the popover on either side of the button.
+            return source.insetBy(dx: 0, dy: -4)
+        }
+        return CGRect(x: source.midX, y: source.maxY + 4, width: 1, height: 1)
+    }
+
     var body: some View {
         GeometryReader { geometry in
-            let frame = geometry.frame(in: .global)
-            let source = intent?.sourceRect ?? .zero
-            let anchor = source.isEmpty
-                ? CGRect(x: max(0, geometry.size.width - 24), y: 0, width: 1, height: 1)
-                : CGRect(x: source.midX - frame.minX, y: source.maxY - frame.minY + 4, width: 1, height: 1)
+            let anchor = popoverAnchor(in: geometry)
             // The anchor is in this host's coordinates. A 1×1 source view made
             // most anchors fall outside UIKit's source bounds, causing invalid
             // hit-test geometry and repeated popover relayout on iPad.
             SessionControlNativePopover(intent: $intent, anchor: anchor) { captured in
                 Group {
                     if captured.kind == .playbackControls {
-                        ScrollView { NowPlayingPlaybackCardContent(model: model).padding(20) }
+                        ViewThatFits(in: .vertical) {
+                            NowPlayingPlaybackCardContent(model: model)
+                                .padding(20)
+                                .fixedSize(horizontal: false, vertical: true)
+                            ScrollView {
+                                NowPlayingPlaybackCardContent(model: model).padding(20)
+                            }
                             .scrollBounceBehavior(.basedOnSize)
-                            .frame(idealWidth: 380, maxWidth: 380, idealHeight: 460, maxHeight: 460)
+                        }
+                        .frame(idealWidth: 380, maxWidth: 380)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("session-playback-popover")
                     } else if captured.kind == .playbackOutputs {
                         OutputSelectorView(scrollsOutputs: true, model: model)
                             .padding(16).frame(idealWidth: 360, maxWidth: 360, idealHeight: 420, maxHeight: 420)
@@ -3436,5 +3534,18 @@ extension View {
         #else
         self
         #endif
+    }
+}
+
+private struct SessionTimelineAccessibility: ViewModifier {
+    let identifier: String
+    let testState: String?
+
+    func body(content: Content) -> some View {
+        if let testState {
+            content.accessibilityIdentifier(identifier).accessibilityValue(testState)
+        } else {
+            content.accessibilityIdentifier(identifier)
+        }
     }
 }

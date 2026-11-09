@@ -8768,8 +8768,9 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let iOSBonjourServices = try #require(iOSPlist["NSBonjourServices"] as? [String])
     let macBonjourServices = try #require(macPlist["NSBonjourServices"] as? [String])
 
-    #expect(iOSBonjourServices == ["_home-assistant._tcp."])
-    #expect(macBonjourServices == ["_home-assistant._tcp."])
+    let supportedBonjourServices = ["_home-assistant._tcp.", "_googlecast._tcp"]
+    #expect(iOSBonjourServices.sorted() == supportedBonjourServices.sorted())
+    #expect(macBonjourServices.sorted() == supportedBonjourServices.sorted())
     #expect(String(describing: iOSPlist).contains("_djconnect") == false)
     #expect(String(describing: macPlist).contains("_djconnect") == false)
 }
@@ -13980,6 +13981,32 @@ private extension String {
     let legacy = buffer.drain()
     #expect(legacyTap)
     #expect(legacy.deliveries.first?.eventType == "ask_dj_response")
+}
+
+@MainActor @Test(.isolatedClientResources) func pushStartupPreservesOnlyTheLatestValidTappedMomentLocator() {
+    let deadline = Int64(Date().addingTimeInterval(60).timeIntervalSince1970 * 1_000)
+    var payload: [AnyHashable: Any] = [
+        "version": "djc-watch-moment/1", "event_type": "dj_moment_published",
+        "open_target": "dj_moment", "event_id": "event-1", "session_id": "session-a",
+        "moment_id": "moment-a", "transport_expires_at_ms": NSNumber(value: deadline),
+        "aps": ["category": "DJCONNECT_MOMENT_V1", "alert": "notification text"]
+    ]
+    var buffer = DJConnectPushStartupBuffer()
+    let delivered = buffer.enqueue(payload)
+    let deliveryBatch = buffer.drain()
+    let firstTap = buffer.enqueue(payload, openedFromTap: true)
+    payload["moment_id"] = "moment-b"
+    payload["event_id"] = "event-2"
+    let secondTap = buffer.enqueue(payload, openedFromTap: true)
+    payload["transport_expires_at_ms"] = 0
+    let expiredTap = buffer.enqueue(payload, openedFromTap: true)
+    let batch = buffer.drain()
+    #expect(delivered && firstTap && secondTap && expiredTap)
+    #expect(deliveryBatch.deliveries.isEmpty)
+    #expect(batch.deliveries.count == 1)
+    #expect(batch.deliveries.first?.moment?.sessionID == "session-a")
+    #expect(batch.deliveries.first?.moment?.momentID == "moment-b")
+    #expect(batch.deliveries.first?.userInfo["aps"] == nil)
 }
 
 @Test(.isolatedClientResources) func appleAppBundlesShipCanonicalTrustedPushIssuer() throws {
