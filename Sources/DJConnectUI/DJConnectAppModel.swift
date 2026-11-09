@@ -18607,7 +18607,7 @@ public final class DJConnectAppModel: ObservableObject {
     nonisolated static func githubReleaseNotesURL(version: String, clientType: DJConnectClientType) -> URL? {
         let encodedTag = publicReleaseTag(version: version, clientType: clientType)
             .replacingOccurrences(of: "/", with: "%2F")
-        return URL(string: "https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/\(encodedTag)")
+        return URL(string: "https://api.github.com/repos/djconnect-music-dj/djconnect-app-releases/releases/tags/\(encodedTag)")
     }
 
     nonisolated static func publicDownloadsURL(clientType: DJConnectClientType) -> URL? {
