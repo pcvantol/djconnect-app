@@ -1497,8 +1497,8 @@ private struct PermissionExplanationView: View {
                             Text(permissionExplanationPrimaryText)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
-                            if model.permissionExplanationKind == .notifications {
-                                Text(localizedKey(model.language, "ui.push.notifications.are.only.used.for.djconnect.notifications.such.as"))
+                            if model.permissionExplanationKind != .microphone {
+                                Text(localizedKey(model.language, "ui.privacy.push"))
                                     .font(.callout)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -18853,11 +18853,14 @@ private struct PrivacyView: View {
                 VStack(alignment: .leading, spacing: djConnectCardSpacing) {
                     AboutBanner()
                     SettingsSection(title: localizedKey(language, "ui.privacy"), showsDivider: false) {
-                        SelectableValue(localizedKey(language, "ui.djconnect.does.not.collect.sell.or.process.personal.data.in"))
-                        SelectableValue(localizedKey(language, "ui.device.tokens.are.stored.locally.in.the.app.s.private"))
-                        SelectableValue(localizedKey(language, "ui.push.notifications.are.only.used.for.djconnect.notifications.such.as"))
-                        SelectableValue(localizedKey(language, "ui.music.playback.and.voice.requests.are.handled.through.your.own"))
-                        SelectableValue(localizedKey(language, "ui.ai.and.assist.answers.can.be.incorrect.and.depend.on"))
+                        SelectableValue(localizedKey(language, "ui.privacy.connection"))
+                        SelectableValue(localizedKey(language, "ui.privacy.home-assistant"))
+                        SelectableValue(localizedKey(language, "ui.privacy.choices"))
+                        SelectableValue(localizedKey(language, "ui.privacy.push"))
+                        SelectableValue(localizedKey(language, "ui.privacy.diagnostics"))
+                        Link(localizedKey(language, "ui.privacy.full-statement"),
+                             destination: DJConnectLocalization.privacyStatementURL(language: language))
+                            .accessibilityIdentifier("privacy-full-statement")
                     }
                     .padding(24)
                     .frame(maxWidth: .infinity, alignment: .leading)
