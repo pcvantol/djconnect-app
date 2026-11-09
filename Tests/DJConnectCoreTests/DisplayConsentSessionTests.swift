@@ -89,6 +89,23 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
             if mode == "existing" || (mode == "new-share" && count > 1) {
                 value.merge(["share_id": consentShare, "share_generation": 1, "expires_in": 3600.0, "expires_at": expiry(3600)]) { _, new in new }
             }
+            if mode.hasPrefix("slot-") {
+                var slot: [String: Any] = ["version": 1, "state": mode == "slot-reserved" ? "reserved" : "available"]
+                if mode != "slot-available" {
+                    slot["display"] = ["display_id": String(repeating: "F", count: 42) + "A", "share_id": consentShare,
+                                       "connection_generation": 0]
+                }
+                value["live_display_status"] = ["version": 1, "observation_revision": count,
+                                                "displays": [], "screen_slot": slot]
+            }
+            if mode.hasPrefix("live-") {
+                value["live_display_status"] = ["version": mode == "live-unsupported" ? 2 : 1,
+                    "observation_revision": count,
+                    "displays": mode == "live-empty" ? [] : [[
+                        "display_id": String(repeating: "F", count: 42) + "A", "share_id": consentShare,
+                        "connection_generation": mode == "live-replaced" && count > 1 ? 2 : 1
+                    ]]]
+            }
         } else if path.hasSuffix("/owner/resolve") {
             value.merge(["claim_id": String(repeating: "B", count: 42) + "A",
                 "browser_generation": String(repeating: "C", count: 42) + "A", "issuer_epoch": consentEpoch,
@@ -106,6 +123,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
             }
         } else if path.hasSuffix("/owner/revoke") {
             if mode == "unknown-revoke" { status = 503; value = [:] }
+            if mode == "live-stop" || mode == "slot-reserved" { value["observation_revision"] = count + 1 }
         } else { status = 404 }
         let bytes = try! JSONSerialization.data(withJSONObject: value)
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: status,
@@ -128,6 +146,77 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
             sessionID: "fixture-session", pairedLocalOrigin: origin, isCurrent: { authority.get() })
         return (flow, store, authority)
     }
+    @Test(.isolatedClientResources) func pairedStatusUsesExactConnectionAndNeverStopsAReplacement() async throws {
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [ConsentWire.self]
+        let origin = URL(string: "http://127.0.0.1:18801")!
+        let client = DJConnectClient(baseURL: origin,
+            identity: DJConnectIdentity(deviceID: "djconnect-ios-ABCDEF123457", deviceName: "Second device",
+                clientType: .ios, firmware: "test", platform: .ios),
+            tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-owner"), session: URLSession(configuration: config))
+        for mode in ["live-stop", "live-replaced", "live-empty", "live-unsupported"] {
+            ConsentWire.reset(mode)
+            let context = try await client.displayOwnerContext(expectedInstallationID: "fixture-install",
+                pairedLocalOrigin: origin, isCurrent: { true })
+            #expect(context.advertisesDisplayStatus)
+            if mode == "live-unsupported" {
+                #expect(context.displayObservation == nil)
+                continue
+            }
+            let observation = try #require(context.displayObservation)
+            if mode == "live-empty" {
+                #expect(observation.displays.isEmpty)
+                continue
+            }
+            let display = try #require(observation.displays.first)
+            if mode == "live-replaced" {
+                await #expect(throws: (any Error).self) {
+                    try await client.stopLiveDisplay(display, observed: observation, expectedInstallationID: "fixture-install",
+                        pairedLocalOrigin: origin, isCurrent: { true })
+                }
+                #expect(!ConsentWire.requests.contains { $0.url!.path.hasSuffix("/revoke") })
+            } else {
+                let revision = try await client.stopLiveDisplay(display, observed: observation,
+                    expectedInstallationID: "fixture-install", pairedLocalOrigin: origin, isCurrent: { true })
+                #expect(revision > observation.revision)
+                let body = try ConsentWire.body(for: "/owner/revoke")
+                #expect(body["display_id"] as? String == display.id)
+                #expect(body["share_id"] as? String == consentShare)
+                #expect(body["connection_generation"] as? Int == 1)
+                #expect(body["issuer_epoch"] as? String == consentEpoch)
+                #expect((body["identity"] as? [String: String])?["device_id"] == "djconnect-ios-ABCDEF123457")
+            }
+        }
+    }
+
+    @Test(.isolatedClientResources) func screenSlotDoesNotInferAvailabilityFromAnEmptyLiveList() async throws {
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [ConsentWire.self]
+        let origin = URL(string: "http://127.0.0.1:18801")!
+        let client = DJConnectClient(baseURL: origin,
+            identity: DJConnectIdentity(deviceID: "djconnect-ios-ABCDEF123457", deviceName: "Second device",
+                clientType: .ios, firmware: "test", platform: .ios),
+            tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-owner"), session: URLSession(configuration: config))
+        for mode in ["live-empty", "slot-inconsistent", "slot-available", "slot-reserved"] {
+            ConsentWire.reset(mode)
+            let context = try await client.displayOwnerContext(expectedInstallationID: "fixture-install",
+                pairedLocalOrigin: origin, isCurrent: { true })
+            let observation = try #require(context.displayObservation)
+            #expect(observation.displays.isEmpty)
+            switch mode {
+            case "slot-available":
+                #expect(observation.screenSlot?.state == .available)
+            case "slot-reserved":
+                #expect(observation.screenSlot?.state == .reserved)
+                let target = try #require(observation.screenSlot?.display)
+                #expect(target.connectionGeneration == 0)
+                _ = try await client.stopLiveDisplay(target, observed: observation,
+                    expectedInstallationID: "fixture-install", pairedLocalOrigin: origin, isCurrent: { true })
+                #expect(try ConsentWire.body(for: "/owner/revoke")["connection_generation"] as? Int == 0)
+            default:
+                #expect(observation.screenSlot == nil)
+            }
+        }
+    }
+
     @Test(.isolatedClientResources) func lookupDoesNotApproveAndExplicitConfirmationSendsOneEffect() async throws {
         let (flow, _, _) = try make()
         try await flow.resolve(code: "000000")
