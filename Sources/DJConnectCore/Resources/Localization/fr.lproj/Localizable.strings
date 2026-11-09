@@ -1481,6 +1481,7 @@
 "ui.displayConsent.create" = "Partager uniquement votre DJ Session actuelle avec cet écran pendant deux heures ?";
 "ui.displayConsent.existing" = "Autoriser cet écran à utiliser le partage existant de votre Session actuelle, sans prolonger son expiration ?";
 "ui.displayConsent.confirm" = "Autoriser cet écran";
+"ui.displayConsent.active_title" = "VibeCast est actif";
 "ui.displayConsent.approved" = "Écran autorisé pour votre Session actuelle.";
 "ui.displayConsent.uncertain" = "L’autorisation n’a pas été confirmée. Vérifiez l’écran avant une nouvelle demande.";
 "ui.displayConsent.unavailable" = "Le code de l’écran ou la Session actuelle n’est plus disponible.";

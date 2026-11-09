@@ -92,6 +92,19 @@ import XCTest
         let stop = app.buttons["display-consent-stop"]
         XCTAssertTrue(stop.waitForExistence(timeout: 10))
         XCTAssertTrue(stop.isEnabled)
+        XCTAssertFalse(app.textFields["vibecast-handoff-digit-0"].exists)
+
+        let close = app.buttons["display-consent-close"]
+        XCTAssertEqual(close.label, "Close")
+        close.consentActivate()
+        let reopen = app.buttons["consent-harness-open"]
+        XCTAssertTrue(reopen.waitForExistence(timeout: 5))
+        reopen.consentActivate()
+        XCTAssertTrue(stop.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["vibecast-handoff-digit-0"].exists)
+        XCTAssertFalse(app.buttons["display-consent-lookup"].exists)
+        XCTAssertEqual(app.staticTexts["consent-harness-approvals"].consentText, "approvals:1")
+
         stop.consentActivate()
         XCTAssertTrue(app.staticTexts["Screen sharing stopped. Your DJ session continues."].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["display-consent-stop"].exists)

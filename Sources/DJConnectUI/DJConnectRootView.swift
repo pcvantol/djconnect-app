@@ -865,16 +865,16 @@ public struct DJConnectRootView: View {
                 .tint(.white)
                 .accentColor(.white)
                 #else
-                GeometryReader { proxy in
-                    Group {
-                        if usesNativeiPadTabs {
-                            iPadRootTabs
-                        } else {
-                            compactRootTabs
-                                .id("compact-tabs-\(orientationID(for: proxy.size))")
-                        }
+                if usesNativeiPadTabs {
+                    // Let UIKit apply the safe area inside its tab controller.
+                    iPadRootTabs
+                        .ignoresSafeArea(.container, edges: .vertical)
+                } else {
+                    GeometryReader { proxy in
+                        compactRootTabs
+                            .id("compact-tabs-\(orientationID(for: proxy.size))")
+                            .frame(width: proxy.size.width, height: proxy.size.height)
                     }
-                    .frame(width: proxy.size.width, height: proxy.size.height)
                 }
                 #endif
             }
@@ -968,6 +968,12 @@ public struct DJConnectRootView: View {
             await model.refreshActiveDJSession()
         }
         .task(id: model.pairingStatus) { await history.prepare() }
+        .task(id: model.isVibeCastSharing) {
+            while model.isVibeCastSharing && !Task.isCancelled {
+                model.refreshDisplayConsentPresentation()
+                do { try await Task.sleep(for: .seconds(1)) } catch { return }
+            }
+        }
         .task(id: scenePhase == .active && model.pairingStatus == .paired ? model.pendingMomentOpen : nil) {
             guard scenePhase == .active, let intent = model.pendingMomentOpen else { return }
             await model.openPendingMoment(intent)
@@ -9040,6 +9046,7 @@ private struct DJSessionView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 24)
             }
+            .scrollClipDisabled(UIDevice.current.userInterfaceIdiom == .pad)
             // Move the card above the navigation bar's inset, to the
             // pre-navigation safe edge. Keep the card's own padding fixed.
             .padding(.top, max(0, contentTop - geometry.frame(in: .global).minY))
@@ -9423,8 +9430,7 @@ struct VibeCastSessionStartDialog: View {
     }
 
     var body: some View {
-        ZStack {
-            DJConnectCanvasBackground()
+        Group {
             if showsDestinations {
                 VibeCastDestinationPicker(language: model.language, scansNetwork: !model.isDemoMode) {
                     showsDestinations = false
@@ -9444,6 +9450,10 @@ struct VibeCastSessionStartDialog: View {
                 #endif
             }
         }
+        .background { DJConnectCanvasBackground() }
+        #if os(iOS)
+        .presentationSizing(.fitted)
+        #endif
         .tint(.white)
         .accentColor(.white)
         .interactiveDismissDisabled(true)
@@ -9453,32 +9463,25 @@ struct VibeCastSessionStartDialog: View {
 
     private var dialogContent: some View {
         VStack(alignment: .leading, spacing: 22) {
-                VStack(spacing: 18) {
-                    DJConnectHeroGlyph(systemImage: "tv.badge.wifi")
-                    Text(localizedKey(model.language, "ui.vibecast.handoff.title"))
-                        .font(.title2.bold())
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
-                .padding(.horizontal, 16)
-
-                .accessibilityElement(children: .combine)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier("vibecast-session-start-hero")
+                VibeCastDialogHero(title: localizedKey(model.language, model.isVibeCastSharing
+                    ? "ui.displayConsent.active_title" : "ui.vibecast.handoff.title"))
+                    .padding(.vertical, 20)
+                    .padding(.horizontal, 16)
+                    .accessibilityIdentifier("vibecast-session-start-hero")
                 #if os(iOS) && DJCONNECT_VIBECAST_FIXED_QA
-                Button(localizedKey(model.language, "ui.rendezvous.scan")) {
-                    model.cancelRendezvous()
-                    model.isShowingVibeCastSessionStart = false
-                    model.isShowingRendezvous = true
+                if !model.isVibeCastSharing {
+                    Button(localizedKey(model.language, "ui.rendezvous.scan")) {
+                        model.cancelRendezvous()
+                        model.isShowingVibeCastSessionStart = false
+                        model.isShowingRendezvous = true
+                    }
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .accessibilityIdentifier("vibecast-session-scan-tv")
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-                .accessibilityIdentifier("vibecast-session-scan-tv")
                 #endif
                 VibeCastHandoffForm(model: model)
-                DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
+                DJConnectNotNowLinkButton(language: model.language,
+                    key: model.isVibeCastSharing || model.displayConsentState == .revoked ? "ui.close" : "ui.not.now.b1e535") {
                     resignPlatformFirstResponder()
                     dismiss()
                 }
@@ -9494,6 +9497,24 @@ struct VibeCastSessionStartDialog: View {
     }
 }
 
+private struct VibeCastDialogHero: View {
+    let title: String
+
+    var body: some View {
+        VStack(spacing: 18) {
+            DJConnectHeroGlyph(systemImage: "tv.badge.wifi")
+            Text(title)
+                .font(.title2.bold())
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
 private struct VibeCastDestinationPicker: View {
     let language: String
     let scansNetwork: Bool
@@ -9504,34 +9525,13 @@ private struct VibeCastDestinationPicker: View {
     @StateObject private var discovery = VibeCastDeviceDiscovery()
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(localizedKey(language, "ui.vibecast.destinations.title"))
-                    .font(.title2.bold())
-                    .accessibilityAddTraits(.isHeader)
-                VStack(spacing: 4) {
-                    Button(action: openScreen) {
-                        destinationRow(localizedKey(language, "ui.vibecast.destinations.screen"),
-                                       symbol: "tv.badge.wifi", showsChevron: true)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("vibecast-destination-screen")
-                    ForEach(discovery.devices) { device in
-                        destinationRow(device.name, symbol: "tv.badge.wifi", showsChevron: false)
-                            .accessibilityHint(localizedKey(language, "ui.vibecast.destinations.unavailable"))
-                    }
-                }
-                Text(localizedKey(language, statusKey))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                DJConnectNotNowLinkButton(language: language, key: "ui.not.now.b1e535") { dismiss() }
-            }
-            .padding(24)
-            .djSessionFrostedSurface()
-            .padding(20)
-            .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620)
+        ViewThatFits(in: .vertical) {
+            card.fixedSize(horizontal: false, vertical: true)
+            ScrollView { card }
+                .scrollBounceBehavior(.basedOnSize)
         }
-        .frame(maxHeight: 460)
+        .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 400, maxWidth: 460)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("vibecast-destination-picker")
         .onChange(of: scenePhase, initial: true) {
             if scansNetwork && scenePhase == .active {
@@ -9541,6 +9541,32 @@ private struct VibeCastDestinationPicker: View {
             }
         }
         .onDisappear { discovery.stop() }
+    }
+
+    private var card: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VibeCastDialogHero(title: localizedKey(language, "ui.vibecast.destinations.title"))
+                .accessibilityIdentifier("vibecast-destination-hero")
+            VStack(spacing: 4) {
+                Button(action: openScreen) {
+                    destinationRow(localizedKey(language, "ui.vibecast.destinations.screen"),
+                                   symbol: "tv.badge.wifi", showsChevron: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("vibecast-destination-screen")
+                ForEach(discovery.devices) { device in
+                    destinationRow(device.name, symbol: "tv.badge.wifi", showsChevron: false)
+                        .accessibilityHint(localizedKey(language, "ui.vibecast.destinations.unavailable"))
+                }
+            }
+            Text(localizedKey(language, statusKey))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            DJConnectNotNowLinkButton(language: language, key: "ui.not.now.b1e535") { dismiss() }
+        }
+        .padding(24)
+        .djSessionFrostedSurface()
+        .padding(16)
     }
 
     private var statusKey: String {
@@ -9676,12 +9702,14 @@ struct VibeCastDisplayConsentForm: View {
         }
         .onChange(of: history.responseEpoch) { model.refreshDisplayConsentPresentation() }
         .onChange(of: history.authorizedProfileID) { model.refreshDisplayConsentPresentation() }
-        .onChange(of: code) { _, _ in model.resetDisplayConsent() }
+        .onChange(of: model.isVibeCastSharing) { _, sharing in
+            if sharing { code = "" }
+        }
         .onChange(of: lookupFocusRequest) {
             if code.count == 6, model.canResolveDisplayConsent { lookupFocused = true }
         }
-        .onAppear { model.resetDisplayConsent() }
-        .onDisappear { model.cancelDisplayConsent() }
+        .onAppear { model.prepareDisplayConsentPresentation() }
+        .onDisappear { model.dismissDisplayConsentPresentation() }
         .task {
             while !Task.isCancelled {
                 model.refreshDisplayConsentPresentation()
@@ -9695,17 +9723,25 @@ struct VibeCastDisplayConsentForm: View {
                 if !embedded {
                     VStack(spacing: 16) {
                         DJConnectHeroGlyph(systemImage: "tv.badge.wifi")
-                        Text(localizedKey(model.language, "ui.displayConsent.title"))
+                        Text(localizedKey(model.language, model.isVibeCastSharing
+                            ? "ui.displayConsent.active_title" : "ui.displayConsent.title"))
                             .font(.title2.bold())
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
                 }
-                Text(localizedKey(model.language, "ui.displayConsent.instructions"))
-                VibeCastCodeEntry(code: $code, accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code")) {
-                    lookupFocusRequest += 1
+                if !model.isVibeCastSharing && model.displayConsentState != .revokeUncertain {
+                    Text(localizedKey(model.language, "ui.displayConsent.instructions"))
+                    VibeCastCodeEntry(code: Binding(get: { code }, set: { value in
+                        guard value != code else { return }
+                        code = value
+                        model.resetDisplayConsent()
+                    }), accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code")) {
+                        lookupFocusRequest += 1
+                    }
+                    .frame(height: 64)
+                    .disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .uncertain)
                 }
-                    .frame(height: 64).disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .approved || model.displayConsentState == .uncertain || model.displayConsentState == .revokeUncertain)
                 if model.displayConsentState == .idle || model.displayConsentState == .unavailable || model.displayConsentState == .revoked {
                     Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
                         resignPlatformFirstResponder()
@@ -9739,7 +9775,8 @@ struct VibeCastDisplayConsentForm: View {
                 if model.displayConsentState == .uncertain { Text(localizedKey(model.language, "ui.displayConsent.uncertain")) }
                 if model.displayConsentState == .unavailable { Text(localizedKey(model.language, "ui.displayConsent.unavailable")) }
                 if !embedded {
-                    Button(localizedKey(model.language, "ui.not.now.b1e535")) { model.cancelDisplayConsent(); dismiss() }
+                    Button(localizedKey(model.language, model.isVibeCastSharing || model.displayConsentState == .revoked
+                        ? "ui.close" : "ui.not.now.b1e535")) { dismiss() }
                         .accessibilityIdentifier("display-consent-close")
                 }
             }

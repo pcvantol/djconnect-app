@@ -1230,18 +1230,24 @@ struct SessionPlaybackCardButton: View {
         .accessibilityIdentifier("session-playback-card-open")
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sourceRect = $0 }
         .popover(isPresented: $showsPlayback) {
-            ScrollView {
-                NowPlayingPlaybackCardContent(model: model).padding(20)
+            Group {
+                #if os(macOS)
+                NowPlayingPlaybackCardContent(model: model)
+                    .padding(20)
+                    .frame(width: 380)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .djConnectPresentationSurface()
+                #else
+                ScrollView {
+                    NowPlayingPlaybackCardContent(model: model).padding(20)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(minWidth: 280, idealWidth: 380, maxWidth: 440, idealHeight: 460, maxHeight: 460)
+                .djConnectGlassPopoutSurface(nativePresentation: true)
+                .djConnectPresentationSurface()
+                #endif
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .frame(minWidth: 280, idealWidth: 380, maxWidth: 440, idealHeight: 460, maxHeight: 460)
             .environment(\.djConnectScrollingSurface, false)
-            #if os(macOS)
-            // Let AppKit draw the single native glass rim and corner radius.
-            .djConnectPresentationSurface()
-            #else
-            .djConnectGlassPopoutSurface(nativePresentation: true).djConnectPresentationSurface()
-            #endif
             .presentationCompactAdaptation(.popover)
         }
         .onChange(of: context) { _, _ in showsPlayback = false }

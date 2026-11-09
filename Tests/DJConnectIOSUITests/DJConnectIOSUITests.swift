@@ -2472,8 +2472,19 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(handoff.waitForExistence(timeout: 5)); handoff.tap()
         let screen = app.buttons["vibecast-destination-screen"]
         XCTAssertTrue(screen.waitForExistence(timeout: 5))
-        screen.tap()
         let dialog = app.descendants(matching: .any)["vibecast-session-start-dialog"].firstMatch
+        let pickerTitle = app.descendants(matching: .any)["vibecast-destination-hero"].firstMatch
+        XCTAssertTrue(pickerTitle.exists)
+        XCTAssertEqual(pickerTitle.label, "Kies een scherm")
+        XCTAssertEqual(pickerTitle.frame.midX, screen.frame.midX, accuracy: 12)
+        if app.frame.width >= 700 {
+            XCTAssertLessThan(dialog.frame.height, 460, "The empty destination picker fits its content")
+        }
+        let pickerScreenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        pickerScreenshot.name = "vibecast-compact-destination-picker"
+        pickerScreenshot.lifetime = .keepAlways
+        add(pickerScreenshot)
+        screen.tap()
         XCTAssertTrue(dialog.waitForExistence(timeout: 10))
         if app.frame.width >= 700 {
             XCTAssertEqual(dialog.frame.midY, app.frame.midY, accuracy: 36, "Native iPad sheet stays centered")
