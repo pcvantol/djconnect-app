@@ -162,9 +162,9 @@ git diff --check
 - Build and run on a physical iPad.
 - Validate first-run welcome, pairing sheet, Demo Mode, Settings, About, Queue,
   Playlists, Now Playing, Push-to-Talk, permissions, and logs.
-- Validate pairing guidance uses a local Home Assistant LAN URL and does not
-  suggest remote pairing. Confirm remote fallback is only shown/used after a
-  successful local pairing response provides `ha_remote_url`.
+- Validate first pairing with both a local Home Assistant address and the full
+  external HTTPS address. For the external test, turn off Wi-Fi, finish setup
+  in Home Assistant, and confirm that the app resumes pairing over cellular.
 - Validate the runtime status surface shows Home Assistant route
   (`local`/`remote`/`offline`), music backend availability, and playback state.
 - Validate the DJConnect blue/purple gradient canvas is visible behind every

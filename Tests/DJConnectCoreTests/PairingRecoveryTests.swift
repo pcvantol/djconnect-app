@@ -181,9 +181,6 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
         if attempt == 1 {
             #expect(request.url?.path == "/api/djconnect/v1/pair")
             #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
-            let payload = try JSONDecoder().decode(DJConnectPairingPayload.self, from: #require(request.httpBody))
-            #expect(payload.pairCode == "123456")
-            #expect(payload.haLocalURL == nil)
             return (200, Data(#"{"success":true,"setup_pending":true,"device_token":"fixture-remote-token"}"#.utf8))
         }
         #expect(request.url?.path == "/api/djconnect/v1/status")
@@ -195,7 +192,13 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     let identity = DJConnectIdentity(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Pairing fixture",
                                      clientType: .ios, firmware: "4.0.0", platform: .ios)
     let client = DJConnectClient(baseURL: origin, identity: identity, tokenStore: DJConnectInMemoryTokenStore(), session: wire.session())
-    let response = try await client.pair(.init(identity: identity, pairingToken: "123456"))
+    let payload = DJConnectPairingPayload(identity: identity, pairingToken: "123456")
+    let request = try client.pairingRequest(payload)
+    let body = try #require(request.httpBody)
+    let decoded = try JSONDecoder().decode(DJConnectPairingPayload.self, from: body)
+    #expect(decoded.pairCode == "123456")
+    #expect(decoded.haLocalURL == nil)
+    let response = try await client.pair(payload)
     #expect(response.setupPending == true)
     let status = try await client.postPairingCompletionStatus(.init(identity: identity))
     #expect(status.haInstallID == "fixture-install")
