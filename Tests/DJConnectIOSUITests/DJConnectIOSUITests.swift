@@ -2487,7 +2487,10 @@ extension DJConnectIOSUITests {
         XCTAssertEqual(pickerTitle.label, "Kies een scherm")
         XCTAssertEqual(pickerTitle.frame.midX, screen.frame.midX, accuracy: 12)
         if app.frame.width >= 700 {
-            XCTAssertLessThan(dialog.frame.height, 460, "The empty destination picker fits its content")
+            let pickerClose = app.buttons["Niet nu"]
+            XCTAssertTrue(pickerClose.isHittable)
+            XCTAssertLessThan(pickerClose.frame.maxY - pickerTitle.frame.minY, 400,
+                              "The visible destination card fits its content")
         }
         let pickerScreenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         pickerScreenshot.name = "vibecast-compact-destination-picker"

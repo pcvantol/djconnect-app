@@ -9435,23 +9435,26 @@ struct VibeCastSessionStartDialog: View {
                 VibeCastDestinationPicker(language: model.language, scansNetwork: !model.isDemoMode) {
                     showsDestinations = false
                 }
+                #if os(iOS)
+                .padding(16)
+                #endif
             } else {
                 #if os(iOS)
-                ViewThatFits(in: .vertical) {
-                    dialogContent.fixedSize(horizontal: false, vertical: true)
-                    ScrollView { dialogContent }
-                        .scrollBounceBehavior(.basedOnSize)
-                        .scrollDismissesKeyboard(.interactively)
-                        .accessibilityIdentifier("vibecast-session-start-scroll")
-                }
+                ScrollView { dialogContent }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .scrollDismissesKeyboard(.interactively)
+                    .accessibilityIdentifier("vibecast-session-start-scroll")
                 #else
                 dialogContent
                 #endif
             }
         }
-        .background { DJConnectCanvasBackground() }
         #if os(iOS)
-        .presentationSizing(.fitted.sticky(horizontal: false, vertical: false))
+        // Keep the sheet tall enough when moving from the compact picker to code entry.
+        .presentationSizing(.form)
+        .presentationBackground(.clear)
+        #else
+        .background { DJConnectCanvasBackground() }
         #endif
         .tint(.white)
         .accentColor(.white)
