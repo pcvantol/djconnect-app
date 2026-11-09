@@ -9435,24 +9435,26 @@ struct VibeCastSessionStartDialog: View {
                 VibeCastDestinationPicker(language: model.language, scansNetwork: !model.isDemoMode) {
                     showsDestinations = false
                 }
+                #if os(iOS)
+                .padding(16)
+                #endif
             } else {
                 #if os(iOS)
-                ScrollView {
-                    dialogContent
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .scrollDismissesKeyboard(.interactively)
-                .defaultScrollAnchor(.center, for: .alignment)
-                .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620, idealHeight: 620)
-                .accessibilityIdentifier("vibecast-session-start-scroll")
+                ScrollView { dialogContent }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .scrollDismissesKeyboard(.interactively)
+                    .accessibilityIdentifier("vibecast-session-start-scroll")
                 #else
                 dialogContent
                 #endif
             }
         }
-        .background { DJConnectCanvasBackground() }
         #if os(iOS)
-        .presentationSizing(.fitted)
+        // Keep the sheet tall enough when moving from the compact picker to code entry.
+        .presentationSizing(.form)
+        .presentationBackground { DJConnectCanvasBackground() }
+        #else
+        .background { DJConnectCanvasBackground() }
         #endif
         .tint(.white)
         .accentColor(.white)
@@ -9764,9 +9766,13 @@ struct VibeCastDisplayConsentForm: View {
                 }
                 if model.displayConsentState == .ready {
                     Text(localizedKey(model.language, model.displayConsentExistingShare == nil ? "ui.displayConsent.create" : "ui.displayConsent.existing"))
-                    Button(localizedKey(model.language, "ui.displayConsent.confirm")) { Task { await model.approveDisplayConsent() } }
-                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-                        .accessibilityIdentifier("display-consent-confirm")
+                    Button {
+                        Task { await model.approveDisplayConsent() }
+                    } label: {
+                        Label(localizedKey(model.language, "ui.displayConsent.confirm"), systemImage: "tv.badge.wifi")
+                    }
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .accessibilityIdentifier("display-consent-confirm")
                 }
                 if busy { ProgressView() }
                 if model.displayConsentState == .approved { Text(localizedKey(model.language, "ui.displayConsent.approved")) }
@@ -17748,8 +17754,19 @@ struct SettingsView: View {
         return error.localizedDescription
     }
 
+    private func pushSettingsToggle(title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(localizedKey(model.language, title))
+                Text(localizedKey(model.language, title + ".detail"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private func nativePushConsentToggle(_ role: DJConnectSurfacePushTaskOwner.Role, title: String) -> some View {
-        Toggle(localizedKey(model.language, title), isOn: Binding(
+        pushSettingsToggle(title: title, isOn: Binding(
             get: { model.nativePushAllowed(role) },
             set: { model.setNativePushAllowed($0, for: role) }
         ))
@@ -17939,7 +17956,7 @@ struct SettingsView: View {
                     )
                     .accessibilityIdentifier("settings-permission-notifications")
                     .djCompactSettingsListRow()
-                    Toggle(localizedKey(model.language, "ui.settings.moment.notifications"), isOn: Binding(
+                    pushSettingsToggle(title: "ui.settings.moment.notifications", isOn: Binding(
                         get: { model.momentNotificationsEnabled },
                         set: { model.setMomentNotificationsEnabled($0) }
                     ))

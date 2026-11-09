@@ -5,7 +5,8 @@ import DJConnectCore
 enum DJConnectGlassAppearance {
     static let storageKey = "DJConnectGlassEffectsEnabled"
     static let composerTint = Color(red: 0.40, green: 0.16, blue: 0.66)
-    static let toggleTint = Color(red: 0.84, green: 0.22, blue: 0.96)
+    static let primaryFill = Color(.displayP3, red: 93.0 / 255, green: 47.0 / 255, blue: 124.0 / 255)
+    static let toggleTint = primaryFill
     static let opaqueSurface = Color(red: 0.09, green: 0.11, blue: 0.19)
 }
 
@@ -15,15 +16,14 @@ enum DJConnectGlassAppearance {
 struct DJConnectPrimaryButtonSurface: View {
     var shape: AnyShape = AnyShape(Capsule())
 
-    private static let fill = Color(.displayP3, red: 93.0 / 255, green: 47.0 / 255, blue: 124.0 / 255)
     private static let edgeFill = Color(.displayP3, red: 102.0 / 255, green: 53.0 / 255, blue: 135.0 / 255)
     private static let border = Color(.displayP3, red: 190.0 / 255, green: 87.0 / 255, blue: 231.0 / 255)
 
     var body: some View {
         shape.fill(LinearGradient(stops: [
             .init(color: Self.edgeFill, location: 0),
-            .init(color: Self.fill, location: 0.20),
-            .init(color: Self.fill, location: 0.80),
+            .init(color: DJConnectGlassAppearance.primaryFill, location: 0.20),
+            .init(color: DJConnectGlassAppearance.primaryFill, location: 0.80),
             .init(color: Self.edgeFill, location: 1)
         ], startPoint: .top, endPoint: .bottom))
         .overlay { shape.stroke(Self.border, lineWidth: 1) }

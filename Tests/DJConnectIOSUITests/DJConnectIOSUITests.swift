@@ -2465,6 +2465,15 @@ extension DJConnectIOSUITests {
 
     func testVibeCastCenteredBlockingDialogAndGenericCopy() {
         let app = launchSessionUIDemo(additionalArguments: ["--uitest-vibecast-dialog"])
+        let isIPad = UIDevice.current.userInterfaceIdiom == .pad
+        defer { if isIPad { XCUIDevice.shared.orientation = .portrait } }
+        if isIPad {
+            XCUIDevice.shared.orientation = .landscapeLeft
+            let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                app.frame.width > app.frame.height
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 5), .completed)
+        }
         let handoff = app.buttons["session-handoff-toggle"]
         if !handoff.exists {
             app.buttons["session-more-menu"].tap()
@@ -2478,7 +2487,10 @@ extension DJConnectIOSUITests {
         XCTAssertEqual(pickerTitle.label, "Kies een scherm")
         XCTAssertEqual(pickerTitle.frame.midX, screen.frame.midX, accuracy: 12)
         if app.frame.width >= 700 {
-            XCTAssertLessThan(dialog.frame.height, 460, "The empty destination picker fits its content")
+            let pickerClose = app.buttons["Niet nu"]
+            XCTAssertTrue(pickerClose.isHittable)
+            XCTAssertLessThan(pickerClose.frame.maxY - pickerTitle.frame.minY, 400,
+                              "The visible destination card fits its content")
         }
         let pickerScreenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         pickerScreenshot.name = "vibecast-compact-destination-picker"
@@ -2488,6 +2500,10 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(dialog.waitForExistence(timeout: 10))
         if app.frame.width >= 700 {
             XCTAssertEqual(dialog.frame.midY, app.frame.midY, accuracy: 36, "Native iPad sheet stays centered")
+            if app.frame.height >= 700 {
+                XCTAssertTrue(app.buttons["session-handoff-not-now"].isHittable,
+                              "The pairing sheet expands after the screen picker so the bottom action is visible")
+            }
         }
         XCTAssertFalse(app.buttons["session-handoff-close"].exists)
         XCTAssertEqual(app.buttons["session-handoff-not-now"].label, "Niet nu")

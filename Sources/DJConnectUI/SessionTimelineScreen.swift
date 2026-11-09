@@ -2461,7 +2461,7 @@ struct SessionControlPopoverHost: View {
                 .djConnectPresentationSurface()
             }
             .task(id: intent?.id) {
-                guard let captured = intent, captured.kind != .connection, captured.kind != .more, captured.kind != .visualMood, captured.kind != .playbackControls, captured.kind != .playbackOutputs, captured.kind != .playbackVolume, !Task.isCancelled, scenePhase == .active,
+                guard let captured = intent, captured.kind != .persona, captured.kind != .connection, captured.kind != .more, captured.kind != .visualMood, captured.kind != .playbackControls, captured.kind != .playbackOutputs, captured.kind != .playbackVolume, !Task.isCancelled, scenePhase == .active,
                       model.isDemoMode || model.pairingStatus == .paired else { return }
                 model.recordPresentationState("screen-menu-open")
                 await model.refreshActiveDJSession()

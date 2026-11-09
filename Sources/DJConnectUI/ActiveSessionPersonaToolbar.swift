@@ -61,14 +61,6 @@ struct ActiveSessionPersonaToolbar: View {
                 .djConnectGlassPopoutSurface(nativePresentation: true)
                 .djConnectPresentationSurface()
         }
-        .task(id: scope?.id) {
-            guard let captured = scope, scenePhase == .active, !Task.isCancelled else { return }
-            await model.refreshActiveDJSession()
-            guard !Task.isCancelled, scope?.id == captured.id,
-                  captured.sessionID == model.activeDJSession?.id,
-                  captured.epoch == history.responseEpoch, scenePhase == .active else { return }
-            await model.refreshActiveMoodCapability()
-        }
         .onChange(of: session.id) { scope = nil }
         .onChange(of: history.responseEpoch) { scope = nil }
         .onChange(of: scenePhase) { _, phase in if phase != .active { scope = nil } }
@@ -80,7 +72,16 @@ struct ActiveSessionPersonaControl: View {
     @ObservedObject var model: DJConnectAppModel
     let sessionID: String
     let epoch: UUID
-    @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var settings: ProfileDJSettingsModel
+    @ObservedObject private var history: DJConnectSessionHistoryModel
+
+    init(model: DJConnectAppModel, sessionID: String, epoch: UUID) {
+        self.model = model
+        self.sessionID = sessionID
+        self.epoch = epoch
+        settings = model.profileDJSettings
+        history = model.sessionHistory
+    }
     private let values = DJConnectSessionPersonaValue.allCases
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private var confirmed: DJConnectSessionPersonaSnapshot? {
@@ -88,10 +89,7 @@ struct ActiveSessionPersonaControl: View {
         return model.activeDJSession?.confirmedPersona
     }
     private var canChange: Bool {
-        scenePhase == .active && epoch == model.sessionHistory.responseEpoch &&
-        (model.isDemoMode || (model.pairingStatus == .paired && model.sessionHistory.hasAuthorizedOwner)) &&
-        model.activePersonaAvailable && !model.activePersonaPending &&
-        model.activeDJSession?.runtimeState == "active" && confirmed != nil
+        model.canChangeActiveSessionPersona(sessionID: sessionID, epoch: epoch)
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -109,13 +107,17 @@ struct ActiveSessionPersonaControl: View {
                 guard canChange, values.indices.contains(index) else { return }
                 Task { await model.changeActiveSessionPersona(values[index], expectedSessionID: sessionID, expectedEpoch: epoch) }
             }
-            .disabled(!canChange || (model.profileDJSettings.negotiated && !model.profileDJSettings.canEdit))
+            .disabled(!canChange)
             if let error = model.activePersonaError {
                 Text(error).font(.caption).foregroundStyle(.secondary)
-            } else if !canChange && !model.activePersonaPending {
+            } else if !canChange && !model.activePersonaPending &&
+                        model.activePresenceCapabilityStatus != .loading && settings.phase != .loading {
                 Text(text("ui.session.persona.unavailable")).font(.caption).foregroundStyle(.secondary)
             }
         }
         .accessibilityIdentifier("active-session-persona")
+        .task(id: epoch) {
+            await model.refreshActiveSessionPersona(sessionID: sessionID, epoch: epoch)
+        }
     }
 }

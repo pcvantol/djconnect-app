@@ -555,8 +555,11 @@ private struct PassiveSessionContentView: View {
                     ProgressView(value: fraction).labelsHidden().tint(.white)
                 }
                 HStack {
-                    if progress.playback_state == "playing" { Text(start, style: .timer) }
-                    else { Text(progressTime(progress.position_ms)) }
+                    if progress.playback_state == "playing" {
+                        Text(.currentDate, format: .timer(countingUpIn: start..<end, showsHours: false))
+                    } else {
+                        Text(progressTime(progress.position_ms))
+                    }
                     Text("/ " + progressTime(progress.duration_ms))
                 }.font(.caption2.monospacedDigit()).foregroundStyle(.white.opacity(0.7))
             }
