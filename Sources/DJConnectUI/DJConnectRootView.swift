@@ -9693,6 +9693,7 @@ struct VibeCastDisplayConsentForm: View {
     }
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
+    @State private var didSubmitLookup = false
     @State private var lookupFocusRequest = 0
     @FocusState private var lookupFocused: Bool
     private var busy: Bool { model.displayConsentState == .resolving || model.displayConsentState == .approving || model.displayConsentState == .revoking }
@@ -9713,12 +9714,18 @@ struct VibeCastDisplayConsentForm: View {
         .onChange(of: history.responseEpoch) { model.refreshDisplayConsentPresentation() }
         .onChange(of: history.authorizedProfileID) { model.refreshDisplayConsentPresentation() }
         .onChange(of: model.isVibeCastSharing) { _, sharing in
-            if sharing { code = "" }
+            if sharing {
+                code = ""
+                didSubmitLookup = false
+            }
         }
         .onChange(of: lookupFocusRequest) {
             if code.count == 6, model.canResolveDisplayConsent { lookupFocused = true }
         }
-        .onAppear { model.prepareDisplayConsentPresentation() }
+        .onAppear {
+            didSubmitLookup = false
+            model.prepareDisplayConsentPresentation()
+        }
         .onDisappear { model.dismissDisplayConsentPresentation() }
         .task {
             while !Task.isCancelled {
@@ -9750,6 +9757,7 @@ struct VibeCastDisplayConsentForm: View {
                     VibeCastCodeEntry(code: Binding(get: { code }, set: { value in
                         guard value != code else { return }
                         code = value
+                        didSubmitLookup = false
                         model.resetDisplayConsent()
                     }), accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code")) {
                         lookupFocusRequest += 1
@@ -9760,7 +9768,9 @@ struct VibeCastDisplayConsentForm: View {
                 if model.canSelectVibeCastScreen && (model.displayConsentState == .idle || model.displayConsentState == .unavailable) {
                     Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
                         resignPlatformFirstResponder()
-                        Task { await model.resolveDisplayConsent(code: code) }
+                        let submittedCode = code
+                        didSubmitLookup = true
+                        Task { await model.resolveDisplayConsent(code: submittedCode) }
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .disabled(code.count != 6 || busy || !model.canResolveDisplayConsent)
@@ -9813,7 +9823,7 @@ struct VibeCastDisplayConsentForm: View {
                 if !model.isVibeCastSharing && model.displayConsentState == .uncertain {
                     Text(localizedKey(model.language, "ui.displayConsent.uncertain"))
                 }
-                if model.canSelectVibeCastScreen && model.displayConsentState == .unavailable {
+                if didSubmitLookup && model.canSelectVibeCastScreen && model.displayConsentState == .unavailable {
                     Text(localizedKey(model.language, "ui.displayConsent.unavailable"))
                 }
                 if !embedded {
