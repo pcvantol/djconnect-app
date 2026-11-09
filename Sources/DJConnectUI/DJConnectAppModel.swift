@@ -8416,7 +8416,33 @@ public final class DJConnectAppModel: ObservableObject {
         _ = activeVoicePreference.selectGender(preference)
     }
 
+    func canChangeActiveSessionPersona(sessionID: String, epoch: UUID) -> Bool {
+        guard isAppInForeground, epoch == sessionHistory.responseEpoch,
+              let session = activeDJSession, session.id == sessionID, session.runtimeState == "active",
+              session.confirmedPersona != nil, !activePersonaPending else { return false }
+        if isDemoMode { return true }
+        guard pairingStatus == .paired else { return false }
+        if activeSharedSettingsRequired || profileDJSettings.negotiated {
+            return profileDJSettings.canEdit && profileDJSettings.response?.requiresSelection == false &&
+                profileDJSettings.response?.snapshot.session?.session_id == sessionID
+        }
+        return activePersonaAvailable && sessionHistory.hasAuthorizedOwner
+    }
+
+    func refreshActiveSessionPersona(sessionID: String, epoch: UUID) async {
+        guard !Task.isCancelled, isAppInForeground, !isDemoMode, pairingStatus == .paired,
+              activeDJSession?.id == sessionID, sessionHistory.responseEpoch == epoch else { return }
+        await refreshActiveDJSession()
+        guard !Task.isCancelled, activeDJSession?.id == sessionID, sessionHistory.responseEpoch == epoch else { return }
+        await refreshActiveMoodCapability()
+        guard !Task.isCancelled, activeDJSession?.id == sessionID, sessionHistory.responseEpoch == epoch else { return }
+        if activeSharedSettingsRequired || profileDJSettings.negotiated {
+            await refreshProfileDJSettings()
+        }
+    }
+
     public func changeActiveSessionPersona(_ persona: DJConnectSessionPersonaValue, expectedSessionID: String, expectedEpoch: UUID) async {
+        guard canChangeActiveSessionPersona(sessionID: expectedSessionID, epoch: expectedEpoch) else { return }
         if isDemoMode {
             guard expectedEpoch == sessionHistory.responseEpoch,
                   let current = activeDJSession, current.id == expectedSessionID,
@@ -8426,17 +8452,10 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         if activeSharedSettingsRequired || profileDJSettings.negotiated {
-            guard expectedSessionID == activeDJSession?.id, expectedEpoch == sessionHistory.responseEpoch,
-                  profileDJSettings.response?.snapshot.session?.session_id == expectedSessionID,
-                  profileDJSettings.canEdit else { return }
             scheduleProfileDJChoice(.init(persona: persona))
             return
         }
-        guard !isDemoMode, activePersonaAvailable, !activePersonaPending, isAppInForeground,
-              pairingStatus == .paired, sessionHistory.hasAuthorizedOwner,
-              expectedEpoch == sessionHistory.responseEpoch,
-              let current = activeDJSession, current.id == expectedSessionID, current.runtimeState == "active",
-              let confirmed = current.confirmedPersona else { return }
+        guard let confirmed = activeDJSession?.confirmedPersona else { return }
         let generation = UUID(); personaOperationGeneration = generation
         activePersonaPending = true; activePersonaError = nil
         defer { if generation == personaOperationGeneration { activePersonaPending = false } }
