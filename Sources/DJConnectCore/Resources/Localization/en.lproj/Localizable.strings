@@ -1559,6 +1559,8 @@
 "ui.displayConsent.stop" = "Stop screen sharing";
 
 "ui.displayConsent.stopped" = "Screen sharing stopped. Your DJ session continues.";
+"ui.displayConsent.ended_title" = "VibeCast session ended";
+"ui.displayConsent.return_to_session" = "Back to DJ session";
 
 "ui.displayConsent.stop_uncertain" = "Stopping screen sharing could not be confirmed. Check the screen before continuing.";
 
