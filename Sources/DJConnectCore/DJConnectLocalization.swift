@@ -55,6 +55,12 @@ public enum DJConnectLocalization {
         return supportedLanguageCodes.contains(normalized) ? normalized : englishLanguageCode
     }
 
+    public static func privacyStatementURL(language: String) -> URL {
+        let code = supportedLanguageCode(language)
+        let path = code == "nl" ? "privacy" : "\(code)/privacy"
+        return URL(string: "https://djconnect.dev/\(path)")!
+    }
+
     public static func languageOverrideCode(_ value: String?) -> String {
         let normalized = normalizedLanguageCode(value ?? "")
         return supportedLanguageCodes.contains(normalized) ? normalized : ""

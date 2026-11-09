@@ -75,6 +75,12 @@
 "ui.about" = "About";
 "ui.legal" = "Legal";
 "ui.privacy" = "Privacy";
+"ui.privacy.connection" = "DJConnect uses a device credential to connect your app to your Home Assistant. The app keeps this credential in private app storage.";
+"ui.privacy.home-assistant" = "Your Home Assistant manages your DJConnect profile, music connections and Ask DJ history. Depending on your settings, your chosen voice and AI providers may process requests or audio. AI and Assist answers can be incorrect.";
+"ui.privacy.choices" = "Music DNA is optional. You can clear Music DNA and Ask DJ history separately in Home Assistant.";
+"ui.privacy.push" = "If you enable Apple notifications, the DJConnect notification service processes registration data and your Apple push token. Apple delivers notifications to your device. The service uses technical delivery diagnostics to monitor reliability. You can turn notifications off in Settings.";
+"ui.privacy.diagnostics" = "You choose whether to share app diagnostics with support or in a GitHub issue.";
+"ui.privacy.full-statement" = "Full privacy statement";
 "ui.share.feedback" = "Share Feedback";
 "ui.ask.dj.notifications" = "Ask DJ notifications";
 "ui.allow.notifications" = "Allow notifications";
@@ -581,12 +587,6 @@
 "watch.spotify.is.a.trademark.of.spotify.ab.home" = "Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.";
 "watch.djconnect.uses.apple.platform.frameworks.and.swift.package" = "DJConnect uses Apple platform frameworks and Swift Package Manager.";
 "watch.third.party.notices.are.documented.in.the.repository" = "Third-party notices are documented in the repository when dependencies are added.";
-"watch.djconnect.itself.does.not.collect.sell.or.process" = "DJConnect itself does not collect, sell, or process personal data in the app.";
-"watch.device.tokens.are.stored.locally.in.private.app" = "Device tokens are stored locally in private app storage.";
-"watch.push.notifications.are.only.used.for.djconnect.notifications" = "Push notifications are only used for DJConnect notifications, such as Ask DJ responses. DJConnect stores an Apple push token locally and shares it with your own Home Assistant DJConnect integration so notifications can be delivered through Apple Push Notification service. Push tokens are not used for tracking, ads, or sale.";
-"watch.diagnostics.are.only.shared.when.you.copy.them" = "Diagnostics are only shared when you copy them yourself or open a GitHub issue.";
-"watch.music.playback.and.voice.requests.run.through.your" = "Music, playback, and voice requests run through your own Home Assistant DJConnect integration.";
-"watch.ai.and.assist.answers.can.be.incorrect.and" = "AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.";
 "watch.privacy" = "Privacy";
 "watch.open.a.github.issue.with.app.context.nothing" = "Open a GitHub issue with app context. Nothing is uploaded automatically.";
 "watch.open.github.issue" = "Open GitHub issue";
@@ -856,11 +856,6 @@
 "ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by" = "DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.";
 "ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is" = "Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.";
 "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third" = "DJConnect uses Apple platform frameworks and Swift Package Manager. Third-party notices are documented in the repository when dependencies are added.";
-"ui.djconnect.does.not.collect.sell.or.process.personal.data.in" = "DJConnect does not collect, sell, or process personal data in the app.";
-"ui.device.tokens.are.stored.locally.in.the.app.s.private" = "Device tokens are stored locally in the app's private storage. Diagnostics are only shared when you copy them or open a GitHub issue yourself.";
-"ui.push.notifications.are.only.used.for.djconnect.notifications.such.as" = "Push notifications are only used for DJConnect notifications, such as Ask DJ responses. DJConnect stores an Apple push token locally and shares it with your own Home Assistant DJConnect integration so notifications can be delivered through Apple Push Notification service. Push tokens are not used for tracking, advertising, or sale.";
-"ui.music.playback.and.voice.requests.are.handled.through.your.own" = "Music, playback, and voice requests are handled through your own Home Assistant DJConnect integration.";
-"ui.ai.and.assist.answers.can.be.incorrect.and.depend.on" = "AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.";
 "ui.create.a.github.issue.draft.with.redacted.ask.dj.context" = "Create a GitHub issue draft with redacted Ask DJ context. Nothing is sent automatically.";
 "ui.review.this.text.before.opening.github.remove.anything.you.do" = "Review this text before opening GitHub. Remove anything you do not want to share.";
 "ui.open.a.github.issue.with.redacted.app.context.nothing.is" = "Open a GitHub issue with redacted app context. Nothing is uploaded automatically.";
