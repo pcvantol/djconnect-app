@@ -17754,8 +17754,19 @@ struct SettingsView: View {
         return error.localizedDescription
     }
 
+    private func pushSettingsToggle(title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(localizedKey(model.language, title))
+                Text(localizedKey(model.language, title + ".detail"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private func nativePushConsentToggle(_ role: DJConnectSurfacePushTaskOwner.Role, title: String) -> some View {
-        Toggle(localizedKey(model.language, title), isOn: Binding(
+        pushSettingsToggle(title: title, isOn: Binding(
             get: { model.nativePushAllowed(role) },
             set: { model.setNativePushAllowed($0, for: role) }
         ))
@@ -17945,7 +17956,7 @@ struct SettingsView: View {
                     )
                     .accessibilityIdentifier("settings-permission-notifications")
                     .djCompactSettingsListRow()
-                    Toggle(localizedKey(model.language, "ui.settings.moment.notifications"), isOn: Binding(
+                    pushSettingsToggle(title: "ui.settings.moment.notifications", isOn: Binding(
                         get: { model.momentNotificationsEnabled },
                         set: { model.setMomentNotificationsEnabled($0) }
                     ))

@@ -374,6 +374,7 @@
 "ui.speech.recognition" = "Reconocimiento de voz";
 "ui.notifications" = "Notificaciones";
 "ui.settings.moment.notifications" = "Notificaciones de momentos del DJ";
+"ui.settings.moment.notifications.detail" = "Recibe una notificación en este dispositivo cuando haya nuevas aportaciones del DJ.";
 "ui.request.permissions" = "Request Permissions";
 "ui.pair.app.again.c2c7b2" = "Pair App Again?";
 "ui.turn.off.music.dna" = "Turn Off Music DNA?";
@@ -1738,7 +1739,9 @@
 "ui.widget.retained.detail" = "Permite que el widget grande muestre la última intervención disponible del DJ de esta sesión.";
 
 "ui.surface.push.widget" = "Permitir actualizaciones del widget en segundo plano";
+"ui.surface.push.widget.detail" = "Actualiza el widget de DJConnect mientras la app está en segundo plano.";
 "ui.surface.push.activity" = "Permitir actualizaciones de actividades en directo en segundo plano";
+"ui.surface.push.activity.detail" = "Actualiza tu actividad en directo en la pantalla bloqueada y, si está disponible, en Dynamic Island.";
 
 "ui.vibecast.destinations.title" = "Elegir una pantalla";
 "ui.vibecast.destinations.screen" = "Pantalla de VibeCast";

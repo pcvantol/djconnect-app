@@ -374,6 +374,7 @@
 "ui.speech.recognition" = "Spraakherkenning";
 "ui.notifications" = "Meldingen";
 "ui.settings.moment.notifications" = "Meldingen voor DJ-bijdragen";
+"ui.settings.moment.notifications.detail" = "Ontvang op dit apparaat een melding bij nieuwe DJ-bijdragen.";
 "ui.request.permissions" = "Toestemmingen vragen";
 "ui.pair.app.again.c2c7b2" = "App opnieuw koppelen?";
 "ui.turn.off.music.dna" = "Music DNA uitschakelen?";
@@ -1738,7 +1739,9 @@
 "ui.widget.retained.detail" = "Sta toe dat de grote widget de laatste beschikbare DJ-bijdrage uit deze sessie toont.";
 
 "ui.surface.push.widget" = "Sta widgetupdates op de achtergrond toe";
+"ui.surface.push.widget.detail" = "Ververs de DJConnect-widget terwijl de app op de achtergrond staat.";
 "ui.surface.push.activity" = "Sta Live Activity-updates op de achtergrond toe";
+"ui.surface.push.activity.detail" = "Ververs je Live Activity op het toegangsscherm en, waar beschikbaar, in het Dynamic Island.";
 
 "ui.vibecast.destinations.title" = "Kies een scherm";
 "ui.vibecast.destinations.screen" = "VibeCast scherm";
