@@ -1555,6 +1555,8 @@
 "ui.displayConsent.stop" = "Dejar de compartir pantalla";
 
 "ui.displayConsent.stopped" = "Se ha detenido la pantalla compartida. Tu sesión DJ continúa.";
+"ui.displayConsent.ended_title" = "Sesión de VibeCast finalizada";
+"ui.displayConsent.return_to_session" = "Volver a la sesión de DJ";
 
 "ui.displayConsent.stop_uncertain" = "No se ha confirmado que la pantalla compartida se haya detenido. Comprueba la pantalla antes de continuar.";
 

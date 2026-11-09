@@ -1555,6 +1555,8 @@
 "ui.displayConsent.stop" = "Schermdelen stoppen";
 
 "ui.displayConsent.stopped" = "Schermdelen is gestopt. Je DJ-sessie gaat door.";
+"ui.displayConsent.ended_title" = "VibeCast sessie beëindigd";
+"ui.displayConsent.return_to_session" = "Terug naar DJ-sessie";
 
 "ui.displayConsent.stop_uncertain" = "Het is niet bevestigd of het schermdelen is gestopt. Controleer het scherm voordat je verdergaat.";
 

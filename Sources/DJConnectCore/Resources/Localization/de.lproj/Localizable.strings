@@ -1555,6 +1555,8 @@
 "ui.displayConsent.stop" = "Bildschirmfreigabe beenden";
 
 "ui.displayConsent.stopped" = "Bildschirmfreigabe beendet. Deine DJ-Session läuft weiter.";
+"ui.displayConsent.ended_title" = "VibeCast-Sitzung beendet";
+"ui.displayConsent.return_to_session" = "Zurück zur DJ-Sitzung";
 
 "ui.displayConsent.stop_uncertain" = "Das Beenden der Bildschirmfreigabe wurde nicht bestätigt. Prüfe den Bildschirm, bevor du fortfährst.";
 

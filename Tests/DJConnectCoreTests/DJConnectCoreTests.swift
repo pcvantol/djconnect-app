@@ -15466,3 +15466,28 @@ func demoEntryClearsPriorSessionFailureAfterOptionalRePairing(rePair: Bool) asyn
     #expect(model.activeDJSession?.selectedMood == "chill")
     #expect(model.djSessionErrorMessage == nil)
 }
+
+@MainActor
+@Test(.isolatedClientResources) func momentNotificationsWaitForTheAppPermissionExplanation() throws {
+    let suiteName = "MomentNotificationPermission-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.setMomentNotificationsEnabled(true)
+
+    #expect(model.isShowingPermissionExplanation)
+    #expect(model.permissionExplanationKind == .momentNotifications)
+    #expect(!model.momentNotificationsEnabled)
+    #expect(!defaults.bool(forKey: "DJConnectMomentNotificationsEnabled"))
+
+    model.cancelPermissionExplanation()
+
+    #expect(!model.isShowingPermissionExplanation)
+    #expect(!model.momentNotificationsEnabled)
+    #expect(!defaults.bool(forKey: "DJConnectMomentNotificationsEnabled"))
+}

@@ -1541,6 +1541,8 @@ private struct PermissionExplanationView: View {
         switch model.permissionExplanationKind {
         case .notifications:
             localizedKey(model.language, "ui.needed.for.server.push.notifications.when.ask.dj.answers")
+        case .momentNotifications:
+            localizedKey(model.language, "ui.settings.moment.notifications.detail")
         case .microphone:
             localizedKey(model.language, "watch.djconnect.only.uses.the.microphone.when.you.start")
         }
@@ -9430,7 +9432,7 @@ struct VibeCastSessionStartDialog: View {
 
     var body: some View {
         Group {
-            if showsDestinations && model.canSelectVibeCastScreen {
+            if showsDestinations && model.canSelectVibeCastScreen && model.displayConsentState != .revoked {
                 VibeCastDestinationPicker(language: model.language, scansNetwork: !model.isDemoMode) {
                     showsDestinations = false
                 }
@@ -9462,10 +9464,14 @@ struct VibeCastSessionStartDialog: View {
         .accessibilityIdentifier("vibecast-session-start-dialog")
     }
 
+    private var titleKey: String {
+        if model.displayConsentState == .revoked { return "ui.displayConsent.ended_title" }
+        return model.isVibeCastSharing ? "ui.displayConsent.active_title" : "ui.vibecast.handoff.title"
+    }
+
     private var dialogContent: some View {
         VStack(alignment: .leading, spacing: 22) {
-                VibeCastDialogHero(title: localizedKey(model.language, model.isVibeCastSharing
-                    ? "ui.displayConsent.active_title" : "ui.vibecast.handoff.title"))
+                VibeCastDialogHero(title: localizedKey(model.language, titleKey))
                     .padding(.vertical, 20)
                     .padding(.horizontal, 16)
                     .accessibilityIdentifier("vibecast-session-start-hero")
@@ -9481,20 +9487,20 @@ struct VibeCastSessionStartDialog: View {
                 }
                 #endif
                 VibeCastHandoffForm(model: model)
-                if model.canSelectVibeCastScreen && model.displayConsentState == .revoked {
-                    Button(localizedKey(model.language, "ui.vibecast.destinations.title")) {
-                        showsDestinations = true
+                if model.displayConsentState == .revoked {
+                    Button(localizedKey(model.language, "ui.displayConsent.return_to_session")) { dismiss() }
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                        .accessibilityIdentifier("vibecast-return-to-session")
+                        .keyboardShortcut(.cancelAction)
+                } else {
+                    DJConnectNotNowLinkButton(language: model.language,
+                        key: model.blocksVibeCastScreenSelection ? "ui.close" : "ui.not.now.b1e535") {
+                        resignPlatformFirstResponder()
+                        dismiss()
                     }
-                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-                    .accessibilityIdentifier("vibecast-choose-after-stop")
+                    .accessibilityIdentifier("session-handoff-not-now")
+                    .keyboardShortcut(.cancelAction)
                 }
-                DJConnectNotNowLinkButton(language: model.language,
-                    key: model.blocksVibeCastScreenSelection || model.displayConsentState == .revoked ? "ui.close" : "ui.not.now.b1e535") {
-                    resignPlatformFirstResponder()
-                    dismiss()
-                }
-                .accessibilityIdentifier("session-handoff-not-now")
-                .keyboardShortcut(.cancelAction)
             }
             .padding(24)
             .djSessionFrostedSurface()
@@ -9691,6 +9697,7 @@ struct VibeCastDisplayConsentForm: View {
     }
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
+    @State private var didSubmitLookup = false
     @State private var lookupFocusRequest = 0
     @FocusState private var lookupFocused: Bool
     private var busy: Bool { model.displayConsentState == .resolving || model.displayConsentState == .approving || model.displayConsentState == .revoking }
@@ -9711,12 +9718,18 @@ struct VibeCastDisplayConsentForm: View {
         .onChange(of: history.responseEpoch) { model.refreshDisplayConsentPresentation() }
         .onChange(of: history.authorizedProfileID) { model.refreshDisplayConsentPresentation() }
         .onChange(of: model.isVibeCastSharing) { _, sharing in
-            if sharing { code = "" }
+            if sharing {
+                code = ""
+                didSubmitLookup = false
+            }
         }
         .onChange(of: lookupFocusRequest) {
             if code.count == 6, model.canResolveDisplayConsent { lookupFocused = true }
         }
-        .onAppear { model.prepareDisplayConsentPresentation() }
+        .onAppear {
+            didSubmitLookup = false
+            model.prepareDisplayConsentPresentation()
+        }
         .onDisappear { model.dismissDisplayConsentPresentation() }
         .task {
             while !Task.isCancelled {
@@ -9726,13 +9739,17 @@ struct VibeCastDisplayConsentForm: View {
         }
     }
 
+    private var titleKey: String {
+        if model.displayConsentState == .revoked { return "ui.displayConsent.ended_title" }
+        return model.isVibeCastSharing ? "ui.displayConsent.active_title" : "ui.displayConsent.title"
+    }
+
     private var formContent: some View {
             VStack(alignment: .leading, spacing: 20) {
                 if !embedded {
                     VStack(spacing: 16) {
                         DJConnectHeroGlyph(systemImage: "tv.badge.wifi")
-                        Text(localizedKey(model.language, model.isVibeCastSharing
-                            ? "ui.displayConsent.active_title" : "ui.displayConsent.title"))
+                        Text(localizedKey(model.language, titleKey))
                             .font(.title2.bold())
                             .multilineTextAlignment(.center)
                     }
@@ -9744,6 +9761,7 @@ struct VibeCastDisplayConsentForm: View {
                     VibeCastCodeEntry(code: Binding(get: { code }, set: { value in
                         guard value != code else { return }
                         code = value
+                        didSubmitLookup = false
                         model.resetDisplayConsent()
                     }), accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code")) {
                         lookupFocusRequest += 1
@@ -9754,7 +9772,9 @@ struct VibeCastDisplayConsentForm: View {
                 if model.canSelectVibeCastScreen && (model.displayConsentState == .idle || model.displayConsentState == .unavailable) {
                     Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
                         resignPlatformFirstResponder()
-                        Task { await model.resolveDisplayConsent(code: code) }
+                        let submittedCode = code
+                        didSubmitLookup = true
+                        Task { await model.resolveDisplayConsent(code: submittedCode) }
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .disabled(code.count != 6 || busy || !model.canResolveDisplayConsent)
@@ -9777,7 +9797,9 @@ struct VibeCastDisplayConsentForm: View {
                 if model.displayConsentState == .approved && model.vibeCastStopTarget == nil {
                     Text(localizedKey(model.language, "ui.displayConsent.approved"))
                 }
-                if let display = model.vibeCastStopTarget {
+                if model.displayConsentState == .revoked {
+                    Text(localizedKey(model.language, "ui.displayConsent.stopped"))
+                } else if let display = model.vibeCastStopTarget {
                     Button(role: .destructive) { Task { await model.stopLiveVibeCastDisplay(display) } } label: {
                         Label(localizedKey(model.language, "ui.displayConsent.stop"), systemImage: "display.trianglebadge.exclamationmark")
                     }
@@ -9800,15 +9822,24 @@ struct VibeCastDisplayConsentForm: View {
                     .djConnectButtonStyle(DJConnectButtonStyle(expands: true))
                     .accessibilityIdentifier("display-consent-stop")
                 }
-                if model.displayConsentState == .revoked { Text(localizedKey(model.language, "ui.displayConsent.stopped")) }
                 if model.displayConsentState == .revokeUncertain { Text(localizedKey(model.language, "ui.displayConsent.stop_uncertain")) }
 
-                if model.displayConsentState == .uncertain { Text(localizedKey(model.language, "ui.displayConsent.uncertain")) }
-                if model.displayConsentState == .unavailable { Text(localizedKey(model.language, "ui.displayConsent.unavailable")) }
+                if !model.isVibeCastSharing && model.displayConsentState == .uncertain {
+                    Text(localizedKey(model.language, "ui.displayConsent.uncertain"))
+                }
+                if didSubmitLookup && model.canSelectVibeCastScreen && model.displayConsentState == .unavailable {
+                    Text(localizedKey(model.language, "ui.displayConsent.unavailable"))
+                }
                 if !embedded {
-                    Button(localizedKey(model.language, model.blocksVibeCastScreenSelection || model.displayConsentState == .revoked
-                        ? "ui.close" : "ui.not.now.b1e535")) { dismiss() }
-                        .accessibilityIdentifier("display-consent-close")
+                    if model.displayConsentState == .revoked {
+                        Button(localizedKey(model.language, "ui.displayConsent.return_to_session")) { dismiss() }
+                            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                            .accessibilityIdentifier("vibecast-return-to-session")
+                    } else {
+                        Button(localizedKey(model.language, model.blocksVibeCastScreenSelection
+                            ? "ui.close" : "ui.not.now.b1e535")) { dismiss() }
+                            .accessibilityIdentifier("display-consent-close")
+                    }
                 }
             }
             .accessibilityElement(children: .contain)
