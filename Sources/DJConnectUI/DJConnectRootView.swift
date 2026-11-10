@@ -2683,6 +2683,7 @@ private struct PairingQRScannerRepresentable: UIViewControllerRepresentable {
 private final class PairingQRScannerViewController: UIViewController, @preconcurrency AVCaptureMetadataOutputObjectsDelegate {
     var onCode: ((String) -> Void)?
     private let session = AVCaptureSession()
+    private let sessionQueue = DispatchQueue(label: "dev.djconnect.qr-capture", qos: .userInitiated)
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private weak var captureDevice: AVCaptureDevice?
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
@@ -2704,17 +2705,15 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         updatePreviewOrientation()
-        if !session.isRunning {
-            DispatchQueue.global(qos: .userInitiated).async { [session] in
-                session.startRunning()
-            }
+        sessionQueue.async { [session] in
+            if !session.isRunning { session.startRunning() }
         }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        if session.isRunning {
-            session.stopRunning()
+        sessionQueue.async { [session] in
+            if session.isRunning { session.stopRunning() }
         }
     }
 
@@ -2809,13 +2808,13 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
         didOutput metadataObjects: [AVMetadataObject],
         from connection: AVCaptureConnection
     ) {
-        guard let object = metadataObjects.compactMap({ $0 as? AVMetadataMachineReadableCodeObject }).first,
-              object.type == .qr,
-              let value = object.stringValue else {
-            return
-        }
-        session.stopRunning()
-        onCode?(value)
+        let code = metadataObjects.lazy.compactMap { metadata -> String? in
+            guard let object = metadata as? AVMetadataMachineReadableCodeObject, object.type == .qr else {
+                return nil
+            }
+            return object.stringValue
+        }.first
+        if let code { onCode?(code) }
     }
 }
 #endif
