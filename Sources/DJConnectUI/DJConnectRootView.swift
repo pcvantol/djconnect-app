@@ -9479,7 +9479,8 @@ struct VibeCastSessionStartDialog: View {
                     .padding(.horizontal, 16)
                     .accessibilityIdentifier("vibecast-session-start-hero")
                 #if os(iOS)
-                if model.canOpenVibeCastNativeSender && model.canSelectVibeCastScreen && model.displayConsentState != .revoked {
+                // Camera capture is local. The rendezvous flow checks admission before linking.
+                if model.canSelectVibeCastScreen && model.displayConsentState != .revoked {
                     Button(localizedKey(model.language, "ui.rendezvous.scan")) {
                         model.cancelRendezvous()
                         model.isShowingVibeCastSessionStart = false

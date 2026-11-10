@@ -1345,15 +1345,6 @@ public final class DJConnectAppModel: ObservableObject {
         return nil
         #endif
     }
-    var canOpenVibeCastNativeSender: Bool {
-        #if os(iOS) && DJCONNECT_VIBECAST_FIXED_QA
-        true
-        #elseif os(iOS) && DJCONNECT_VIBECAST_PRODUCTION_TESTFLIGHT
-        RendezvousNativeAdmission.isAdmitted
-        #else
-        false
-        #endif
-    }
     public lazy var sessionHistory = DJConnectSessionHistoryModel(host: self)
     public let passiveSurfaces = PassiveSessionSurfaceModel()
     // Native candidate/task custody only. Both public owners have no qualified
