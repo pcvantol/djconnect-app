@@ -2158,6 +2158,9 @@ public final class DJConnectAppModel: ObservableObject {
             guard deviceSpeechPreferences.isValid else { deviceSpeechPreferences = oldValue; return }
             deviceSpeechPreferences.save(to: defaults)
             stopResponsePlayback(clearText: false)
+            if startBackgroundTasks && oldValue.enabled && !deviceSpeechPreferences.enabled {
+                Task { await refreshHASpeechAvailabilityIfNeeded(forOutput: true) }
+            }
         }
     }
     /// Installation-local input preference, never sent to a Profile or shared defaults.
@@ -2168,7 +2171,7 @@ public final class DJConnectAppModel: ObservableObject {
             cancelVoiceRecording()
             defaults.set(deviceSTTEnabled, forKey: "DJConnectDeviceSTTEnabled.v1")
             if startBackgroundTasks && !deviceSTTEnabled {
-                Task { await refreshHAInputAvailabilityIfNeeded() }
+                Task { await refreshHASpeechAvailabilityIfNeeded() }
             }
             resumeWakeWordListeningIfNeeded()
         }
@@ -3685,7 +3688,7 @@ public final class DJConnectAppModel: ObservableObject {
             guard isAppInForeground, !Task.isCancelled else { return }
             await refreshActiveDJSession()
             if activeDJSession != nil { await refreshActiveMoodCapability() }
-            if startBackgroundTasks { await refreshHAInputAvailabilityIfNeeded() }
+            if startBackgroundTasks { await refreshHASpeechAvailabilityIfNeeded(forOutput: deviceSTTEnabled) }
         }
         // Preserve the failed-LAN cooldown across short interruptions. A real
         // network change clears it and immediately schedules a new status read.
@@ -9879,18 +9882,21 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    /// Requalify the input presentation when returning from native STT or a
-    /// menu interruption. Capture still performs its own fresh admission.
+    /// Refresh HA speech presentation independently of the other Apple speech toggle.
+    /// Capture and playback still perform their own fresh admission.
     @discardableResult
-    func refreshHAInputAvailabilityIfNeeded() async -> Bool {
-        guard !deviceSTTEnabled, !isDemoMode, pairingStatus == .paired, isAppInForeground else { return false }
+    func refreshHASpeechAvailabilityIfNeeded(forOutput: Bool = false) async -> Bool {
+        let usesAppleSpeech = forOutput ? deviceSpeechPreferences.enabled : deviceSTTEnabled
+        guard !usesAppleSpeech, !isDemoMode, pairingStatus == .paired, isAppInForeground else { return false }
         do {
             try await withHomeAssistantClient { client in
-                try await self.requireHADeviceSpeech(client: client, language: self.currentRequestLocale)
+                try await self.requireHADeviceSpeech(client: client, language: self.currentRequestLocale,
+                                                    target: forOutput ? .local : nil)
             }
+            if forOutput { return !deviceSpeechPreferences.enabled && canUseHASpeechOutput(.local) }
             return !deviceSTTEnabled && canUseVoiceInputRoute
         } catch {
-            log(.debug, "HA voice input availability could not be refreshed")
+            log(.debug, "HA voice \(forOutput ? "output" : "input") availability could not be refreshed")
             return false
         }
     }

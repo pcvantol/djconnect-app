@@ -486,30 +486,29 @@ struct SharedDJSpeechActions: View {
             .disabled(!model.sharedDJSpeechAllowed || preparing)
             .accessibilityIdentifier("shared-speech-target")
         }
-        Button {
-            if active { model.stopAskDJAudio() } else { play(.local) }
-        } label: {
-            ZStack {
-                Circle().fill(.white.opacity(0.12))
-                if preparing {
-                    ProgressView().tint(.white).controlSize(.small)
-                } else {
-                    Image(systemName: active ? "stop.fill" : "play.fill")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
+        if active || model.canUseLocalDJSpeechOutput {
+            Button {
+                if active { model.stopAskDJAudio() } else { play(.local) }
+            } label: {
+                ZStack {
+                    Circle().fill(.white.opacity(0.12))
+                    if preparing {
+                        ProgressView().tint(.white).controlSize(.small)
+                    } else {
+                        Image(systemName: active ? "stop.fill" : "play.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
                 }
+                .frame(width: 44, height: 44)
+                .overlay { Circle().stroke(.white.opacity(0.28), lineWidth: 1) }
+                .contentShape(Circle())
             }
-            .frame(width: 44, height: 44)
-            .overlay { Circle().stroke(.white.opacity(0.28), lineWidth: 1) }
-            .contentShape(Circle())
+            .djConnectPlainButtonStyle()
+            .accessibilityLabel(actionLabel)
+            .accessibilityValue(preparing ? text("delivery.preparing") : ownsOutput ? text("delivery." + (model.sharedSpeechDelivery["local"] ?? "ready")) : "")
+            .accessibilityIdentifier(active ? "shared-speech-stop-local" : "shared-speech-listen-local")
         }
-        .djConnectPlainButtonStyle()
-        .disabled(!active && (!model.sharedDJSpeechAllowed(momentType: retainedEntry?.momentType ?? speech?.momentType) || !model.canUseLocalDJSpeechOutput))
-        .accessibilityLabel(actionLabel)
-        .accessibilityValue(preparing ? text("delivery.preparing") : ownsOutput ? text("delivery." + (model.sharedSpeechDelivery["local"] ?? "ready")) : "")
-        .accessibilityIdentifier(active ? "shared-speech-stop-local" : "shared-speech-listen-local")
-
-
     }
 }
 
