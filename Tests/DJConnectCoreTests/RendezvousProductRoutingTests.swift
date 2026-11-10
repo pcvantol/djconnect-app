@@ -35,6 +35,9 @@ import SwiftUI
     model.homeAssistantURL = previousURL
     #expect(!model.rendezvousHasQR) // ABA cannot resurrect the scanned capability
     _ = model.handlePairingQRCode(qr)
+    model.markInactiveSession(enteringBackground: false)
+    #expect(model.isShowingRendezvous)
+    #expect(model.rendezvousHasQR) // A camera permission prompt is not a departure.
     model.markInactiveSession()
     #expect(!model.rendezvousHasQR)
     _ = model.handlePairingQRCode(qr)

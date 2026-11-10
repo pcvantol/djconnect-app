@@ -2572,6 +2572,7 @@ struct PairingQRScannerView: View {
     let language: String
     var instructionsKey = "ui.scan.the.djconnect.qr.code.shown.by.home.assistant"
     var confirmsDetection = true
+    var onCancel: (() -> Void)? = nil
     let onCode: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var didDetectCode = false
@@ -2615,7 +2616,7 @@ struct PairingQRScannerView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(localizedKey(language, "ui.cancel")) {
-                        dismiss()
+                        if let onCancel { onCancel() } else { dismiss() }
                     }
                 }
             }
