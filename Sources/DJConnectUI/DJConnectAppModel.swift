@@ -1184,7 +1184,14 @@ public final class DJConnectAppModel: ObservableObject {
             rendezvousQR = try DJConnectRendezvousQR.parse(value)
             rendezvousHasQR = true
             rendezvousStatusKey = "ui.rendezvous.choose"
-        } catch { rendezvousStatusKey = "ui.rendezvous.invalid" }
+            log(.info, "[VibeCast] TV QR accepted")
+        } catch DJConnectRendezvousQR.Failure.expired {
+            rendezvousStatusKey = "ui.rendezvous.invalid"
+            log(.warning, "[VibeCast] TV QR expired")
+        } catch {
+            rendezvousStatusKey = "ui.rendezvous.invalid"
+            log(.warning, "[VibeCast] TV QR invalid")
+        }
     }
     func cancelRendezvous(cancelConsent: Bool = true) {
         if cancelConsent { cancelDisplayConsent() }
@@ -1218,17 +1225,21 @@ public final class DJConnectAppModel: ObservableObject {
     func prepareRendezvousDestination() async {
         guard !rendezvousAccepted, !rendezvousBusy, let qr = rendezvousQR, qr.isCurrent(),
               !isDemoMode, pairingStatus == .paired, isAppInForeground else {
+            log(.warning, "[VibeCast] Connection prerequisites not met")
             rendezvousStatusKey = "ui.rendezvous.invalid"; return
         }
         // Unsupported simulator is a finite stop before network or SDK effects.
         guard rendezvousAttestationSupported else {
+            log(.warning, "[VibeCast] App Attest is unsupported on this device")
             rendezvousStatusKey = "ui.rendezvous.unsupported"; return
         }
         guard let profile = sessionHistory.authorizedProfileID,
               let installation = defaults.string(forKey: haInstallIDKey), !installation.isEmpty else {
+            log(.warning, "[VibeCast] Paired Home Assistant owner context is missing")
             rendezvousStatusKey = "ui.rendezvous.invalid"; return
         }
         guard let appContext = rendezvousNativeAppContext else {
+            log(.warning, "[VibeCast] Native sender admission unavailable")
             rendezvousStatusKey = "ui.rendezvous.notReady"; return
         }
         let operation = UUID(); rendezvousOperation = operation
@@ -1242,7 +1253,9 @@ public final class DJConnectAppModel: ObservableObject {
                 self.sessionHistory.responseEpoch == epoch && self.sessionHistory.authorizedProfileID == profile &&
                 self.currentDeviceSpeechContext == scope && self.defaults.string(forKey: self.haInstallIDKey) == installation
         }
+        var stage = "inspect QR"
         var nativeStarted = false
+        log(.info, "[VibeCast] Inspecting TV QR")
         rendezvousBusy = true
         defer { if rendezvousOperation == operation { rendezvousBusy = false } }
         do {
@@ -1250,6 +1263,8 @@ public final class DJConnectAppModel: ObservableObject {
             guard !Task.isCancelled, rendezvousOperation == operation, qr.isCurrent(),
                   pairingStatus == .paired, isAppInForeground, sessionHistory.responseEpoch == epoch,
                   currentDeviceSpeechContext == scope else { return }
+            stage = "read Home Assistant owner context"
+            log(.debug, "[VibeCast] Reading Home Assistant owner context")
             let context = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
                 try await $0.displayOwnerContext(expectedInstallationID: installation,
                     pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()), isCurrent: { [weak self] in
@@ -1263,20 +1278,25 @@ public final class DJConnectAppModel: ObservableObject {
                   pairingStatus == .paired, isAppInForeground,
                   sessionHistory.responseEpoch == epoch, sessionHistory.authorizedProfileID == profile,
                   currentDeviceSpeechContext == scope else { return }
+            stage = "encrypt destination"
             let envelope = try DJConnectRendezvousDestination.encrypt(qr:qr, browserKey:browserKey, owner:context)
             guard qr.isCurrent(), rendezvousOperation == operation, sessionHistory.responseEpoch == epoch,
                   currentDeviceSpeechContext == scope else { return }
             rendezvousDestination = context; rendezvousEnvelope = envelope
             guard owner() else { return }
+            stage = "authenticate and submit destination"
             nativeStarted = true
+            log(.debug, "[VibeCast] Authenticating and submitting destination")
             rendezvousStatusKey = "ui.rendezvous.sending"
             _ = try await RendezvousConnectionCoordinator().connect(qr: qr, envelope: envelope,
                 appContext: appContext, isCurrent: owner)
             guard owner() else { return }
             rendezvousAccepted = true; rendezvousHasQR = false
             rendezvousStatusKey = "ui.rendezvous.accepted"
+            log(.info, "[VibeCast] Destination accepted")
         } catch {
             guard rendezvousOperation == operation else { return }
+            log(.warning, "[VibeCast] Failed at \(stage)")
             if nativeStarted {
                 rendezvousHasQR = false
                 if case RendezvousConnectionCoordinator.Failure.requiresRepair = error {
