@@ -7665,7 +7665,7 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(model.localResponseAudioEnabled)
 }
 
-@Test(.isolatedClientResources) @MainActor func switchingBackFromAppleSTTRequalifiesHAInputWithoutSendingAudio() async throws {
+@Test(.isolatedClientResources) @MainActor func haSpeechRoutesRequalifyIndependentlyWithoutSendingAudio() async throws {
     let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
     let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
     let cases = try #require(root["cases"] as? [[String: Any]])
@@ -7684,8 +7684,16 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(model.canUseVoiceInputRoute)
     model.deviceSTTEnabled = false
     #expect(!model.canUseVoiceInputRoute)
-    #expect(await model.refreshHAInputAvailabilityIfNeeded())
+    #expect(await model.refreshHASpeechAvailabilityIfNeeded())
     #expect(model.canUseVoiceInputRoute && !model.deviceSTTEnabled)
+    let unknown = try JSONDecoder().decode(DJConnectEnvelope<DJConnectPlayback>.self,
+        from: historyData(["success": true, "ha_install_id": "speech-install"]))
+    _ = model.applyStatusEndpoints(unknown, expectedLocal: model.haLocalURL,
+                                   expectedRemote: model.haRemoteURL, expectedInstall: "speech-install")
+    model.deviceSTTEnabled = true
+    #expect(!model.canUseLocalDJSpeechOutput)
+    #expect(await model.refreshHASpeechAvailabilityIfNeeded(forOutput: true))
+    #expect(model.canUseLocalDJSpeechOutput && model.deviceSTTEnabled)
     #expect(!fixture.requests.isEmpty)
     #expect(fixture.requests.allSatisfy { $0.url?.path == "/api/djconnect/v1/status" })
 }

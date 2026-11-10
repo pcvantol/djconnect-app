@@ -1476,6 +1476,7 @@
 "ui.displayConsent.open" = "Link a VibeCast screen";
 "ui.displayConsent.title" = "Share the current Session";
 "ui.displayConsent.instructions" = "Enter the code shown on your VibeCast screen. Looking up the code does not share anything.";
+"ui.displayConsent.instructions_after_scan" = "Or enter the code shown on your VibeCast screen. Looking up the code does not share anything.";
 "ui.displayConsent.lookup" = "Look up screen";
 "ui.displayConsent.create" = "Share only your current DJ Session with this screen for two hours?";
 "ui.displayConsent.existing" = "Allow this screen to use the existing share for your current Session, without extending its expiry?";

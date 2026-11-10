@@ -1476,6 +1476,7 @@
 "ui.displayConsent.open" = "VibeCast-Bildschirm verbinden";
 "ui.displayConsent.title" = "Aktuelle Session teilen";
 "ui.displayConsent.instructions" = "Gib den Code auf deinem VibeCast-Bildschirm ein. Die Codesuche teilt noch nichts.";
+"ui.displayConsent.instructions_after_scan" = "Oder gib den Code auf deinem VibeCast-Bildschirm ein. Die Codesuche teilt noch nichts.";
 "ui.displayConsent.lookup" = "Bildschirm suchen";
 "ui.displayConsent.create" = "Nur deine aktuelle DJ Session zwei Stunden mit diesem Bildschirm teilen?";
 "ui.displayConsent.existing" = "Diesem Bildschirm die bestehende Freigabe deiner aktuellen Session erlauben, ohne die Laufzeit zu verlängern?";

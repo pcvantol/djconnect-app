@@ -3357,7 +3357,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "dev.djconnect.mac.track-insight-widget";
-				PRODUCT_NAME = TrackInsightWidget;
+				PRODUCT_NAME = DJConnectWidget;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
@@ -3762,7 +3762,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "dev.djconnect.mac.track-insight-widget";
-				PRODUCT_NAME = TrackInsightWidget;
+				PRODUCT_NAME = DJConnectWidget;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
@@ -3959,7 +3959,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "dev.djconnect.ios.track-insight-widget";
-				PRODUCT_NAME = TrackInsightWidget;
+				PRODUCT_NAME = DJConnectWidget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -3977,7 +3977,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "dev.djconnect.ios.track-insight-widget";
-				PRODUCT_NAME = TrackInsightWidget;
+				PRODUCT_NAME = DJConnectWidget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";

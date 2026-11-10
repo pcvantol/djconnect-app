@@ -2498,6 +2498,7 @@ extension DJConnectIOSUITests {
         add(pickerScreenshot)
         screen.tap()
         XCTAssertTrue(dialog.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["vibecast-session-scan-tv"].exists)
         if app.frame.width >= 700 {
             XCTAssertEqual(dialog.frame.midY, app.frame.midY, accuracy: 36, "Native iPad sheet stays centered")
             if app.frame.height >= 700 {

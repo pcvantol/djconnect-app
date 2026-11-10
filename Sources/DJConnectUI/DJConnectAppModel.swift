@@ -883,7 +883,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var rendezvousOperation = UUID()
     private var rendezvousDestination: DJConnectDisplayOwnerContext?
     private var rendezvousEnvelope: DJConnectRendezvousDestination.Envelope?
-    private var rendezvousAccepted = false
+    private(set) var rendezvousAccepted = false
     @Published private(set) var rendezvousRepairOffered = false
 
     @Published private(set) var displayConsentState: DJConnectDisplayConsentSession.State = .idle
@@ -1177,17 +1177,17 @@ public final class DJConnectAppModel: ObservableObject {
         false
         #endif
     }
-    func receiveRendezvousQR(_ value: String) {
+    func receiveRendezvousQR(_ value: String, presentStandalone: Bool = true) {
         cancelRendezvous()
-        isShowingRendezvous = true
+        if presentStandalone { isShowingRendezvous = true }
         do {
             rendezvousQR = try DJConnectRendezvousQR.parse(value)
             rendezvousHasQR = true
             rendezvousStatusKey = "ui.rendezvous.choose"
         } catch { rendezvousStatusKey = "ui.rendezvous.invalid" }
     }
-    func cancelRendezvous() {
-        cancelDisplayConsent()
+    func cancelRendezvous(cancelConsent: Bool = true) {
+        if cancelConsent { cancelDisplayConsent() }
         rendezvousOperation = UUID()
         rendezvousQR = nil; rendezvousDestination = nil; rendezvousEnvelope = nil
         rendezvousHasQR = false; rendezvousBusy = false; rendezvousAccepted = false
@@ -1343,15 +1343,6 @@ public final class DJConnectAppModel: ObservableObject {
         return Data(SHA256.hash(data: Data(identity.utf8)))
         #else
         return nil
-        #endif
-    }
-    var canOpenVibeCastNativeSender: Bool {
-        #if os(iOS) && DJCONNECT_VIBECAST_FIXED_QA
-        true
-        #elseif os(iOS) && DJCONNECT_VIBECAST_PRODUCTION_TESTFLIGHT
-        RendezvousNativeAdmission.isAdmitted
-        #else
-        false
         #endif
     }
     public lazy var sessionHistory = DJConnectSessionHistoryModel(host: self)
@@ -2158,6 +2149,9 @@ public final class DJConnectAppModel: ObservableObject {
             guard deviceSpeechPreferences.isValid else { deviceSpeechPreferences = oldValue; return }
             deviceSpeechPreferences.save(to: defaults)
             stopResponsePlayback(clearText: false)
+            if startBackgroundTasks && oldValue.enabled && !deviceSpeechPreferences.enabled {
+                Task { await refreshHASpeechAvailabilityIfNeeded(forOutput: true) }
+            }
         }
     }
     /// Installation-local input preference, never sent to a Profile or shared defaults.
@@ -2168,7 +2162,7 @@ public final class DJConnectAppModel: ObservableObject {
             cancelVoiceRecording()
             defaults.set(deviceSTTEnabled, forKey: "DJConnectDeviceSTTEnabled.v1")
             if startBackgroundTasks && !deviceSTTEnabled {
-                Task { await refreshHAInputAvailabilityIfNeeded() }
+                Task { await refreshHASpeechAvailabilityIfNeeded() }
             }
             resumeWakeWordListeningIfNeeded()
         }
@@ -3685,7 +3679,7 @@ public final class DJConnectAppModel: ObservableObject {
             guard isAppInForeground, !Task.isCancelled else { return }
             await refreshActiveDJSession()
             if activeDJSession != nil { await refreshActiveMoodCapability() }
-            if startBackgroundTasks { await refreshHAInputAvailabilityIfNeeded() }
+            if startBackgroundTasks { await refreshHASpeechAvailabilityIfNeeded(forOutput: deviceSTTEnabled) }
         }
         // Preserve the failed-LAN cooldown across short interruptions. A real
         // network change clears it and immediately schedules a new status read.
@@ -9879,18 +9873,21 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    /// Requalify the input presentation when returning from native STT or a
-    /// menu interruption. Capture still performs its own fresh admission.
+    /// Refresh HA speech presentation independently of the other Apple speech toggle.
+    /// Capture and playback still perform their own fresh admission.
     @discardableResult
-    func refreshHAInputAvailabilityIfNeeded() async -> Bool {
-        guard !deviceSTTEnabled, !isDemoMode, pairingStatus == .paired, isAppInForeground else { return false }
+    func refreshHASpeechAvailabilityIfNeeded(forOutput: Bool = false) async -> Bool {
+        let usesAppleSpeech = forOutput ? deviceSpeechPreferences.enabled : deviceSTTEnabled
+        guard !usesAppleSpeech, !isDemoMode, pairingStatus == .paired, isAppInForeground else { return false }
         do {
             try await withHomeAssistantClient { client in
-                try await self.requireHADeviceSpeech(client: client, language: self.currentRequestLocale)
+                try await self.requireHADeviceSpeech(client: client, language: self.currentRequestLocale,
+                                                    target: forOutput ? .local : nil)
             }
+            if forOutput { return !deviceSpeechPreferences.enabled && canUseHASpeechOutput(.local) }
             return !deviceSTTEnabled && canUseVoiceInputRoute
         } catch {
-            log(.debug, "HA voice input availability could not be refreshed")
+            log(.debug, "HA voice \(forOutput ? "output" : "input") availability could not be refreshed")
             return false
         }
     }
@@ -12439,8 +12436,8 @@ public final class DJConnectAppModel: ObservableObject {
             do {
                 let configured = try await WidgetCenter.shared.currentConfigurations()
                 guard isCurrentNativePushInventory(inventoryAttempt, role: .widget) else { return }
-                let kinds = Set([DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds)
-                if configured.contains(where: { kinds.contains($0.kind) }) { surfaces.insert(.widget) }
+                let widgetKind = DJConnectSessionSurfaceSnapshot.widgetKind
+                if configured.contains(where: { $0.kind == widgetKind }) { surfaces.insert(.widget) }
                 // Installation-local WidgetKit token, separate from app APNs.
                 // Server registration waits for the owning Core widget contract.
                 if let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) {
@@ -12456,7 +12453,7 @@ public final class DJConnectAppModel: ObservableObject {
                                    "dev.djconnect.ios.track-insight-widget"
                                    #endif
                                }(),
-                               widgetKinds: configured.map(\.kind)) {
+                               widgetKinds: [widgetKind]) {
                             let signedEnvironment = DJConnectWidgetPushToken.load(from: shared)?
                                 .environment(matching: bytes, extensionBundleID: token.extensionBundleID)
                             observeNativePushToken(bytes, role: .widget, target: [
@@ -12567,9 +12564,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func reloadDemoWidgetTimelines() {
         #if canImport(WidgetKit)
-        for kind in [DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds {
-            WidgetCenter.shared.reloadTimelines(ofKind: kind)
-        }
+        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectSessionSurfaceSnapshot.widgetKind)
         #endif
     }
 
@@ -12691,9 +12686,7 @@ public final class DJConnectAppModel: ObservableObject {
         if richChanged || paletteChanged || paletteRenewalDue || (changed && publishedSnapshot == nil) || DJConnectSessionSurfaceSnapshot.needsWidgetReload(
             current: publishedSnapshot, previous: previous, lastReloadAt: lastSessionWidgetReloadAt, at: now) {
             lastSessionWidgetReloadAt = now
-            for kind in [DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds {
-                WidgetCenter.shared.reloadTimelines(ofKind: kind)
-            }
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectSessionSurfaceSnapshot.widgetKind)
         }
         #endif
         if !hasSyncedSessionSurfaceActivity || lastActivitySurfaceSnapshot != publishedSnapshot ||
