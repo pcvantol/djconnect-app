@@ -3711,7 +3711,11 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func markInactiveSession(enteringBackground: Bool = true) {
         if currentInsightProof != nil { clearCurrentInsightProof(); currentTrackInsight = nil }
-        cancelRendezvous()
+        // The camera permission prompt can make the scene briefly inactive.
+        // Only an idle QR selection may survive that transition.
+        if enteringBackground || !isShowingRendezvous || rendezvousBusy || rendezvousAccepted || rendezvousRepairOffered {
+            cancelRendezvous()
+        }
         personaReactions.cancel(.background)
         isAppInForeground = false
         confirmedWidgetConsent = nil
