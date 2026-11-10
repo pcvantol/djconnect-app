@@ -125,7 +125,7 @@ ZIP_PATH="${ARTIFACTS_PATH}/${ZIP_NAME}"
 CHECKSUM_PATH="${ZIP_PATH}.sha256"
 NOTARY_ZIP_PATH="${ARTIFACTS_PATH}/DJConnect-macOS-${VERSION}-notary.zip"
 NOTARY_RESULT_PATH="${ARTIFACTS_PATH}/notarization.json"
-RESOLVED_EXPORT_OPTIONS_PLIST=".release/ExportOptions-macOS.resolved.plist"
+RESOLVED_EXPORT_OPTIONS_PLIST="${ARTIFACTS_PATH}/ExportOptions-macOS.resolved.plist"
 
 if [[ "$SKIP_UPLOAD" == false ]] && ! gh auth status >/dev/null 2>&1; then
   echo "GitHub CLI is not authenticated. Run gh auth login first." >&2
