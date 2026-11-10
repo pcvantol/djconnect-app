@@ -38,6 +38,36 @@ struct VibeCastRendezvousView: View {
     @State private var scanning = false
     @State private var selectedInstallation = false
     var body: some View {
+        Group {
+            #if os(iOS)
+            if scanning {
+                PairingQRScannerView(language: model.language, instructionsKey: "ui.rendezvous.scan",
+                                     confirmsDetection: false, onCancel: { scanning = false }) { value in
+                    guard model.isShowingRendezvous, model.rendezvousPresentationID == presentation else { return }
+                    selectedInstallation = false
+                    model.receiveRendezvousQR(value)
+                    scanning = false
+                }
+                .background(.black)
+            } else {
+                form
+            }
+            #else
+            form
+            #endif
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                scanning = false
+                model.cancelRendezvousPresentation(presentation)
+                selectedInstallation = false
+            }
+        }
+        .onDisappear { model.cancelRendezvousPresentation(presentation) }
+        .accessibilityIdentifier("vibecast-rendezvous")
+    }
+
+    private var form: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
@@ -56,6 +86,8 @@ struct VibeCastRendezvousView: View {
                             let authorized: Bool
                             if AVCaptureDevice.authorizationStatus(for: .video) == .authorized { authorized = true }
                             else { authorized = await AVCaptureDevice.requestAccess(for: .video) }
+                            guard model.isShowingRendezvous, model.rendezvousPresentationID == presentation,
+                                  scenePhase != .background else { return }
                             if authorized { scanning = true }
                             else { cameraDenied = true }
                         }
@@ -63,13 +95,6 @@ struct VibeCastRendezvousView: View {
                     .disabled(model.rendezvousBusy)
                     .accessibilityIdentifier("vibecast-rendezvous-scan")
                     #endif
-                    PasteButton(payloadType: String.self) { values in
-                        guard values.count == 1, let value = values.first else { return }
-                        selectedInstallation = false
-                        model.receiveRendezvousQR(value)
-                    }
-                    .disabled(model.rendezvousBusy)
-                    .accessibilityIdentifier("vibecast-rendezvous-paste")
                     if model.rendezvousHasQR {
                         Toggle(rendezvousText(model.language, "ui.rendezvous.savedHA"), isOn: $selectedInstallation)
                             .disabled(model.rendezvousBusy)
@@ -120,24 +145,8 @@ struct VibeCastRendezvousView: View {
                 }
                 Button(rendezvousText(model.language, "ui.cancel"), role:.cancel) {}
             }
-            .fullScreenCover(isPresented: $scanning) {
-                PairingQRScannerView(language: model.language, instructionsKey: "ui.rendezvous.scan", confirmsDetection: false) { value in
-                    scanning = false; selectedInstallation = false
-                    model.receiveRendezvousQR(value)
-                }.presentationBackground(.black)
-            }
             #endif
         }
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active {
-                model.cancelRendezvousPresentation(presentation)
-                selectedInstallation = false
-            }
-        }
-        .onDisappear {
-            if !scanning { model.cancelRendezvousPresentation(presentation) }
-        }
-        .accessibilityIdentifier("vibecast-rendezvous")
     }
 }
 

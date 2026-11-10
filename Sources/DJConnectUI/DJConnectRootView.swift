@@ -301,12 +301,14 @@ private extension View {
 }
 
 private struct DJConnectLilacButtonModifier: ViewModifier {
+    let color: Color
+
     func body(content: Content) -> some View {
         content
-            .tint(.white)
-            .accentColor(.white)
-            .foregroundStyle(.white)
-            .foregroundColor(.white)
+            .tint(color)
+            .accentColor(color)
+            .foregroundStyle(color)
+            .foregroundColor(color)
             .symbolRenderingMode(.monochrome)
     }
 }
@@ -317,8 +319,8 @@ private extension View {
             .padding(.vertical, djConnectScreenVerticalPadding)
     }
 
-    func djConnectLilacButton() -> some View {
-        modifier(DJConnectLilacButtonModifier())
+    func djConnectLilacButton(color: Color = .white) -> some View {
+        modifier(DJConnectLilacButtonModifier(color: color))
     }
 
     @ViewBuilder
@@ -2572,6 +2574,7 @@ struct PairingQRScannerView: View {
     let language: String
     var instructionsKey = "ui.scan.the.djconnect.qr.code.shown.by.home.assistant"
     var confirmsDetection = true
+    var onCancel: (() -> Void)? = nil
     let onCode: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var didDetectCode = false
@@ -2615,7 +2618,7 @@ struct PairingQRScannerView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(localizedKey(language, "ui.cancel")) {
-                        dismiss()
+                        if let onCancel { onCancel() } else { dismiss() }
                     }
                 }
             }
@@ -9475,8 +9478,8 @@ struct VibeCastSessionStartDialog: View {
                     .padding(.vertical, 20)
                     .padding(.horizontal, 16)
                     .accessibilityIdentifier("vibecast-session-start-hero")
-                #if os(iOS) && DJCONNECT_VIBECAST_FIXED_QA
-                if model.canSelectVibeCastScreen && model.displayConsentState != .revoked {
+                #if os(iOS)
+                if model.canOpenVibeCastNativeSender && model.canSelectVibeCastScreen && model.displayConsentState != .revoked {
                     Button(localizedKey(model.language, "ui.rendezvous.scan")) {
                         model.cancelRendezvous()
                         model.isShowingVibeCastSessionStart = false
@@ -18613,12 +18616,12 @@ private struct AboutView: View {
                                 } label: {
                                     Label(localizedKey(model.language, "ui.updates.open.testflight"), systemImage: "arrow.up.right.square")
                                 }
-                                .djConnectLilacButton()
+                                .djConnectLilacButton(color: .green)
 
                                 Link(destination: djConnectAppStoreURL) {
                                     Label(localizedKey(model.language, "ui.updates.open.app.store"), systemImage: "arrow.up.right.square")
                                 }
-                                .djConnectLilacButton()
+                                .djConnectLilacButton(color: .green)
                                 #else
                                 Button {
                                     model.checkForUpdates()

@@ -249,8 +249,6 @@ targets:
         NSLocalNetworkUsageDescription: DJConnect connects to Home Assistant on your local network.
         NSMicrophoneUsageDescription: DJConnect records your voice for push-to-talk music requests to Home Assistant.
         NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition only for foreground wake phrase detection with Hey DJ.
-        UIRequiredDeviceCapabilities:
-          - wifi
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
           NSExceptionDomains:
