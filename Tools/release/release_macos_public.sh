@@ -9,6 +9,7 @@ EXPORT_PATH="${EXPORT_PATH:-.release/export}"
 ARTIFACTS_PATH="${ARTIFACTS_PATH:-.release/artifacts}"
 DERIVED_DATA_PATH="${DERIVED_DATA_PATH:-.release/DerivedData}"
 EXPORT_OPTIONS_PLIST="${EXPORT_OPTIONS_PLIST:-Tools/release/ExportOptions-macOS.plist}"
+RELEASE_BUILD_NUMBER="${RELEASE_BUILD_NUMBER:-}"
 
 usage() {
   cat <<EOF
@@ -26,6 +27,7 @@ Environment:
                            store-credentials.
   EXPORT_OPTIONS_PLIST     Export options plist. Default:
                            Tools/release/ExportOptions-macOS.plist
+  RELEASE_BUILD_NUMBER    Optional CFBundleVersion for this archive.
 
 This script archives, exports, notarizes, staples, zips, checksums, and uploads
 a public macOS binary release. It intentionally does not build iOS; unsigned iOS
@@ -74,6 +76,7 @@ require_command xcodebuild
 require_command xcrun
 require_command ditto
 require_command shasum
+require_command jq
 
 if [[ "$SKIP_UPLOAD" == false ]]; then
   require_command gh
@@ -121,6 +124,7 @@ ZIP_NAME="DJConnect-macOS-${VERSION}.zip"
 ZIP_PATH="${ARTIFACTS_PATH}/${ZIP_NAME}"
 CHECKSUM_PATH="${ZIP_PATH}.sha256"
 NOTARY_ZIP_PATH="${ARTIFACTS_PATH}/DJConnect-macOS-${VERSION}-notary.zip"
+NOTARY_RESULT_PATH="${ARTIFACTS_PATH}/notarization.json"
 RESOLVED_EXPORT_OPTIONS_PLIST=".release/ExportOptions-macOS.resolved.plist"
 
 if [[ "$SKIP_UPLOAD" == false ]] && ! gh auth status >/dev/null 2>&1; then
@@ -130,6 +134,15 @@ fi
 
 echo "Preparing macOS release ${TAG}"
 echo "Public repo: ${PUBLIC_REPO}"
+
+build_settings=("MARKETING_VERSION=$VERSION")
+if [[ -n "$RELEASE_BUILD_NUMBER" ]]; then
+  if [[ ! "$RELEASE_BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+    echo "RELEASE_BUILD_NUMBER must be a positive integer." >&2
+    exit 64
+  fi
+  build_settings+=("CURRENT_PROJECT_VERSION=$RELEASE_BUILD_NUMBER")
+fi
 
 rm -rf .release
 mkdir -p "$EXPORT_PATH" "$ARTIFACTS_PATH"
@@ -147,9 +160,12 @@ xcodebuild \
   -project DJConnectApp.xcodeproj \
   -scheme "$SCHEME" \
   -configuration "$CONFIGURATION" \
+  -destination generic/platform=macOS \
+  -derivedDataPath "$DERIVED_DATA_PATH" \
   -archivePath "$ARCHIVE_PATH" \
   DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
   CODE_SIGN_STYLE=Automatic \
+  "${build_settings[@]}" \
   archive
 
 xcodebuild \
@@ -167,7 +183,8 @@ ditto -c -k --keepParent "$APP_PATH" "$NOTARY_ZIP_PATH"
 
 xcrun notarytool submit "$NOTARY_ZIP_PATH" \
   --keychain-profile "$NOTARY_PROFILE" \
-  --wait
+  --wait --output-format json > "$NOTARY_RESULT_PATH"
+jq -e '.status == "Accepted"' "$NOTARY_RESULT_PATH" >/dev/null
 
 xcrun stapler staple "$APP_PATH"
 xcrun stapler validate "$APP_PATH"
