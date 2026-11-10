@@ -9476,8 +9476,8 @@ struct VibeCastSessionStartDialog: View {
                     .padding(.vertical, 20)
                     .padding(.horizontal, 16)
                     .accessibilityIdentifier("vibecast-session-start-hero")
-                #if os(iOS) && DJCONNECT_VIBECAST_FIXED_QA
-                if model.canSelectVibeCastScreen && model.displayConsentState != .revoked {
+                #if os(iOS)
+                if model.canOpenVibeCastNativeSender && model.canSelectVibeCastScreen && model.displayConsentState != .revoked {
                     Button(localizedKey(model.language, "ui.rendezvous.scan")) {
                         model.cancelRendezvous()
                         model.isShowingVibeCastSessionStart = false

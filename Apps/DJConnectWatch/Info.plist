@@ -69,10 +69,6 @@
 	<string>DJConnect records your voice for push-to-talk music requests to Home Assistant.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>DJConnect uses speech recognition only for foreground wake phrase detection with Hey DJ.</string>
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-		<string>wifi</string>
-	</array>
 	<key>WKApplication</key>
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
