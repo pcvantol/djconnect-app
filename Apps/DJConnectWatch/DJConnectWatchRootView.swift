@@ -2925,7 +2925,7 @@ private struct DJConnectWatchQueueView: View {
                         }
                         .padding(.vertical, 18)
                     } else {
-                        ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
+                        ForEach(DJConnectQueuePresentation.rows(model.queueItems), id: \.index) { index, item in
                             Button {
                                 Task { await model.startQueueItem(item, at: index) }
                             } label: {
@@ -4187,16 +4187,38 @@ struct DJConnectWatchList<Content: View>: View {
 }
 
 private struct DJConnectWatchMomentHeading: View {
-    let title: String
+    let labelKey: String
+    let language: String
     let color: Color
+    var font: Font = .headline
+
+    private var symbol: String? {
+        switch labelKey {
+        case "ui.session.moment.music_announcement": "megaphone.fill"
+        case "ui.session.moment.generic": "sparkles"
+        case "ui.session.moment.dj_bulletin": "newspaper"
+        case "ui.session.history.playback": "music.note"
+        case "ui.session.history.silence": "speaker.slash"
+        case "watch.v2.flow.question": "bubble.left"
+        case "watch.v2.flow.answer": "bubble.right.fill"
+        default: nil
+        }
+    }
 
     var body: some View {
-        Text(title)
-            .font(.headline)
-            .foregroundStyle(color)
-            .multilineTextAlignment(.leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityAddTraits(.isHeader)
+        let title = watchLocalizedKey(language, labelKey)
+        Group {
+            if let symbol {
+                Label(title, systemImage: symbol)
+                    .labelStyle(.titleAndIcon)
+            } else {
+                Text(title)
+            }
+        }
+        .font(font)
+        .foregroundStyle(color)
+        .multilineTextAlignment(.leading)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -4363,7 +4385,13 @@ private struct DJConnectWatchCompanionPages: View {
     @State private var heldVoice: (generation: UUID, context: DJConnectConversationContext)?
     // Presented outside the conditional pages, so runtime refreshes never replace
     // a question's original context or pop a reader off its original Moment.
-    private enum Destination { case voice(DJConnectConversationContext), moment(DJConnectMoment), flow(DJConnectWatchFlowRow, String, String), notification(DJConnectWatchMomentOpenIntent), demoFlow(String, DJConnectWatchFlowRow) }
+    private enum Destination {
+        case voice(DJConnectConversationContext)
+        case moment(DJConnectMoment, labelKey: String)
+        case flow(DJConnectWatchFlowRow, String, String)
+        case notification(DJConnectWatchMomentOpenIntent)
+        case demoFlow(String, DJConnectWatchFlowRow)
+    }
     @State private var destination: Destination?
     private func text(_ key: String) -> String { watchLocalizedKey(model.language, key) }
     private var snapshot: DJConnectWatchSessionSnapshot? { state.current() }
@@ -4511,21 +4539,24 @@ private struct DJConnectWatchCompanionPages: View {
             switch destination {
             case .voice(let context):
                 DJConnectWatchCompanionVoiceView(context: context, state: state).watchStandardBackground()
-            case .moment(let moment):
-                DJConnectWatchCompanionMomentView(moment: moment, state: state, speech: model.sessionSpeech).watchStandardBackground(theme: theme)
+            case .moment(let moment, let labelKey):
+                DJConnectWatchCompanionMomentView(moment: moment, labelKey: labelKey, headingColor: accent,
+                                                 state: state, speech: model.sessionSpeech)
+                    .watchStandardBackground(theme: theme)
                     .tint(accent)
             case .flow(let row, let binding, let sessionID):
                 flowDetail(row, binding: binding, sessionID: sessionID)
                     .watchStandardBackground(theme: theme)
                     .tint(accent)
             case .notification(let intent):
-                DJConnectWatchMomentNotificationView(intent: intent, state: state).watchStandardBackground(theme: theme)
+                DJConnectWatchMomentNotificationView(intent: intent, headingColor: accent, state: state)
+                    .watchStandardBackground(theme: theme)
                     .tint(accent)
             case .demoFlow(let id, let row):
                 ScrollView {
                     if demoSession?.id == id {
                         VStack(alignment: .leading, spacing: 8) {
-                            DJConnectWatchMomentHeading(title: text(row.labelKey), color: accent)
+                            DJConnectWatchMomentHeading(labelKey: row.labelKey, language: model.language, color: accent)
                             Text(row.date, style: .time).font(.caption2).foregroundStyle(.secondary)
                             if row.labelKey == "ui.session.history.playback" {
                                 demoTrackArtwork()
@@ -4973,7 +5004,8 @@ private struct DJConnectWatchCompanionPages: View {
         Button { openFlowRow(row) } label: {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text(text(row.labelKey)).font(.caption.weight(.semibold)).foregroundStyle(accent)
+                    DJConnectWatchMomentHeading(labelKey: row.labelKey, language: model.language, color: accent,
+                                               font: .caption.weight(.semibold))
                     Spacer(minLength: 4)
                     if index > 1, unseenFlowID != nil {
                         Image(systemName: "sparkle")
@@ -5029,7 +5061,7 @@ private struct DJConnectWatchCompanionPages: View {
         let current = session.broadcast.nativeCurrentMoment(at: now, spotifyAttributionAvailable: true)
         let live = [current].compactMap { $0 } + session.broadcast.nativeFlowMoments(at: now)
         if let moment = live.first(where: { $0.id == row.momentID }) {
-            destination = .moment(moment)
+            destination = .moment(moment, labelKey: row.labelKey)
         } else {
             destination = .flow(row, binding, session.id)
         }
@@ -5046,7 +5078,7 @@ private struct DJConnectWatchCompanionPages: View {
                 if snapshot?.settings.binding == binding, session?.id == sessionID, Date() < row.expiresAt,
                    flowRows?.contains(where: { $0.id == row.id && $0.text == row.text }) == true {
                     VStack(alignment: .leading, spacing: 8) {
-                        DJConnectWatchMomentHeading(title: text(row.labelKey), color: accent)
+                        DJConnectWatchMomentHeading(labelKey: row.labelKey, language: model.language, color: accent)
                         Text(row.date, style: .time).font(.caption2).foregroundStyle(.secondary)
                         if ["ui.session.history.playback", "ui.session.moment.music_announcement"].contains(row.labelKey), let reference = row.reference {
                             DJConnectWatchFlowArtworkView(reference: reference, binding: binding)
@@ -5448,8 +5480,9 @@ private struct DJConnectWatchRetainedReplayButton: View {
 
 private struct DJConnectWatchCompanionMomentView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
-    @Environment(\.watchSessionTheme) private var theme
     let moment: DJConnectMoment
+    let labelKey: String
+    let headingColor: Color
     @ObservedObject var state: DJConnectWatchForegroundSession
     @ObservedObject var speech: DJConnectWatchSessionSpeech
     private var available: Bool {
@@ -5463,7 +5496,7 @@ private struct DJConnectWatchCompanionMomentView: View {
         ScrollView {
             if available {
             VStack(alignment: .leading, spacing: 10) {
-                DJConnectWatchMomentHeading(title: watchLocalizedKey(model.language, moment.isMusicAnnouncementV1 ? "ui.session.moment.music_announcement" : "watch.v2.moments"), color: theme.watchColors[1])
+                DJConnectWatchMomentHeading(labelKey: labelKey, language: model.language, color: headingColor)
                 if let date = DJConnectHistoryEntry.date(moment.createdAt) {
                     Text(date, style: .time).font(.caption2).foregroundStyle(.secondary)
                 }
@@ -6167,8 +6200,8 @@ struct DJConnectWatchCompanionMoodView: View {
 /// A locator never grants access. Read only the exact original publication.
 private struct DJConnectWatchMomentNotificationView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
-    @Environment(\.watchSessionTheme) private var theme
     let intent: DJConnectWatchMomentOpenIntent
+    let headingColor: Color
     @ObservedObject var state: DJConnectWatchForegroundSession
     @State private var retained: DJConnectHistoryEntry?
     @State private var originalBinding: String?
@@ -6184,14 +6217,26 @@ private struct DJConnectWatchMomentNotificationView: View {
         TimelineView(.explicit([Date()] + [retained.flatMap { DJConnectHistoryEntry.date($0.retainedUntil) }].compactMap { $0 })) { _ in
             Group {
                 if let original {
-                    DJConnectWatchCompanionMomentView(moment: original, state: state, speech: model.sessionSpeech)
+                    let labelKey = if original.isMusicAnnouncementV1 {
+                        "ui.session.moment.music_announcement"
+                    } else if original.isBulletinV1 {
+                        "ui.session.moment.dj_bulletin"
+                    } else {
+                        "ui.session.moment.generic"
+                    }
+                    DJConnectWatchCompanionMomentView(moment: original, labelKey: labelKey, headingColor: headingColor,
+                                                     state: state, speech: model.sessionSpeech)
                 } else if isLoading || state.isRefreshing {
                     ProgressView()
                 } else if let retained, retained.isRetained(),
                           let originalBinding, state.current()?.settings.binding == originalBinding {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
-                            DJConnectWatchMomentHeading(title: watchLocalizedKey(model.language, retained.momentType == "music_announcement" ? "ui.session.moment.music_announcement" : "watch.v2.moments"), color: theme.watchColors[1])
+                            DJConnectWatchMomentHeading(
+                                labelKey: retained.momentType == "music_announcement"
+                                    ? "ui.session.moment.music_announcement" : "ui.session.moment.generic",
+                                language: model.language, color: headingColor
+                            )
                             Text(retained.text ?? "").fixedSize(horizontal: false, vertical: true)
                             if retained.requiresSpotifyAttribution == true {
                                 Image("SpotifyAttribution").resizable().scaledToFit()
