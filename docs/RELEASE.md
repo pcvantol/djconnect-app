@@ -209,10 +209,17 @@ git diff --check
 
 ### Every Release: macOS Public Notarized Binary
 
-- This release path is local-only: GitHub Actions should run tests and unsigned
-  builds, while the signed archive, notarization, and upload to
-  `pcvantol/djconnect-app-releases` happen from a trusted Mac with Apple
-  certificates installed.
+- Run **Public signed macOS release** on `main` using the exact reviewed source
+  SHA, release version and macOS build number. With `publish` disabled the
+  workflow records package verification as CI evidence. Enable `publish` for
+  an approved public release.
+- The workflow signs and notarizes on the trusted Apple runner. Provision the
+  Developer ID Application identity and the `DJConnect-Public-macOS` notarytool
+  profile in that runner's local keychain. The workflow uploads the verified ZIP
+  and checksum to the existing `macos/vX.Y.Z` release, using the public binary
+  repository's stable GitHub ID.
+- The local helper remains available for building and verifying an archive on
+  a trusted Mac.
 - Confirm `DEVELOPMENT_TEAM` is available in the shell or local Xcode config.
 - Confirm `NOTARY_PROFILE` exists in the login keychain.
 - Confirm Developer ID Application certificate is installed.
