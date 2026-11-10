@@ -343,6 +343,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac.track-insight-widget
         PRODUCT_NAME: TrackInsightWidget
         CODE_SIGN_ENTITLEMENTS: Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgetsMac.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
         SKIP_INSTALL: YES
   DJConnectCoreTests:
     type: bundle.unit-test
