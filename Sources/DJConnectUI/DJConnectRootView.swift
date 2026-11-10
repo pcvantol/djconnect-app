@@ -14467,26 +14467,6 @@ private struct AskDJVoiceInputButton: View {
     }
 }
 
-enum DJConnectQueuePresentation {
-    /// Compact identical adjacent provider rows without changing the snapshot or
-    /// source indices used by playback. A repeat later in the queue stays visible.
-    static func rows(_ items: [DJConnectQueueItem]) -> [(index: Int, item: DJConnectQueueItem)] {
-        var result: [(index: Int, item: DJConnectQueueItem)] = []
-        var previous: DJConnectQueueItem?
-        for (index, item) in items.enumerated() {
-            defer { previous = item }
-            if let previous, let uri = item.uri, !uri.isEmpty,
-               previous.uri == uri, previous.title == item.title,
-               previous.artist == item.artist, previous.album == item.album,
-               previous.durationMS == item.durationMS {
-                continue
-            }
-            result.append((index, item))
-        }
-        return result
-    }
-}
-
 struct QueueView: View {
     @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @ObservedObject var model: DJConnectAppModel
