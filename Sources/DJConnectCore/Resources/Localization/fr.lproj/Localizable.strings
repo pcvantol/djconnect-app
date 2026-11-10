@@ -1476,6 +1476,7 @@
 "ui.displayConsent.open" = "Connecter un écran VibeCast";
 "ui.displayConsent.title" = "Partager la Session actuelle";
 "ui.displayConsent.instructions" = "Saisissez le code affiché sur votre écran VibeCast. La recherche du code ne partage rien.";
+"ui.displayConsent.instructions_after_scan" = "Ou saisissez le code affiché sur votre écran VibeCast. La recherche du code ne partage rien.";
 "ui.displayConsent.lookup" = "Rechercher l’écran";
 "ui.displayConsent.create" = "Partager uniquement votre DJ Session actuelle avec cet écran pendant deux heures ?";
 "ui.displayConsent.existing" = "Autoriser cet écran à utiliser le partage existant de votre Session actuelle, sans prolonger son expiration ?";

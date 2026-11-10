@@ -9761,7 +9761,11 @@ struct VibeCastDisplayConsentForm: View {
                 }
                 if model.canSelectVibeCastScreen && model.displayConsentState != .revoked &&
                     model.displayConsentState != .revokeUncertain {
+                    #if os(iOS)
+                    Text(localizedKey(model.language, embedded ? "ui.displayConsent.instructions_after_scan" : "ui.displayConsent.instructions"))
+                    #else
                     Text(localizedKey(model.language, "ui.displayConsent.instructions"))
+                    #endif
                     VibeCastCodeEntry(code: Binding(get: { code }, set: { value in
                         guard value != code else { return }
                         code = value
