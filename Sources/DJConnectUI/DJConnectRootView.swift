@@ -301,12 +301,14 @@ private extension View {
 }
 
 private struct DJConnectLilacButtonModifier: ViewModifier {
+    let color: Color
+
     func body(content: Content) -> some View {
         content
-            .tint(.white)
-            .accentColor(.white)
-            .foregroundStyle(.white)
-            .foregroundColor(.white)
+            .tint(color)
+            .accentColor(color)
+            .foregroundStyle(color)
+            .foregroundColor(color)
             .symbolRenderingMode(.monochrome)
     }
 }
@@ -317,8 +319,8 @@ private extension View {
             .padding(.vertical, djConnectScreenVerticalPadding)
     }
 
-    func djConnectLilacButton() -> some View {
-        modifier(DJConnectLilacButtonModifier())
+    func djConnectLilacButton(color: Color = .white) -> some View {
+        modifier(DJConnectLilacButtonModifier(color: color))
     }
 
     @ViewBuilder
@@ -18614,12 +18616,12 @@ private struct AboutView: View {
                                 } label: {
                                     Label(localizedKey(model.language, "ui.updates.open.testflight"), systemImage: "arrow.up.right.square")
                                 }
-                                .djConnectLilacButton()
+                                .djConnectLilacButton(color: .green)
 
                                 Link(destination: djConnectAppStoreURL) {
                                     Label(localizedKey(model.language, "ui.updates.open.app.store"), systemImage: "arrow.up.right.square")
                                 }
-                                .djConnectLilacButton()
+                                .djConnectLilacButton(color: .green)
                                 #else
                                 Button {
                                     model.checkForUpdates()
