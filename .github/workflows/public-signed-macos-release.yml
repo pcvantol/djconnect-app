@@ -112,7 +112,8 @@ jobs:
           grep -Fx "TeamIdentifier=$DEVELOPMENT_TEAM" "$SIGNED_RELEASE_DIR/signature.txt"
           xcrun stapler validate "$app"
           spctl --assess --type execute --verbose "$app"
-          xcrun lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/DJConnect"
+          xcrun lipo "$app/Contents/MacOS/DJConnect" -verify_arch arm64
+          xcrun lipo "$app/Contents/MacOS/DJConnect" -verify_arch x86_64
           {
             printf 'source_sha=%s\nversion=%s\nbuild_number=%s\n' "$CANDIDATE_SHA" "$RELEASE_VERSION" "$RELEASE_BUILD_NUMBER"
             cat "$zip.sha256"
