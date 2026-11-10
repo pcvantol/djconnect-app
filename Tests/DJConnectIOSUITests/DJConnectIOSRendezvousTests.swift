@@ -14,15 +14,22 @@ final class DJConnectIOSRendezvousTests: XCTestCase {
             "qr_capability":String(repeating:"A", count:43)]
         app.launchEnvironment["DJCONNECT_UITEST_RENDEZVOUS_QR"] = String(decoding: try JSONSerialization.data(withJSONObject:qr), as:UTF8.self)
         app.launch()
-        let selection = app.switches["vibecast-rendezvous-installation"]
-        XCTAssertTrue(selection.waitForExistence(timeout:15))
-        let confirm = app.buttons["vibecast-rendezvous-confirm"]
-        XCTAssertFalse(confirm.isEnabled)
-        selection.tap(); XCTAssertTrue(confirm.isEnabled); confirm.tap()
+        let dialog = app.descendants(matching: .any)["vibecast-session-start-dialog"].firstMatch
+        XCTAssertTrue(dialog.waitForExistence(timeout:15))
+        let confirm = app.buttons["vibecast-session-confirm-qr"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        XCTAssertTrue(confirm.isEnabled)
+        XCTAssertFalse(app.textFields["vibecast-handoff-digit-0"].exists)
+        XCTAssertFalse(app.switches["vibecast-rendezvous-installation"].exists)
+        confirm.tap()
         let status = app.staticTexts["vibecast-rendezvous-status"]
         XCTAssertTrue(status.waitForExistence(timeout:3))
         XCTAssertEqual(status.label, "This device does not support secure TV linking. No request was sent.")
+        XCTAssertFalse(confirm.exists)
+        XCTAssertFalse(app.buttons["vibecast-session-scan-tv"].exists)
         let attachment = XCTAttachment(screenshot:app.screenshot()); attachment.lifetime = .keepAlways; add(attachment)
+        app.buttons["session-handoff-not-now"].tap()
+        XCTAssertTrue(dialog.waitForNonExistence(timeout: 5))
         #else
         throw XCTSkip("Simulator-only, no physical App Attest effects authorized")
         #endif

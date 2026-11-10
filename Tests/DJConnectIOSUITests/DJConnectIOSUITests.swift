@@ -2498,6 +2498,7 @@ extension DJConnectIOSUITests {
         add(pickerScreenshot)
         screen.tap()
         XCTAssertTrue(dialog.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["vibecast-session-scan-tv"].exists)
         if app.frame.width >= 700 {
             XCTAssertEqual(dialog.frame.midY, app.frame.midY, accuracy: 36, "Native iPad sheet stays centered")
             if app.frame.height >= 700 {
@@ -2543,16 +2544,6 @@ extension DJConnectIOSUITests {
         app.buttons["session-handoff-not-now"].tap()
         XCTAssertTrue(dialog.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.buttons["session-end-button"].isHittable)
-
-        if !handoff.isHittable { app.buttons["session-more-menu"].tap() }
-        handoff.tap()
-        XCTAssertTrue(screen.waitForExistence(timeout: 5))
-        screen.tap()
-        let scan = app.buttons["vibecast-session-scan-tv"]
-        XCTAssertTrue(scan.waitForExistence(timeout: 5))
-        scan.tap()
-        XCTAssertTrue(app.buttons["vibecast-rendezvous-scan"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["vibecast-rendezvous-confirm"].exists)
     }
 
     func testSessionMoodGlassChoicesAndSelection() {

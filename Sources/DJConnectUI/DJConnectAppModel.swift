@@ -883,7 +883,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var rendezvousOperation = UUID()
     private var rendezvousDestination: DJConnectDisplayOwnerContext?
     private var rendezvousEnvelope: DJConnectRendezvousDestination.Envelope?
-    private var rendezvousAccepted = false
+    private(set) var rendezvousAccepted = false
     @Published private(set) var rendezvousRepairOffered = false
 
     @Published private(set) var displayConsentState: DJConnectDisplayConsentSession.State = .idle
@@ -1177,17 +1177,17 @@ public final class DJConnectAppModel: ObservableObject {
         false
         #endif
     }
-    func receiveRendezvousQR(_ value: String) {
+    func receiveRendezvousQR(_ value: String, presentStandalone: Bool = true) {
         cancelRendezvous()
-        isShowingRendezvous = true
+        if presentStandalone { isShowingRendezvous = true }
         do {
             rendezvousQR = try DJConnectRendezvousQR.parse(value)
             rendezvousHasQR = true
             rendezvousStatusKey = "ui.rendezvous.choose"
         } catch { rendezvousStatusKey = "ui.rendezvous.invalid" }
     }
-    func cancelRendezvous() {
-        cancelDisplayConsent()
+    func cancelRendezvous(cancelConsent: Bool = true) {
+        if cancelConsent { cancelDisplayConsent() }
         rendezvousOperation = UUID()
         rendezvousQR = nil; rendezvousDestination = nil; rendezvousEnvelope = nil
         rendezvousHasQR = false; rendezvousBusy = false; rendezvousAccepted = false

@@ -25,6 +25,14 @@ import SwiftUI
     #expect(model.rendezvousStatusKey == "ui.rendezvous.unsupported")
     #expect(!model.rendezvousBusy)
     #endif
+    model.isShowingRendezvous = false
+    model.isShowingVibeCastSessionStart = true
+    model.receiveRendezvousQR(qr, presentStandalone: false)
+    #expect(model.isShowingVibeCastSessionStart)
+    #expect(!model.isShowingRendezvous)
+    #expect(model.rendezvousHasQR)
+    model.cancelRendezvous()
+    #expect(!model.rendezvousHasQR)
     _ = model.handlePairingQRCode("{invalid}")
     #expect(model.pairingStatus == .paired)
     #expect(!model.rendezvousHasQR)

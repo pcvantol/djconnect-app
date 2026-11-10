@@ -1351,7 +1351,7 @@ public struct DJConnectRootView: View {
                 .tint(.white)
                 .accentColor(.white)
         case .rendezvous:
-            VibeCastRendezvousView(model: model)
+            VibeCastSessionStartDialog(model: model, showsScannedQR: true)
                 .id(model.rendezvousPresentationID)
         case .vibeCastSessionStart:
             VibeCastSessionStartDialog(model: model, showsDestinations: model.startsVibeCastWithDestinationPicker)
@@ -2575,6 +2575,7 @@ struct PairingQRScannerView: View {
     var instructionsKey = "ui.scan.the.djconnect.qr.code.shown.by.home.assistant"
     var confirmsDetection = true
     var onCancel: (() -> Void)? = nil
+    var showsCancelInToolbar = true
     let onCode: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var didDetectCode = false
@@ -2616,9 +2617,11 @@ struct PairingQRScannerView: View {
             .navigationTitle(localizedKey(language, "ui.scan.qr.code"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(localizedKey(language, "ui.cancel")) {
-                        if let onCancel { onCancel() } else { dismiss() }
+                if showsCancelInToolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(localizedKey(language, "ui.cancel")) {
+                            if let onCancel { onCancel() } else { dismiss() }
+                        }
                     }
                 }
             }
@@ -9424,13 +9427,20 @@ struct DJSessionWelcomeArtwork: View {
 
 /// Uses the same native sheet shell and standard secondary action as Feedback.
 struct VibeCastSessionStartDialog: View {
+    private enum QRPhase { case entry, requestingCamera, camera, scanned, cameraDenied }
+
     @ObservedObject var model: DJConnectAppModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showsDestinations: Bool
+    @State private var qrPhase: QRPhase
+    @State private var qrSubmitted = false
+    @State private var qrSubmissionFinished = false
 
-    init(model: DJConnectAppModel, showsDestinations: Bool = false) {
+    init(model: DJConnectAppModel, showsDestinations: Bool = false, showsScannedQR: Bool = false) {
         self.model = model
         _showsDestinations = State(initialValue: showsDestinations)
+        _qrPhase = State(initialValue: showsScannedQR ? .scanned : .entry)
     }
 
     var body: some View {
@@ -9444,10 +9454,26 @@ struct VibeCastSessionStartDialog: View {
                 #endif
             } else {
                 #if os(iOS)
-                ScrollView { dialogContent }
-                    .scrollBounceBehavior(.basedOnSize)
-                    .scrollDismissesKeyboard(.interactively)
-                    .accessibilityIdentifier("vibecast-session-start-scroll")
+                if qrPhase == .camera {
+                    PairingQRScannerView(language: model.language, instructionsKey: "ui.rendezvous.scan",
+                                         confirmsDetection: false, showsCancelInToolbar: false) { value in
+                        guard qrPhase == .camera, scenePhase != .background else { return }
+                        model.receiveRendezvousQR(value, presentStandalone: false)
+                        qrPhase = .scanned
+                    }
+                    .accessibilityIdentifier("vibecast-session-camera")
+                    .safeAreaInset(edge: .bottom) {
+                        cancelButton(key: "ui.not.now.b1e535")
+                            .padding(16)
+                            .frame(maxWidth: .infinity)
+                            .background(DJConnectMaterial(.ultraThin))
+                    }
+                } else {
+                    ScrollView { dialogContent }
+                        .scrollBounceBehavior(.basedOnSize)
+                        .scrollDismissesKeyboard(.interactively)
+                        .accessibilityIdentifier("vibecast-session-start-scroll")
+                }
                 #else
                 dialogContent
                 #endif
@@ -9457,6 +9483,12 @@ struct VibeCastSessionStartDialog: View {
         // Keep the sheet tall enough when moving from the compact picker to code entry.
         .presentationSizing(.form)
         .presentationBackground { DJConnectCanvasBackground() }
+        .task(id: qrPhase == .requestingCamera) {
+            guard qrPhase == .requestingCamera else { return }
+            let authorized = await AVCaptureDevice.requestAccess(for: .video)
+            guard !Task.isCancelled, qrPhase == .requestingCamera, scenePhase != .background else { return }
+            qrPhase = authorized ? .camera : .cameraDenied
+        }
         #else
         .background { DJConnectCanvasBackground() }
         #endif
@@ -9465,6 +9497,14 @@ struct VibeCastSessionStartDialog: View {
         .interactiveDismissDisabled(true)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("vibecast-session-start-dialog")
+        .task(id: qrSubmitted) {
+            guard qrSubmitted else { return }
+            await model.prepareRendezvousDestination()
+            if !Task.isCancelled { qrSubmissionFinished = true }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background && qrPhase != .entry { cancelSetup() }
+        }
     }
 
     private var titleKey: String {
@@ -9473,37 +9513,49 @@ struct VibeCastSessionStartDialog: View {
     }
 
     private var dialogContent: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        let qrPrepared = qrPhase == .scanned && model.rendezvousAccepted
+        return VStack(alignment: .leading, spacing: 22) {
                 VibeCastDialogHero(title: localizedKey(model.language, titleKey))
                     .padding(.vertical, 20)
                     .padding(.horizontal, 16)
                     .accessibilityIdentifier("vibecast-session-start-hero")
                 #if os(iOS)
                 // Camera capture is local. The rendezvous flow checks admission before linking.
-                if model.canSelectVibeCastScreen && model.displayConsentState != .revoked {
+                if qrPhase == .entry && model.canSelectVibeCastScreen && model.displayConsentState != .revoked {
                     Button(localizedKey(model.language, "ui.rendezvous.scan")) {
-                        model.cancelRendezvous()
-                        model.isShowingVibeCastSessionStart = false
-                        model.isShowingRendezvous = true
+                        resignPlatformFirstResponder()
+                        qrPhase = .requestingCamera
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .accessibilityIdentifier("vibecast-session-scan-tv")
                 }
                 #endif
-                VibeCastHandoffForm(model: model)
-                if model.displayConsentState == .revoked {
+                if qrPhase == .entry || qrPrepared {
+                    VibeCastHandoffForm(model: model, qrPrepared: qrPrepared)
+                } else {
+                    if qrPhase == .scanned && model.rendezvousHasQR && !qrSubmitted {
+                        Button {
+                            qrSubmitted = true
+                        } label: {
+                            Label(localizedKey(model.language, "ui.vibecast.handoff.title"), systemImage: "tv.badge.wifi")
+                        }
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                        .accessibilityIdentifier("vibecast-session-confirm-qr")
+                    }
+                    if qrPhase == .requestingCamera || model.rendezvousBusy { ProgressView() }
+                    if let statusKey = qrStatusKey {
+                        Text(localizedKey(model.language, statusKey))
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("vibecast-rendezvous-status")
+                    }
+                }
+                if qrPhase == .entry && model.displayConsentState == .revoked {
                     Button(localizedKey(model.language, "ui.displayConsent.return_to_session")) { dismiss() }
                         .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                         .accessibilityIdentifier("vibecast-return-to-session")
                         .keyboardShortcut(.cancelAction)
                 } else {
-                    DJConnectNotNowLinkButton(language: model.language,
-                        key: model.blocksVibeCastScreenSelection ? "ui.close" : "ui.not.now.b1e535") {
-                        resignPlatformFirstResponder()
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("session-handoff-not-now")
-                    .keyboardShortcut(.cancelAction)
+                    cancelButton(key: qrPhase == .entry && model.blocksVibeCastScreenSelection ? "ui.close" : "ui.not.now.b1e535")
                 }
             }
             .padding(24)
@@ -9512,6 +9564,29 @@ struct VibeCastSessionStartDialog: View {
             .frame(minWidth: djConnectDialogMinimumWidth, idealWidth: 520, maxWidth: 620)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("vibecast-session-start-card")
+    }
+
+    private var qrStatusKey: String? {
+        if qrPhase == .cameraDenied { return "ui.camera.access.is.disabled.enable.it.in.settings.to.scan" }
+        guard qrPhase == .scanned else { return nil }
+        switch model.rendezvousStatusKey {
+        case "ui.rendezvous.choose": return qrSubmissionFinished ? "ui.rendezvous.invalid" : nil
+        case "ui.rendezvous.sending": return qrSubmissionFinished ? "ui.rendezvous.uncertain" : model.rendezvousStatusKey
+        case "ui.rendezvous.scan": return "ui.rendezvous.invalid"
+        default: return model.rendezvousStatusKey
+        }
+    }
+
+    private func cancelButton(key: String) -> some View {
+        DJConnectNotNowLinkButton(language: model.language, key: key, action: cancelSetup)
+            .accessibilityIdentifier("session-handoff-not-now")
+            .keyboardShortcut(.cancelAction)
+    }
+
+    private func cancelSetup() {
+        if qrPhase != .entry { model.cancelRendezvous(cancelConsent: !model.rendezvousAccepted) }
+        resignPlatformFirstResponder()
+        dismiss()
     }
 }
 
@@ -9687,8 +9762,9 @@ private struct VibeCastDestinationPicker: View {
 
 struct VibeCastHandoffForm: View {
     @ObservedObject var model: DJConnectAppModel
+    var qrPrepared = false
     var body: some View {
-        VibeCastDisplayConsentForm(model: model, embedded: true)
+        VibeCastDisplayConsentForm(model: model, embedded: true, qrPrepared: qrPrepared)
     }
 }
 
@@ -9696,8 +9772,10 @@ struct VibeCastDisplayConsentForm: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     var embedded = false
-    init(model: DJConnectAppModel, embedded: Bool = false) {
+    let qrPrepared: Bool
+    init(model: DJConnectAppModel, embedded: Bool = false, qrPrepared: Bool = false) {
         self.model = model; self.history = model.sessionHistory; self.embedded = embedded
+        self.qrPrepared = qrPrepared
     }
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
@@ -9762,7 +9840,7 @@ struct VibeCastDisplayConsentForm: View {
                 if model.canSelectVibeCastScreen && model.displayConsentState != .revoked &&
                     model.displayConsentState != .revokeUncertain {
                     #if os(iOS)
-                    Text(localizedKey(model.language, embedded ? "ui.displayConsent.instructions_after_scan" : "ui.displayConsent.instructions"))
+                    Text(localizedKey(model.language, embedded && !qrPrepared ? "ui.displayConsent.instructions_after_scan" : "ui.displayConsent.instructions"))
                     #else
                     Text(localizedKey(model.language, "ui.displayConsent.instructions"))
                     #endif
@@ -9802,9 +9880,6 @@ struct VibeCastDisplayConsentForm: View {
                     .accessibilityIdentifier("display-consent-confirm")
                 }
                 if busy { ProgressView() }
-                if model.displayConsentState == .approved && model.vibeCastStopTarget == nil {
-                    Text(localizedKey(model.language, "ui.displayConsent.approved"))
-                }
                 if model.displayConsentState == .revoked {
                     Text(localizedKey(model.language, "ui.displayConsent.stopped"))
                 } else if let display = model.vibeCastStopTarget {
@@ -9814,6 +9889,16 @@ struct VibeCastDisplayConsentForm: View {
                     .djConnectButtonStyle(DJConnectButtonStyle(expands: true))
                     .disabled(model.stoppingLiveDisplay)
                     .accessibilityIdentifier("display-consent-stop")
+                } else if model.displayConsentState == .approved {
+                    Text(localizedKey(model.language, "ui.displayConsent.approved"))
+                } else if didSubmitLookup && model.canSelectVibeCastScreen && model.displayConsentState == .unavailable {
+                    Text(localizedKey(model.language, "ui.displayConsent.unavailable"))
+                } else if qrPrepared && !didSubmitLookup && [.idle, .unavailable].contains(model.displayConsentState) {
+                    Text(localizedKey(model.language, "ui.rendezvous.accepted"))
+                        .foregroundStyle(.secondary)
+                } else if model.displayConsentState == .uncertain || model.displayConsentState == .revokeUncertain {
+                    Text(localizedKey(model.language, model.displayConsentState == .revokeUncertain
+                        ? "ui.displayConsent.stop_uncertain" : "ui.displayConsent.uncertain"))
                 } else if model.vibeCastScreenSlot?.state == .available {
                     Text(localizedKey(model.language, "ui.displayConsent.inactive"))
                         .foregroundStyle(.secondary)
@@ -9829,14 +9914,6 @@ struct VibeCastDisplayConsentForm: View {
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(expands: true))
                     .accessibilityIdentifier("display-consent-stop")
-                }
-                if model.displayConsentState == .revokeUncertain { Text(localizedKey(model.language, "ui.displayConsent.stop_uncertain")) }
-
-                if !model.isVibeCastSharing && model.displayConsentState == .uncertain {
-                    Text(localizedKey(model.language, "ui.displayConsent.uncertain"))
-                }
-                if didSubmitLookup && model.canSelectVibeCastScreen && model.displayConsentState == .unavailable {
-                    Text(localizedKey(model.language, "ui.displayConsent.unavailable"))
                 }
                 if !embedded {
                     if model.displayConsentState == .revoked {
