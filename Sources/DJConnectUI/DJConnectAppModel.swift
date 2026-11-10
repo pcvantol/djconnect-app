@@ -3802,7 +3802,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func crashIssueURL() -> URL? {
-        var components = URLComponents(string: "https://github.com/pcvantol/djconnect/issues/new")
+        var components = URLComponents(string: "https://github.com/djconnect-music-dj/djconnect/issues/new")
         components?.queryItems = [
             URLQueryItem(name: "title", value: "DJConnect app crash report"),
             URLQueryItem(name: "body", value: crashIssueBody())
@@ -3825,7 +3825,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func feedbackIssueURL() -> URL? {
-        var components = URLComponents(string: "https://github.com/pcvantol/djconnect/issues/new")
+        var components = URLComponents(string: "https://github.com/djconnect-music-dj/djconnect/issues/new")
         components?.queryItems = [
             URLQueryItem(name: "title", value: localized(key: "ui.feedback.issue.title")),
             URLQueryItem(name: "body", value: feedbackIssueBody())
@@ -3853,7 +3853,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func askDJFeedbackIssueURL(for message: DJConnectAskDJMessage, body: String? = nil) -> URL? {
-        var components = URLComponents(string: "https://github.com/pcvantol/djconnect/issues/new")
+        var components = URLComponents(string: "https://github.com/djconnect-music-dj/djconnect/issues/new")
         components?.queryItems = [
             URLQueryItem(name: "title", value: askDJFeedbackIssueTitle(for: message)),
             URLQueryItem(name: "body", value: body ?? askDJFeedbackIssueBody(for: message))
@@ -18607,7 +18607,7 @@ public final class DJConnectAppModel: ObservableObject {
     nonisolated static func githubReleaseNotesURL(version: String, clientType: DJConnectClientType) -> URL? {
         let encodedTag = publicReleaseTag(version: version, clientType: clientType)
             .replacingOccurrences(of: "/", with: "%2F")
-        return URL(string: "https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/\(encodedTag)")
+        return URL(string: "https://api.github.com/repos/djconnect-music-dj/djconnect-app-releases/releases/tags/\(encodedTag)")
     }
 
     nonisolated static func publicDownloadsURL(clientType: DJConnectClientType) -> URL? {

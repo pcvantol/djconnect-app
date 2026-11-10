@@ -11370,7 +11370,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let secondLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(secondLaunch.isShowingCrashReportPrompt == true)
     #expect(secondLaunch.crashIssueURL()?.host == "github.com")
-    #expect(secondLaunch.crashIssueURL()?.path == "/pcvantol/djconnect/issues/new")
+    #expect(secondLaunch.crashIssueURL()?.path == "/djconnect-music-dj/djconnect/issues/new")
 
     secondLaunch.dismissCrashReportPrompt()
     let thirdLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
