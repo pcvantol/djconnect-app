@@ -46,7 +46,7 @@ def push_evidence(app, widget, info, wi, platform, environment):
 def validate(app, require_widget_push=False, *, mobile=False, emit_evidence=False):
     root = app if mobile else app / "Contents"
     platform = "iPhoneOS" if mobile else "MacOSX"
-    widget = root / "PlugIns/TrackInsightWidget.appex"
+    widget = root / "PlugIns/DJConnectWidget.appex"
     check_push = mobile or require_widget_push or emit_evidence
     if check_push:
         for bundle in (app, widget):

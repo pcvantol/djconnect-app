@@ -12436,8 +12436,8 @@ public final class DJConnectAppModel: ObservableObject {
             do {
                 let configured = try await WidgetCenter.shared.currentConfigurations()
                 guard isCurrentNativePushInventory(inventoryAttempt, role: .widget) else { return }
-                let kinds = Set([DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds)
-                if configured.contains(where: { kinds.contains($0.kind) }) { surfaces.insert(.widget) }
+                let widgetKind = DJConnectSessionSurfaceSnapshot.widgetKind
+                if configured.contains(where: { $0.kind == widgetKind }) { surfaces.insert(.widget) }
                 // Installation-local WidgetKit token, separate from app APNs.
                 // Server registration waits for the owning Core widget contract.
                 if let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) {
@@ -12453,7 +12453,7 @@ public final class DJConnectAppModel: ObservableObject {
                                    "dev.djconnect.ios.track-insight-widget"
                                    #endif
                                }(),
-                               widgetKinds: configured.map(\.kind)) {
+                               widgetKinds: [widgetKind]) {
                             let signedEnvironment = DJConnectWidgetPushToken.load(from: shared)?
                                 .environment(matching: bytes, extensionBundleID: token.extensionBundleID)
                             observeNativePushToken(bytes, role: .widget, target: [
@@ -12564,9 +12564,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func reloadDemoWidgetTimelines() {
         #if canImport(WidgetKit)
-        for kind in [DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds {
-            WidgetCenter.shared.reloadTimelines(ofKind: kind)
-        }
+        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectSessionSurfaceSnapshot.widgetKind)
         #endif
     }
 
@@ -12688,9 +12686,7 @@ public final class DJConnectAppModel: ObservableObject {
         if richChanged || paletteChanged || paletteRenewalDue || (changed && publishedSnapshot == nil) || DJConnectSessionSurfaceSnapshot.needsWidgetReload(
             current: publishedSnapshot, previous: previous, lastReloadAt: lastSessionWidgetReloadAt, at: now) {
             lastSessionWidgetReloadAt = now
-            for kind in [DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds {
-                WidgetCenter.shared.reloadTimelines(ofKind: kind)
-            }
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectSessionSurfaceSnapshot.widgetKind)
         }
         #endif
         if !hasSyncedSessionSurfaceActivity || lastActivitySurfaceSnapshot != publishedSnapshot ||

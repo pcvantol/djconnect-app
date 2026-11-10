@@ -177,7 +177,6 @@ public struct DJConnectWidgetPaletteSnapshot: Codable, Equatable, Sendable {
 public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sendable {
     public static let storageKey = "DJConnectSessionSurfaceSnapshot.v1"
     public static let widgetKind = "DJConnectSessionWidget"
-    public static let legacyKinds = ["DJConnectNowPlayingWidget", "DJConnectQueueWidget", "DJConnectTrackInsightWidget", "DJConnectAskDJWidget"]
     public static let maximumLifetime: TimeInterval = 120
     public let observedAt: Date
     public let expiresAt: Date

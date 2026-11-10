@@ -14,7 +14,7 @@ class NativeWidgetPushEvidenceTests(unittest.TestCase):
     def test_mobile_evidence_is_absent_when_signed_environment_is_missing_or_differs(self):
         with tempfile.TemporaryDirectory() as directory:
             app = Path(directory) / "DJConnect.app"
-            widget = app / "PlugIns/TrackInsightWidget.appex"
+            widget = app / "PlugIns/DJConnectWidget.appex"
             widget.mkdir(parents=True)
             identifier = "dev.djconnect.ios"
             info = {
