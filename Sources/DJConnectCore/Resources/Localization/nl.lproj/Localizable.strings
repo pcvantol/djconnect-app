@@ -1476,6 +1476,7 @@
 "ui.displayConsent.open" = "Een VibeCast-scherm koppelen";
 "ui.displayConsent.title" = "Je huidige DJ-sessie delen";
 "ui.displayConsent.instructions" = "Vul de code in die je op je VibeCast-scherm ziet";
+"ui.displayConsent.instructions_after_scan" = "Of vul de code in die je op je VibeCast-scherm ziet";
 "ui.displayConsent.lookup" = "Scherm opzoeken";
 "ui.displayConsent.create" = "Wil je alleen je huidige DJ-sessie twee uur op dit scherm tonen?";
 "ui.displayConsent.existing" = "Wil je je huidige DJ-sessie ook op dit scherm tonen?";
