@@ -143,6 +143,8 @@
 "ui.what.s.new" = "What's New";
 "ui.loading.release.notes" = "Loading release notes...";
 "ui.updates" = "Updates";
+"ui.updates.open.testflight" = "Open TestFlight";
+"ui.updates.open.app.store" = "Open App Store";
 "ui.check.for.updates" = "Check for updates";
 "ui.checking.for.updates" = "Checking for updates...";
 "ui.djconnect.is.up.to.date" = "DJConnect is up to date.";

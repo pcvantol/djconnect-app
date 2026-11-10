@@ -18563,6 +18563,12 @@ private struct LogSearchText: View {
 private struct AboutView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var showingPushStatus = false
+    #if os(iOS)
+    @Environment(\.openURL) private var openURL
+    private let testFlightURL = URL(string: "itms-beta://")!
+    private let testFlightAppStoreURL = URL(string: "https://apps.apple.com/app/testflight/id899247664")!
+    private let djConnectAppStoreURL = URL(string: "https://apps.apple.com/app/id6832635823")!
+    #endif
     @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
     @Environment(\.djConnectContentSizeClass) private var contentSizeClass
     private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
@@ -18597,6 +18603,23 @@ private struct AboutView: View {
                         }
                         AboutStackedRow(label: localizedKey(model.language, "ui.updates")) {
                             VStack(alignment: .leading, spacing: 10) {
+                                #if os(iOS)
+                                Button {
+                                    openURL(testFlightURL) { accepted in
+                                        if !accepted {
+                                            openURL(testFlightAppStoreURL)
+                                        }
+                                    }
+                                } label: {
+                                    Label(localizedKey(model.language, "ui.updates.open.testflight"), systemImage: "arrow.up.right.square")
+                                }
+                                .djConnectLilacButton()
+
+                                Link(destination: djConnectAppStoreURL) {
+                                    Label(localizedKey(model.language, "ui.updates.open.app.store"), systemImage: "arrow.up.right.square")
+                                }
+                                .djConnectLilacButton()
+                                #else
                                 Button {
                                     model.checkForUpdates()
                                 } label: {
@@ -18619,6 +18642,7 @@ private struct AboutView: View {
                                         .foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
+                                #endif
                             }
                         }
                         AboutStackedRow(label: localizedKey(model.language, "ui.device.id")) {
