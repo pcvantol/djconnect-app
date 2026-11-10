@@ -187,7 +187,6 @@
 		44255B6E7E053BAEEB46C0FA /* DJConnectDisplayOwnerContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = E28508F5705AFA5B50672D67 /* DJConnectDisplayOwnerContext.swift */; };
 		442DFD79FFD229971488AB87 /* DJConnectTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23742113397B7D6D33BD468B /* DJConnectTransport.swift */; };
 		450D56287AFE95B95CA839BB /* SessionForecastTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 743F0F0B93B60BDB0FF7E5E9 /* SessionForecastTests.swift */; };
-		4556FE6A91141FB0362412EC /* AppIconAdaptive.icon in Resources */ = {isa = PBXBuildFile; fileRef = 2D5D3959D8BBE49EDB2987EC /* AppIconAdaptive.icon */; };
 		455ACB420477E110C2A50FBD /* DJPersonaAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23A7014620D352A6EC019D9E /* DJPersonaAvatarView.swift */; };
 		45BF040B281C69CB60A26BD3 /* DJConnectDirectResearchAttribution.swift in Sources */ = {isa = PBXBuildFile; fileRef = D81D042EB21A842FCFFB9DEA /* DJConnectDirectResearchAttribution.swift */; };
 		45D7DD4033BB22EC310977B6 /* SessionForecastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C002F6255A070F54D84F5BB /* SessionForecastView.swift */; };
@@ -301,6 +300,7 @@
 		6D387DFC1FDA30AD10E7027F /* DJConnectSessionHistorySummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE6EA4325E589B23D9C7E7A /* DJConnectSessionHistorySummary.swift */; };
 		6DCF47014023BCBAADCC6ADC /* BulletinAdoptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44E1E9D8EB82B2E5418B1005 /* BulletinAdoptionTests.swift */; };
 		6DF3EF65BEB8308F3FB36B4F /* DJConnectDisplayClaim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 763B87402E37F98FDE09C614 /* DJConnectDisplayClaim.swift */; };
+		6E1E079CA547A8CAF65AC078 /* AppIconIOSAdaptive.icon in Resources */ = {isa = PBXBuildFile; fileRef = 272E7108908C03B862ECE92D /* AppIconIOSAdaptive.icon */; };
 		6E34944645EE7C76D7D51E4F /* VibeScapeFamilies.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B792348D5BEA5F7E379F317 /* VibeScapeFamilies.swift */; };
 		6E50906E0BACE2E083EBB841 /* PassiveSessionSurfaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 577C4037AB3F267E0398CA6C /* PassiveSessionSurfaceModel.swift */; };
 		6E7E131105922A3C4B57E293 /* DeviceSpeechTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E589EC38CCC2605DEFEAE00 /* DeviceSpeechTests.swift */; };
@@ -971,6 +971,7 @@
 		25A1930B151FE77FA9064B52 /* VibeScapeSpeechAuthorizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VibeScapeSpeechAuthorizationTests.swift; sourceTree = "<group>"; };
 		26056425DEFDCF738458EB87 /* DJConnectModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectModels.swift; sourceTree = "<group>"; };
 		2655B63F82EB8220DDE368AE /* DJConnectSessionPlaybackObservation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionPlaybackObservation.swift; sourceTree = "<group>"; };
+		272E7108908C03B862ECE92D /* AppIconIOSAdaptive.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIconIOSAdaptive.icon; sourceTree = "<group>"; };
 		27F6A081513D0820DE375626 /* CompanionDataReplyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionDataReplyTests.swift; sourceTree = "<group>"; };
 		28061ACB9D7280D9D038F5A6 /* RendezvousNativeFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousNativeFlowTests.swift; sourceTree = "<group>"; };
 		285602C75F473EB08A02680A /* HASpeechNativePresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HASpeechNativePresentationTests.swift; sourceTree = "<group>"; };
@@ -1564,6 +1565,7 @@
 			isa = PBXGroup;
 			children = (
 				2D5D3959D8BBE49EDB2987EC /* AppIconAdaptive.icon */,
+				272E7108908C03B862ECE92D /* AppIconIOSAdaptive.icon */,
 				B98B75141E0DC0EC78F55371 /* AppIconWatchAdaptive.icon */,
 				93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */,
 				73C5296CD4A415832E3CAC3C /* SessionNextTrackIntent.swift */,
@@ -2415,7 +2417,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4556FE6A91141FB0362412EC /* AppIconAdaptive.icon in Resources */,
+				6E1E079CA547A8CAF65AC078 /* AppIconIOSAdaptive.icon in Resources */,
 				CFC1ABCE87D4E965FC2943F5 /* Assets.xcassets in Resources */,
 				62C056EAF00D88CE83B60055 /* InfoPlist.strings in Resources */,
 				014F32729A21A749CA35D56B /* LaunchAvatar.png in Resources */,
@@ -3327,7 +3329,7 @@
 		038958C7586A8055BFB4D9F8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdaptive;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconIOSAdaptive;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectIOS/DJConnectIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Apps/DJConnectIOS/Info.plist;
@@ -3384,7 +3386,7 @@
 		26FB2040B236AC8ED062F91B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdaptive;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconIOSAdaptive;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectIOS/DJConnectIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Apps/DJConnectIOS/Info.plist;
