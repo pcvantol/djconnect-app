@@ -10,7 +10,11 @@ enum RendezvousBuildProfile {
     #else
     static let serviceOrigin = "https://api.djconnect.dev"
     static let browserOrigin = "https://vibecast.tv"
+    #if os(iOS) && DJCONNECT_VIBECAST_PRODUCTION_TESTFLIGHT
+    static let storageNamespace = "dev.djconnect.rendezvous.testflight"
+    #else
     static let storageNamespace = "dev.djconnect.rendezvous"
+    #endif
     #endif
 }
 

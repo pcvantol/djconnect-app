@@ -1267,9 +1267,6 @@ public final class DJConnectAppModel: ObservableObject {
             guard qr.isCurrent(), rendezvousOperation == operation, sessionHistory.responseEpoch == epoch,
                   currentDeviceSpeechContext == scope else { return }
             rendezvousDestination = context; rendezvousEnvelope = envelope
-            // Source preparation is limited to the separately compiled fixed QA
-            // app. Its API remains closed until the independently reviewed exact
-            // signed-profile/activation proposal is admitted by the API owner.
             guard owner() else { return }
             nativeStarted = true
             rendezvousStatusKey = "ui.rendezvous.sending"
@@ -1340,8 +1337,21 @@ public final class DJConnectAppModel: ObservableObject {
         // approval or a client-selected verifier policy sent to the API.
         let identity = "djc-client-key-context/1|ZEML4LPXH4.dev.djconnect.ios.vibecastqa|development|\(DJConnectRendezvousQR.serviceOrigin)"
         return Data(SHA256.hash(data: Data(identity.utf8)))
+        #elseif os(iOS) && DJCONNECT_VIBECAST_PRODUCTION_TESTFLIGHT
+        guard RendezvousNativeAdmission.isAdmitted else { return nil }
+        let identity = "djc-client-key-context/1|ZEML4LPXH4.dev.djconnect.ios|production|\(DJConnectRendezvousQR.serviceOrigin)"
+        return Data(SHA256.hash(data: Data(identity.utf8)))
         #else
         return nil
+        #endif
+    }
+    var canOpenVibeCastNativeSender: Bool {
+        #if os(iOS) && DJCONNECT_VIBECAST_FIXED_QA
+        true
+        #elseif os(iOS) && DJCONNECT_VIBECAST_PRODUCTION_TESTFLIGHT
+        RendezvousNativeAdmission.isAdmitted
+        #else
+        false
         #endif
     }
     public lazy var sessionHistory = DJConnectSessionHistoryModel(host: self)
