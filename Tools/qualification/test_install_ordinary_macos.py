@@ -49,7 +49,7 @@ class OrdinaryBundleCopyTests(unittest.TestCase):
 class WidgetProcessRetirementTests(unittest.TestCase):
     destination = Path("/Applications/DJ Connect (test).app")
     backup = Path("/Applications/DJConnect-recovery-fixture.app")
-    suffix = "/Contents/PlugIns/TrackInsightWidget.appex/Contents/MacOS/TrackInsightWidget"
+    suffix = "/Contents/PlugIns/DJConnectWidget.appex/Contents/MacOS/DJConnectWidget"
 
     def result(self, text, code=0):
         return SimpleNamespace(stdout=text, returncode=code)
