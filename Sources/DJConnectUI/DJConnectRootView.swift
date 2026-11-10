@@ -18696,7 +18696,7 @@ private struct AboutView: View {
                         }
                         AboutStackedRow(label: "GitHub") {
                             Link(destination: URL(string: "https://github.com/djconnect-music-dj/djconnect")!) {
-                                Label("pcvantol/djconnect", systemImage: "arrow.up.right.square")
+                                Label("djconnect-music-dj/djconnect", systemImage: "arrow.up.right.square")
                                     .font(.body)
                                     .foregroundStyle(.white)
                             }
