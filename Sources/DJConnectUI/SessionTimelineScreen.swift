@@ -1232,7 +1232,10 @@ struct SessionTimelineScreen: View {
                 .accessibilityIdentifier("session-voice-toggle")
                 .help(text("ui.dj_settings.title"))
                 .popover(isPresented: $showingDJVoice) {
-                    ProfileDJSettingsEditor(model: model).equatable().frame(idealWidth: 360)
+                    let screenHeight = (NSApp.keyWindow?.screen ?? NSScreen.main)?.visibleFrame.height ?? 800
+                    ProfileDJSettingsEditor(model: model)
+                        .equatable()
+                        .frame(width: 440, height: min(560, screenHeight * 0.75))
                 }
                 .onChange(of: activeSession?.id) { showingDJVoice = false }
                 .onChange(of: history.responseEpoch) { showingDJVoice = false }
