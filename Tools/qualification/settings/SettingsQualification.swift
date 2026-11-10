@@ -234,7 +234,6 @@ import WidgetKit
             surfaces.append(row)
         }
         let configurations = try await WidgetCenter.shared.currentConfigurations()
-        let kinds = Set([DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds)
         let model = DJConnectAppModel(tokenStore: DJConnectUserDefaultsTokenStore(key: "DJConnectIOSDeviceToken"), startBackgroundTasks: false)
         await model.refreshProfileDJSettings()
         _ = await model.refreshActiveDJSession()
@@ -245,7 +244,7 @@ import WidgetKit
             "group_container_accessible": FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) != nil,
             "neutral_cache_present": snapshotData != nil, "neutral_cache_decodable": snapshot != nil,
             "neutral_cache_current": snapshot?.isCurrent(at: now) == true,
-            "configured_session_widgets": configurations.filter { kinds.contains($0.kind) }.count,
+            "configured_session_widgets": configurations.filter { $0.kind == DJConnectSessionSurfaceSnapshot.widgetKind }.count,
             "activities_enabled": ActivityAuthorizationInfo().areActivitiesEnabled,
             "activity_states": Activity<DJConnectSessionLiveActivityAttributes>.activities.map { String(describing: $0.activityState) },
             "has_previous_request_marker": UserDefaults.standard.string(forKey: "DJConnectSessionSurface.requested") != nil,

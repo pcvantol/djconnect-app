@@ -905,7 +905,7 @@ private struct SessionMomentLayoutPreview: View {
 #endif
 
 @main
-struct DJConnectTrackInsightWidgetsBundle: WidgetBundle {
+struct DJConnectWidgetsBundle: WidgetBundle {
     var body: some Widget {
         DJConnectSessionWidget()
         #if os(iOS) && canImport(ActivityKit)
