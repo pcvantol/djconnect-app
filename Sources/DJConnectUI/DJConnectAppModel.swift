@@ -1265,15 +1265,10 @@ public final class DJConnectAppModel: ObservableObject {
                   currentDeviceSpeechContext == scope else { return }
             stage = "read Home Assistant owner context"
             log(.debug, "[VibeCast] Reading Home Assistant owner context")
-            let context = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
-                try await $0.displayOwnerContext(expectedInstallationID: installation,
-                    pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()), isCurrent: { [weak self] in
-                    guard let self else { return false }
-                    return !Task.isCancelled && self.rendezvousOperation == operation && qr.isCurrent() &&
-                        self.pairingStatus == .paired && self.isAppInForeground &&
-                        self.sessionHistory.responseEpoch == epoch && self.currentDeviceSpeechContext == scope
-                })
-            }
+            let context = try await displayOwnerClient().displayOwnerContext(
+                expectedInstallationID: installation,
+                pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()),
+                isCurrent: owner)
             guard !Task.isCancelled, rendezvousOperation == operation, qr.isCurrent(),
                   pairingStatus == .paired, isAppInForeground,
                   sessionHistory.responseEpoch == epoch, sessionHistory.authorizedProfileID == profile,
@@ -1296,7 +1291,16 @@ public final class DJConnectAppModel: ObservableObject {
             log(.info, "[VibeCast] Destination accepted")
         } catch {
             guard rendezvousOperation == operation else { return }
-            log(.warning, "[VibeCast] Failed at \(stage)")
+            switch error {
+            case DJConnectError.server(let statusCode, _),
+                 DJConnectError.authStale(let statusCode, _),
+                 DJConnectError.profile(_, let statusCode, _):
+                log(.warning, "[VibeCast] Failed at \(stage) (HTTP \(statusCode))")
+            case DJConnectError.routeMissing:
+                log(.warning, "[VibeCast] Failed at \(stage) (route unavailable)")
+            default:
+                log(.warning, "[VibeCast] Failed at \(stage)")
+            }
             if nativeStarted {
                 rendezvousHasQR = false
                 if case RendezvousConnectionCoordinator.Failure.requiresRepair = error {
@@ -1329,10 +1333,10 @@ public final class DJConnectAppModel: ObservableObject {
         rendezvousBusy = true; rendezvousStatusKey = "ui.rendezvous.repairing"
         defer { if rendezvousOperation == operation { rendezvousBusy = false } }
         do {
-            _ = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
-                try await $0.displayOwnerContext(expectedInstallationID: installation,
-                    pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()), isCurrent: owner)
-            }
+            _ = try await displayOwnerClient().displayOwnerContext(
+                expectedInstallationID: installation,
+                pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()),
+                isCurrent: owner)
             guard owner() else { return }
             try await RendezvousSameKeyRecovery().recover(appContext: appContext, isCurrent: owner)
             guard owner() else { return }
