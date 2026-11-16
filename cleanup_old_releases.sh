@@ -146,7 +146,7 @@ WORKFLOW_RUNS=()
 while IFS= read -r run_id; do
   [[ -n "$run_id" ]] && WORKFLOW_RUNS+=("$run_id")
 done < <(
-  gh run list --repo pcvantol/djconnect-app --limit 200 --json databaseId \
+  gh run list --repo djconnect-music-dj/djconnect-app --limit 200 --json databaseId \
     --jq ".[${KEEP_WORKFLOW_RUNS}:][].databaseId"
 )
 
@@ -164,7 +164,7 @@ fi
 printf '  %s\n' "${WORKFLOW_RUNS[@]}"
 
 for run_id in "${WORKFLOW_RUNS[@]}"; do
-  run gh run delete "$run_id" --repo pcvantol/djconnect-app
+  run gh run delete "$run_id" --repo djconnect-music-dj/djconnect-app
 done
 
 if [[ "$EXECUTE" == false ]]; then

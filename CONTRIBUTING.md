@@ -151,8 +151,8 @@ The normal release flow is:
 
 The release script runs the third-party/tooling preflight, validates unsigned
 iOS and macOS debug builds, creates the source release/tag in
-`pcvantol/djconnect-app`, and triggers the public unsigned release workflow.
-Public unsigned artifacts are published to `pcvantol/djconnect-app-releases`
+`djconnect-music-dj/djconnect-app`, and triggers the public unsigned release workflow.
+Public unsigned artifacts are published to `djconnect-music-dj/djconnect-app-releases`
 under platform-specific tags such as `ios/vX.Y.Z` and `macos/vX.Y.Z`.
 
 Signed TestFlight/App Store and notarized Developer ID macOS builds require the

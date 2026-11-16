@@ -17,6 +17,13 @@ WORKFLOWS = [
 
 
 class AppleRepositoryManifestIdentityTests(unittest.TestCase):
+    def test_release_and_cleanup_target_transferred_source_repository(self):
+        for filename in ('release.sh', 'cleanup_old_releases.sh'):
+            with self.subTest(filename=filename):
+                source = (ROOT / filename).read_text()
+                self.assertIn('--repo djconnect-music-dj/djconnect-app', source)
+                self.assertNotIn('--repo pcvantol/djconnect-app', source)
+
     def test_only_current_repository_and_exact_source_match(self):
         source = 'a' * 40
         old = 'pcvantol/djconnect-app'
