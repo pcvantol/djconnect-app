@@ -2,7 +2,7 @@
 
 Status: repository-local canonical reference map
 
-Repository: `pcvantol/djconnect-app`
+Repository: `djconnect-music-dj/djconnect-app`
 
 This repository extends the DJConnect Platform Foundation. It does not redefine
 it.
@@ -74,7 +74,7 @@ Canonical foundation documents include:
 
 ## Local Technical Design Ownership
 
-- Canonical repository: `pcvantol/djconnect-app` for repository-specific technical
+- Canonical repository: `djconnect-music-dj/djconnect-app` for repository-specific technical
   design, implementation, build, release and test details.
 - Local responsibility: maintain implementation reality for Apple client implementation, Apple presentation/runtime behavior and localized rendering for Apple surfaces.
 - May this repository modify it: yes, within its ownership boundary.
