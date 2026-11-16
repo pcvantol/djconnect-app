@@ -88,7 +88,7 @@ After renewing the Apple Developer Program membership:
   `pcvantol/djconnect/PRODUCT_ROADMAP.md`. If either change originates here,
   create a follow-up change/commit in `pcvantol/djconnect`. Do not keep local
   `SYNC_PROMPTS.md` or `PRODUCT_ROADMAP.md` copies in this repo.
-- Include `pcvantol/djconnect-api` in cross-repo contract reviews whenever
+- Include `djconnect-music-dj/djconnect-api` in cross-repo contract reviews whenever
   APNs push relay, Apple wake/sync behavior, Home Assistant relay events,
   privacy/security boundaries, API deployment, Cloudflare Workers/D1 schema, or
   release hygiene changes.
@@ -338,7 +338,7 @@ The workflow:
   release notes and optionally `docs/release-notes/{nl|de|fr|es}/vX.Y.Z.md`
   as localized release notes;
 - publishes static `.md` and `.json` release-note files into
-  `pcvantol/djconnect-website` at
+  `djconnect-music-dj/djconnect-website` at
   `wwwroot/release-notes/{ios|macos}/{en|nl|de|fr|es}/vX.Y.Z.{md,json}` plus an older
   English fallback at `wwwroot/release-notes/{ios|macos}/vX.Y.Z.{md,json}`;
 - removes older platform-specific public releases and tags after successful
@@ -355,7 +355,7 @@ The token must be able to create releases and upload assets in
 `djconnect-music-dj/djconnect-app-releases`. The default `GITHUB_TOKEN` for
 `djconnect-music-dj/djconnect-app` cannot write to a different repository.
 `WEBSITE_RELEASE_NOTES_TOKEN` must be able to push to
-`pcvantol/djconnect-website`; the website repo deploys those static files to
+`djconnect-music-dj/djconnect-website`; the website repo deploys those static files to
 Cloudflare Pages for `djconnect.dev`.
 
 Unsigned artifacts are for diagnostics, CI validation, internal validation, and
@@ -375,7 +375,7 @@ If the public workflow fails before `Publish static release notes to
 djconnect.dev`, the app will show the fallback "release notes could not be
 loaded" message for that version. Fix the blocking workflow issue and rerun the
 workflow for the version, or publish the missing static files directly to
-`pcvantol/djconnect-website` using the same paths and JSON shape listed below.
+`djconnect-music-dj/djconnect-website` using the same paths and JSON shape listed below.
 Then verify the live URLs on `https://djconnect.dev` before considering What's
 New publication complete.
 
