@@ -320,7 +320,7 @@ pushed without an explicit maintainer bypass.
 Private GitHub Actions CI runs Swift tests, autonomous HTTP and WebSocket
 Home Assistant contract e2e, and unsigned iOS/macOS build checks. Release tags also publish unsigned
 macOS and iOS diagnostic artifacts to
-[pcvantol/djconnect-app-releases](https://github.com/pcvantol/djconnect-app-releases)
+[djconnect-music-dj/djconnect-app-releases](https://github.com/djconnect-music-dj/djconnect-app-releases)
 when the private repo has a `PUBLIC_RELEASES_TOKEN` secret with write access to
 that public repository. The public unsigned releases are platform-specific:
 `macos/vX.Y.Z` contains the unsigned macOS artifact and macOS release notes,
