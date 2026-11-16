@@ -91,7 +91,7 @@ def download(manifest_path, device):
                    source_sha=os.environ["CANDIDATE_SHA"], source_repository=source_repository, device=device,
                    repository_id=repository_id, asset_id=asset_id, checksum=checksum)
     env = dict(os.environ, GH_TOKEN=token, GH_PROMPT_DISABLED="1")
-    repo = "repos/pcvantol/djconnect-apple-internal-artifacts"
+    repo = f"repositories/{repository_id}"
     endpoint = f"{repo}/releases/assets/{asset_id}"
     command = ["gh", "api", "--hostname", "github.com"]
     repository = json.loads(subprocess.check_output([*command, repo], env=env, timeout=30))

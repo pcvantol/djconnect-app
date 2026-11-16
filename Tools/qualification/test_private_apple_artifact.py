@@ -130,7 +130,7 @@ class PrivateAppleArtifactTests(unittest.TestCase):
                     with patch.dict(os.environ, env, clear=True), patch(
                         "subprocess.check_output",
                         side_effect=[json.dumps(fixture["repository"]), json.dumps(fixture["asset"])],
-                    ), patch("subprocess.run") as api:
+                    ) as metadata_api, patch("subprocess.run") as api:
                         api.side_effect = lambda *args, **kwargs: kwargs["stdout"].write(payload)
                         if payload == b"tampered":
                             with self.assertRaisesRegex(ValueError, "Downloaded bytes"):
@@ -139,8 +139,10 @@ class PrivateAppleArtifactTests(unittest.TestCase):
                         else:
                             download(manifest, "ipad")
                             self.assertEqual(Path("artifact.zip").read_bytes(), payload)
+                        self.assertEqual(metadata_api.call_args_list[0].args[0][-1], "repositories/123")
+                        self.assertEqual(metadata_api.call_args_list[1].args[0][-1], "repositories/123/releases/assets/456")
                         self.assertEqual(api.call_args.args[0][-3:], [
-                            "repos/pcvantol/djconnect-apple-internal-artifacts/releases/assets/456",
+                            "repositories/123/releases/assets/456",
                             "-H", "Accept: application/octet-stream",
                         ])
             finally:
