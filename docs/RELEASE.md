@@ -33,8 +33,8 @@ credentials.
 xcrun notarytool store-credentials <notarytool-keychain-profile>
 ```
 
-- Confirm `gh` can access both private source repo `pcvantol/djconnect-app`
-  and public binary repo `pcvantol/djconnect-app-releases`.
+- Confirm `gh` can access both source repo `djconnect-music-dj/djconnect-app`
+  and public binary repo `djconnect-music-dj/djconnect-app-releases`.
 - Keep Apple certificates, App Store Connect API keys, and notary credentials
   out of the source repo.
 
@@ -133,10 +133,10 @@ git diff --check
 ```
 
 - Commit and push the release changes to `main`.
-- Create the GitHub source release/tag in `pcvantol/djconnect-app`.
+- Create the GitHub source release/tag in `djconnect-music-dj/djconnect-app`.
 - Confirm the `Public unsigned release` GitHub Actions workflow succeeds. It
   publishes unsigned macOS and iOS diagnostic zips plus checksums to
-  `pcvantol/djconnect-app-releases`.
+  `djconnect-music-dj/djconnect-app-releases`.
 - The workflow runs `swift test --parallel` before building artifacts or
   publishing static release notes. Keep tests locale-independent or explicitly
   set/test the intended app language before asserting localized strings, so a
@@ -224,11 +224,11 @@ git diff --check
 - Confirm `NOTARY_PROFILE` exists in the login keychain.
 - Confirm Developer ID Application certificate is installed.
 - Confirm `gh auth status` can publish to
-  `pcvantol/djconnect-app-releases`.
+  `djconnect-music-dj/djconnect-app-releases`.
 - Run the public macOS release helper:
 
 ```sh
-PUBLIC_REPO=pcvantol/djconnect-app-releases \
+PUBLIC_REPO=djconnect-music-dj/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
 ./Tools/release/release_macos_public.sh --version <X.Y.Z>
@@ -236,7 +236,7 @@ NOTARY_PROFILE=<notarytool-keychain-profile> \
 
 - Confirm notarization succeeds and the ticket is stapled.
 - Confirm Gatekeeper assessment succeeds.
-- Download the public zip from `pcvantol/djconnect-app-releases` on a clean Mac
+- Download the public zip from `djconnect-music-dj/djconnect-app-releases` on a clean Mac
   user account.
 - Launch the app, grant Local Network/Microphone/Speech permissions as
   needed, pair with Home Assistant, and validate playback/queue/playlists/PTT.
@@ -330,9 +330,9 @@ The workflow:
 - is triggered from the source release tag after `release.sh` has already
   verified that the release commit is based on `origin/main` and pushed that
   exact commit to `main`;
-- publishes `macos/vX.Y.Z` in `pcvantol/djconnect-app-releases` with
+- publishes `macos/vX.Y.Z` in `djconnect-music-dj/djconnect-app-releases` with
   `DJConnect-macOS-X.Y.Z-unsigned.zip` and a macOS checksum file;
-- publishes `ios/vX.Y.Z` in `pcvantol/djconnect-app-releases` with
+- publishes `ios/vX.Y.Z` in `djconnect-music-dj/djconnect-app-releases` with
   `DJConnect-iOS-X.Y.Z-unsigned.zip` and an iOS checksum file;
 - uses the matching release section from `CHANGELOG.md` as the English public
   release notes and optionally `docs/release-notes/{nl|de|fr|es}/vX.Y.Z.md`
@@ -352,8 +352,8 @@ WEBSITE_RELEASE_NOTES_TOKEN
 ```
 
 The token must be able to create releases and upload assets in
-`pcvantol/djconnect-app-releases`. The default `GITHUB_TOKEN` for
-`pcvantol/djconnect-app` cannot write to a different repository.
+`djconnect-music-dj/djconnect-app-releases`. The default `GITHUB_TOKEN` for
+`djconnect-music-dj/djconnect-app` cannot write to a different repository.
 `WEBSITE_RELEASE_NOTES_TOKEN` must be able to push to
 `pcvantol/djconnect-website`; the website repo deploys those static files to
 Cloudflare Pages for `djconnect.dev`.
@@ -407,8 +407,8 @@ file, then the older English platform-specific static file. The GitHub release
 metadata API is retained only as a final fallback:
 
 ```text
-https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/ios%2FvX.Y.Z
-https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/macos%2FvX.Y.Z
+https://api.github.com/repos/djconnect-music-dj/djconnect-app-releases/releases/tags/ios%2FvX.Y.Z
+https://api.github.com/repos/djconnect-music-dj/djconnect-app-releases/releases/tags/macos%2FvX.Y.Z
 ```
 
 Only public release metadata is fetched. No DJConnect device token, Home
@@ -586,7 +586,7 @@ the user chooses to pair the app again.
 
 For Mac App Store submission, use the same product copy. For public Developer
 ID distribution outside the Mac App Store, publish the notarized zip and
-checksum to `pcvantol/djconnect-app-releases` and link the public release from
+checksum to `djconnect-music-dj/djconnect-app-releases` and link the public release from
 the website/download page.
 
 ## First-Run Welcome
@@ -741,7 +741,7 @@ device permission testing.
 The local helper script packages and uploads public macOS releases:
 
 ```sh
-PUBLIC_REPO=pcvantol/djconnect-app-releases \
+PUBLIC_REPO=djconnect-music-dj/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
 ./Tools/release/release_macos_public.sh --version 3.2.2
@@ -755,7 +755,7 @@ xcrun notarytool store-credentials <notarytool-keychain-profile>
 
 The script performs a clean archive, Developer ID export, notarization, staple,
 Gatekeeper assessment, zip/checksum creation, and GitHub release upload to the
-public `pcvantol/djconnect-app-releases` repository. This macOS-only script does
+public `djconnect-music-dj/djconnect-app-releases` repository. This macOS-only script does
 not build iOS artifacts; unsigned iOS diagnostics are published by the GitHub
 Actions public release workflow, while normal iOS distribution should still use
 TestFlight/App Store.

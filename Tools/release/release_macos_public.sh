@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PUBLIC_REPO="${PUBLIC_REPO:-pcvantol/djconnect-app-releases}"
+PUBLIC_REPO="${PUBLIC_REPO:-djconnect-music-dj/djconnect-app-releases}"
 SCHEME="${SCHEME:-DJConnectMac}"
 CONFIGURATION="${CONFIGURATION:-Release}"
 ARCHIVE_PATH="${ARCHIVE_PATH:-.release/DJConnect.xcarchive}"
@@ -14,14 +14,14 @@ RELEASE_BUILD_NUMBER="${RELEASE_BUILD_NUMBER:-}"
 usage() {
   cat <<EOF
 Usage:
-  PUBLIC_REPO=pcvantol/djconnect-app-releases \\
+  PUBLIC_REPO=djconnect-music-dj/djconnect-app-releases \\
   DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \\
   NOTARY_PROFILE=<xcrun-notarytool-keychain-profile> \\
   ./Tools/release/release_macos_public.sh [--version X.Y.Z] [--skip-upload]
 
 Environment:
   PUBLIC_REPO              Public GitHub repo for binary releases.
-                           Default: pcvantol/djconnect-app-releases
+                           Default: djconnect-music-dj/djconnect-app-releases
   DEVELOPMENT_TEAM         Apple Developer Team ID for signing.
   NOTARY_PROFILE           Keychain profile created with xcrun notarytool
                            store-credentials.
