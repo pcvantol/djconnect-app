@@ -1,6 +1,6 @@
 # Apple requirements: acceptatie en afsluiting — 17 oktober 2026
 
-Owning register: [Apple #87](https://github.com/pcvantol/djconnect-app/issues/87). CLOSED_BOUNDED sluit alleen de genoemde functionele implementatie of bewijslevering af. Parentwerk, gereviewde bronoplevering en toestelacceptatie blijven afzonderlijke grenzen.
+Owning register: [Apple #87](https://github.com/djconnect-music-dj/djconnect-app/issues/87). CLOSED_BOUNDED sluit alleen de genoemde functionele implementatie of bewijslevering af. Parentwerk, gereviewde bronoplevering en toestelacceptatie blijven afzonderlijke grenzen.
 
 Actuele baseline: 24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.
 
