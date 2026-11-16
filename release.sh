@@ -172,13 +172,13 @@ if [[ "$SKIP_SOURCE_RELEASE" -eq 0 ]]; then
   fi
   run git push origin HEAD:main
   run git push origin "$TAG"
-  if gh release view "$TAG" --repo pcvantol/djconnect-app >/dev/null 2>&1; then
-    echo "GitHub release $TAG already exists in pcvantol/djconnect-app"
+  if gh release view "$TAG" --repo djconnect-music-dj/djconnect-app >/dev/null 2>&1; then
+    echo "GitHub release $TAG already exists in djconnect-music-dj/djconnect-app"
   else
     NOTES_FILE="$ROOT_DIR/.release/release-$VERSION-notes.md"
     write_changelog_release_notes "$VERSION" "$NOTES_FILE"
     run gh release create "$TAG" \
-      --repo pcvantol/djconnect-app \
+      --repo djconnect-music-dj/djconnect-app \
       --title "DJConnect App $VERSION" \
       --notes-file "$NOTES_FILE"
   fi
