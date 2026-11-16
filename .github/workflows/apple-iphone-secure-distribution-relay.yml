@@ -55,7 +55,7 @@ jobs:
           test "$(jq -r '.approval.state' "$manifest")" = APPROVED
           test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
           test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
-          jq -e --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-app" and .source_sha == $sha and .version == "4.0.0")' "$manifest" >/dev/null
+          jq -e --arg sha "$CANDIDATE_SHA" --arg repo "$GITHUB_REPOSITORY" '.repositories[] | select(.repository == $repo and .source_sha == $sha and .version == "4.0.0")' "$manifest" >/dev/null
           /usr/bin/python3 Tools/release/private_apple_artifact.py "$manifest" iphone
       - name: Verify exact physical iPhone, paired Watch and local signing scope
         run: |

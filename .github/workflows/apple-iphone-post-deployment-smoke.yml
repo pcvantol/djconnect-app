@@ -52,7 +52,7 @@ jobs:
           test "$(jq -r '.approval.state' "$manifest")" = APPROVED
           test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
           jq -e --arg artifact "$ARTIFACT_ID" --arg checksum "$ARTIFACT_SHA256" '.artifact_bindings[] | select(.target == "apple_private_device" and .target_device == "iphone" and .artifact_id == $artifact and .artifact_sha256 == $checksum and .signing == "local_developer_provisioning_required" and .paired_watch_validation == "required")' "$manifest" >/dev/null
-          expected_version="$(jq -er --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-app" and .source_sha == $sha) | .version' "$manifest")"
+          expected_version="$(jq -er --arg sha "$CANDIDATE_SHA" --arg repo "$GITHUB_REPOSITORY" '.repositories[] | select(.repository == $repo and .source_sha == $sha) | .version' "$manifest")"
           xcrun devicectl device info apps --device "$IPHONE_UDID" --bundle-id dev.djconnect.ios --json-output iphone-apps.json
           xcrun devicectl device info apps --device "$WATCH_UDID" --bundle-id dev.djconnect.ios.watch --json-output watch-apps.json
           jq -e --arg version "$expected_version" '[.result.apps[] | select(.bundleIdentifier == "dev.djconnect.ios" and .version == $version)] | length == 1' iphone-apps.json >/dev/null

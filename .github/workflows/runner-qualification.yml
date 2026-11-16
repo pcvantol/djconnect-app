@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   qualify-apple-runner:
-    if: ${{ github.actor == github.repository_owner }}
+    if: ${{ github.repository_id == '1264041589' && github.actor_id == '19624891' }}
     runs-on: [self-hosted, internal-release, qualification, apple, macmini-build]
     timeout-minutes: 10
     steps:

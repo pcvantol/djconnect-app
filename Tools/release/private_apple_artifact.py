@@ -16,14 +16,15 @@ APPROVED_STATES = {
 WATCH_REQUIREMENTS = {"macbook": "disabled", "iphone": "required", "ipad": None}
 
 
-def verify_binding(manifest, *, manifest_id, source_sha, device, repository_id, asset_id, checksum):
+def verify_binding(manifest, *, manifest_id, source_sha, source_repository, device, repository_id, asset_id, checksum):
     if (not manifest_id or manifest.get("manifest_id") != manifest_id
             or manifest.get("status") not in APPROVED_STATES
             or manifest.get("approval", {}).get("state") != "APPROVED"
             or manifest.get("release_profile") != "INTERNAL_RELEASE"):
         raise ValueError("Manifest is not approved for this deployment")
-    if (not re.fullmatch(r"[0-9a-f]{40}", source_sha)
-            or not any(entry.get("repository") == "pcvantol/djconnect-app"
+    if (source_repository not in {"pcvantol/djconnect-app", "djconnect-music-dj/djconnect-app"}
+            or not re.fullmatch(r"[0-9a-f]{40}", source_sha)
+            or not any(entry.get("repository") == source_repository
                        and entry.get("source_sha") == source_sha
                        for entry in manifest.get("repositories", []))):
         raise ValueError("Apple source SHA does not match")
@@ -79,12 +80,15 @@ def download(manifest_path, device):
     token = os.environ.get("DJCONNECT_ARTIFACT_READ_TOKEN")
     if not token:
         raise ValueError("Private Apple artifact read credential is required")
+    if os.environ.get("GITHUB_REPOSITORY_ID") != "1264041589":
+        raise ValueError("Unexpected Apple source repository ID")
+    source_repository = os.environ.get("GITHUB_REPOSITORY", "")
     repository_id = int(os.environ["ARTIFACT_REPOSITORY_ID"])
     asset_id = int(os.environ["ARTIFACT_ID"])
     manifest = json.loads(Path(manifest_path).read_text())
     checksum = os.environ["ARTIFACT_SHA256"]
     verify_binding(manifest, manifest_id=os.environ["MANIFEST_ID"],
-                   source_sha=os.environ["CANDIDATE_SHA"], device=device,
+                   source_sha=os.environ["CANDIDATE_SHA"], source_repository=source_repository, device=device,
                    repository_id=repository_id, asset_id=asset_id, checksum=checksum)
     env = dict(os.environ, GH_TOKEN=token, GH_PROMPT_DISABLED="1")
     repo = "repos/pcvantol/djconnect-apple-internal-artifacts"
