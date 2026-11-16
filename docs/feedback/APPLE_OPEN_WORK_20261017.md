@@ -1,6 +1,6 @@
 # Integrale Apple-status en open werk
 
-Actuele readback: 30October2026: Source239 rich fragment DATA preflight independently originally qualified; one rich push product remains partial; separate documentary Final requires own qualification. Owning register: [Apple #87](https://github.com/pcvantol/djconnect-app/issues/87). Het [requirementregister](APPLE_REQUIREMENT_ACCEPTANCE_20261017.md) benoemt de afzonderlijke functionele afmeldingen. Oudere receipts blijven bewijs voor hun eigen bron en build. Geen tweede writer.
+Actuele readback: 30October2026: Source239 rich fragment DATA preflight independently originally qualified; one rich push product remains partial; separate documentary Final requires own qualification. Owning register: [Apple #87](https://github.com/djconnect-music-dj/djconnect-app/issues/87). Het [requirementregister](APPLE_REQUIREMENT_ACCEPTANCE_20261017.md) benoemt de afzonderlijke functionele afmeldingen. Oudere receipts blijven bewijs voor hun eigen bron en build. Geen tweede writer.
 
 Geïnstalleerd: 24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.
 

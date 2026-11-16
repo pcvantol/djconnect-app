@@ -25,7 +25,7 @@ def render(path):
     if requirements:
         assert dict(sorted(Counter(row["status"] for row in rows).items())) == obj["counts"], "Counts drifted"
         lines = ["# Apple requirements: acceptatie en afsluiting — 17 oktober 2026", "",
-                 "Owning register: [Apple #87](https://github.com/pcvantol/djconnect-app/issues/87). "
+                 "Owning register: [Apple #87](https://github.com/djconnect-music-dj/djconnect-app/issues/87). "
                  "CLOSED_BOUNDED sluit alleen de genoemde functionele implementatie of bewijslevering af. "
                  "Parentwerk, gereviewde bronoplevering en toestelacceptatie blijven afzonderlijke grenzen.", "",
                  "Actuele baseline: " + obj["baseline"], "", "Bron: " + obj["source_head"], "",
@@ -37,7 +37,7 @@ def render(path):
             lines.append("| " + " | ".join(cell(value) for value in [name + " — " + row["requirement"], row["status"], row["evidence"], row["remaining"]]) + " |")
     else:
         lines = ["# Integrale Apple-status en open werk", "",
-                 "Actuele readback: " + obj["as_of"] + ". Owning register: [Apple #87](https://github.com/pcvantol/djconnect-app/issues/87). "
+                 "Actuele readback: " + obj["as_of"] + ". Owning register: [Apple #87](https://github.com/djconnect-music-dj/djconnect-app/issues/87). "
                  "Het [requirementregister](APPLE_REQUIREMENT_ACCEPTANCE_20261017.md) benoemt de afzonderlijke functionele afmeldingen. "
                  "Oudere receipts blijven bewijs voor hun eigen bron en build. Geen tweede writer.", "",
                  "Geïnstalleerd: " + obj["installed_baseline"], "",
