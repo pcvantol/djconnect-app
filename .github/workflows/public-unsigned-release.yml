@@ -22,7 +22,7 @@ jobs:
     uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@dd02d6470f061e6e755e6fb47ae5331c34f89875
     with:
       execution_profile: release
-      owner: pcvantol/djconnect-app
+      owner: ${{ github.repository }}
 
   unsigned-release:
     name: Publish unsigned builds to public releases repo
@@ -31,9 +31,6 @@ jobs:
     permissions:
       actions: write
       contents: read
-
-    env:
-      PUBLIC_REPO: pcvantol/djconnect-app-releases
 
     steps:
       - name: Checkout
@@ -220,9 +217,14 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${GH_TOKEN:-}" ]]; then
-            echo "Configure repository secret PUBLIC_RELEASES_TOKEN with access to ${PUBLIC_REPO}." >&2
+            echo "Configure repository secret PUBLIC_RELEASES_TOKEN with write access to the public releases repository." >&2
             exit 1
           fi
+          PUBLIC_REPO="$(gh api repositories/1265963920 --jq 'select(.id == 1265963920 and .visibility == "public" and .permissions.push == true) | .full_name')"
+          case "$PUBLIC_REPO" in
+            pcvantol/djconnect-app-releases|djconnect-music-dj/djconnect-app-releases) ;;
+            *) echo "Unexpected release repository or missing publication permission." >&2; exit 1 ;;
+          esac
           version="${{ steps.version.outputs.version }}"
           mac_tag="macos/v${version}"
           ios_tag="ios/v${version}"
