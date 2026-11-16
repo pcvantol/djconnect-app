@@ -38,6 +38,7 @@ class PrivateAppleArtifactTests(unittest.TestCase):
             },
             "manifest_id": "fixture",
             "source_sha": "a" * 40,
+            "source_repository": "pcvantol/djconnect-app",
             "device": device,
             "repository_id": 123,
             "asset_id": 456,
@@ -51,6 +52,18 @@ class PrivateAppleArtifactTests(unittest.TestCase):
         for device in ("macbook", "iphone", "ipad"):
             with self.subTest(device=device):
                 self.assertEqual(verified_asset(**self.fixture(device)), 456)
+
+    def test_source_owner_must_match_manifest_and_allowlist(self):
+        fixture = self.fixture("ipad")
+        fixture["source_repository"] = "djconnect-music-dj/djconnect-app"
+        with self.assertRaises(ValueError):
+            verified_asset(**fixture)
+        fixture["manifest"]["repositories"][0]["repository"] = fixture["source_repository"]
+        self.assertEqual(verified_asset(**fixture), 456)
+        fixture["source_repository"] = "other/djconnect-app"
+        fixture["manifest"]["repositories"][0]["repository"] = fixture["source_repository"]
+        with self.assertRaises(ValueError):
+            verified_asset(**fixture)
 
     def test_rejects_wrong_repository_asset_and_bytes(self):
         for field, value in (
@@ -88,6 +101,13 @@ class PrivateAppleArtifactTests(unittest.TestCase):
                 download("unused.json", "ipad")
             api.assert_not_called()
 
+    def test_wrong_source_repository_id_stops_before_api_access(self):
+        env = {"DJCONNECT_ARTIFACT_READ_TOKEN": "fixture-token", "GITHUB_REPOSITORY_ID": "1"}
+        with patch.dict(os.environ, env, clear=True), patch("subprocess.check_output") as api:
+            with self.assertRaisesRegex(ValueError, "source repository ID"):
+                download("unused.json", "ipad")
+            api.assert_not_called()
+
     def test_download_uses_fixed_locator_and_rejects_tampering(self):
         fixture = self.fixture("ipad")
         env = {
@@ -97,6 +117,8 @@ class PrivateAppleArtifactTests(unittest.TestCase):
             "ARTIFACT_SHA256": fixture["checksum"],
             "MANIFEST_ID": fixture["manifest_id"],
             "CANDIDATE_SHA": fixture["source_sha"],
+            "GITHUB_REPOSITORY": fixture["source_repository"],
+            "GITHUB_REPOSITORY_ID": "1264041589",
         }
         with tempfile.TemporaryDirectory() as root:
             manifest = Path(root) / "manifest.json"

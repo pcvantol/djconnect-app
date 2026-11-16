@@ -80,7 +80,7 @@ jobs:
           test "$(jq -r '.approval.state' "$manifest")" = APPROVED
           test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
           test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
-          release_version="$(jq -r --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-app" and .source_sha == $sha) | .version' "$manifest")"
+          release_version="$(jq -r --arg sha "$CANDIDATE_SHA" --arg repo "$GITHUB_REPOSITORY" '.repositories[] | select(.repository == $repo and .source_sha == $sha) | .version' "$manifest")"
           printf '%s' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
           /usr/bin/python3 Tools/release/private_apple_artifact.py "$manifest" macbook
           printf 'release_version=%s\n' "$release_version" >> "$GITHUB_OUTPUT"
