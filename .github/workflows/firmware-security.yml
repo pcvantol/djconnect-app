@@ -22,6 +22,6 @@ jobs:
 
   semgrep:
     name: Semgrep
-    uses: pcvantol/djconnect/.github/workflows/djconnect-semgrep-ci.yml@191b4561bdb659bd2e02905b5bce9643d4390a63 # Repaired reachable workflow closure
+    uses: djconnect-music-dj/djconnect-shared-workflows/.github/workflows/djconnect-semgrep-191.yml@4bd9731a6fe7bb50c932e36635eb3ff5c5372687 # Repaired reachable workflow closure
     with:
       continue-on-error: true
