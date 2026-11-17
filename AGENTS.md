@@ -7,7 +7,7 @@ For a clean Codex/AI-agent session in this repository, start here:
 `BOOTSTRAP.md`
 
 That canonical bootstrap points back to the canonical platform foundation in
-`pcvantol/djconnect` and then returns to the repository-specific rules in
+`djconnect-music-dj/djconnect` and then returns to the repository-specific rules in
 this file. This repository extends the DJConnect Platform Foundation. It
 does not redefine it.
 
@@ -27,4 +27,4 @@ This repo is the Apple first-party DJConnect intelligence client and renderer fo
 
 ## Cross-repo changes
 
-If a client change requires backend contract changes, update `pcvantol/djconnect/SYNC_PROMPTS.md` and the relevant design/architecture docs first.
+If a client change requires backend contract changes, update `djconnect-music-dj/djconnect/SYNC_PROMPTS.md` and the relevant design/architecture docs first.
