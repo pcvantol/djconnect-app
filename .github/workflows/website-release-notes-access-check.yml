@@ -1,0 +1,19 @@
+name: Verify website release notes access
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.repository_id == '1264041589' && github.ref == 'refs/heads/main' && github.actor_id == '19624891'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out reviewed probe
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify website repository write permission without publishing
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_RELEASE_NOTES_TOKEN }}
+        run: bash Tools/qualification/website-token/probe.sh
