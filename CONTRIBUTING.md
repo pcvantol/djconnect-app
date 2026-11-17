@@ -73,9 +73,9 @@ shared protocol contract. Changes to protocol fields, endpoints, client types,
 pairing, local Client adres behavior, OTA/update flows, Assist/STT/TTS, Spotify
 playback behavior, release-note hosting, or branding may require updates in:
 
-- `pcvantol/djconnect` for the Home Assistant integration;
+- `djconnect-music-dj/djconnect` for the Home Assistant integration;
 - relevant client or firmware repositories;
-- `SYNC_PROMPTS.md` and `PRODUCT_ROADMAP.md` in `pcvantol/djconnect` when the
+- `SYNC_PROMPTS.md` and `PRODUCT_ROADMAP.md` in `djconnect-music-dj/djconnect` when the
   contract, roadmap, or cross-repo implementation guidance changes.
 
 Do not introduce app-only protocol assumptions without updating the canonical
@@ -135,7 +135,7 @@ Before opening a pull request:
    follow-up.
 6. For release or Ask DJ/audio behavior changes, review the app against the
    `DJ Announcement Output Sync` section in
-   `pcvantol/djconnect/SYNC_PROMPTS.md`. Confirm exposed output modes,
+   `djconnect-music-dj/djconnect/SYNC_PROMPTS.md`. Confirm exposed output modes,
    speaker-capability gating, nested `announcement.audio_url`, local autoplay
    decisions and push wake/sync behavior match the shared contract.
 

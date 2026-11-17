@@ -1,8 +1,8 @@
 # DJConnect App
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-dark.png">
-  <img src="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-light.png" alt="DJConnect" width="640">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/djconnect-music-dj/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-dark.png">
+  <img src="https://raw.githubusercontent.com/djconnect-music-dj/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-light.png" alt="DJConnect" width="640">
 </picture>
 
 Zet je muziek aan. DJConnect brengt die tot leven.
@@ -62,9 +62,9 @@ Website: [https://djconnect.dev](https://djconnect.dev)
   toolchain, simulator, signing, and hygiene setup.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
-- `pcvantol/djconnect/SYNC_PROMPTS.md`: canonical source for cross-repo DJConnect
+- `djconnect-music-dj/djconnect/SYNC_PROMPTS.md`: canonical source for cross-repo DJConnect
   sync prompts and contract instructions.
-- `pcvantol/djconnect/PRODUCT_ROADMAP.md`: canonical DJConnect product roadmap.
+- `djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md`: canonical DJConnect product roadmap.
 - [docs/TODO.md](docs/TODO.md): open work, known issues, and next implementation steps.
 - [docs/ISSUES.md](docs/ISSUES.md): concrete local backlog with priorities and acceptance criteria.
 - [PRIVACY.md](PRIVACY.md): security, privacy, and diagnostics redaction rules.
@@ -414,7 +414,7 @@ Content-Type: audio/wav
 Home Assistant owns STT, Assist, intent parsing, Spotify status/commands, and
 DJ response generation. The app does not need Spotify credentials or local
 Spotify Web API calls for voice commands. Canonical examples from
-`pcvantol/djconnect/examples/voice_intents.json` include:
+`djconnect-music-dj/djconnect/examples/voice_intents.json` include:
 
 | Family | NL examples | EN examples | Client behavior |
 | --- | --- | --- | --- |
@@ -618,7 +618,7 @@ contract is outside that range. Settings and pairing reset remain available.
 Diagnostics are user-mediated. The app redacts tokens and does not upload logs
 automatically. If the previous session appears to have ended uncleanly, the
 next launch offers to copy redacted logs or open a prefilled GitHub issue in
-`pcvantol/djconnect` for manual submission.
+`djconnect-music-dj/djconnect` for manual submission.
 
 The app also keeps a local redacted rolling diagnostic logfile in Application
 Support at `DJConnect/Logs/djconnect.log`. It is loaded back into the Logs

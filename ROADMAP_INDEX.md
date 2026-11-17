@@ -2,13 +2,13 @@
 
 Status: repository-local planning navigation
 
-Repository: `pcvantol/djconnect-app`
+Repository: `djconnect-music-dj/djconnect-app`
 
 ## Purpose
 
 This index directs repository-local planning. It must not duplicate the
 canonical DJConnect platform roadmap, which remains in
-`pcvantol/djconnect/PROMPT_INDEX.md` and the Platform Foundation.
+`djconnect-music-dj/djconnect/PROMPT_INDEX.md` and the Platform Foundation.
 
 ## Current Increment
 

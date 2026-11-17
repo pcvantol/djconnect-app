@@ -84,9 +84,9 @@ After renewing the Apple Developer Program membership:
 - Confirm handoff, README, architecture, development, TODO, and issues docs
   reflect new runtime, logging, release, and pairing behavior.
 - For cross-repo contract changes, update the canonical
-  `pcvantol/djconnect/SYNC_PROMPTS.md`. For product roadmap changes, update
-  `pcvantol/djconnect/PRODUCT_ROADMAP.md`. If either change originates here,
-  create a follow-up change/commit in `pcvantol/djconnect`. Do not keep local
+  `djconnect-music-dj/djconnect/SYNC_PROMPTS.md`. For product roadmap changes, update
+  `djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md`. If either change originates here,
+  create a follow-up change/commit in `djconnect-music-dj/djconnect`. Do not keep local
   `SYNC_PROMPTS.md` or `PRODUCT_ROADMAP.md` copies in this repo.
 - Include `djconnect-music-dj/djconnect-api` in cross-repo contract reviews whenever
   APNs push relay, Apple wake/sync behavior, Home Assistant relay events,
@@ -179,7 +179,7 @@ git diff --check
   non-destructive navigation/tapping does not call Home Assistant, reset
   pairing, or mutate locally stored DJConnect tokens.
 - Validate Local Network permission against a real Home Assistant instance.
-- Pair with a matching `pcvantol/djconnect` HA integration.
+- Pair with a matching `djconnect-music-dj/djconnect` HA integration.
 - Validate playback commands, output switching, queue, playlists, liked songs,
   voice/PTT WAV upload, diagnostics export, version mismatch UI, and pairing
   reset recovery.
@@ -634,7 +634,7 @@ button.
 The app does not upload crash logs automatically and does not embed GitHub
 credentials. If the previous session appears to have ended uncleanly, the next
 launch shows a crash report prompt. The user can copy redacted diagnostics or
-open a prefilled GitHub issue in `pcvantol/djconnect` and submit it manually.
+open a prefilled GitHub issue in `djconnect-music-dj/djconnect` and submit it manually.
 
 ## iOS Signing Steps
 
