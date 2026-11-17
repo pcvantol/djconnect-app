@@ -28,3 +28,22 @@ jobs:
               echo 'Private artifact repository identity and read access verified.' ;;
             *) echo 'Unexpected private artifact repository identity.' >&2; exit 1 ;;
           esac
+      - name: Report credential kind and organization read reach
+        env:
+          GH_TOKEN: ${{ secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN }}
+          GH_PROMPT_DISABLED: '1'
+        run: |
+          set -euo pipefail
+          case "$GH_TOKEN" in
+            ghp_*) echo 'Credential kind: classic personal token.' ;;
+            github_pat_*) echo 'Credential kind: fine-grained personal token.' ;;
+            ghs_*) echo 'Credential kind: GitHub App installation token.' ;;
+            ghu_*) echo 'Credential kind: GitHub App user token.' ;;
+            *) echo 'Credential kind: unclassified.' ;;
+          esac
+          if identity="$(gh api repositories/1458225033 --jq '[.id, .private] | @tsv' 2>/dev/null)" && [ "$identity" = $'1458225033\ttrue' ]; then
+            echo 'Read-only access to existing private organization repository: available.'
+          else
+            echo 'Read-only access to existing private organization repository: unavailable.'
+          fi
+          echo 'This observation does not prove access to the artifact repository after transfer.'
