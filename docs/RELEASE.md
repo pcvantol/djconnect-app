@@ -356,7 +356,7 @@ The token must be able to create releases and upload assets in
 `djconnect-music-dj/djconnect-app` cannot write to a different repository.
 `WEBSITE_RELEASE_NOTES_TOKEN` must be able to push to
 `djconnect-music-dj/djconnect-website`; the workflow checks its immutable GitHub
-repository ID and the token's push permission before cloning. The website repo deploys those static files to
+repository ID and the token's push permission before publishing release assets and again before cloning. Branch rules can still prevent a direct push. The website repo deploys those static files to
 Cloudflare Pages for `djconnect.dev`.
 
 Unsigned artifacts are for diagnostics, CI validation, internal validation, and

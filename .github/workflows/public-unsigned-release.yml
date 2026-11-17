@@ -211,6 +211,21 @@ jobs:
             cp ".public-release/release-notes-${platform}-en.md" ".public-release/release-notes-${platform}.md"
           done
 
+      - name: Verify website release-note publication access
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_RELEASE_NOTES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "Configure WEBSITE_RELEASE_NOTES_TOKEN with write access to the organization website repository." >&2
+            exit 1
+          fi
+          WEBSITE_REPO="$(gh api repositories/1265889311 --jq 'select(.id == 1265889311 and .visibility == "public" and .permissions.push == true) | .full_name')"
+          if [[ "$WEBSITE_REPO" != "djconnect-music-dj/djconnect-website" ]]; then
+            echo "Unexpected website repository or missing publication permission." >&2
+            exit 1
+          fi
+
       - name: Publish to public releases repository
         env:
           GH_TOKEN: ${{ secrets.PUBLIC_RELEASES_TOKEN }}
