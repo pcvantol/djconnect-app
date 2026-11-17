@@ -69,8 +69,8 @@ Store-release. Exacte bewijsgrenzen en nog voorwaardelijke Finalization:
 - `Tools/` en `.github/workflows/`: release-, icon-, CI- en publicatie-tooling.
 - `README.md`, `docs/ARCHITECTURE.md`, `docs/ARCHITECTURE_DECISIONS.md`,
   `docs/API_CONTRACT.md`, `docs/HANDOFF.md`, `docs/RELEASE.md` en
-  `pcvantol/djconnect/SYNC_PROMPTS.md`: integratie- en releasecontracten.
-- `pcvantol/djconnect/PRODUCT_ROADMAP.md`: canonical product roadmap.
+  `djconnect-music-dj/djconnect/SYNC_PROMPTS.md`: integratie- en releasecontracten.
+- `djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md`: canonical product roadmap.
 
 Niet aangetroffen in de repo op 2026-06-14:
 
@@ -145,8 +145,8 @@ app willen bekijken voordat Home Assistant gekoppeld is.
 
 ### Release- en contractdiscipline
 
-`pcvantol/djconnect/SYNC_PROMPTS.md` is de enige canonical cross-repo
-contractbron. `pcvantol/djconnect/PRODUCT_ROADMAP.md` is de enige canonical
+`djconnect-music-dj/djconnect/SYNC_PROMPTS.md` is de enige canonical cross-repo
+contractbron. `djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md` is de enige canonical
 product roadmap. Deze repo houdt geen lokale kopie van `SYNC_PROMPTS.md` of
 `PRODUCT_ROADMAP.md` bij. `docs/RELEASE.md` verplicht dat contractdocs, handoff,
 README, TODO/issues en dit technische ontwerpdocument bij releases worden
@@ -243,7 +243,7 @@ Conventies:
   `version`/`tag`/`UPLOAD_TESTFLIGHT` invoer, en mag geen automatische
   push/tag-trigger krijgen.
 - De public unsigned releaseflow publiceert app-release-notes ook als statische
-  `.md` en `.json` bestanden naar `pcvantol/djconnect-website`, zodat de app
+  `.md` en `.json` bestanden naar `djconnect-music-dj/djconnect-website`, zodat de app
   `djconnect.dev/release-notes/{ios|macos}/{en|nl|de|fr|es}/vX.Y.Z.json` kan lezen op
   basis van de gekozen app-taal, met de oude platform-only URL als fallback en
   zonder afhankelijk te zijn van anonieme GitHub API rate limits.
@@ -286,13 +286,13 @@ Bronnen:
 
 - `README.md`
 - `CHANGELOG.md`
-- `pcvantol/djconnect/SYNC_PROMPTS.md`
+- `djconnect-music-dj/djconnect/SYNC_PROMPTS.md`
 - `docs/*.md`
 
 Conventies:
 
 - Product- en handoffdocumentatie is primair Nederlandstalig.
-- Cross-repo contracten horen in `pcvantol/djconnect/SYNC_PROMPTS.md`.
+- Cross-repo contracten horen in `djconnect-music-dj/djconnect/SYNC_PROMPTS.md`.
 - Release-informatie hoort per release behouden te blijven en niet tot één
   samengestelde sectie te worden samengevoegd.
 
@@ -305,7 +305,7 @@ vastlegt, staat "niet gepind".
 
 | Component | Gebruik | Versie / pin in repo | Licentie / voorwaarden | Source |
 | --- | --- | --- | --- | --- |
-| DJConnect app code | iOS/macOS/watchOS app, Core, UI en tooling | `MARKETING_VERSION` in `project.yml` | MIT License | <https://github.com/pcvantol/djconnect-app> |
+| DJConnect app code | iOS/macOS/watchOS app, Core, UI en tooling | `MARKETING_VERSION` in `project.yml` | MIT License | <https://github.com/djconnect-music-dj/djconnect-app> |
 | Swift | Programmeertaal en standaardbibliotheek | Swift tools 6.0, `SWIFT_VERSION` 6.0 | Apache License 2.0 met Runtime Library Exception | <https://github.com/swiftlang/swift> |
 | Swift Package Manager | Module/build layout | Swift tools 6.0 | Apache License 2.0 | <https://www.swift.org/package-manager/> |
 | Foundation | Data, URL, JSON, filesystem, dates | Apple SDK, iOS 26+/macOS 26+ | Apple SDK terms | <https://developer.apple.com/documentation/foundation> |
@@ -361,11 +361,11 @@ Bij iedere release moet deze checklist worden uitgevoerd:
   of proprietary third-party materiaal in prompts, logs, issues, fixtures,
   release notes of commits.
 - Bij cross-repo contractwijzigingen moet
-  `pcvantol/djconnect/SYNC_PROMPTS.md` worden bijgewerkt.
+  `djconnect-music-dj/djconnect/SYNC_PROMPTS.md` worden bijgewerkt.
 - Bij product roadmap-wijzigingen moet
-  `pcvantol/djconnect/PRODUCT_ROADMAP.md` worden bijgewerkt.
+  `djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md` worden bijgewerkt.
 - Als de wijziging vanuit deze repo komt, maak dan een follow-up
-  wijziging/commit in `pcvantol/djconnect`.
+  wijziging/commit in `djconnect-music-dj/djconnect`.
 - Houd geen lokale kopie van `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md` in deze
   repo.
 - Oude losse promptbestanden blijven verboden.
