@@ -1,0 +1,42 @@
+name: Apple organization artifact credential check
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Fixed repository identity to read, before or after transfer.
+        required: true
+        type: choice
+        options: [rehearsal, artifact]
+
+permissions: {}
+
+jobs:
+  read-only-access:
+    if: github.ref == 'refs/heads/main' && github.repository_id == '1264041589'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: apple-secure-distribution
+    steps:
+      - name: Verify fixed private organization repository identity
+        env:
+          GH_TOKEN: ${{ secrets.DJCONNECT_APPLE_ORG_ARTIFACT_READ_TOKEN }}
+          GH_PROMPT_DISABLED: '1'
+          TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          case "$TARGET" in
+            rehearsal) id=1458225033; expected=djconnect-music-dj/djconnect-pi-operations ;;
+            artifact) id=1444773078; expected=djconnect-music-dj/djconnect-apple-internal-artifacts ;;
+            *) echo 'Unknown target.' >&2; exit 1 ;;
+          esac
+          identity="$(gh api "repositories/$id" --jq '[.id, .private, .full_name] | @tsv' 2>/dev/null)" || {
+            echo 'Private organization repository access failed.' >&2
+            exit 1
+          }
+          if [ "$identity" != "$(printf '%s\ttrue\t%s' "$id" "$expected")" ]; then
+            echo 'Unexpected private repository identity.' >&2
+            exit 1
+          fi
+          echo 'Read-only access to the selected fixed private organization repository verified.'
