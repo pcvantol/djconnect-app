@@ -28,7 +28,7 @@ jobs:
       - id: validate
         name: Validate immutable iPad request and approved manifest binding
         env:
-          DJCONNECT_ARTIFACT_READ_TOKEN: ${{ secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN }}
+          DJCONNECT_ARTIFACT_READ_TOKEN: ${{ vars.DJCONNECT_APPLE_ARTIFACT_CREDENTIAL_OWNER == 'organization' && secrets.DJCONNECT_APPLE_ORG_ARTIFACT_READ_TOKEN || secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN }}
           ARTIFACT_REPOSITORY_ID: ${{ vars.DJCONNECT_APPLE_ARTIFACT_REPOSITORY_ID }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           MANIFEST_ID: ${{ inputs.manifest_id }}
@@ -58,6 +58,18 @@ jobs:
           printf '%s' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
           /usr/bin/python3 Tools/release/private_apple_artifact.py "$manifest" ipad
           printf 'release_version=%s\n' "$release_version" >> "$GITHUB_OUTPUT"
+      - name: Validate artifact credential selection
+        env:
+          ARTIFACT_CREDENTIAL_OWNER: ${{ vars.DJCONNECT_APPLE_ARTIFACT_CREDENTIAL_OWNER }}
+          PERSONAL_CREDENTIAL_PRESENT: ${{ secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN != '' }}
+          ORG_CREDENTIAL_PRESENT: ${{ secrets.DJCONNECT_APPLE_ORG_ARTIFACT_READ_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          case "$ARTIFACT_CREDENTIAL_OWNER" in
+            ''|personal) [ "$PERSONAL_CREDENTIAL_PRESENT" = true ] ;;
+            organization) [ "$ORG_CREDENTIAL_PRESENT" = true ] ;;
+            *) echo 'Invalid artifact credential selection.' >&2; exit 1 ;;
+          esac
       - name: Verify exact physical iPad and local signing scope
         run: |
           set -euo pipefail
