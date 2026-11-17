@@ -24,6 +24,18 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, internal-release, macmini-build]
     environment: apple-secure-distribution
     steps:
+      - name: Validate artifact credential selection
+        env:
+          ARTIFACT_CREDENTIAL_OWNER: ${{ vars.DJCONNECT_APPLE_ARTIFACT_CREDENTIAL_OWNER }}
+          PERSONAL_CREDENTIAL_PRESENT: ${{ secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN != '' }}
+          ORG_CREDENTIAL_PRESENT: ${{ secrets.DJCONNECT_APPLE_ORG_ARTIFACT_READ_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          case "$ARTIFACT_CREDENTIAL_OWNER" in
+            ''|personal) [ "$PERSONAL_CREDENTIAL_PRESENT" = true ] ;;
+            organization) [ "$ORG_CREDENTIAL_PRESENT" = true ] ;;
+            *) echo 'Invalid artifact credential selection.' >&2; exit 1 ;;
+          esac
       - name: Validate typed immutable deployment request
         env:
           ACTION: ${{ inputs.action }}
@@ -55,7 +67,7 @@ jobs:
       - id: manifest
         name: Require approved central operational manifest source
         env:
-          DJCONNECT_ARTIFACT_READ_TOKEN: ${{ secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN }}
+          DJCONNECT_ARTIFACT_READ_TOKEN: ${{ vars.DJCONNECT_APPLE_ARTIFACT_CREDENTIAL_OWNER == 'organization' && secrets.DJCONNECT_APPLE_ORG_ARTIFACT_READ_TOKEN || secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN }}
           ARTIFACT_REPOSITORY_ID: ${{ vars.DJCONNECT_APPLE_ARTIFACT_REPOSITORY_ID }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           MANIFEST_ID: ${{ inputs.manifest_id }}
