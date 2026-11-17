@@ -131,7 +131,6 @@
 "ui.update.required" = "Update Required";
 "ui.open.djconnect.update.page" = "Open DJConnect Update Page";
 "ui.the.app.may.have.crashed" = "The app may have crashed";
-"ui.github.issue.target.pcvantol.djconnect" = "GitHub issue target: pcvantol/djconnect";
 "ui.version" = "Version";
 "ui.copy.logs" = "Copy Logs";
 "ui.open.github.issue" = "Open GitHub Issue";
