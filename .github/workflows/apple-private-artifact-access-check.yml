@@ -1,0 +1,30 @@
+name: Apple private artifact access check
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  read-only-access:
+    if: github.ref == 'refs/heads/main' && github.repository_id == '1264041589'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: apple-secure-distribution
+    steps:
+      - name: Verify private artifact repository identity
+        env:
+          GH_TOKEN: ${{ secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN }}
+          GH_PROMPT_DISABLED: '1'
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          identity="$(gh api repositories/1444773078 --jq '[.id, .private, .full_name] | @tsv' 2>/dev/null)" || {
+            echo 'Private artifact repository access failed.' >&2
+            exit 1
+          }
+          case "$identity" in
+            $'1444773078\ttrue\tpcvantol/djconnect-apple-internal-artifacts'|$'1444773078\ttrue\tdjconnect-music-dj/djconnect-apple-internal-artifacts')
+              echo 'Private artifact repository identity and read access verified.' ;;
+            *) echo 'Unexpected private artifact repository identity.' >&2; exit 1 ;;
+          esac
