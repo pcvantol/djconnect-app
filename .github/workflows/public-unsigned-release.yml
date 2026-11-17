@@ -340,7 +340,9 @@ jobs:
             git push origin main
           fi
 
+      # Preserve prior workflow runs and their qualification evidence.
       - name: Cleanup old workflow runs
+        if: ${{ false }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
