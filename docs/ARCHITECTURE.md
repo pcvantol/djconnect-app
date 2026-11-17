@@ -276,7 +276,7 @@ load.
 
 Profile-aware Ask DJ, Music DNA, Discover, Track Insight, command, and voice
 requests use the canonical Profile Adoption Contract from
-`pcvantol/djconnect/docs/implementation/epic3b/01-profile-adoption-contract.md`.
+`djconnect-music-dj/djconnect/docs/implementation/epic3b/01-profile-adoption-contract.md`.
 Clients may send only known context fields: `profile_id`, `session_id`,
 `private_session`, `request_source`, `device_id`, and `client_type`. They must
 not send OAuth tokens, provider refresh tokens, Home Assistant tokens, APNs

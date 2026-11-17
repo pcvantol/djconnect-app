@@ -3,8 +3,8 @@
 Actuele Apple-lanestatus (17okt2026): [integrale open-werk- en acceptatiematrix](feedback/APPLE_OPEN_WORK_20261017.md) en [requirementniveau/afmeldingen40258](feedback/APPLE_REQUIREMENT_ACCEPTANCE_20261017.md). Historische done-notities hieronder sluiten nieuwe Session/Speech/Settings/Watch-acceptatie niet af.
 
 This document tracks app-local known project gaps. The canonical product
-roadmap lives in `pcvantol/djconnect/PRODUCT_ROADMAP.md`; if roadmap changes
-originate here, update `pcvantol/djconnect` separately. Concrete backlog items
+roadmap lives in `djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md`; if roadmap changes
+originate here, update `djconnect-music-dj/djconnect` separately. Concrete backlog items
 with acceptance criteria live in [ISSUES.md](ISSUES.md).
 
 ## Parallel validation follow-through (2026-10-31)
@@ -28,7 +28,7 @@ broader performance or device-acceptance work registers.
   stale `music_backend_revision` Ask DJ actions, and backend switch recovery.
 - Field-test LAN pairing plus post-pairing `ha_remote_url` fallback on physical
   iPhone/iPad and Mac using the canonical
-  `pcvantol/djconnect/FIELD_TEST_APP_CLIENTS.md` checklist.
+  `djconnect-music-dj/djconnect/FIELD_TEST_APP_CLIENTS.md` checklist.
 - Field-test APNs wake/sync hints for iOS/macOS/watchOS with central
   `djconnect-api`, confirming push never carries raw prompts, raw audio,
   Ask DJ history, Music DNA, Spotify tokens, HA tokens, or bearer tokens.
