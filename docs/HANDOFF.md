@@ -1848,7 +1848,7 @@ The app may detect that the previous session ended uncleanly. On the next
 launch it shows a user-mediated crash report prompt. The prompt may:
 
 - copy redacted diagnostics to the clipboard;
-- open a prefilled GitHub issue in `pcvantol/djconnect`.
+- open a prefilled GitHub issue in `djconnect-music-dj/djconnect`.
 
 The app must not upload crash logs automatically, embed GitHub credentials, or
 send diagnostics without explicit user action. Diagnostics must redact bearer
@@ -2186,8 +2186,8 @@ X-DJConnect-Device-ID: <device_id>
 5. App displays text and may play returned WAV/MP3 audio locally.
 
 Canonical voice examples live in
-`pcvantol/djconnect/examples/voice_intents.json` and
-`pcvantol/djconnect/VOICE_INTENT_DATA.md`. Current HA-handled families include:
+`djconnect-music-dj/djconnect/examples/voice_intents.json` and
+`djconnect-music-dj/djconnect/VOICE_INTENT_DATA.md`. Current HA-handled families include:
 
 - `current_track`: `Welk nummer draait er nu?`, `Welk nummer speelt er nu?`,
   `Wat draait er?`, `Wat speelt er?`, `Wat is dit?`, `What song is playing?`,
@@ -2368,10 +2368,10 @@ clear app-specific keys. Avoid reusing ESP-only settings like
 ## Public Releases And What's New
 
 Release tags in the private app repo should publish unsigned macOS and iOS
-diagnostic builds to `pcvantol/djconnect-app-releases` through GitHub Actions.
+diagnostic builds to `djconnect-music-dj/djconnect-app-releases` through GitHub Actions.
 The workflow requires private repo secrets named `PUBLIC_RELEASES_TOKEN` with
 write access to that public releases repo and `WEBSITE_RELEASE_NOTES_TOKEN`
-with write access to `pcvantol/djconnect-website`.
+with write access to `djconnect-music-dj/djconnect-website`.
 After publishing, the workflow keeps the newest platform-specific public iOS
 release and the newest platform-specific public macOS release, then removes
 older public app releases/tags for those platform namespaces.
