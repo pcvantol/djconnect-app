@@ -105,7 +105,7 @@ broader performance or device-acceptance work registers.
 - Live queue, playlist, output selection, liked proxy, and voice/PTT are wired
   in the Apple app, but still need validation against the matching HA backend.
 - The app icon now follows the shared DJConnect brand asset from
-  `pcvantol/djconnect`; `Tools/GenerateAppIcon.swift` generates
+  `djconnect-music-dj/djconnect`; `Tools/GenerateAppIcon.swift` generates
   platform-specific iOS, macOS, and watchOS asset sets, with iOS dark/tinted
   renditions.
 - The unpaired app now has Demo Mode for UI inspection, but Demo Mode does not
