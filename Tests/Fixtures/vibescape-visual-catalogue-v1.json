@@ -1,0 +1,265 @@
+{
+  "success": true,
+  "capabilities": {
+    "vibescape_visual_director": true
+  },
+  "vibescape_visual_director": {
+    "contract_version": 1,
+    "input": "bounded_text_from_on_device_stt_or_text",
+    "interpretation": "closed_visual_grammar",
+    "application": "native_client_only",
+    "microphone_readiness": "client_owned",
+    "context_required": true,
+    "endpoints": {
+      "context": "/api/djconnect/v1/vibescape/context",
+      "interpret": "/api/djconnect/v1/vibescape/interpret",
+      "revoke": "/api/djconnect/v1/vibescape/revoke"
+    },
+    "limits": {
+      "body_bytes": 8192,
+      "text_utf8_bytes": 1024,
+      "lease_ms": 15000,
+      "visit_ms": 1800000,
+      "turns_per_visit": 32
+    },
+    "actions": [
+      "patch",
+      "undo",
+      "reset",
+      "variant",
+      "hold"
+    ],
+    "help": {
+      "en": {
+        "examples": [
+          {
+            "id": "calmer_fluid",
+            "text": "Make it calmer and fluid"
+          },
+          {
+            "id": "faster",
+            "text": "Make it faster"
+          },
+          {
+            "id": "more_depth",
+            "text": "More depth"
+          },
+          {
+            "id": "more_gold",
+            "text": "More gold"
+          },
+          {
+            "id": "variant",
+            "text": "Make a variant"
+          },
+          {
+            "id": "hold",
+            "text": "Keep this style"
+          },
+          {
+            "id": "undo",
+            "text": "Go back"
+          },
+          {
+            "id": "reset",
+            "text": "Follow DJ"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "current_track",
+            "text": "Only this track"
+          },
+          {
+            "id": "while_in_vibescape",
+            "text": "This whole visit"
+          }
+        ]
+      },
+      "nl": {
+        "examples": [
+          {
+            "id": "calmer_fluid",
+            "text": "Maak het rustiger en vloeibaarder"
+          },
+          {
+            "id": "faster",
+            "text": "Maak het sneller"
+          },
+          {
+            "id": "more_depth",
+            "text": "Meer diepte"
+          },
+          {
+            "id": "more_gold",
+            "text": "Iets meer goud"
+          },
+          {
+            "id": "variant",
+            "text": "Maak een variant"
+          },
+          {
+            "id": "hold",
+            "text": "Hou deze stijl aan"
+          },
+          {
+            "id": "undo",
+            "text": "Ga een stap terug"
+          },
+          {
+            "id": "reset",
+            "text": "Terug naar de DJ"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "current_track",
+            "text": "Alleen dit nummer"
+          },
+          {
+            "id": "while_in_vibescape",
+            "text": "Zolang ik hier ben"
+          }
+        ]
+      },
+      "de": {
+        "examples": [
+          {
+            "id": "calmer_fluid",
+            "text": "Mach es ruhiger und flüssiger"
+          },
+          {
+            "id": "faster",
+            "text": "Mach es schneller"
+          },
+          {
+            "id": "more_depth",
+            "text": "Mehr Tiefe"
+          },
+          {
+            "id": "more_gold",
+            "text": "Mehr Gold"
+          },
+          {
+            "id": "variant",
+            "text": "Eine Variante"
+          },
+          {
+            "id": "hold",
+            "text": "Diesen Stil beibehalten"
+          },
+          {
+            "id": "undo",
+            "text": "Rückgängig"
+          },
+          {
+            "id": "reset",
+            "text": "Zurück zum DJ"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "current_track",
+            "text": "Nur dieses Lied"
+          },
+          {
+            "id": "while_in_vibescape",
+            "text": "Während dieses Besuchs"
+          }
+        ]
+      },
+      "fr": {
+        "examples": [
+          {
+            "id": "calmer_fluid",
+            "text": "Un peu calme et fluide"
+          },
+          {
+            "id": "faster",
+            "text": "Un peu rapide"
+          },
+          {
+            "id": "more_depth",
+            "text": "Plus de profondeur"
+          },
+          {
+            "id": "more_gold",
+            "text": "Plus doré"
+          },
+          {
+            "id": "variant",
+            "text": "Une variante"
+          },
+          {
+            "id": "hold",
+            "text": "Garde ce style"
+          },
+          {
+            "id": "undo",
+            "text": "Revenir en arrière"
+          },
+          {
+            "id": "reset",
+            "text": "Retour au DJ"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "current_track",
+            "text": "Seulement ce morceau"
+          },
+          {
+            "id": "while_in_vibescape",
+            "text": "Pendant cette visite"
+          }
+        ]
+      },
+      "es": {
+        "examples": [
+          {
+            "id": "calmer_fluid",
+            "text": "Haz lo tranquilo y fluido"
+          },
+          {
+            "id": "faster",
+            "text": "Haz lo rápido"
+          },
+          {
+            "id": "more_depth",
+            "text": "Más profundidad"
+          },
+          {
+            "id": "more_gold",
+            "text": "Más dorado"
+          },
+          {
+            "id": "variant",
+            "text": "Una variante"
+          },
+          {
+            "id": "hold",
+            "text": "Mantener este estilo"
+          },
+          {
+            "id": "undo",
+            "text": "Volver atrás"
+          },
+          {
+            "id": "reset",
+            "text": "Volver al DJ"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "current_track",
+            "text": "Solo esta canción"
+          },
+          {
+            "id": "while_in_vibescape",
+            "text": "Durante esta visita"
+          }
+        ]
+      }
+    }
+  }
+}

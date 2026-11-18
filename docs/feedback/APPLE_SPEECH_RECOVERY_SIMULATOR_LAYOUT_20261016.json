@@ -1,0 +1,67 @@
+{
+  "status": "ISOLATED_SIMULATOR_PRESENTATION_PASS",
+  "source_component_commit": "e7da2f8",
+  "source_component_sha256": "a5ac8b0452cdf7bcc51de4d63c6e3ab9a40406dfc9a9b705df2f9481de76cf51",
+  "harness": "Separate dev.djconnect.qualification.speechrecovery application with exact component copy, exact shared glass modifier/CardAppearance enum and same accent literal. Local Core resources only; no product app model/network/provider bindings.",
+  "simulator": "Existing isolated iPhone5F8C8054-780A-417A-8172-6645A667032D / iOS27",
+  "scenarios": [
+    "nl/en/de/fr/es expanded recovery notice at330pt maximum content width",
+    "German accessibility3 DynamicType, vertical scroll and reachable retry",
+    "Explicit retry increments local testcounter exactly once",
+    "Checking and backoff disable retry, counter remainszero"
+  ],
+  "results": {
+    "initial": "2 native tests PASS; screenshots captured while DisclosureGroup was still animating and NOT treated as stable layout proof",
+    "settled": "1 native layout test PASS over6scenarios after1.2second animationwait; source unchanged",
+    "main_result": "/private/tmp/djc-speech-recovery-layout-20261016.xcresult",
+    "settled_result": "/private/tmp/djc-speech-recovery-layout-settled-20261016.xcresult"
+  },
+  "visual_review": "All6initial and6settled images actually viewed. Settled five normal-language images show full body; large German scroll view shows complete final instructions and retry without horizontal clipping. No product animation/geometry code change.",
+  "assertions": "Retry hittestable/enabled and>=44pt, within screen horizontal bounds, localcounter1; checking/backoff disabledcounter0.",
+  "recovery_archive": {
+    "path": "/Users/pcvantol/Documents/GitHub/djconnect-app/build/apple-40017-recovery/source/build/recovery/speech-recovery-layout-harness-20261016.tar.gz",
+    "sha256": "744134e1411eedecbe6c5bd255c8372449dbe384f2eb0a71c798914aad1ecc1e",
+    "bytes": 4152,
+    "contents": "App source, test source, project.yml and sourcebinding; no build products or provider data"
+  },
+  "limits": "Isolated presentation/interaction only. No ordinary installed integration, physical device, VoiceOver spoken output, provider, audible speech, pipeline/gender selection or full contrast qualification. Core versioned contracts/fixtures and private audio implementation remain separate.",
+  "effects": "No product/source UI changes in this task; no ordinary app replacement or physical device/HA/Spotify/radio changes. No provider/audio requests. Simulator harness terminated by tests; evidence retained. No cleanup claimed.",
+  "evidence": [
+    {
+      "name": "de-large expanded narrow recovery_0_BE3B520B-7C2A-4107-9117-69A42510F074.png",
+      "path": "/private/tmp/djc-speech-recovery-layout-settled-images/C8427E37-E313-4619-AB13-C9B65B78DF03.png",
+      "sha256": "0e9c64434bcd54eaaa673e1737af61eab77179a49dbf98921e5cdb6b984956f0",
+      "viewed": true
+    },
+    {
+      "name": "es expanded narrow recovery_0_EDEB48BF-C597-45DA-B2D9-A030B3E17315.png",
+      "path": "/private/tmp/djc-speech-recovery-layout-settled-images/822822E7-DAA3-4469-90AA-6354FB0C7F2F.png",
+      "sha256": "684014be766ce199c69eeb97b7c6007868152e09ca24a36addd25b25202e0f7c",
+      "viewed": true
+    },
+    {
+      "name": "fr expanded narrow recovery_0_F895329E-0D2C-45E3-89D5-A77AAC09FD11.png",
+      "path": "/private/tmp/djc-speech-recovery-layout-settled-images/9E2C26A8-BB82-4607-978C-EBB78F893330.png",
+      "sha256": "34fbfe832743d91ef37f7947c1ffc7ff882c7beefa130155ccea6bc1020923f2",
+      "viewed": true
+    },
+    {
+      "name": "de expanded narrow recovery_0_037781AA-D26A-45D2-9CDE-8A9FBB7FFD10.png",
+      "path": "/private/tmp/djc-speech-recovery-layout-settled-images/A0628CDC-665F-49BF-A8BE-B0E1514B3662.png",
+      "sha256": "b3e4cec3f9a5d5dc8345ce519bd5cc9fc57615b6959e87ef56b82d048b222351",
+      "viewed": true
+    },
+    {
+      "name": "en expanded narrow recovery_0_1EFC0D73-6DDF-4DE0-AC40-708501D5DC02.png",
+      "path": "/private/tmp/djc-speech-recovery-layout-settled-images/5978AAAC-1B42-451F-B390-9D93201414C9.png",
+      "sha256": "c47e836bd22a4eff8cad9ed1b329e67a15220b028469bb3df364ed8be7a4f585",
+      "viewed": true
+    },
+    {
+      "name": "nl expanded narrow recovery_0_B134DFDB-2006-465D-AD59-B3FCD3E61465.png",
+      "path": "/private/tmp/djc-speech-recovery-layout-settled-images/009DA5F0-5EC7-4F56-B00C-22F059CB5031.png",
+      "sha256": "8224ef9be0ebc31631638599a1a0245b0e28cc78f65b96928c0d81f574ad1ee8",
+      "viewed": true
+    }
+  ]
+}

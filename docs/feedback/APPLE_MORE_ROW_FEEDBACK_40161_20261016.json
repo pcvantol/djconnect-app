@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-16",
+  "build": "40161",
+  "scope": "Purple press/focus feedback for all More menu rows",
+  "implementation": [
+    "MoreNavigationRow now uses the existing DJConnectMediaRowButtonStyle shared with queue and playlist items.",
+    "Style accepts corner radius: More retains24, media rows retain12.",
+    "Enabled pressed or focused rows use the same accent fill0.14 and border0.60, with existing Reduce Motion behavior.",
+    "Highlight overlays do not intercept touches; existing Button navigation action unchanged."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "manifest_hashes": "452 files PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPhone40161 confirmed; app launch succeeded"
+  },
+  "source_manifest": "build/recovery/iphone40161-selective-source-manifest-20261016.json",
+  "evidence": {
+    "build": "/private/tmp/djc-ios-40161-more-row-build.log",
+    "install": "/private/tmp/djc-iphone-40161-install.json",
+    "apps": "/private/tmp/djc-iphone-40161-apps.json",
+    "launch": "/private/tmp/djc-iphone-40161-launch.txt"
+  },
+  "limits": [
+    "No new physical screenshot of a held press or keyboard focus; feedback verified in shared source and successful signed build.",
+    "Other devices not installed."
+  ],
+  "publication": "Local only; no push/PR/merge",
+  "cleanup": "No refs eligible; existing untracked Xcode projects preserved; no deletion."
+}

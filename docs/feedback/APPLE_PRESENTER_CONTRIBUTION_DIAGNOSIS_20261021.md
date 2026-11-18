@@ -1,0 +1,11 @@
+# Sparse Presenter contributions: diagnosis remains open
+
+The user reports mostly observed playback despite Presenter presence. Read-only inspection of the ordinary Mac mini40404and its existing paired HTTPS route confirms Presenter in native UI and backend. At the initial checkpoint the active Session was paused, with exactly one welcome DJ moment and one playback observation in both backend broadcast/timeline and native UI. There is no demonstrated Apple filtering loss at this checkpoint.
+
+Existing producer final/complete summary totals for three recent closed Sessions are9tracks/2moments,12/3and39/8. Their bounded tail pages also contain admitted DJ moments. These totals substantiate sparse producer publication, but do not prove continuous playing time or an expected cadence. No local display change can create missing producer contributions.
+
+Four newly captured private timeline pages pass the existing actual Swift contract decoder and entry validation:4PASS/0fail, using the already-built test binary. No unchanged model suites or builds were rerun. Source review retains DJ moment rendering and backend admission boundaries. Client logs show a previous short503window on history reads; current readbacks are200. This does not establish the cause of sparse contribution production. Later the ordinary UI became idle through an external Session transition; the agent did not start, stop or resume playback or a Session.
+
+The existing Core owner received this defect and metadata. Core's source review notes that paused playback suppresses intratrack enrichment and qualified facts require current playing observation, progress/duration, allowed opportunity and qualified source facts. Presenter does not bypass those guards. That source behavior does not resolve the historical scarcity; planner evaluation, fact availability, presence ledger and publication remain the owning Core investigation. No new producer patch or fixture is qualified here.
+
+Status OPEN. No Apple product fix, model/provider call, setting change, playback command, installation or publication was made. Raw personal response pages and identifiers remain private in a700directory with600response files; only hashes and bounded metadata enter this handoff. Adjacent JSON binds receipts.

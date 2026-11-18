@@ -1,0 +1,14 @@
+{
+  "workflow_run": 39109182773,
+  "workflow_conclusion": "success (explicit non-blocking observe mode)",
+  "assessment_decision": "FAIL",
+  "repository_qualification": "FAILED",
+  "findings_by_severity": {
+    "CRITICAL": 3,
+    "HIGH": 184
+  },
+  "evidence_sha256": "664ed51b023c892f84fa2ce36664a1464b86750bc5845459003d44d80284718c",
+  "artifact_zip_sha256": "450da3e61298501c9f2a5e67adad0055dec7b1c940396b556251934813fa68fa",
+  "regression": "UNKNOWN; no baseline improvement or regression qualification claimed",
+  "status": "OPEN_TRIAGE_REQUIRED"
+}

@@ -1,0 +1,49 @@
+{
+  "groups": [
+    {
+      "layers": [
+        {
+          "image-name": "headphone.png",
+          "name": "Purple headphone",
+          "glass": true,
+          "fill": "automatic",
+          "position": {
+            "scale": 0.64,
+            "translation-in-points": [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "lighting": "individual",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.2
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared",
+    "circles": [
+      "watchOS"
+    ]
+  },
+  "fill-specializations": [
+    {
+      "value": {
+        "solid": "srgb:0.96,0.96,0.98,1.00000"
+      }
+    },
+    {
+      "appearance": "dark",
+      "value": {
+        "solid": "srgb:0.035,0.035,0.045,1"
+      }
+    }
+  ]
+}

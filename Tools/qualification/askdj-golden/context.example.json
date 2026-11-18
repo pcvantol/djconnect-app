@@ -1,0 +1,14 @@
+{
+  "fixture_admission": "PENDING_CORE_HANDOFF",
+  "profile_sha256": "REPLACE_FROM_DISPOSABLE_TEST_PROFILE",
+  "session_sha256": "REPLACE_FROM_ACTUAL_TEST_SESSION",
+  "app_executable_sha256": "REPLACE_FROM_EXACT_NATIVE_APP",
+  "core_install_receipt_sha256": "REPLACE_FROM_VERIFIED_CORE_INSTALLATION",
+  "bundle_id": "dev.djconnect.mac",
+  "app_build": "REPLACE_EXACT_BUILD",
+  "language": "nl",
+  "request_limit": 4,
+  "model_attempts_per_turn": 2,
+  "max_model_calls": 8,
+  "allow_audio": false
+}

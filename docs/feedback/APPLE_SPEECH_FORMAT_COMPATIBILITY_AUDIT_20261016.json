@@ -1,0 +1,42 @@
+{
+  "status": "SOURCE_COMPATIBILITY_FINDINGS; no installed/runtime qualification",
+  "source_head": "812048db29f6367e0e3f2150e94d171da24ddf2d",
+  "findings": [
+    {
+      "file": "Sources/DJConnectCore/DJConnectSpeechTransport.swift",
+      "lines": [
+        47,
+        57,
+        60
+      ],
+      "finding": "Audio MIME allowlist accepts only audio/wav,audio/x-wav,audio/wave; all bytes then require RIFF PCM WAV structure. MP3/audio/mpeg would be rejected before playback."
+    },
+    {
+      "file": "Sources/DJConnectCore/DJConnectClient.swift",
+      "line": 425,
+      "finding": "speechAudio delegates to this WAV-only transport after paired reference/effective-voice guards."
+    },
+    {
+      "search": "rg -n speechAudio|prepareSpeech|sessionSpeech Sources/DJConnectUI",
+      "result": "No references found. Prepared Core adapter is not wired to ordinary UI by these entrypoints; no delivered/audible consumer claim."
+    }
+  ],
+  "producer_context": "Core thread currently implementing configured Assist pipeline provider/voice/language with WAV/MP3. Draft not treated as qualified contract or deployed artifact.",
+  "preserved_guards": [
+    "private paired POST only",
+    "redirect refusal",
+    "22second timeouts",
+    "2MiB audio cap / 64KiB JSON cap",
+    "actual binary validation",
+    "reference/text/persona/revision/expiry and effective-voice checks",
+    "no provider selection override in Apple prepare payload"
+  ],
+  "next": "Consume exact producer contract/fixture after delivery; qualify typed WAV/MP3 validation and UI/audio integration as explicit subsequent Apple work. Do not merely relax MIME or remove byte validation.",
+  "effects": "Read-only source audit plus local receipt; no product code, install, HA/provider request, test data, permission or public source changes. No tests run because no implementation changed.",
+  "source_sha256": {
+    "Sources/DJConnectCore/DJConnectSpeechTransport.swift": "fa15064f7b7e445b3307d69edd62401e3b8a2bf107d60c02c95c560b9878de17",
+    "Sources/DJConnectCore/DJConnectClient.swift": "7252c653a462382016c144f39a9a2d35285b85e7f63ec12a0ad4e5c5a1dcacb5",
+    "Sources/DJConnectCore/DJConnectSessionSpeech.swift": "e0b8967a44ad0a80c64734a05bddc147c09df3f45d0fd7be25a0e1a1cdeada51",
+    "Tests/DJConnectCoreTests/SessionSpeechContractTests.swift": "e84056121f8f6cf118a930090d1a18b5a564afd91c5ebc402362a56a67f66582"
+  }
+}

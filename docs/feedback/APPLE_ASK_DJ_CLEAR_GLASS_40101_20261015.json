@@ -1,0 +1,24 @@
+{
+  "build": "40101",
+  "selective_base": "/private/tmp/djc-particles-40099-source",
+  "selected_presentation_commits": [
+    "efac177",
+    "a7cb126",
+    "4b66853"
+  ],
+  "changes": [
+    "iPad Ask DJ composer landscape cap1000 before0.75 scaling",
+    "clear glass floating composer, white border0.04 width0.75",
+    "white connection Details label and icon"
+  ],
+  "files": {
+    "Sources/DJConnectUI/DJConnectRootView.swift": "e6ccc1279e6175386f0c0cfa826ce786d8b92d428e44a58036b2e74e39df4781",
+    "Sources/DJConnectUI/SessionTimelineScreen.swift": "027b995d46370be8e469c34680a9d2f7c4755c6d035e4d39622df916f9a1e296"
+  },
+  "signed_ios_watch_build": "PASS",
+  "physical_install_readback": "40101",
+  "physical_visual_acceptance": "PASS: actual iPad Ask DJ page screenshot visually inspected; centered narrow composer with clear glass outer surface",
+  "scope": "No pending widget, Speech or unpinned Core transport changes installed",
+  "physical_screenshot": "/private/tmp/djc-composer-40101-physical-images/A134B812-97E8-4D3F-8C6B-BCBD5A276BA3.png",
+  "native_probe": "PASS: actual installed app, no fixture or message sent"
+}

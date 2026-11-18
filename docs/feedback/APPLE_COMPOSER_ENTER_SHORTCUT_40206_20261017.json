@@ -1,0 +1,14 @@
+{
+  "build": "40206",
+  "scope": "Mac shared AskDJ and DJ-session composer keyboard behavior",
+  "change": "Return inserts newline at selection/caret and restores insertion point. Control+Return sends only when canSend. Removed Return onSubmit send. Send button also advertises Control+Return shortcut.",
+  "checks": [
+    "macOS build PASS",
+    "452 source hashes PASS",
+    "Mac40206 installed version/signature/executable verification PASS",
+    "diff check PASS"
+  ],
+  "runtime_keyboard": "NOT_RUN. Native automation kernel failed because symlinked writable root is unsupported. No host configuration/security changes made.",
+  "ios": "Existing native multiline keyboard behavior retained; iPhone/iPad remain40205",
+  "preservation": "Timer paused; no Core messages or publication; previous app backed up."
+}

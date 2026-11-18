@@ -1,0 +1,29 @@
+# Mac widget singleton and WidgetKit push handoff
+
+Owner reports neutral Mac widgets without current Session/playback and a new window on every widget click. Explicit owner authorization in this chat permits Core coordination and technical sharing; message delivered to existing Core thread01a15af5-fe41-76a3-a35f-c87dcc1a8f16, acknowledged OPEN. No new writer, source merge, build or install. Installed baseline40447 is unchanged.
+
+## Singleton source
+
+Replace the main WindowGroup with a single Window("DJConnect", id:"main"). Native app delegate receives djconnect URLs, buffers the latest cold-launch URL until AppModel is attached, routes through existing navigation/pairing handling, and brings the main window forward or opens that same Window ID. Deminiaturize existing main window. Dock reopen uses the same presenter. Root onOpenURL is retained on other platforms; Mac delegate is sole URL owner. About and Settings retain their dedicated windows. This fixes the source's repeated main-window creation path; it does not forcibly kill arbitrary existing processes or discard restored user windows on the installed version. Native cold/warm/closed/minimized/fullscreen and pairing acceptance awaits the next requested build.
+
+## Read-only findings
+
+A readable local app-group cache contained only an expired neutral SessionSurfaceSnapshot, without rich/passive playback. This explains that cache's fallback, not a proven complete cause on the user's Mac. The installed ordinary native Mac widget validator independently passed all seven existing checks (sandbox, platform, extension point, URL, parent bundle, shared group and signing team). A sandboxed codesign read initially reported an unreadable entitlement blob; independent authorized host verification passed, so no signing corruption is asserted. With the new --require-widget-push option the installed artifact passes those seven checks but fails the additional widget APNs entitlement check, as expected before the source-only change is built. No current playback/push delivery acceptance.
+
+## Apple WidgetKit registration preparation
+
+SDK26 exposes WidgetPushHandler.pushTokenDidChange and WidgetCenter.currentPushInfo. Attach the handler only to the native Mac Session widget configuration and add its own com.apple.developer.aps-environment entitlement matching the app's current development environment. Release signing must keep parent/extension environments aligned. The handler captures/rotates only the installation-local token and admitted widget kind into the shared app group; the app's existing foreground configuration discovery also obtains currentPushInfo and clears pending token when no relevant widgets remain. The pending-token DTO restricts bundle/kind, bounds input, supports rotation/removal and is not a content grant or server registration. No app bearer, Profile data, grant or playback text is exported. No token logs and no ordinary Ask DJ/app push endpoint reuse. Added unrun regression source for isolation, malformed input, rotation/removal and absence of content authority. Artifact validator can require matching signed widget push entitlement.
+
+## Core/API producer handoff: OPEN, not an adopted contract
+
+Read-only owning Core main83744790decc6ef8940795dc2c9c0e3fb058173b has app push registration (device/client/app token/environment/categories) and foreground-only passive surfaces. Its app token payload does not negotiate WidgetKit delivery. Apple has not invented or sent a new route/body/capability and will adopt only the qualified owner contract/pin.
+
+Required producer scope: register/rotate/revoke a distinct WidgetKit token for the correct native extension/APNs topic and widget push type, scoped to the authenticated install/owner and active granted Session. It must coexist with ordinary app tokens rather than overwrite them; qualify environment, sequence/revision and idempotency. Send only invalidation/reload signals, not private music or credentials in the APNs envelope. Background content refresh must have a separate least-privilege admitted path, revocable by owner/Session/grant/generation, with original current-content/cover rights, deadlines and no renew-on-read. No app bearer in extension/app group, foreground owner cache borrowing, invented data or automatic write replay. Token absence, removed widget, unpair, owner transition and revocation must stop eligible delivery; stale pushes and responses cannot resurrect content. Final names/schema/endpoint are Core/API-owned, not frozen by this proposal.
+
+Current Apple PassiveSessionSurfaceModel is explicitly foreground/RAM grant-owned and rich OS fields expire in at most120seconds. That boundary is preserved. Native widget push by itself reloads a provider; it cannot make old cached content current. Core acknowledged widget producer as separate next increment in its existing draft after current active work; registration/relay/background-read contract and actual delivery remain OPEN.
+
+## Validation and next decision
+
+Source diff, plist and owning-register checks only; installed artifact read-only checks as above. Added test source is NOTRUN. No compilation, native preview, APNs request, server mutation, build or install. On the next explicit build: compile singleton URL routing, token handler, app-group roundtrip and existing surface regressions; independently verify signatures/entitlements and native widget/open/reopen behavior. Producer contract and end-to-end push/current playback must be qualified separately before reporting fixed runtime behavior.
+
+References: https://developer.apple.com/documentation/swiftui/window and https://developer.apple.com/documentation/widgetkit/updating-widgets-with-widgetkit-push-notifications ; API signatures also read directly from the installed Mac SDK26 Swift interface.

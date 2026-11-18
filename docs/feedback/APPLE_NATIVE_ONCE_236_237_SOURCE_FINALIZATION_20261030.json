@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "kind": "apple_native_once_sources236_237_documentary_finalization",
+  "as_of": "2026-10-30",
+  "sources": {
+    "236": {
+      "original_qualified_receipt": {
+        "source_pr": 236,
+        "candidate": "1177e6596a51416fa2f244d4dedba8578e2f3b0e",
+        "main": "838f844506a0e02a35f496410826543d8a8bb72d",
+        "tree": "b5871561a71f158f56f84224019e0ecf8d762547",
+        "reviewed_and_merged_tree_equal": true,
+        "main_CI_run": 40963977155,
+        "formal_run": 40965588621,
+        "original_run_attempts": 1,
+        "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+        "formal_digest": "97b5f4faa4ae2a7292bd0dbdad02ff83bd8b76ce9568432b074b48cd4db460a4",
+        "formal_findings": [],
+        "formal_raw_sha256": "75bae9a848e85b5f5586541a9574c21b76c450edb4a2951bd18e601e4045be47",
+        "formal_original_artifact_id": 12937647406,
+        "formal_original_ZIP_actual_provider_sha256": "461f188874f44e4de2661fdbebd50f71e6c8487f5238538799433ef752a762f8",
+        "formal_raw_joined_to_original_ZIP": true,
+        "durable_asset_id": 690096753,
+        "durable_actual_and_provider_sha256": "667395fdadadcc9f1a8b82f1820cadb14f8cc6c9f24da75c0f77039d697082d1",
+        "durable_inner_integrity_verified": true,
+        "all12_required_checks": {
+          "post_merge_build_validation": "PASS",
+          "post_merge_ci": "PASS",
+          "post_merge_coverage": "PASS",
+          "post_merge_governance": "PASS",
+          "post_merge_lint": "PASS",
+          "post_merge_static_analysis": "PASS",
+          "post_merge_tests": "PASS",
+          "required_checks": "PASS",
+          "software_assurance": "PASS",
+          "trusted_delivery": "PASS",
+          "verification": "PASS",
+          "workflow_integrity": "PASS"
+        },
+        "review_sha256": "12a4021540fd65a6bd0ea5fb11e6c29e7c8f8e518e53cf74e5d4ab611a28f27c",
+        "scope": "Internal dispatch/terminal SQL DATA preparation only; no native permission/factory/wire/VFS/restore/physical/installed/APNs acceptance"
+      },
+      "receipt_sha256": "c3af6e139279cafa713fe3d94c2482963ba7740b9ce4b3e103b40c263fb7d039",
+      "independent_original_closure_sha256": "3829dd5388033be89e5d439774613bd9be31ce576da07709ee91ccc0c80b9419",
+      "scope": "Unused internal dispatch/terminal SQL DATA journal, no production bootstrap or native permission."
+    },
+    "237": {
+      "original_qualified_receipt": {
+        "source_pr": 237,
+        "candidate": "a8ce1e6a0dd0f3c65987798eeec8fc7a1c020a97",
+        "main": "a9bebdb5de03dbb825355e450a537485fe55c150",
+        "tree": "80d481719e3bec57489a643bec9102f59cdabb8c",
+        "reviewed_and_merged_tree_equal": true,
+        "main_CI_run": 40969711171,
+        "formal_run": 40971140992,
+        "original_run_attempts": 1,
+        "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+        "formal_digest": "3e3242cf64f3e879c84d112e9342d801767499be05837f1b992f7064cf540aae",
+        "formal_findings": [],
+        "formal_raw_sha256": "b583f580327072ad149f889d2a666d8f04d94ba0d6f1bff7ef159894fddc8815",
+        "formal_original_artifact_id": 12940556282,
+        "formal_original_ZIP_actual_provider_sha256": "debf08f583a53a8ffe5a9aff3715d21f26e7899e0f41df5be1edc73c0026aac7",
+        "formal_raw_joined_to_original_ZIP": true,
+        "durable_asset_id": 690206221,
+        "durable_actual_and_provider_sha256": "e0c3772dbef13d186576d59dd0569f28c27d914ec48a594324dcb4b43ad090fa",
+        "durable_inner_integrity_verified": true,
+        "all12_required_checks": {
+          "post_merge_build_validation": "PASS",
+          "post_merge_ci": "PASS",
+          "post_merge_coverage": "PASS",
+          "post_merge_governance": "PASS",
+          "post_merge_lint": "PASS",
+          "post_merge_static_analysis": "PASS",
+          "post_merge_tests": "PASS",
+          "required_checks": "PASS",
+          "software_assurance": "PASS",
+          "trusted_delivery": "PASS",
+          "verification": "PASS",
+          "workflow_integrity": "PASS"
+        },
+        "review_sha256": "54b0888774401326b1cc577aaa8738133d9dd6e191e93d46f75b58feff64696e",
+        "scope": "Native SQL journal test bundle and project selection only; no production bootstrap/factory/provider/push/device/install acceptance"
+      },
+      "receipt_sha256": "7a8fbe4729530fbfcbb292104ba1b7774ae3acc41e084eecd4c95eb072bcaa74",
+      "independent_original_closure_sha256": "e3d3361e7f56ff73b65a2036f9db2e8f33f3851d42b76ddd7e3ddeacabae710b",
+      "scope": "Native project/testbundle selection; test fixture only in CoreTests, unchanged journal implementation."
+    }
+  },
+  "validation": {
+    "Source236": {
+      "SwiftTesting_functions": 1376,
+      "suites": 34,
+      "full_seconds": 143.827,
+      "XCTest_functions": 86,
+      "existing_XCTest_skips": 5,
+      "failures": 0,
+      "focused_functions": 17,
+      "focused_parameter_cases": 38,
+      "SDK_source_compile_link_targets": [
+        "macOS arm64",
+        "iOS device arm64",
+        "iOS Simulator arm64"
+      ],
+      "SDK_scope": "Source compile/link only; no native lifecycle/provider effects.",
+      "actual_process_exit_cases": [
+        71,
+        72,
+        73,
+        74
+      ],
+      "fresh_process_readbacks": 4,
+      "selected_inputs_before_after": 315,
+      "native_coverage_scope": "Old tracked native target selection; new journal tests were NOT executed by Source236 native coverage."
+    },
+    "Source237": {
+      "native_unsigned_build_for_testing_exit": 0,
+      "native_test_functions": 17,
+      "native_parameter_cases": 38,
+      "native_suite_seconds": 1.339,
+      "native_test_failures": 0,
+      "native_test_skips": 0,
+      "native_test_parent_exit": 0,
+      "SwiftPM_functions": 17,
+      "SwiftPM_parameter_cases": 38,
+      "SwiftPM_seconds": 1.505,
+      "SwiftPM_parent_exit": 0,
+      "selected_inputs_before_after": 317,
+      "generator_idempotent": true,
+      "test_SQL_resource_owner": "DJConnectCoreTests only",
+      "own_original_native_coverage": {
+        "main": "a9bebdb5de03dbb825355e450a537485fe55c150",
+        "own_main_run": 40969711171,
+        "artifact_id": 12940556228,
+        "actual_and_provider_zip_sha256": "6772e67765b388f2c8260e197d8ade1b4d4a57938b1fc7ed58e578d6fe226bca",
+        "members": {
+          "coverage.json": {
+            "bytes": 3365407,
+            "sha256": "98069fecc315d248ebd86279b4e053e36362502d35772df4a8ec709ba8ddd21f"
+          },
+          "coverage-main-sha.txt": {
+            "bytes": 41,
+            "sha256": "0c6f1c60e61949ec05f8a2b54fad34f363b96ccb0ecf529f104880815771095d"
+          }
+        },
+        "journal_coverage_file": {
+          "name": "NativeStatusOnceDataJournal.swift",
+          "coveredLines": 258,
+          "executableLines": 275
+        },
+        "scope": "Own original selected native Core target coverage; no physical/provider/push acceptance."
+      }
+    }
+  },
+  "preserved_failures": {
+    "rejected_candidates": [
+      "d5491dc109a6f234faf136dae0ff906cd71ac9fb",
+      "d021e55008a4d2051b6efd187896431e57ab6155"
+    ],
+    "causal_RED": "Original decoder, immutable request, post-COMMIT binding and target-consumed flag failures remain preserved; successor1177 alone resolves cited findings.",
+    "native_selection_before_fix": "Actual exit65: Bundle has no member module when the tests are selected in native Xcode.",
+    "harness_diagnostic": "Initial native launcher assumed xctestrunV2; actualV1 launch failed before any tests, exit70, then corrected. Not a product failure or passing test."
+  },
+  "human_product_requirement": "One rich session widget and one rich session Live Activity with push; preserve playback/artwork/static VibeScape. No second status-only user variant or functional downgrade.",
+  "active_product_unchanged": "Existing rich WidgetBundle and Activity controller remain; neither source activates a new status-only surface or operational push.",
+  "remaining": [
+    "Owning Core/API rich contract and original native start/display/read-custody, exact platform support and producer mapping.",
+    "Actual qualified native factory/storage/clock/restore and admitted installation/principal/environment; DATA or matching SQL never supplies them.",
+    "One existing widget timeline plus scoped background read, rich Activity content-state and matching artwork staging.",
+    "Physical/device/APNs/background/expiry/withdrawal/installed acceptance remains separate.",
+    "API PR169 retains its separate pending human merge question."
+  ],
+  "separate_documentary_Final_requires_own_review_CI_protected_merge_original_qualification": true
+}

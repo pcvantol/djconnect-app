@@ -1,0 +1,208 @@
+{
+  "producer_sha": "4ada2b611f5195090bdb1fe52b28749ad539a100",
+  "qualification": "Actual isolated native HTTP receipt; synthetic profile/source metadata; no voice or live-provider qualification",
+  "response": {
+    "success": true,
+    "text": "Ik zie geen Spotify tracks die het afgelopen uur zijn afgespeeld.",
+    "dj_text": "Ik zie geen Spotify tracks die het afgelopen uur zijn afgespeeld.",
+    "message": "Ik zie geen Spotify tracks die het afgelopen uur zijn afgespeeld.",
+    "images": [],
+    "links": [],
+    "sources": [
+      {
+        "source": "spotify_recently_played",
+        "title": "Spotify recently played",
+        "kind": "source"
+      }
+    ],
+    "playback_actions": [],
+    "confirmation_actions": [],
+    "error": null,
+    "intent": {
+      "category": "informational",
+      "intent": "recently_played_history",
+      "action": "recently_played",
+      "item_type": "tracks"
+    },
+    "items": [],
+    "action": "none",
+    "music_dna_key": "djconnect_macos_djconnect-macos-ABCDEF123456",
+    "assistant_message": {
+      "id": "server-33881642-8200-4fdb-96c6-acc34c0ac9d6",
+      "client_message_id": "67B82A1E-96E5-4438-9171-307DFAC9DBF2",
+      "role": "assistant",
+      "message_kind": "assistant",
+      "text": "Ik zie geen Spotify tracks die het afgelopen uur zijn afgespeeld.",
+      "created_at": "2026-10-09T19:00:57.212628Z",
+      "client_id": "djconnect-macos-ABCDEF123456",
+      "client_type": "macos",
+      "status": "delivered",
+      "images": [],
+      "links": [],
+      "sources": [
+        {
+          "source": "spotify_recently_played",
+          "title": "Spotify recently played",
+          "kind": "source"
+        }
+      ],
+      "audio_url": null,
+      "playback_actions": [],
+      "intent": {
+        "category": "informational",
+        "intent": "recently_played_history",
+        "action": "recently_played",
+        "item_type": "tracks"
+      },
+      "action": "none",
+      "session_turn": {
+        "turn_id": "turn-0c02753b083250c6a6acbde4b934d38f",
+        "request_digest": "105995acd5b314ac8a462263d5bfa4b72f6414468d87a2452d88f46247155368",
+        "profile_id": "profile-a",
+        "context": {
+          "session_id": null
+        },
+        "captured_playback_item_id": "",
+        "input_type": "text",
+        "explicit_playback_request": false,
+        "implicit_playback_entry": null
+      },
+      "historical_entry_references": [],
+      "exchange_id": "67B82A1E-96E5-4438-9171-307DFAC9DBF2",
+      "exchange_order": 1
+    },
+    "announcement": {
+      "output": "client_device",
+      "delivery": "client_device",
+      "audio_response_effective": "unavailable",
+      "audio_url": null,
+      "audio_type": null,
+      "target": null,
+      "warnings": []
+    },
+    "user_id": null,
+    "user_message": {
+      "id": "server-f53a0fae-4e13-49f1-8685-4ca1f7869d5f",
+      "client_message_id": "67B82A1E-96E5-4438-9171-307DFAC9DBF2",
+      "role": "user",
+      "text": "Wat heb ik eerder geluisterd?",
+      "created_at": "2026-10-09T19:00:57.212551Z",
+      "client_id": "djconnect-macos-ABCDEF123456",
+      "client_type": "macos",
+      "status": "delivered",
+      "images": [],
+      "links": [],
+      "sources": [],
+      "audio_url": null,
+      "playback_actions": [],
+      "session_turn": {
+        "turn_id": "turn-0c02753b083250c6a6acbde4b934d38f",
+        "request_digest": "105995acd5b314ac8a462263d5bfa4b72f6414468d87a2452d88f46247155368",
+        "profile_id": "profile-a",
+        "context": {
+          "session_id": null
+        },
+        "captured_playback_item_id": "",
+        "input_type": "text",
+        "explicit_playback_request": false,
+        "implicit_playback_entry": null
+      },
+      "historical_entry_references": [],
+      "exchange_id": "67B82A1E-96E5-4438-9171-307DFAC9DBF2",
+      "exchange_order": 0
+    },
+    "messages": [
+      {
+        "id": "server-f53a0fae-4e13-49f1-8685-4ca1f7869d5f",
+        "client_message_id": "67B82A1E-96E5-4438-9171-307DFAC9DBF2",
+        "role": "user",
+        "text": "Wat heb ik eerder geluisterd?",
+        "created_at": "2026-10-09T19:00:57.212551Z",
+        "client_id": "djconnect-macos-ABCDEF123456",
+        "client_type": "macos",
+        "status": "delivered",
+        "images": [],
+        "links": [],
+        "sources": [],
+        "audio_url": null,
+        "playback_actions": [],
+        "session_turn": {
+          "turn_id": "turn-0c02753b083250c6a6acbde4b934d38f",
+          "request_digest": "105995acd5b314ac8a462263d5bfa4b72f6414468d87a2452d88f46247155368",
+          "profile_id": "profile-a",
+          "context": {
+            "session_id": null
+          },
+          "captured_playback_item_id": "",
+          "input_type": "text",
+          "explicit_playback_request": false,
+          "implicit_playback_entry": null
+        },
+        "historical_entry_references": [],
+        "exchange_id": "67B82A1E-96E5-4438-9171-307DFAC9DBF2",
+        "exchange_order": 0
+      },
+      {
+        "id": "server-33881642-8200-4fdb-96c6-acc34c0ac9d6",
+        "client_message_id": "67B82A1E-96E5-4438-9171-307DFAC9DBF2",
+        "role": "assistant",
+        "message_kind": "assistant",
+        "text": "Ik zie geen Spotify tracks die het afgelopen uur zijn afgespeeld.",
+        "created_at": "2026-10-09T19:00:57.212628Z",
+        "client_id": "djconnect-macos-ABCDEF123456",
+        "client_type": "macos",
+        "status": "delivered",
+        "images": [],
+        "links": [],
+        "sources": [
+          {
+            "source": "spotify_recently_played",
+            "title": "Spotify recently played",
+            "kind": "source"
+          }
+        ],
+        "audio_url": null,
+        "playback_actions": [],
+        "intent": {
+          "category": "informational",
+          "intent": "recently_played_history",
+          "action": "recently_played",
+          "item_type": "tracks"
+        },
+        "action": "none",
+        "session_turn": {
+          "turn_id": "turn-0c02753b083250c6a6acbde4b934d38f",
+          "request_digest": "105995acd5b314ac8a462263d5bfa4b72f6414468d87a2452d88f46247155368",
+          "profile_id": "profile-a",
+          "context": {
+            "session_id": null
+          },
+          "captured_playback_item_id": "",
+          "input_type": "text",
+          "explicit_playback_request": false,
+          "implicit_playback_entry": null
+        },
+        "historical_entry_references": [],
+        "exchange_id": "67B82A1E-96E5-4438-9171-307DFAC9DBF2",
+        "exchange_order": 1
+      }
+    ],
+    "history_revision": 11,
+    "clear_revision": 0,
+    "history_limit": 1000,
+    "history_trimmed_before": null,
+    "history_trimmed_count": 0,
+    "server_time": "2026-10-09T19:00:57.217518Z",
+    "owner_profile_id": "profile-a",
+    "conversation": {
+      "schema_version": 1,
+      "turn_id": "turn-0c02753b083250c6a6acbde4b934d38f",
+      "context": {
+        "session_id": null
+      },
+      "entry_ids": [],
+      "history_scope": "profile",
+      "input_type": "text"
+    }
+  }
+}

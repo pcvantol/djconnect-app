@@ -1,0 +1,26 @@
+{
+  "status": "SOURCE_SAVED_SESSIONS_AUTOMATIC_PAGING_PASS; installed scroll acceptance pending",
+  "source_parent": "995191a4298c4f1b3bec19eeeef14a5fd25c6413",
+  "request": "Remove Meer laden from Eerdere sessies; scrolling down automatically loads next batch",
+  "changes": [
+    "Replace manual load-more button with a44pt lazy footer; its cursor identity starts one existing read when mounted near the end of List/LazyVStack",
+    "Show a loading indicator during the read; remove footer at final cursor",
+    "Expected-cursor check rejects stale footers; existing listLoading guard prevents concurrent pagination",
+    "Stop automatic paging after errors; keep existing refresh/retry behavior and previously confirmed rows",
+    "Reject an unchanged next cursor before mutating rows, preventing immediate non-progressing pagination",
+    "Retain server cursor/revision, duplicate-session merge and Profile/epoch authority handling"
+  ],
+  "validation": {
+    "focused": "4 tests PASS0.259s; two new tests including3 failure cases plus existing navigation cancellation and authority withdrawal tests",
+    "focused_log": "/private/tmp/djc-saved-sessions-lazy-focused-20261016.log",
+    "full": "680 tests in9suites PASS82.316s; explicit --no-parallel",
+    "full_log": "/private/tmp/djc-saved-sessions-lazy-all-20261016.log",
+    "ios": "DJConnectUI arm64 iOS26 target PASS17.95s",
+    "ios_log": "/private/tmp/djc-saved-sessions-lazy-ios-20261016.log",
+    "diff_check": "PASS"
+  },
+  "test_boundaries": "Modeled HTTP fixtures cover overlapping pages, stale/current cursors, concurrent reads, terminal cursor, transient failure, repeated cursor, revision mismatch and explicit refresh recovery. No physical scroll claim",
+  "effects": "Sole writer local UI/model/tests/receipt only; no backend/provider contract change, execute, app install, push/PR/merge, automation or cleanup",
+  "installed": "Unchanged qualified40120; no full unfinished writer installed",
+  "remaining": "Selectively qualify/build and verify scrolling and preserved position on iPhone/native hosts"
+}

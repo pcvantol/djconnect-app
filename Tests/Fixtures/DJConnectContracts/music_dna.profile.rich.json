@@ -1,0 +1,109 @@
+{
+  "success": true,
+  "enabled": true,
+  "music_dna_key": "user:ha-user-1",
+  "profile": {
+    "summary": "Je Music DNA leunt naar indie, ambient en artiesten als The xx.",
+    "favorite_genres": [
+      {
+        "name": "indie",
+        "count": 3
+      }
+    ],
+    "recent_tracks": [
+      {
+        "track_name": "Intro",
+        "artist": "The xx",
+        "uri": "spotify:track:intro"
+      }
+    ],
+    "top_tracks_by_range": {
+      "short_term": [
+        {
+          "track_name": "Intro",
+          "artist": "The xx",
+          "uri": "spotify:track:intro"
+        }
+      ]
+    },
+    "top_artists_by_range": {
+      "short_term": [
+        {
+          "name": "The xx",
+          "uri": "spotify:artist:the-xx",
+          "genres": [
+            "indie"
+          ]
+        }
+      ]
+    },
+    "snapshot_history": [
+      {
+        "captured_at": "2026-07-09T10:00:00+00:00",
+        "top_tracks": [
+          {
+            "title": "Intro",
+            "artist": "The xx",
+            "uri": "spotify:track:intro"
+          }
+        ],
+        "top_artists": [
+          {
+            "name": "The xx",
+            "uri": "spotify:artist:the-xx"
+          }
+        ],
+        "inferred_genres": [
+          "indie"
+        ]
+      }
+    ],
+    "discovery_feedback": {
+      "accepted_items": [
+        {
+          "title": "Discovery Track",
+          "subtitle": "New Artist",
+          "uri": "spotify:track:discovery",
+          "quality_score": 89,
+          "quality_band": "high"
+        }
+      ],
+      "blocked_artists": [
+        {
+          "name": "Blocked Artist",
+          "reason": "hide_artist"
+        }
+      ]
+    },
+    "privacy_dashboard": {
+      "enabled": true,
+      "data_sources": [
+        {
+          "id": "spotify_listening_profile",
+          "label": "Spotify recent/top profile snapshots",
+          "enabled": true,
+          "count": 1,
+          "last_updated": "2026-07-09T10:00:00+00:00"
+        },
+        {
+          "id": "recommendation_feedback",
+          "label": "Recommendation feedback",
+          "enabled": true,
+          "count": 1
+        },
+        {
+          "id": "negative_feedback",
+          "label": "Negative feedback",
+          "enabled": true,
+          "count": 1
+        }
+      ],
+      "controls": {
+        "clear_supported": true
+      },
+      "stores_raw_audio": false,
+      "stores_oauth_tokens": false,
+      "stores_full_prompts": false
+    }
+  }
+}

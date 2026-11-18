@@ -1,0 +1,133 @@
+{
+  "recorded_date": "2026-10-21",
+  "source_pr": 169,
+  "approved_candidate": "d2b14822599963d7b6e5f3f32b8007db7b0d50fb",
+  "merged_source": "9980279fbfb458b0a34aa0347c4c534b9a330026",
+  "source_tree_equal_approved_candidate": true,
+  "validation": {
+    "integrated_swift_tests": {
+      "passed": 1035
+    },
+    "native_ios_consent": {
+      "passed": 19,
+      "failed": 0,
+      "skipped": 9,
+      "initial_shared_volume_launch": "ABORTED_BEFORE_TESTS; successful bounded local-products retry"
+    },
+    "offline_vibecast_tests": {
+      "passed": 28
+    },
+    "localization_keys": 1389,
+    "websocket_http_security_fixtures": "PASS",
+    "mac_ios_watch_signed_builds": "PASS",
+    "source_input_files": 210,
+    "pr_ci": 39624471464,
+    "source_main_ci": 39626856219,
+    "source_main_coverage": {
+      "status": "PASS",
+      "artifact_sha256": "e9be2af4dcf870db3df5184fca9b9a3afa83205592a63e673ed91603c71bd6f5",
+      "main_sha_bound": true
+    },
+    "durable_qualification": {
+      "status": "VERIFIED",
+      "workflow": 39628569024,
+      "required_checks_passed": 12,
+      "asset_sha256": "a006bd7a763f5618884463240eab63defa9247cec1a34ea9a421984e24fb3c09",
+      "canonical_integrity_verified": true,
+      "runner_main_sha_verified": true
+    },
+    "tde_observe": "workflow SUCCESS; substantive assessment BLOCKED: store requires validated canonical evidence"
+  },
+  "build": "40405",
+  "artifacts": [
+    {
+      "platform": "mac",
+      "bundle_id": "dev.djconnect.mac",
+      "version": "4.0.0",
+      "build": "40405",
+      "strict_signature": "PASS",
+      "executable_sha256": "2acce1cae7f7f64bad222275af6bc48839f2aafa4ccf23f3bd03691da8ef8855",
+      "bundle_manifest_sha256": "91ef0f9424964e74a242d78eba78bae291d642a29bb3568dd242f77f1ffa0109"
+    },
+    {
+      "platform": "ios",
+      "bundle_id": "dev.djconnect.ios",
+      "version": "4.0.0",
+      "build": "40405",
+      "strict_signature": "PASS",
+      "executable_sha256": "ad3d8d27519e6d5b12dbd1e9256d7c27c8c915b7a77c20484ff66f8498cc1253",
+      "bundle_manifest_sha256": "667928bd0aea95f2ccca07911223fec8363ee54b361cbeb56c6f4aba7fd06f39"
+    },
+    {
+      "platform": "watch",
+      "bundle_id": "dev.djconnect.ios.watch",
+      "version": "4.0.0",
+      "build": "40405",
+      "strict_signature": "PASS",
+      "executable_sha256": "b80861ec74656bf021f38a2d6780465554a707a6b0eefac113dc6cb464d8fdba",
+      "bundle_manifest_sha256": "11ab5338213e5675c36239727a793864aa39104dcf94e3e51fe49905fcc24b59"
+    }
+  ],
+  "devices": [
+    {
+      "device": "Mac mini",
+      "status": "INSTALLED_SIGNATURE_FULL_BUNDLE_AND_LAUNCH_PASS",
+      "build": "40405",
+      "executable_sha256": "2acce1cae7f7f64bad222275af6bc48839f2aafa4ccf23f3bd03691da8ef8855"
+    },
+    {
+      "device": "iPad",
+      "status": "INSTALL_CONNECTION_CLOSED; version readback unavailable; DEFERRED"
+    },
+    {
+      "device": "iPhone",
+      "status": "DEFERRED_BY_OWNER_UNTIL_TOMORROW"
+    },
+    {
+      "device": "Apple Watch",
+      "status": "DEFERRED_BY_OWNER_UNTIL_TOMORROW"
+    },
+    {
+      "device": "MacBook",
+      "status": "HOST_UNREACHABLE; DEFERRED"
+    }
+  ],
+  "cleanup": {
+    "local_stale_branches_removed": 79,
+    "history_tags": {
+      "archive/apple-oct21-source-history": "d2b14822599963d7b6e5f3f32b8007db7b0d50fb",
+      "archive/apple-pr167-finalization-history": "a85c5eacff097f4b0d3d51680e11b6814156968f"
+    },
+    "worktrees_removed": 0,
+    "active_worktrees": 1,
+    "stashes_removed": 0,
+    "stashes_present": 0,
+    "transient_duplicate_recovery_apps_removed": 1,
+    "duplicate_temporary_test_products_removed": 1,
+    "own_temporary_simulators_removed": 1,
+    "unique_historical_apps_retained": 18,
+    "unique_git_history_bundles_retained": 2,
+    "git_object_pruning": false,
+    "removed_allocated_file_bytes": 367980544,
+    "allocated_bytes_are_not_apfs_free_space_delta": true
+  },
+  "limits": [
+    "No TestFlight/App Store/public binary publication",
+    "No app data wipe, uninstall or pairing reset",
+    "Installed/version/signature/launch proof does not qualify physical gestures, audio, VoiceOver or full-chain backend acceptance",
+    "Music DNA artwork, Track Insight, sparse automatic contributions, historical-track playback and genuine VibeCast SDK/QA remain separately open"
+  ],
+  "evidence_digests": {
+    "signed-artifacts.json": "2283297b1102a7035cd8275a7bed6b4e20c7d984c10e895135728f1f49b8b3db",
+    "main-source-inputs.json": "fa1100393a87d2faed371171b3c7f059cf2df90a3559651481733ca8ba8c800d",
+    "native-ios-summary.json": "2483354228757977ba7067dd19c8eadc1d1a094a016f7f6b1ebeea999061d836",
+    "branch-cleanup.json": "8715accf16517bc0c2c5e811511e8419c0954ce4c52d5f4b33d9e9e66008db72",
+    "transient-recovery-cleanup.json": "9ccababab5062beb12748cc2cbfb0bdd0a3f7ca105d435606980acd650c7e0dc",
+    "temporary-test-products-cleanup.json": "a98f946fff290433ad714b272e3179056643f25f29cb662cfe6e5d08fd7b1c5e",
+    "recovery-app-audit.json": "befc95982b68c0d8a02e976170f29da5bb935f9de8c54ddf1d6e9444445f723a",
+    "macmini-installed.json": "44763dca313882b61641798435bd15a4a1d1a4e5b07211d16f72ef86583c87d7",
+    "ipad-install.json": "280f377d3caf2f88fe1c12f94400e8bd569cb211a08cc96e7ee712b0e30e9fc3",
+    "ipad-after-attempt.json": "72bfb5d9f91cf6c18818113cd99407598d310bcd52e0cd97ae89222b2cc27585",
+    "source_canonical_receipt": "a006bd7a763f5618884463240eab63defa9247cec1a34ea9a421984e24fb3c09"
+  }
+}

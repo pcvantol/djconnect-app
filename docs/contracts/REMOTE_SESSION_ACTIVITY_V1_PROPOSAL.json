@@ -1,0 +1,36 @@
+{
+  "api_profiles_admitted": [],
+  "attributes_keys": [
+    "presentation_id",
+    "presentation_generation"
+  ],
+  "attributes_type": "DJConnectRemoteSessionActivityAttributesV1",
+  "content_state_type": "DJConnectRemoteSessionActivityStateV1",
+  "exclusions": [
+    "legacy local Activity tokens/ContentState",
+    "raw Profile/Session identifiers",
+    "local receivedUptime/arrival/C0",
+    "artwork",
+    "DJ Moment text",
+    "remote start",
+    "ordinary app installation",
+    "APNs provider sends"
+  ],
+  "open_counterexamples": [
+    "stateless renderer cannot know previously higher sequence",
+    "wall clock240seconds behind can show displaydata past server expiry",
+    "stale/end packet missing offline; no immediate pixel wipe guarantee"
+  ],
+  "remote_start": false,
+  "rights": {
+    "external_content": "UNACCEPTED",
+    "locked_display": "UNACCEPTED",
+    "os_snapshot_cache": "UNACCEPTED",
+    "retention_and_pixel_erasure": "UNACCEPTED"
+  },
+  "schema_sha256": "0e8c404205dd5e18679d3747563df8a7c3359be440ca10e15b15c0ac04cfad2d",
+  "scope": "display-data-only; no authentication/key/commands/lifetime authority",
+  "shipping_activity_configured": false,
+  "status": "PRIVATE_APPLE_NATIVE_PROFILE_PROPOSAL_NOT_ACCEPTED_OR_ADOPTED",
+  "whole_payload_budget_utf8": 4096
+}

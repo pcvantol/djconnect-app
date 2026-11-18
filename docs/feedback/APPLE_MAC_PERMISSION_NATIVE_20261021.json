@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "parent_sha": "7730ffb01bb699a91e22a648a2f0965feceed33a",
+  "production_changed": false,
+  "qualified": {
+    "passed_tests": 1,
+    "failed_tests": 0,
+    "renders_inspected": 3
+  },
+  "mac_dynamic_type_qualified": false,
+  "os_permission_query_or_request": false,
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Tests/DJConnectCoreTests/PermissionRowNativeTests.swift",
+      "sha256": "0ecbdca348367e05f18ff7bbc37c124c699ff5613762d32c0f3e376603b462a8"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectRootView.swift",
+      "sha256": "e80924cf291d6e6963cd844f26a081b82eb168437838856a502185ca0ccbd1be"
+    },
+    {
+      "path": "/private/tmp/djc-mac-permission-20261021/final.log",
+      "sha256": "44862fee71a24d7099863da1292265476f0b0750785d5acaff2af7153bd9f16b"
+    },
+    {
+      "path": "/private/tmp/djc-mac-permission-20261021/observations/mac-permission-01-narrow.png",
+      "sha256": "db819c45c1c929f19d9ea110c514f928182d3be8bfcfba0b20c86348e34480e9"
+    },
+    {
+      "path": "/private/tmp/djc-mac-permission-20261021/observations/mac-permission-02-wide.png",
+      "sha256": "9160bacc34ce33e4a1ddeec0c2579cd278e948a8e864970420e67a451f7c5fc6"
+    },
+    {
+      "path": "/private/tmp/djc-mac-permission-20261021/observations/mac-permission-03-german.png",
+      "sha256": "2041d2b8a36009e3cf9edafc823a14e2793841cbfb7537e1f1b943e4556f0d72"
+    },
+    {
+      "path": "/private/tmp/djc-mac-permission-20261021/observations/native-mac-permission-layout.json",
+      "sha256": "e28d6592caa538369185046b5c1060fafb04e7dfef279e13dcb27822902afe23"
+    }
+  ]
+}

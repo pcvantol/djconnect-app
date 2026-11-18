@@ -1,0 +1,16 @@
+{
+  "active_assertions_captured" : 2,
+  "active_attestation_captured" : true,
+  "app_bundle_id" : "dev.djconnect.ios",
+  "build" : "40227",
+  "hardware_erasure" : "NOT_CLAIMED",
+  "is_supported" : true,
+  "os" : "27.0.1",
+  "replacement_assertions_captured" : 2,
+  "replacement_attestation_captured" : true,
+  "scope" : "app-hosted development diagnostic; no rendezvous\/server admission",
+  "server_verification" : "NOT_RUN_API_LANE_OWNS",
+  "unknown_key_error_code" : 3,
+  "unknown_key_error_domain" : "com.apple.devicecheck.error",
+  "unknown_key_rejected" : true
+}

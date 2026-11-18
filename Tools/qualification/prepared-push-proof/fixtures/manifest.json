@@ -1,0 +1,15 @@
+{
+  "status": "PRIVATE_UNCOMPOSED_PREPARATION_NOT_NORMATIVE_NATIVE_OR_ADMISSION_AUTHORITY",
+  "Core_R9_sha256": "624b7029bfad310a53dcf7b287aaa138b65133d6715271ab4a3305795ef18ff2",
+  "API_port_v2_sha256": "74e6f561fbc44aa08eda77cd3e77515dd263a06b826f75fc2894169d083ee459",
+  "nested_shape_index_R2_sha256": "abe9cc0d71b33f6fca225893cf511c11a82ec346e107c9a10b460643680c7971",
+  "fixture_sha256": {
+    "canonical-transcript-vectors.json": "693dccdfbe9253b1643b8ad71453ae06865ec645d87145546661710d9dedc5c3",
+    "negative-shape-and-context-vectors.json": "0ab91194e6d095b0af56111de83b9d4c198ca216807fce1ddacc49f85a6f0231",
+    "causal-activity-shape-expectations.json": "1df7dc06c498335b1b8a398b1db9abb1a767a2ef2ac78f19f04a0dcf7c2107a8"
+  },
+  "strict_lexical_source": "Sources/DJConnectCore/DJConnectSurfacePushJSON.swift",
+  "strict_lexical_sha256": "092a869ecef8e12f64d0583240561fd1e8d3c97c4411b74c9d0857d0c4dbe476",
+  "synthetic_expired_vectors_only": true,
+  "default_positive_factory_changed": false
+}

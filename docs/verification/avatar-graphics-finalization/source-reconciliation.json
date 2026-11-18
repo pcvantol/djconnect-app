@@ -1,0 +1,60 @@
+{
+  "candidate": "5d661066dc6b113a3723c09099c3700eb6692e21",
+  "comparedBuildInputs": 243,
+  "mismatches": [],
+  "tests": {
+    "count": 861,
+    "suites": 10,
+    "seconds": 92.751,
+    "result": "PASS"
+  },
+  "iosUITestCompile": "PASS",
+  "iosUITestRun": "NOT_RUN_NO_SIMULATOR_DEVICES",
+  "ordinaryBuild": 40348,
+  "strictSignatures": "PASS",
+  "physicalAcceptance": "NOT_RUN",
+  "localChecks": {
+    "localizations1322": "PASS",
+    "brandFiveLanguages": "PASS",
+    "appleRegisters": "PASS",
+    "ordinaryInstallHygiene2": "PASS",
+    "http29": "PASS",
+    "websocket18": "PASS",
+    "fixtureSecurity": "PASS",
+    "diffCheck": "PASS"
+  },
+  "ciRun": 39166738434,
+  "ciResult": "PASS",
+  "merge": "PROTECTED_SQUASH_NO_BYPASS",
+  "coreHandoff": "PENDING_HOST_RECOVERY",
+  "sourcePR": "https://github.com/pcvantol/djconnect-app/pull/130",
+  "sourceMain": "d95d3c3ebc8aae153c04d0bb3c5ce512a8afa3c5",
+  "candidateTree": "803b26a37d7a9f6b29746104bb776d8b14993c57",
+  "mainTree": "803b26a37d7a9f6b29746104bb776d8b14993c57",
+  "independentReview": {
+    "status": "completed",
+    "findings": false,
+    "url": "https://github.com/pcvantol/djconnect-app/pull/130#issuecomment-6255229847",
+    "candidate": "5d661066dc6b113a3723c09099c3700eb6692e21"
+  },
+  "sourceMainCI": {
+    "run": 39167432496,
+    "status": "PASS"
+  },
+  "remainingScope": [
+    "Core semantic handoff",
+    "dynamic glyphs and actual audio/capture lifecycles",
+    "qualified touch reactions",
+    "native UI execution and physical acceptance"
+  ],
+  "formalEvidence": {
+    "run": 39168031661,
+    "outcome": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+    "assetSHA256": "5b982d54b8509fb972fefe01bd0b02419d1704fe94591139da9114ed970b5a4a",
+    "canonicalSHA256": "28bf1f2f82ad68387765a074a077b73ca37e65ec08d7c771d82daf64f1e93e47",
+    "requiredChecks": "12/12 PASS"
+  },
+  "documentaryFinalization": "PENDING_PROTECTED_DELIVERY",
+  "sourceBase": "c012e5456d0b1eabbb390fc4d5b42ffb9cd13170",
+  "qualificationBoundary": "Local static graphics only. Apple127 remains OPEN. No installed or physical acceptance."
+}

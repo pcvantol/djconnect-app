@@ -1,0 +1,16 @@
+{
+  "run": 39109669813,
+  "source_main": "803d77c665701fc9fe3d3d5cc8ee0752597343a1",
+  "artifact_name": "apple-xccov-coverage",
+  "artifact_id": 12129702553,
+  "artifact_size": 177249,
+  "zip_sha256": "0b17c421ae0e11568fea58bd730149bb5ada183ca58a14dd0c7351e86a99d3e0",
+  "zip_digest_matches_github": "PASS",
+  "embedded_main_sha_matches": "PASS",
+  "coverage_json_sha256": "0c3fefeef08f11b26755074009cdb0d14f851482c90b2a3186b51286d1d5a827",
+  "coverage_summary": {
+    "coveredLines": 49438,
+    "executableLines": 99549,
+    "lineCoverage": 0.4966197550954806
+  }
+}

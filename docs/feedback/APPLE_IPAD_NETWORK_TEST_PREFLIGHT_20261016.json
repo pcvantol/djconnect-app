@@ -1,0 +1,17 @@
+{
+  "status": "PREFLIGHT_ONLY; physical offline/recovery not run",
+  "device": "Real iPad00008027-000211140231002E",
+  "observed_connection": {
+    "transportType": "localNetwork",
+    "tunnelTransportProtocol": "tcp",
+    "tunnelState": "connected",
+    "pairingState": "paired",
+    "developerModeStatus": "enabled",
+    "osVersionNumber": "26.7.1"
+  },
+  "evidence": "/private/tmp/djc-ipad-connectivity-preflight-20261016.json",
+  "decision": "Do not disable physical iPad WiFi while the active test/control tunnel itself uses localNetwork. A verified independent wired test channel is needed before a bounded WiFi-off/restoration acceptance can safely proceed. Device appearing connected does not prove USB.",
+  "effects": "NoWiFi/radio/airplanemode/systemsettingschange; noapprelaunch, newinstall, HA/Profile/pairingmutation. Read-onlyCoreDeviceinspection only.",
+  "limits": "Nooffline/reconnect/LAN-to-external/operationstatus or provideracceptance. Earlier actualiPadforeground/scroll/selectionpasses remain separate.",
+  "next": "Verify actualwiredCoreDevicetransport in an attended/cabledsetup before togglingWiFi. Do not repeatedly attempt the same radiotest under unchanged localNetworktransport."
+}

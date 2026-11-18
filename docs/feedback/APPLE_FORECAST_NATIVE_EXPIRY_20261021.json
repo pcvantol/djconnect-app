@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "parent_sha": "8a553f82c80c8d28dec57505d0300f109511917e",
+  "production_changed": false,
+  "native_expiry_visual": "PASS_TWO_FINAL_CAPTURES",
+  "fixture_cases_passed": 16,
+  "lease_seconds": 6,
+  "clock_injected": false,
+  "forced_refresh": false,
+  "owner_retained": true,
+  "forecast_reads": [
+    2,
+    2
+  ],
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "91c69086f27007aea169244077fe17adb557ac72c4be2cad10f713056698e068"
+    },
+    {
+      "path": "Sources/DJConnectUI/SessionForecastView.swift",
+      "sha256": "7a14739c5b0a1cdb88f778041c91a37c6846350caf436529d0a94900ff214649"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectAppModel.swift",
+      "sha256": "75a0d8bddcdc3fc5b3a1da9cbfb5de4980e71b6534f0ad0a5192c5ccdd3b601e"
+    },
+    {
+      "path": "Tests/Fixtures/session-forecast-core-3cfa5512.json",
+      "sha256": "909c9bc4f882f5db84b0b92a4fef4102c3f8d123337cf0770160f590fba24cac"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-expiry-native-20261021.log",
+      "sha256": "578583cd951e2a5b8fe93085a0b796276ef2266e57fa4ae05cd1ad889928824e"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-expiry-native-20261021/expiry-01-current.png",
+      "sha256": "7b73380e73ff2ef4f7f98e88c6a871e5d0614ca121730de7851734fd192f30ac"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-expiry-native-20261021/expiry-02-expired.png",
+      "sha256": "674079d6d44f8aa97925b60c9cd0b66abe4d2c0a97810742b6df025f61e400e4"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-expiry-native-20261021/native-expiry-metrics.json",
+      "sha256": "b4d0d02a6f8d43d51e9c024f2d14ae8170325bf2b9cc0153ad2061d774343467"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-expiry-final-20261021.log",
+      "sha256": "eec599771d82dc3b679f9d9012a5e497ace48b205e9fcd329b231952673f40f8"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-expiry-final-20261021/expiry-01-current.png",
+      "sha256": "7b73380e73ff2ef4f7f98e88c6a871e5d0614ca121730de7851734fd192f30ac"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-expiry-final-20261021/expiry-02-expired.png",
+      "sha256": "674079d6d44f8aa97925b60c9cd0b66abe4d2c0a97810742b6df025f61e400e4"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-expiry-final-20261021/native-expiry-metrics.json",
+      "sha256": "eeefc2f77c0866eee78cbfecd90458e0f64d60add9f572bac20b706ae126adb2"
+    }
+  ]
+}

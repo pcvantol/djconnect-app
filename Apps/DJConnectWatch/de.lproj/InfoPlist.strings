@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "DJConnect";
+"NSLocalNetworkUsageDescription" = "DJConnect verbindet sich mit Home Assistant in deinem lokalen Netzwerk.";
+"NSMicrophoneUsageDescription" = "DJConnect nimmt deine Stimme für Push-to-Talk-Musikwünsche an Home Assistant auf.";
+"NSSpeechRecognitionUsageDescription" = "DJConnect verwendet Spracherkennung nur zur Aktivierung mit Hey DJ, während die App im Vordergrund ist.";

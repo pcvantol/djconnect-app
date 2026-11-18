@@ -1,0 +1,88 @@
+{
+  "source_pr": 230,
+  "candidate": "1cc9cfe0f3f92b5e6d1c4869cb9608f79df8d08a",
+  "main": "02a7bcc2249cacb44b757aa1f14618c1b575f7ee",
+  "tree": "19405249d61950bb500827ea8edfb743d280a840",
+  "reviewed_and_merged_tree_equal": true,
+  "main_CI_run": 40831380708,
+  "formal_run": 40832651079,
+  "original_run_attempts": 1,
+  "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+  "formal_digest": "bee9cd350b639ff362e851226eef85ecbafd1dcca1bd54083cb5d916a799ef5c",
+  "formal_findings": [],
+  "formal_raw_sha256": "7ecf865a5373b824661da430f594fbc96c46da9746cd4ab8de433f35c8de87eb",
+  "formal_original_artifact_id": 12878673528,
+  "formal_original_ZIP_actual_provider_sha256": "1bbacdc041921d9b34241d5674c57ec103ba01bace1631243f9da3c9ff57cc53",
+  "formal_raw_joined_to_original_ZIP": true,
+  "durable_asset_id": 687666516,
+  "durable_actual_and_provider_sha256": "7b5faa916688ca8e692274c10013b3363eed0413428224b531f7d5736bd9fd1d",
+  "durable_inner_integrity_verified": true,
+  "all12_required_checks": {
+    "post_merge_build_validation": "PASS",
+    "post_merge_ci": "PASS",
+    "post_merge_coverage": "PASS",
+    "post_merge_governance": "PASS",
+    "post_merge_lint": "PASS",
+    "post_merge_static_analysis": "PASS",
+    "post_merge_tests": "PASS",
+    "required_checks": "PASS",
+    "software_assurance": "PASS",
+    "trusted_delivery": "PASS",
+    "verification": "PASS",
+    "workflow_integrity": "PASS"
+  },
+  "review_sha256": "f34085d8727af9d4caf97f0dfd460436298a198fef1748eaa8d8a7b659faa778",
+  "scope": "iPhone/iPad native value/component simulator qualification or documentary Final; no active lifecycle/token/registration/provider/ipados-role/installed acceptance",
+  "schema_version": 1,
+  "kind": "apple_status_ios_source230_finalization",
+  "original_qualified_receipt_sha256": "93048b767e012c9ed07a61f6cadf12b1208d988b5cf12015fab7b04b04a9d9cd",
+  "source_packet_sha256": "710c305b1ebadae305b41d7668bc4b03976c0865657569a24bcf9da66fcb8d7c",
+  "simulator_receipt_sha256": "02c67d8a3b5faf9e60625f49a065a30eec05147c4a7608c153a82c001b6ca65a",
+  "native_component_validation": {
+    "actual_runtime": "iOS 27.0",
+    "compiler_SDK": "iPhoneSimulator 27.1",
+    "device_tests": {
+      "iphone": 3,
+      "ipad": 3
+    },
+    "seconds": {
+      "iphone": 0.157,
+      "ipad": 0.161
+    },
+    "actual_parent_exit": {
+      "iphone": 0,
+      "ipad": 0
+    },
+    "native_Attributes_ContentState_explicit": true,
+    "inspected_final_images": 12,
+    "languages": [
+      "nl",
+      "en",
+      "de",
+      "fr",
+      "es"
+    ],
+    "original_observed_at_unix_ms": 1793052000000,
+    "selected_inputs": 260,
+    "before_after_and_candidate_Git_equal": true,
+    "compiler_or_external_dependency_tracing": false
+  },
+  "historical_evidence_preserved": [
+    "R1 successful narrower inferred ActivityContent generic runs and images",
+    "Sandbox CoreSimulator inventory denial",
+    "External custom device-set creation failed and empty inventory; own default-set devices used"
+  ],
+  "own_simulators_cleanup": "Both own recorded name/type/UUIDs freshly matched and removed after terminal R2; peer devices retained; original evidence preserved",
+  "production_Core_UI_app_widget_project_equal_to_base": "e9c5bf46f38e740e6b160750aa5026cade15129b",
+  "contract_profile_090b_and_af201_unchanged": true,
+  "operational_open_gates": [
+    "Genuine Core status producer with presentation UUID/generation/sequence and widget UUID journal",
+    "Trusted registrar/Core-install/principal/key/epoch/PoP and native proof",
+    "Original clock/custody/restore and actual native lifecycle/provider delivery",
+    "Actual iPad status-activity support remains unqualified"
+  ],
+  "no_native_Activity_request_update_end_or_token": true,
+  "no_active_WidgetBundle_runtime_consumer_or_controller_change": true,
+  "no_ordinary_release_version_install_or_real_HA_provider_action": true,
+  "separate_Final_requires_own_review_CI_protected_merge_original_qualification": true
+}

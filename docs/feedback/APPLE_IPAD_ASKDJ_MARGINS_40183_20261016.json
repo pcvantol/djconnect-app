@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-16",
+  "build": "40183",
+  "scope": "Expand iPad Ask DJ landscape content while preserving actual portrait side margins",
+  "implementation": [
+    "Read this scene window bounds through noninteractive UIView probe; keyboard avoidance cannot alter this reference.",
+    "Compute portrait side margin=max(0,(short window dimension-760)/2). Current content width=container width minus twice that margin.",
+    "On the tested970x1389 iPad window this means105pt outer margins in either orientation:760pt portrait column,1179pt landscape column. Existing inner16pt padding remains.",
+    "Retain previous composer scaling policy, iPhone/macOS width policy and refresh/glass fixes."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "manifest": "452 hashes PASS",
+    "installed": "iPad40183 confirmed",
+    "landscape_geometry": "PASS both keyboard states, window1389x970, left/right text insets135pt.",
+    "portrait_geometry": "Separate settled portrait test PASS both keyboard states, window970x1389, left/right text insets135pt.",
+    "portrait_visual": "Both final full portrait screenshots actually viewed: margins stable with keyboard.",
+    "landscape_visual": "Screenshots actually viewed but known portrait-shaped/clipped capture persists. Geometry passed; no full landscape visual acceptance claim."
+  },
+  "earlier_attempt": "First combined test landscape passed, then portrait measured during rotation with inconsistent window/text geometry and failed. Focused portrait rerun waited for settled geometry and passed. No source edits between attempts.",
+  "evidence": {
+    "manifest": "build/recovery/ipad40183-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/ipad40183-askdj-margins-20261016.patch",
+    "landscape": "/private/tmp/djc-ipad-40183-askdj-margins-20261016.xcresult",
+    "portrait": "/private/tmp/djc-ipad-40183-portrait-margin-settled-20261016.xcresult",
+    "portrait_screenshots": [
+      "/private/tmp/djc-ipad-40183-portrait-margin-settled-attachments/4F5E99CD-8F76-46A5-913B-2FDF3B061938.png",
+      "/private/tmp/djc-ipad-40183-portrait-margin-settled-attachments/95F8612A-1763-41AC-B553-72C274859F45.png"
+    ]
+  },
+  "preservation": [
+    "No text entered, messages sent, playback/actions/settings changed.",
+    "Probe restored; keyboard dismissed by Home at test end.",
+    "iPhone remains40181, Mac mini40177; no Core messages or timer restart."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}

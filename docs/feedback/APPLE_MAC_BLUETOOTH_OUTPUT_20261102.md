@@ -1,0 +1,16 @@
+# Mac Bluetooth output presentation
+
+The owner confirmed that DJConnect, Spotify and macOS Sound in the JBL screenshots run on the same MacBook. Spotify identifies its local Connect player as the computer; the audible output is a separate local hardware route. Previously only iOS observed that route, leaving the Mac Session speaker and selector labelled with the computer name.
+
+The Mac client now observes Core Audio's default output plus its name/transport properties. It reads the system computer name and displays the Bluetooth device name only for the active, noncached Spotify computer with that same name and an unambiguous inventory identity. Other computers, stale outputs, demo/offline states and ambiguous duplicate computer names retain their provider labels. Built-in, AirPlay, aggregate and unknown transports do not acquire a Bluetooth label. Route switches reread the current default; retired registrations are removed and queued stopped callbacks cannot restore listeners.
+
+This is transient hardware presentation, with no backend/wire contract change. The original Connect device ID/name, inventory and command target remain intact. The existing rule suppressing unsupported Bluetooth volume presentation also applies on Mac; a provider computer's volume is not asserted to be the hardware speaker's volume. No output switching, audio-session activation, Bluetooth discovery, new permissions or persistent intelligence are introduced.
+
+## Verification
+
+- Regression coverage exercises the actual Session footer after loading a synthetic producer runtime, selector/current-output naming, disconnect/speaker changes, unchanged provider identities, remote/duplicate/cached/offline/inactive/wrong-type/demo rejection and explicit Core Audio transport classification. Existing mobile route tests remain in the full suite.
+- The final full suite passes 1,648 tests in 60 suites with source hashes unchanged. macOS and iOS/iPadOS plus embedded Watch targets build unsigned. All nine required repository checks pass.
+- A native Swift 6 read-only probe compiled the production monitor, read the default output and started/stopped observation on this Mac mini. It reported computer `Mac mini`, no Bluetooth output and one initial observation. It did not switch hardware. CFString ownership follows the Core Audio header's caller-release contract.
+- External immutable qualification records are under `apple-suggestions-more-footer-20261102`: `mac-bluetooth-speaker-source-r1.json`, `mac-bluetooth-speaker-focused-r3-receipt.json`, `mac-bluetooth-speaker-insight-regression-r1-receipt.json`, `mac-bluetooth-speaker-full-r2-receipt.json`, `validation-mac-bluetooth-speaker-r1/logs-checks/results.json`, the two `mac-bluetooth-speaker-*-build-r1.log` files and `mac-bluetooth-speaker-r2/receipt.json`/`native.log`.
+
+The first full test pass attempt overlapped app builds and failed the existing 400 ms Track Insight expiry test; that test then passed alone. The unchanged-source second full result is recorded separately. Physical JBL route switching on the owner's MacBook, installation and provider/device acceptance remain untested. This addition stays in draft PR #295; it does not authorize merge or deployment.

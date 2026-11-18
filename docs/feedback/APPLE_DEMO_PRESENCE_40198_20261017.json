@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-17",
+  "build": "40198",
+  "scope": "Demo presence menu uses same choices on macOS/iOS",
+  "cause": "Presence control required paired backend and confirmed server tuple even in explicit demo; demo capability marked unsupported and example had no presence snapshot. Mood already supported demo.",
+  "fix": [
+    "Seed explicit demo presence balanced/revision0 and advertise demo-only supported controls.",
+    "Handle five demo selections locally with matching sessionID/epoch; no network requests.",
+    "Presence UI permits explicit demo while real-session pairing/capability/revision/epoch gates stay intact."
+  ],
+  "checks": {
+    "mac_build": "PASS",
+    "ios_build": "PASS",
+    "unit": "3PASS: all five demo choices/local isolation/stale scope rejection, real rapid intent queue, real conflict authority",
+    "log": "/private/tmp/djc-presence40198-regression-tests.log",
+    "manifest": "452 hashes PASS",
+    "installed": "Mac/iPhone/iPad40198 readback PASS; Mac executable candidate/installed hashes equal; Mac strict signature PASS",
+    "native_mac_gui": "NOT_RUN; no live-session backend change or hardware playback test claimed"
+  },
+  "evidence": {
+    "manifest": "build/recovery/presence40198-selective-source-manifest-20261017.json",
+    "patch": "build/recovery/presence40198-demo-20261017.patch",
+    "mac_backup": "build/recovery/DJConnect-before40198.app"
+  },
+  "preservation": "Timer paused; no Core messages or unqualified provider adoption; unrelated projects retained.",
+  "publication": "Local commit only; no push/PR/merge"
+}

@@ -1,0 +1,12 @@
+{
+  "source_head": "4fa911527eb02fed8bed71397ee4c95fff2b2daa",
+  "branch": "codex/apple-dj-presence-v1",
+  "files": {
+    "Tools/qualification/app-attest/inspect_capture.py": "e93956d57afcf0e56e6470d64c93f24a6ed4741dd6b5af5262e8361d211e3baf",
+    "Tools/qualification/app-attest/README.md": "f7c582e612af3cafbd4de1f71b4c9700a53471063e4bc1dc356cf5b9e3781f3b",
+    "Tools/qualification/app-attest/AppAttestQualification.swift": "b470f6d30bf6a18735fec12de489c44af783108b4bd2bf6d947292d9877071ee"
+  },
+  "raw_proofs": "private host directory only; not committed or published",
+  "api_candidate": "60c291a3bb21b493eaabed116483e3876be711b1",
+  "contract_state": "0.4.0-draft NOT_FROZEN NO_RUNTIME_GO"
+}

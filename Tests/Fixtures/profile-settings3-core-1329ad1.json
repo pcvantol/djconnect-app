@@ -1,0 +1,2521 @@
+{
+  "result": "PASS_CORE_PAIRED_HTTP_RUNTIME_SQLITE",
+  "as_of": "2026-10-16T19:19:48.553938+00:00",
+  "cases": [
+    {
+      "case": "ordinary_legacy_HTTP_start_unknown_mood_askdj1_prepare1_settings_read",
+      "response": {
+        "success": true,
+        "snapshot": {
+          "contract_version": 3,
+          "defaults": {
+            "persona": "home_dj",
+            "voice": {
+              "kind": "provider_default"
+            },
+            "gender": "default",
+            "mood": "groove",
+            "presence": "balanced",
+            "announcement_output": "client_device"
+          },
+          "defaults_revision": 0,
+          "updated_at": "",
+          "activated": false,
+          "output_choice_confirmed": false,
+          "accepted_contract_version": null,
+          "session": {
+            "session_id": "session-319e19fe2e6149a9bd00ce03b132da4e",
+            "generation": "e379bda57f874de68eee957faaa59d2c",
+            "settings": null,
+            "revision": 0,
+            "defaults_revision": 0,
+            "updated_at": "2026-10-16T19:16:18.841202+00:00",
+            "selection_required": true,
+            "selection_basis": "legacy_mood_unknown"
+          }
+        },
+        "contract_version": 3,
+        "binding": "ff4e9e0f3c0f90538f5f1e328587187e81343b775d8be39313d0b65f6c50ff6b",
+        "scope": "profile_and_active_session",
+        "migration": {
+          "version": 1,
+          "state": "choice_required",
+          "requires_review": true,
+          "complete_selection_fields": [
+            "announcement_output",
+            "gender",
+            "mood",
+            "persona",
+            "presence",
+            "voice"
+          ],
+          "candidates": [],
+          "conflicting_entry_tones": false,
+          "automatic_persona_mapping": false,
+          "selection_basis": "legacy_mood_unknown"
+        },
+        "announcement_output": {
+          "selected": "client_device",
+          "speaker_available": false,
+          "speaker_reason": "announcement_speaker_not_configured",
+          "outputs": [
+            {
+              "value": "both",
+              "available": false
+            },
+            {
+              "value": "client_device",
+              "available": true
+            },
+            {
+              "value": "ha_speaker",
+              "available": false
+            },
+            {
+              "value": "text_only",
+              "available": true
+            }
+          ],
+          "voice_applicability": "applicable",
+          "autoplay_scope": "device_local_default_off"
+        },
+        "allowed_values": {
+          "persona": [
+            "club_dj",
+            "festival_dj",
+            "home_dj",
+            "radio_dj"
+          ],
+          "mood": [
+            "chill",
+            "energy",
+            "groove",
+            "party"
+          ],
+          "presence": [
+            "music_only",
+            "occasional",
+            "balanced",
+            "talkative",
+            "presenter"
+          ],
+          "announcement_output": [
+            "both",
+            "client_device",
+            "ha_speaker",
+            "text_only"
+          ],
+          "voice": {
+            "kinds": [
+              "provider_default",
+              "provider_voice"
+            ],
+            "provider_id": "tts.own_piper_fixture",
+            "voices": [
+              {
+                "voice_id": "fixture-en",
+                "name": "Fixture inventory voice",
+                "gender": null
+              }
+            ]
+          },
+          "gender": [
+            "default"
+          ]
+        },
+        "writable_fields": [
+          "announcement_output",
+          "gender",
+          "mood",
+          "persona",
+          "presence",
+          "voice"
+        ],
+        "voice_revision": "cca59f8ddb452992cabf7f3d",
+        "voice_availability": {
+          "available": true,
+          "reason": null
+        },
+        "as_of": "2026-10-16T19:16:18.861621+00:00",
+        "cache_policy": "private,no-store"
+      },
+      "speech_state": "unavailable",
+      "speech_reason": "source_processor_not_qualified",
+      "activation": false,
+      "invented_mood": false
+    },
+    {
+      "case": "legacy_partial_activation_rejected_without_mapping",
+      "response": {
+        "success": false,
+        "error": "settings_migration_choice_required",
+        "migration": {
+          "version": 1,
+          "state": "choice_required",
+          "requires_review": true,
+          "complete_selection_fields": [
+            "persona",
+            "voice",
+            "gender",
+            "mood",
+            "presence",
+            "announcement_output"
+          ],
+          "candidates": [
+            {
+              "field": "response_style",
+              "value": "expressive",
+              "basis": "legacy_profile_tone_not_persona"
+            },
+            {
+              "field": "voice_style",
+              "value": "energy",
+              "basis": "legacy_profile_tone_not_persona"
+            },
+            {
+              "field": "voice_profile",
+              "value": "late_night",
+              "basis": "legacy_bound_entry_tone_not_persona"
+            }
+          ],
+          "conflicting_entry_tones": false,
+          "automatic_persona_mapping": false
+        }
+      },
+      "unchanged_snapshot": {
+        "contract_version": 3,
+        "defaults": {
+          "persona": "home_dj",
+          "voice": {
+            "kind": "provider_default"
+          },
+          "gender": "default",
+          "mood": "groove",
+          "presence": "balanced",
+          "announcement_output": "client_device"
+        },
+        "defaults_revision": 0,
+        "updated_at": "",
+        "activated": false,
+        "output_choice_confirmed": false,
+        "accepted_contract_version": null,
+        "session": null
+      }
+    },
+    {
+      "case": "paired_no_session_all_five",
+      "response": {
+        "success": true,
+        "operation_id": "01a14624-cb36-7000-8000-000000000002",
+        "accepted": true,
+        "replayed": false,
+        "expires_ms": 1792178478870,
+        "snapshot": {
+          "contract_version": 3,
+          "defaults": {
+            "persona": "radio_dj",
+            "voice": {
+              "kind": "provider_voice",
+              "provider_id": "tts.owned_settings_cloud_fixture",
+              "voice_id": "JennyNeural"
+            },
+            "gender": "female",
+            "mood": "energy",
+            "presence": "balanced",
+            "announcement_output": "client_device"
+          },
+          "defaults_revision": 1,
+          "updated_at": "2026-10-16T19:16:18.871000+00:00",
+          "activated": true,
+          "output_choice_confirmed": true,
+          "accepted_contract_version": 3,
+          "session": null
+        },
+        "contract_version": 3,
+        "binding": "ff4e9e0f3c0f90538f5f1e328587187e81343b775d8be39313d0b65f6c50ff6b",
+        "scope": "profile_and_active_session",
+        "migration": {
+          "version": 1,
+          "state": "accepted_shared_settings",
+          "requires_review": false,
+          "legacy_cleanup_pending": true
+        },
+        "announcement_output": {
+          "selected": "client_device",
+          "speaker_available": false,
+          "speaker_reason": "announcement_speaker_not_configured",
+          "outputs": [
+            {
+              "value": "both",
+              "available": false
+            },
+            {
+              "value": "client_device",
+              "available": true
+            },
+            {
+              "value": "ha_speaker",
+              "available": false
+            },
+            {
+              "value": "text_only",
+              "available": true
+            }
+          ],
+          "voice_applicability": "applicable",
+          "autoplay_scope": "device_local_default_off"
+        },
+        "allowed_values": {
+          "persona": [
+            "club_dj",
+            "festival_dj",
+            "home_dj",
+            "radio_dj"
+          ],
+          "mood": [
+            "chill",
+            "energy",
+            "groove",
+            "party"
+          ],
+          "presence": [
+            "music_only",
+            "occasional",
+            "balanced",
+            "talkative",
+            "presenter"
+          ],
+          "announcement_output": [
+            "both",
+            "client_device",
+            "ha_speaker",
+            "text_only"
+          ],
+          "voice": {
+            "kinds": [
+              "provider_default",
+              "provider_voice"
+            ],
+            "provider_id": "tts.owned_settings_cloud_fixture",
+            "voices": [
+              {
+                "voice_id": "GuyNeural",
+                "name": "Guy",
+                "gender": "male"
+              },
+              {
+                "voice_id": "JennyNeural",
+                "name": "Jenny",
+                "gender": "female"
+              },
+              {
+                "voice_id": "AmberNeural",
+                "name": "Amber",
+                "gender": null
+              },
+              {
+                "voice_id": "AnaNeural",
+                "name": "Ana",
+                "gender": null
+              },
+              {
+                "voice_id": "AndrewNeural",
+                "name": "Andrew",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural",
+                "name": "Aria",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||chat",
+                "name": "Aria (chat)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||customerservice",
+                "name": "Aria (customerservice)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||narration-professional",
+                "name": "Aria (narration-professional)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||newscast-casual",
+                "name": "Aria (newscast-casual)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||newscast-formal",
+                "name": "Aria (newscast-formal)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||cheerful",
+                "name": "Aria (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||empathetic",
+                "name": "Aria (empathetic)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||angry",
+                "name": "Aria (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||sad",
+                "name": "Aria (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||excited",
+                "name": "Aria (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||friendly",
+                "name": "Aria (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||terrified",
+                "name": "Aria (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||shouting",
+                "name": "Aria (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||unfriendly",
+                "name": "Aria (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||whispering",
+                "name": "Aria (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||hopeful",
+                "name": "Aria (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "AshleyNeural",
+                "name": "Ashley",
+                "gender": null
+              },
+              {
+                "voice_id": "AvaNeural",
+                "name": "Ava",
+                "gender": null
+              },
+              {
+                "voice_id": "BrandonNeural",
+                "name": "Brandon",
+                "gender": null
+              },
+              {
+                "voice_id": "BrianNeural",
+                "name": "Brian",
+                "gender": null
+              },
+              {
+                "voice_id": "ChristopherNeural",
+                "name": "Christopher",
+                "gender": null
+              },
+              {
+                "voice_id": "CoraNeural",
+                "name": "Cora",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural",
+                "name": "Davis",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||chat",
+                "name": "Davis (chat)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||angry",
+                "name": "Davis (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||cheerful",
+                "name": "Davis (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||excited",
+                "name": "Davis (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||friendly",
+                "name": "Davis (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||hopeful",
+                "name": "Davis (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||sad",
+                "name": "Davis (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||shouting",
+                "name": "Davis (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||terrified",
+                "name": "Davis (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||unfriendly",
+                "name": "Davis (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||whispering",
+                "name": "Davis (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "ElizabethNeural",
+                "name": "Elizabeth",
+                "gender": null
+              },
+              {
+                "voice_id": "EmmaNeural",
+                "name": "Emma",
+                "gender": null
+              },
+              {
+                "voice_id": "EricNeural",
+                "name": "Eric",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||newscast",
+                "name": "Guy (newscast)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||angry",
+                "name": "Guy (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||cheerful",
+                "name": "Guy (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||sad",
+                "name": "Guy (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||excited",
+                "name": "Guy (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||friendly",
+                "name": "Guy (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||terrified",
+                "name": "Guy (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||shouting",
+                "name": "Guy (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||unfriendly",
+                "name": "Guy (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||whispering",
+                "name": "Guy (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||hopeful",
+                "name": "Guy (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JacobNeural",
+                "name": "Jacob",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural",
+                "name": "Jane",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||angry",
+                "name": "Jane (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||cheerful",
+                "name": "Jane (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||excited",
+                "name": "Jane (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||friendly",
+                "name": "Jane (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||hopeful",
+                "name": "Jane (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||sad",
+                "name": "Jane (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||shouting",
+                "name": "Jane (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||terrified",
+                "name": "Jane (terrified)",
+                "gender": null
+              }
+            ]
+          },
+          "gender": [
+            "default",
+            "female",
+            "male"
+          ]
+        },
+        "writable_fields": [
+          "announcement_output",
+          "gender",
+          "mood",
+          "persona",
+          "presence",
+          "voice"
+        ],
+        "voice_revision": "7ed396f0482b1394c9dcf110",
+        "voice_availability": {
+          "available": true,
+          "reason": null
+        },
+        "as_of": "2026-10-16T19:16:18.872844+00:00",
+        "cache_policy": "private,no-store"
+      }
+    },
+    {
+      "case": "accepted_legacy_retirement_preserves_binding_and_defaults",
+      "response": {
+        "success": true,
+        "snapshot": {
+          "contract_version": 3,
+          "defaults": {
+            "persona": "radio_dj",
+            "voice": {
+              "kind": "provider_voice",
+              "provider_id": "tts.owned_settings_cloud_fixture",
+              "voice_id": "JennyNeural"
+            },
+            "gender": "female",
+            "mood": "energy",
+            "presence": "balanced",
+            "announcement_output": "client_device"
+          },
+          "defaults_revision": 1,
+          "updated_at": "2026-10-16T19:16:18.871000+00:00",
+          "activated": true,
+          "output_choice_confirmed": true,
+          "accepted_contract_version": 3,
+          "session": null
+        },
+        "contract_version": 3,
+        "binding": "ff4e9e0f3c0f90538f5f1e328587187e81343b775d8be39313d0b65f6c50ff6b",
+        "scope": "profile_and_active_session",
+        "migration": {
+          "version": 1,
+          "state": "accepted_shared_settings",
+          "requires_review": false,
+          "legacy_cleanup_pending": false
+        },
+        "announcement_output": {
+          "selected": "client_device",
+          "speaker_available": false,
+          "speaker_reason": "announcement_speaker_not_configured",
+          "outputs": [
+            {
+              "value": "both",
+              "available": false
+            },
+            {
+              "value": "client_device",
+              "available": true
+            },
+            {
+              "value": "ha_speaker",
+              "available": false
+            },
+            {
+              "value": "text_only",
+              "available": true
+            }
+          ],
+          "voice_applicability": "applicable",
+          "autoplay_scope": "device_local_default_off"
+        },
+        "allowed_values": {
+          "persona": [
+            "club_dj",
+            "festival_dj",
+            "home_dj",
+            "radio_dj"
+          ],
+          "mood": [
+            "chill",
+            "energy",
+            "groove",
+            "party"
+          ],
+          "presence": [
+            "music_only",
+            "occasional",
+            "balanced",
+            "talkative",
+            "presenter"
+          ],
+          "announcement_output": [
+            "both",
+            "client_device",
+            "ha_speaker",
+            "text_only"
+          ],
+          "voice": {
+            "kinds": [
+              "provider_default",
+              "provider_voice"
+            ],
+            "provider_id": "tts.owned_settings_cloud_fixture",
+            "voices": [
+              {
+                "voice_id": "GuyNeural",
+                "name": "Guy",
+                "gender": "male"
+              },
+              {
+                "voice_id": "JennyNeural",
+                "name": "Jenny",
+                "gender": "female"
+              },
+              {
+                "voice_id": "AmberNeural",
+                "name": "Amber",
+                "gender": null
+              },
+              {
+                "voice_id": "AnaNeural",
+                "name": "Ana",
+                "gender": null
+              },
+              {
+                "voice_id": "AndrewNeural",
+                "name": "Andrew",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural",
+                "name": "Aria",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||chat",
+                "name": "Aria (chat)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||customerservice",
+                "name": "Aria (customerservice)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||narration-professional",
+                "name": "Aria (narration-professional)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||newscast-casual",
+                "name": "Aria (newscast-casual)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||newscast-formal",
+                "name": "Aria (newscast-formal)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||cheerful",
+                "name": "Aria (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||empathetic",
+                "name": "Aria (empathetic)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||angry",
+                "name": "Aria (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||sad",
+                "name": "Aria (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||excited",
+                "name": "Aria (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||friendly",
+                "name": "Aria (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||terrified",
+                "name": "Aria (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||shouting",
+                "name": "Aria (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||unfriendly",
+                "name": "Aria (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||whispering",
+                "name": "Aria (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||hopeful",
+                "name": "Aria (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "AshleyNeural",
+                "name": "Ashley",
+                "gender": null
+              },
+              {
+                "voice_id": "AvaNeural",
+                "name": "Ava",
+                "gender": null
+              },
+              {
+                "voice_id": "BrandonNeural",
+                "name": "Brandon",
+                "gender": null
+              },
+              {
+                "voice_id": "BrianNeural",
+                "name": "Brian",
+                "gender": null
+              },
+              {
+                "voice_id": "ChristopherNeural",
+                "name": "Christopher",
+                "gender": null
+              },
+              {
+                "voice_id": "CoraNeural",
+                "name": "Cora",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural",
+                "name": "Davis",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||chat",
+                "name": "Davis (chat)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||angry",
+                "name": "Davis (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||cheerful",
+                "name": "Davis (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||excited",
+                "name": "Davis (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||friendly",
+                "name": "Davis (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||hopeful",
+                "name": "Davis (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||sad",
+                "name": "Davis (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||shouting",
+                "name": "Davis (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||terrified",
+                "name": "Davis (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||unfriendly",
+                "name": "Davis (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||whispering",
+                "name": "Davis (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "ElizabethNeural",
+                "name": "Elizabeth",
+                "gender": null
+              },
+              {
+                "voice_id": "EmmaNeural",
+                "name": "Emma",
+                "gender": null
+              },
+              {
+                "voice_id": "EricNeural",
+                "name": "Eric",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||newscast",
+                "name": "Guy (newscast)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||angry",
+                "name": "Guy (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||cheerful",
+                "name": "Guy (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||sad",
+                "name": "Guy (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||excited",
+                "name": "Guy (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||friendly",
+                "name": "Guy (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||terrified",
+                "name": "Guy (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||shouting",
+                "name": "Guy (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||unfriendly",
+                "name": "Guy (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||whispering",
+                "name": "Guy (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||hopeful",
+                "name": "Guy (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JacobNeural",
+                "name": "Jacob",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural",
+                "name": "Jane",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||angry",
+                "name": "Jane (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||cheerful",
+                "name": "Jane (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||excited",
+                "name": "Jane (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||friendly",
+                "name": "Jane (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||hopeful",
+                "name": "Jane (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||sad",
+                "name": "Jane (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||shouting",
+                "name": "Jane (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||terrified",
+                "name": "Jane (terrified)",
+                "gender": null
+              }
+            ]
+          },
+          "gender": [
+            "default",
+            "female",
+            "male"
+          ]
+        },
+        "writable_fields": [
+          "announcement_output",
+          "gender",
+          "mood",
+          "persona",
+          "presence",
+          "voice"
+        ],
+        "voice_revision": "7ed396f0482b1394c9dcf110",
+        "voice_availability": {
+          "available": true,
+          "reason": null
+        },
+        "as_of": "2026-10-16T19:16:18.877195+00:00",
+        "cache_policy": "private,no-store"
+      }
+    },
+    {
+      "case": "actual_ha_tts_shared_voice_gender_source_expiry_and_old_audio_fence",
+      "calls": [
+        {
+          "voice": "JennyNeural",
+          "language": "en-US",
+          "text_sha256": "67e35101e6ef54a30a13ec26a9e7d3084127c90b88d4ad592a8e54b9d461ae77"
+        },
+        {
+          "voice": "GuyNeural",
+          "language": "en-US",
+          "text_sha256": "67e35101e6ef54a30a13ec26a9e7d3084127c90b88d4ad592a8e54b9d461ae77"
+        }
+      ],
+      "audio_bytes_sha256": "ade453b6d5fc720acc24dd0602d5b5e086f56cb7c50190f4641a76d14014ce3a",
+      "original_persona": "radio_dj",
+      "old_text_unchanged": true,
+      "audible_native_acceptance": "NOT_RUN"
+    },
+    {
+      "case": "active_atomic_all_five_and_replay",
+      "response": {
+        "success": true,
+        "operation_id": "01a14624-cb47-7000-8000-000000000003",
+        "accepted": true,
+        "replayed": false,
+        "expires_ms": 1792178478887,
+        "snapshot": {
+          "contract_version": 3,
+          "defaults": {
+            "persona": "club_dj",
+            "voice": {
+              "kind": "provider_voice",
+              "provider_id": "tts.owned_settings_cloud_fixture",
+              "voice_id": "GuyNeural"
+            },
+            "gender": "male",
+            "mood": "party",
+            "presence": "music_only",
+            "announcement_output": "client_device"
+          },
+          "defaults_revision": 2,
+          "updated_at": "2026-10-16T19:16:18.888000+00:00",
+          "activated": true,
+          "output_choice_confirmed": true,
+          "accepted_contract_version": 3,
+          "session": {
+            "session_id": "session-c12830ac5b92499ba81bf49f1399a1b3",
+            "generation": "9dc080031de54f20bbd6765e75a59054",
+            "settings": {
+              "persona": "club_dj",
+              "voice": {
+                "kind": "provider_voice",
+                "provider_id": "tts.owned_settings_cloud_fixture",
+                "voice_id": "GuyNeural"
+              },
+              "gender": "male",
+              "mood": "party",
+              "presence": "music_only",
+              "announcement_output": "client_device"
+            },
+            "revision": 1,
+            "defaults_revision": 2,
+            "updated_at": "2026-10-16T19:16:18.888000+00:00"
+          }
+        },
+        "contract_version": 3,
+        "binding": "ff4e9e0f3c0f90538f5f1e328587187e81343b775d8be39313d0b65f6c50ff6b",
+        "scope": "profile_and_active_session",
+        "migration": {
+          "version": 1,
+          "state": "accepted_shared_settings",
+          "requires_review": false,
+          "legacy_cleanup_pending": false
+        },
+        "announcement_output": {
+          "selected": "client_device",
+          "speaker_available": false,
+          "speaker_reason": "announcement_speaker_not_configured",
+          "outputs": [
+            {
+              "value": "both",
+              "available": false
+            },
+            {
+              "value": "client_device",
+              "available": true
+            },
+            {
+              "value": "ha_speaker",
+              "available": false
+            },
+            {
+              "value": "text_only",
+              "available": true
+            }
+          ],
+          "voice_applicability": "applicable",
+          "autoplay_scope": "device_local_default_off"
+        },
+        "allowed_values": {
+          "persona": [
+            "club_dj",
+            "festival_dj",
+            "home_dj",
+            "radio_dj"
+          ],
+          "mood": [
+            "chill",
+            "energy",
+            "groove",
+            "party"
+          ],
+          "presence": [
+            "music_only",
+            "occasional",
+            "balanced",
+            "talkative",
+            "presenter"
+          ],
+          "announcement_output": [
+            "both",
+            "client_device",
+            "ha_speaker",
+            "text_only"
+          ],
+          "voice": {
+            "kinds": [
+              "provider_default",
+              "provider_voice"
+            ],
+            "provider_id": "tts.owned_settings_cloud_fixture",
+            "voices": [
+              {
+                "voice_id": "GuyNeural",
+                "name": "Guy",
+                "gender": "male"
+              },
+              {
+                "voice_id": "JennyNeural",
+                "name": "Jenny",
+                "gender": "female"
+              },
+              {
+                "voice_id": "AmberNeural",
+                "name": "Amber",
+                "gender": null
+              },
+              {
+                "voice_id": "AnaNeural",
+                "name": "Ana",
+                "gender": null
+              },
+              {
+                "voice_id": "AndrewNeural",
+                "name": "Andrew",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural",
+                "name": "Aria",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||chat",
+                "name": "Aria (chat)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||customerservice",
+                "name": "Aria (customerservice)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||narration-professional",
+                "name": "Aria (narration-professional)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||newscast-casual",
+                "name": "Aria (newscast-casual)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||newscast-formal",
+                "name": "Aria (newscast-formal)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||cheerful",
+                "name": "Aria (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||empathetic",
+                "name": "Aria (empathetic)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||angry",
+                "name": "Aria (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||sad",
+                "name": "Aria (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||excited",
+                "name": "Aria (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||friendly",
+                "name": "Aria (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||terrified",
+                "name": "Aria (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||shouting",
+                "name": "Aria (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||unfriendly",
+                "name": "Aria (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||whispering",
+                "name": "Aria (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||hopeful",
+                "name": "Aria (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "AshleyNeural",
+                "name": "Ashley",
+                "gender": null
+              },
+              {
+                "voice_id": "AvaNeural",
+                "name": "Ava",
+                "gender": null
+              },
+              {
+                "voice_id": "BrandonNeural",
+                "name": "Brandon",
+                "gender": null
+              },
+              {
+                "voice_id": "BrianNeural",
+                "name": "Brian",
+                "gender": null
+              },
+              {
+                "voice_id": "ChristopherNeural",
+                "name": "Christopher",
+                "gender": null
+              },
+              {
+                "voice_id": "CoraNeural",
+                "name": "Cora",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural",
+                "name": "Davis",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||chat",
+                "name": "Davis (chat)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||angry",
+                "name": "Davis (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||cheerful",
+                "name": "Davis (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||excited",
+                "name": "Davis (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||friendly",
+                "name": "Davis (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||hopeful",
+                "name": "Davis (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||sad",
+                "name": "Davis (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||shouting",
+                "name": "Davis (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||terrified",
+                "name": "Davis (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||unfriendly",
+                "name": "Davis (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||whispering",
+                "name": "Davis (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "ElizabethNeural",
+                "name": "Elizabeth",
+                "gender": null
+              },
+              {
+                "voice_id": "EmmaNeural",
+                "name": "Emma",
+                "gender": null
+              },
+              {
+                "voice_id": "EricNeural",
+                "name": "Eric",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||newscast",
+                "name": "Guy (newscast)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||angry",
+                "name": "Guy (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||cheerful",
+                "name": "Guy (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||sad",
+                "name": "Guy (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||excited",
+                "name": "Guy (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||friendly",
+                "name": "Guy (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||terrified",
+                "name": "Guy (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||shouting",
+                "name": "Guy (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||unfriendly",
+                "name": "Guy (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||whispering",
+                "name": "Guy (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||hopeful",
+                "name": "Guy (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JacobNeural",
+                "name": "Jacob",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural",
+                "name": "Jane",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||angry",
+                "name": "Jane (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||cheerful",
+                "name": "Jane (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||excited",
+                "name": "Jane (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||friendly",
+                "name": "Jane (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||hopeful",
+                "name": "Jane (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||sad",
+                "name": "Jane (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||shouting",
+                "name": "Jane (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||terrified",
+                "name": "Jane (terrified)",
+                "gender": null
+              }
+            ]
+          },
+          "gender": [
+            "default",
+            "female",
+            "male"
+          ]
+        },
+        "writable_fields": [
+          "announcement_output",
+          "gender",
+          "mood",
+          "persona",
+          "presence",
+          "voice"
+        ],
+        "voice_revision": "7ed396f0482b1394c9dcf110",
+        "voice_availability": {
+          "available": true,
+          "reason": null
+        },
+        "as_of": "2026-10-16T19:16:18.890591+00:00",
+        "cache_policy": "private,no-store"
+      }
+    },
+    {
+      "case": "automatic_mood_default_preserved_and_provider_withdrawal",
+      "response": {
+        "success": true,
+        "snapshot": {
+          "contract_version": 3,
+          "defaults": {
+            "persona": "club_dj",
+            "voice": {
+              "kind": "provider_voice",
+              "provider_id": "tts.owned_settings_cloud_fixture",
+              "voice_id": "GuyNeural"
+            },
+            "gender": "male",
+            "mood": "party",
+            "presence": "music_only",
+            "announcement_output": "client_device"
+          },
+          "defaults_revision": 2,
+          "updated_at": "2026-10-16T19:16:18.888000+00:00",
+          "activated": true,
+          "output_choice_confirmed": true,
+          "accepted_contract_version": 3,
+          "session": {
+            "session_id": "session-c12830ac5b92499ba81bf49f1399a1b3",
+            "generation": "9dc080031de54f20bbd6765e75a59054",
+            "settings": {
+              "persona": "club_dj",
+              "voice": {
+                "kind": "provider_voice",
+                "provider_id": "tts.owned_settings_cloud_fixture",
+                "voice_id": "GuyNeural"
+              },
+              "gender": "male",
+              "mood": "groove",
+              "presence": "music_only",
+              "announcement_output": "client_device"
+            },
+            "revision": 2,
+            "defaults_revision": 2,
+            "updated_at": "2026-10-16T19:16:18.898654+00:00"
+          }
+        },
+        "contract_version": 3,
+        "binding": "ff4e9e0f3c0f90538f5f1e328587187e81343b775d8be39313d0b65f6c50ff6b",
+        "scope": "profile_and_active_session",
+        "migration": {
+          "version": 1,
+          "state": "accepted_shared_settings",
+          "requires_review": false,
+          "legacy_cleanup_pending": false
+        },
+        "announcement_output": {
+          "selected": "client_device",
+          "speaker_available": false,
+          "speaker_reason": "announcement_speaker_not_configured",
+          "outputs": [
+            {
+              "value": "both",
+              "available": false
+            },
+            {
+              "value": "client_device",
+              "available": true
+            },
+            {
+              "value": "ha_speaker",
+              "available": false
+            },
+            {
+              "value": "text_only",
+              "available": true
+            }
+          ],
+          "voice_applicability": "applicable",
+          "autoplay_scope": "device_local_default_off"
+        },
+        "allowed_values": {
+          "persona": [
+            "club_dj",
+            "festival_dj",
+            "home_dj",
+            "radio_dj"
+          ],
+          "mood": [
+            "chill",
+            "energy",
+            "groove",
+            "party"
+          ],
+          "presence": [
+            "music_only",
+            "occasional",
+            "balanced",
+            "talkative",
+            "presenter"
+          ],
+          "announcement_output": [
+            "both",
+            "client_device",
+            "ha_speaker",
+            "text_only"
+          ],
+          "voice": {
+            "kinds": [
+              "provider_default",
+              "provider_voice"
+            ],
+            "provider_id": "",
+            "voices": []
+          },
+          "gender": [
+            "default"
+          ]
+        },
+        "writable_fields": [
+          "announcement_output",
+          "gender",
+          "mood",
+          "persona",
+          "presence",
+          "voice"
+        ],
+        "voice_revision": "d86083e040c0e20ee2aa51f3",
+        "voice_availability": {
+          "available": false,
+          "reason": "selected_voice_unavailable"
+        },
+        "as_of": "2026-10-16T19:16:18.903767+00:00",
+        "cache_policy": "private,no-store"
+      }
+    },
+    {
+      "case": "actual_HA_media_player_service_private_media_fetch_and_operation_retry",
+      "queued": true,
+      "actual_media_fetches": 1,
+      "bytes": 834,
+      "checksum": "ade453b6d5fc720acc24dd0602d5b5e086f56cb7c50190f4641a76d14014ce3a",
+      "text_only_old_grant_status": 404,
+      "native": "NOT_RUN",
+      "audible": "NOT_PROVEN",
+      "hardware": "NOT_RUN"
+    },
+    {
+      "case": "text_only_zero_synthesis_old_audio_denied_and_owner_controls_removed",
+      "response": {
+        "success": true,
+        "operation_id": "01a14624-cb57-7000-8000-000000000006",
+        "accepted": true,
+        "replayed": false,
+        "expires_ms": 1792178478903,
+        "snapshot": {
+          "contract_version": 3,
+          "defaults": {
+            "persona": "club_dj",
+            "voice": {
+              "kind": "provider_voice",
+              "provider_id": "tts.owned_settings_cloud_fixture",
+              "voice_id": "GuyNeural"
+            },
+            "gender": "male",
+            "mood": "party",
+            "presence": "music_only",
+            "announcement_output": "text_only"
+          },
+          "defaults_revision": 3,
+          "updated_at": "2026-10-16T19:16:18.904000+00:00",
+          "activated": true,
+          "output_choice_confirmed": true,
+          "accepted_contract_version": 3,
+          "session": {
+            "session_id": "session-c12830ac5b92499ba81bf49f1399a1b3",
+            "generation": "9dc080031de54f20bbd6765e75a59054",
+            "settings": {
+              "persona": "club_dj",
+              "voice": {
+                "kind": "provider_voice",
+                "provider_id": "tts.owned_settings_cloud_fixture",
+                "voice_id": "GuyNeural"
+              },
+              "gender": "male",
+              "mood": "groove",
+              "presence": "music_only",
+              "announcement_output": "text_only"
+            },
+            "revision": 3,
+            "defaults_revision": 3,
+            "updated_at": "2026-10-16T19:16:18.904000+00:00"
+          }
+        },
+        "contract_version": 3,
+        "binding": "ff4e9e0f3c0f90538f5f1e328587187e81343b775d8be39313d0b65f6c50ff6b",
+        "scope": "profile_and_active_session",
+        "migration": {
+          "version": 1,
+          "state": "accepted_shared_settings",
+          "requires_review": false,
+          "legacy_cleanup_pending": false
+        },
+        "announcement_output": {
+          "selected": "text_only",
+          "speaker_available": false,
+          "speaker_reason": "announcement_speaker_not_configured",
+          "outputs": [
+            {
+              "value": "both",
+              "available": false
+            },
+            {
+              "value": "client_device",
+              "available": true
+            },
+            {
+              "value": "ha_speaker",
+              "available": false
+            },
+            {
+              "value": "text_only",
+              "available": true
+            }
+          ],
+          "voice_applicability": "not_applicable_text_only",
+          "autoplay_scope": "device_local_default_off"
+        },
+        "allowed_values": {
+          "persona": [
+            "club_dj",
+            "festival_dj",
+            "home_dj",
+            "radio_dj"
+          ],
+          "mood": [
+            "chill",
+            "energy",
+            "groove",
+            "party"
+          ],
+          "presence": [
+            "music_only",
+            "occasional",
+            "balanced",
+            "talkative",
+            "presenter"
+          ],
+          "announcement_output": [
+            "both",
+            "client_device",
+            "ha_speaker",
+            "text_only"
+          ],
+          "voice": {
+            "kinds": [
+              "provider_default",
+              "provider_voice"
+            ],
+            "provider_id": "tts.owned_settings_cloud_fixture",
+            "voices": [
+              {
+                "voice_id": "GuyNeural",
+                "name": "Guy",
+                "gender": "male"
+              },
+              {
+                "voice_id": "JennyNeural",
+                "name": "Jenny",
+                "gender": "female"
+              },
+              {
+                "voice_id": "AmberNeural",
+                "name": "Amber",
+                "gender": null
+              },
+              {
+                "voice_id": "AnaNeural",
+                "name": "Ana",
+                "gender": null
+              },
+              {
+                "voice_id": "AndrewNeural",
+                "name": "Andrew",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural",
+                "name": "Aria",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||chat",
+                "name": "Aria (chat)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||customerservice",
+                "name": "Aria (customerservice)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||narration-professional",
+                "name": "Aria (narration-professional)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||newscast-casual",
+                "name": "Aria (newscast-casual)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||newscast-formal",
+                "name": "Aria (newscast-formal)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||cheerful",
+                "name": "Aria (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||empathetic",
+                "name": "Aria (empathetic)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||angry",
+                "name": "Aria (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||sad",
+                "name": "Aria (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||excited",
+                "name": "Aria (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||friendly",
+                "name": "Aria (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||terrified",
+                "name": "Aria (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||shouting",
+                "name": "Aria (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||unfriendly",
+                "name": "Aria (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||whispering",
+                "name": "Aria (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "AriaNeural||hopeful",
+                "name": "Aria (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "AshleyNeural",
+                "name": "Ashley",
+                "gender": null
+              },
+              {
+                "voice_id": "AvaNeural",
+                "name": "Ava",
+                "gender": null
+              },
+              {
+                "voice_id": "BrandonNeural",
+                "name": "Brandon",
+                "gender": null
+              },
+              {
+                "voice_id": "BrianNeural",
+                "name": "Brian",
+                "gender": null
+              },
+              {
+                "voice_id": "ChristopherNeural",
+                "name": "Christopher",
+                "gender": null
+              },
+              {
+                "voice_id": "CoraNeural",
+                "name": "Cora",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural",
+                "name": "Davis",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||chat",
+                "name": "Davis (chat)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||angry",
+                "name": "Davis (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||cheerful",
+                "name": "Davis (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||excited",
+                "name": "Davis (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||friendly",
+                "name": "Davis (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||hopeful",
+                "name": "Davis (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||sad",
+                "name": "Davis (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||shouting",
+                "name": "Davis (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||terrified",
+                "name": "Davis (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||unfriendly",
+                "name": "Davis (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "DavisNeural||whispering",
+                "name": "Davis (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "ElizabethNeural",
+                "name": "Elizabeth",
+                "gender": null
+              },
+              {
+                "voice_id": "EmmaNeural",
+                "name": "Emma",
+                "gender": null
+              },
+              {
+                "voice_id": "EricNeural",
+                "name": "Eric",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||newscast",
+                "name": "Guy (newscast)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||angry",
+                "name": "Guy (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||cheerful",
+                "name": "Guy (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||sad",
+                "name": "Guy (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||excited",
+                "name": "Guy (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||friendly",
+                "name": "Guy (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||terrified",
+                "name": "Guy (terrified)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||shouting",
+                "name": "Guy (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||unfriendly",
+                "name": "Guy (unfriendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||whispering",
+                "name": "Guy (whispering)",
+                "gender": null
+              },
+              {
+                "voice_id": "GuyNeural||hopeful",
+                "name": "Guy (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JacobNeural",
+                "name": "Jacob",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural",
+                "name": "Jane",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||angry",
+                "name": "Jane (angry)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||cheerful",
+                "name": "Jane (cheerful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||excited",
+                "name": "Jane (excited)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||friendly",
+                "name": "Jane (friendly)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||hopeful",
+                "name": "Jane (hopeful)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||sad",
+                "name": "Jane (sad)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||shouting",
+                "name": "Jane (shouting)",
+                "gender": null
+              },
+              {
+                "voice_id": "JaneNeural||terrified",
+                "name": "Jane (terrified)",
+                "gender": null
+              }
+            ]
+          },
+          "gender": [
+            "default",
+            "female",
+            "male"
+          ]
+        },
+        "writable_fields": [
+          "announcement_output",
+          "gender",
+          "mood",
+          "persona",
+          "presence",
+          "voice"
+        ],
+        "voice_revision": "7ed396f0482b1394c9dcf110",
+        "voice_availability": {
+          "available": true,
+          "reason": null
+        },
+        "as_of": "2026-10-16T19:16:18.905468+00:00",
+        "cache_policy": "private,no-store"
+      },
+      "additional_synthesis_calls": 0,
+      "shared_settings_leak": false
+    },
+    {
+      "case": "published_opening_persona_then_inherited_off_and_no_catchup",
+      "original_published_persona": "radio_dj",
+      "successor_persona": "club_dj",
+      "successor_mood": "party",
+      "music_only_openings": 0,
+      "raised_presence_catchup": 0
+    },
+    {
+      "case": "successor_defaults_and_original_receipt_after_end",
+      "response": {
+        "success": true,
+        "contract_version": 3,
+        "phase": "accepted",
+        "receipt": {
+          "accepted": true,
+          "expires_ms": 1792178478887,
+          "operation_id": "01a14624-cb47-7000-8000-000000000003",
+          "replayed": false,
+          "snapshot": {
+            "accepted_contract_version": 3,
+            "activated": true,
+            "contract_version": 3,
+            "defaults": {
+              "announcement_output": "client_device",
+              "gender": "male",
+              "mood": "party",
+              "persona": "club_dj",
+              "presence": "music_only",
+              "voice": {
+                "kind": "provider_voice",
+                "provider_id": "tts.owned_settings_cloud_fixture",
+                "voice_id": "GuyNeural"
+              }
+            },
+            "defaults_revision": 2,
+            "output_choice_confirmed": true,
+            "session": {
+              "defaults_revision": 2,
+              "generation": "9dc080031de54f20bbd6765e75a59054",
+              "revision": 1,
+              "session_id": "session-c12830ac5b92499ba81bf49f1399a1b3",
+              "settings": {
+                "announcement_output": "client_device",
+                "gender": "male",
+                "mood": "party",
+                "persona": "club_dj",
+                "presence": "music_only",
+                "voice": {
+                  "kind": "provider_voice",
+                  "provider_id": "tts.owned_settings_cloud_fixture",
+                  "voice_id": "GuyNeural"
+                }
+              },
+              "updated_at": "2026-10-16T19:16:18.888000+00:00"
+            },
+            "updated_at": "2026-10-16T19:16:18.888000+00:00"
+          }
+        },
+        "as_of": "2026-10-16T19:16:18.933914+00:00",
+        "cache_policy": "private,no-store"
+      }
+    },
+    {
+      "case": "tls_websocket_all_five_no_session_cross_device_invalidation",
+      "matrix": [
+        {
+          "patch": {
+            "persona": "festival_dj"
+          },
+          "confirmed_revision": 9,
+          "surfaces": [
+            "paired_ios",
+            "paired_macos",
+            "paired_second_ios"
+          ]
+        },
+        {
+          "patch": {
+            "mood": "energy"
+          },
+          "confirmed_revision": 10,
+          "surfaces": [
+            "paired_ios",
+            "paired_macos",
+            "paired_second_ios"
+          ]
+        },
+        {
+          "patch": {
+            "presence": "balanced"
+          },
+          "confirmed_revision": 10,
+          "surfaces": [
+            "paired_ios",
+            "paired_macos",
+            "paired_second_ios"
+          ]
+        },
+        {
+          "patch": {
+            "voice": {
+              "kind": "provider_default"
+            }
+          },
+          "confirmed_revision": 11,
+          "surfaces": [
+            "paired_ios",
+            "paired_macos",
+            "paired_second_ios"
+          ]
+        },
+        {
+          "patch": {
+            "gender": "female"
+          },
+          "confirmed_revision": 12,
+          "surfaces": [
+            "paired_ios",
+            "paired_macos",
+            "paired_second_ios"
+          ]
+        },
+        {
+          "patch": {
+            "announcement_output": "text_only"
+          },
+          "confirmed_revision": 13,
+          "surfaces": [
+            "paired_ios",
+            "paired_macos",
+            "paired_second_ios"
+          ]
+        }
+      ],
+      "final_revision": 13,
+      "other_profile_events": 0,
+      "native": "NOT_RUN",
+      "bounded_soak": {
+        "state": "PASS_CORE_READS_RECONNECT_NO_MUTATION",
+        "seconds": 120.9,
+        "owner_reads": 354,
+        "actual_tls_reconnects": 2,
+        "row_counts_before": {
+          "djconnect_profile_dj_settings": 1,
+          "djconnect_session_dj_settings": 2,
+          "djconnect_settings_operations": 14,
+          "djconnect_settings_clock": 1
+        },
+        "row_counts_after": {
+          "djconnect_profile_dj_settings": 1,
+          "djconnect_session_dj_settings": 2,
+          "djconnect_settings_operations": 14,
+          "djconnect_settings_clock": 1
+        },
+        "process_max_rss_kib": 214992
+      },
+      "reconnect": "ACTUAL_TLS_CLOSE_PAIR_AUTH_READ_SAME_REVISION",
+      "pairing_scope": "actual_HTTP_configured_slot_acceptance; explicit_HA_bootstrap_slot_selection; config_flow_UI_NOT_RUN"
+    },
+    {
+      "case": "actual_new_session_publication_automatic_speaker_no_read_or_toggle_catchup",
+      "new_publications_delivered": 1,
+      "read_or_toggle_deliveries": 0,
+      "session_end_media_status": 404,
+      "audible": "NOT_PROVEN",
+      "hardware": "NOT_RUN"
+    },
+    {
+      "case": "actual_settings3_shared_renderer_both_builds_portrait_landscape",
+      "local_and_static": "PASS_BROWSER",
+      "mode_toggle_synthesis_calls": 0,
+      "native": "NOT_RUN",
+      "hardware": "NOT_RUN",
+      "CAF": "MODELED_ONLY"
+    }
+  ],
+  "waveform_calls": 4,
+  "source_hashes_before_and_after": {
+    "custom_components/djconnect/__init__.py": "5d3fd9cfa82b8adb1830f77c42554df0d9fb1141f3c170d925cbf4c68e90a9ad",
+    "custom_components/djconnect/ai_tools.py": "175ac20dc1ebdb535aaec839b6fc8e8fe012ac3c81e0f0f07e1856b692c9f0c8",
+    "custom_components/djconnect/announcement_policy.py": "046b5362490e6d581177fe9456473613e164e10fc9baf4739a5b516b8c95bea7",
+    "custom_components/djconnect/announcements.py": "4e34b4b46395f8922482ea6d685867dfa69fb43560e4291c88721849acc192c9",
+    "custom_components/djconnect/api_handlers.py": "c5e5631cf26a7c8db5a0e172263b864ebca8afb33710a23b7f77705734f8fe63",
+    "custom_components/djconnect/ask_dj/__init__.py": "3c9006ea901e64818fc4ec0ab30f8e7e021ac34de418ee8a3fa25463b4c44f1f",
+    "custom_components/djconnect/ask_dj/actions.py": "8e42edc5bf0a3a3ef73c99273c5860d1f3ebad42dd8897cf8d2877239a25b053",
+    "custom_components/djconnect/ask_dj/dialogue.py": "7749bcb93b49897cae51b0eb7c36bf5ba8383f1bf6f57d7543c2bb70019895b9",
+    "custom_components/djconnect/ask_dj/intents.py": "545c7cf45bc5a66719d66bed5ef2633a4e01343645080af733a11869f1c01032",
+    "custom_components/djconnect/ask_dj/observations.py": "411594af13069c0fb1a612899e9f51452b052e3a7fd95577f7fd39ddf5da77c2",
+    "custom_components/djconnect/ask_dj/profile.py": "88843b457ff8374199c650f37ffe8274b2edcb88ab4f7cc6aee1595f6d349530",
+    "custom_components/djconnect/ask_dj/recent_history.py": "bdaafde32b1fd64627e7a026497449adf827d70ddf32203b8661dde9965494ed",
+    "custom_components/djconnect/ask_dj/responses.py": "66364a9e6cc0de37581adfbee882413a83f5cd5ef01f84fddf6bc4fff3c9df92",
+    "custom_components/djconnect/ask_dj/service.py": "5bc1fceaaa0d21a4c598979ccd2c541c413c331416cc0890fdba9d97ca3ce90d",
+    "custom_components/djconnect/ask_dj_history.py": "b0f2e40e32bf502f0504f1bbd77bf3ada219e84b06a6879111af25a48d3e9110",
+    "custom_components/djconnect/assist_stt.py": "609b5a7ec4c40eda3d87a84d9391256bd930c1dd1c80a5171b03df79c68aa6e5",
+    "custom_components/djconnect/ble.py": "2223ccb7fb718e51501e72042588d6920619d05d6b9b83b4a6452edbdf7e389d",
+    "custom_components/djconnect/broadcast_handoff.py": "f6c6e828154e28285e3c364bc0193a34632d972f009baa29e0f25a4b918622d4",
+    "custom_components/djconnect/button.py": "aa1c3290c4369d99ecf6fc88f865e65e02d438d7e3b0a399621a5791062ba9bc",
+    "custom_components/djconnect/capability_contract.py": "4d449fbbddbce6911ead59714c1585e87adf2eeffc532483d0fa6fa79522896d",
+    "custom_components/djconnect/central_api.py": "78cd4645d9fd1979bbc33e500c525bffc23ae45deaeef02b129adb418674b9e6",
+    "custom_components/djconnect/ci_qualification_report.py": "a45c358669fea9cfb57a601a109443c722e10d91b067eacbb550a11cd264229b",
+    "custom_components/djconnect/client_identity.py": "31543e0cf3ed7aa8322af24d0835c0fecf77974db0d8a07c7908d9deff7588cd",
+    "custom_components/djconnect/client_retirement.py": "42bb54178f5c1655e600b21a6ccc954811d37e2a1f91f5318f7b97da6d69bca3",
+    "custom_components/djconnect/config_flow.py": "710a780dc8df953d8afaf4646f331c8efb4d28ce3faa8f9189ae353f1d06285f",
+    "custom_components/djconnect/const.py": "42f20bbc461a11e10c4e297334161d7aeec8b1d09e62b634d745ba1480d84573",
+    "custom_components/djconnect/context_expression.py": "bd9a381caa0bce1e39a5a324fb849be1c32b02c4b818b4f48fb493889316515a",
+    "custom_components/djconnect/conversation.py": "38596f8e30d890210fd7ef546770f05c43e05f7387c74bff82868bd3fa93ce19",
+    "custom_components/djconnect/credit_provenance.py": "297a4f07ecd232868eba0204debe77617c2c02ad65c0a5d4e03bfdb8c52166c6",
+    "custom_components/djconnect/developer_session_bootstrap.py": "f9c7a2ffabf5da01387c0db04487a97a111f5d0d9f99e700a914e765b0033918",
+    "custom_components/djconnect/developer_session_capture.py": "266f34021a64cee3f22887e7703f34d380bba91eafc9dab45ec02ca2a52b5afc",
+    "custom_components/djconnect/developer_session_scenario_driver.py": "8b959c58b6a61ddcbe0788c46a5ab3ce9e34e69a548b19ef3e9e3da20f405b03",
+    "custom_components/djconnect/device_info.py": "e57853ec0dadda4c3fde90c1cd7ed1c4a20e7962611cd1a3d2bd4b3c0273ce50",
+    "custom_components/djconnect/diagnostics.py": "8320ce2da0693e250763d99ace802ce8042988cdd26e5fa38eef606f7c45ddb0",
+    "custom_components/djconnect/discovery.py": "64a2212da414bf7bc48f43e88b52d9f4584c3395105edada1cb513fce07552e5",
+    "custom_components/djconnect/discovery_artwork.py": "042253c840f5d5032b2cfd97cd3b90d77075d343f86b39851072ae9a176cf585",
+    "custom_components/djconnect/discovery_selection.py": "09df528e850f3459c5f7b332c3d49efc22aef39a1a6835ac7ebbc10054e4645a",
+    "custom_components/djconnect/dj.py": "2c7a11d596a72907d66aee361ecd4bc5e5e8a9d6fb592aece046db79aeabc772",
+    "custom_components/djconnect/dj_brain_capabilities.py": "c0f1e79f64c1d5d437aa0f114de1ef153037b32049e35428d656f1e01b8a52a9",
+    "custom_components/djconnect/dj_response.py": "0afb2325159604558915c2c151888d830ef5f1e5c0806a1fa66d0943559768a7",
+    "custom_components/djconnect/domain/__init__.py": "104de8336815898807e43ff381c27e7ed22d47d62ce4855adc7446eb26d67902",
+    "custom_components/djconnect/domain/backend/__init__.py": "6bd3c1290d8f7dd8302ca4245f96d32f78a017212e4c933a6718754a199b9b35",
+    "custom_components/djconnect/domain/backend/models.py": "a521deaff497130fe275de653f672e7e0829c4baec3e798b245db0f1b8c72fe3",
+    "custom_components/djconnect/domain/device/__init__.py": "8f09bb106225d83aa46a756a83d22d20c3b3c1e8421281cbc86ca6579fd5c4d3",
+    "custom_components/djconnect/domain/device/models.py": "8f5f63a6194348bcc90405dceb73baa1fb6444a82092d9b203a1c8858c69d9a5",
+    "custom_components/djconnect/domain/errors.py": "d9766fd1d4e50dda60104676f16f8f6fb3ea89d64f65b9db001fc8d8b77f76cf",
+    "custom_components/djconnect/domain/household/__init__.py": "69b3b15d5ffa55dafbce133cb21a531044fbf0569385d2fda8f2289d77e028b4",
+    "custom_components/djconnect/domain/household/models.py": "582f1fa7cb9ae69b542483ae9a52f89db5fca6e669da8f0b40d72d0e48ecf4f5",
+    "custom_components/djconnect/domain/models/__init__.py": "b6614a01d7cfd05988d1545d834acf2a45314138c49d0c7e903be06cb4eef2eb",
+    "custom_components/djconnect/domain/models/identity.py": "249ac762374e5cbce7c907e4ff3333e89d7eaa5d648bb1b7777175beb2ae27ef",
+    "custom_components/djconnect/domain/music_account/__init__.py": "36ad7ec36df88b1d51c173af9e0ade1ee382368120f8cc04759dcd164292f785",
+    "custom_components/djconnect/domain/music_account/models.py": "eefc64ac272cd7cbf17ac4af8ec08213184d90e224280aab5a63f8a9ab2487d0",
+    "custom_components/djconnect/domain/playback_zone/__init__.py": "f5fa81c0bc682dd7f806108fb6bc012609dc94a0199d3784f8c92669879a0e4c",
+    "custom_components/djconnect/domain/playback_zone/models.py": "05738f7064e3dbcd03651bcf9a679bd92d64cc848307b5a30aa520ee92ab99b3",
+    "custom_components/djconnect/domain/profile/__init__.py": "7fe995f871fc42981932bc7083dd4833204102b8a6b41e2d382948ecc263e29c",
+    "custom_components/djconnect/domain/profile/dj_settings.py": "1c8393429d3edd0d37df9714417672d1fff40186e8665adf7dca2c4b6413d4be",
+    "custom_components/djconnect/domain/profile/models.py": "dbb245e46aaa06ed81ac2b7749b6f6b70ec764e970d5b365e2741bae8c359423",
+    "custom_components/djconnect/domain/resolver/__init__.py": "f2a44fb57c5aba95ae343c1f60e4468bb33b1bdb4eea134fe5fc9f0e6d184268",
+    "custom_components/djconnect/domain/resolver/profile_resolver.py": "a13f58d7d965157ac0db2c31767a7460d60d6d8df9b34fb3b2f29357b8aa8167",
+    "custom_components/djconnect/domain/storage.py": "bdca709c9b67d9514790bb40ae3f0926696dcbee95c8f81ff9aca78a5aa908a4",
+    "custom_components/djconnect/entity_ids.py": "2de2482c841bb4a1cd86af04730963ef7d9915a3ff26df86d8101731df6ff0f2",
+    "custom_components/djconnect/flow_labels.py": "687a3cace4d413737346ed0738aeb3c1dd076552145e1417957f30ba01c3f3d7",
+    "custom_components/djconnect/forecast_expression.py": "e733cd995259e0f4c4b613bd03b83f786e122b5abeafa4ca6db3270278581d1d",
+    "custom_components/djconnect/forecast_imagery.py": "28c15f023ddc1df1c43a3997d8a551fc74ae08a473b494398165d226c9e2fd9c",
+    "custom_components/djconnect/github.py": "90c01724de4de8f2e1bb9603a922ef0a1cb95376465dc0310e8d752c3c65d459",
+    "custom_components/djconnect/golden_qualification.py": "e7e7eca3ab4c5ea6c52bc0ae2e6c82c664d81940041ebc6bb327fcde74119561",
+    "custom_components/djconnect/ha_urls.py": "cfb435ee2f7f25450fc3f443703a3a466bffd0da103365b3163384797587d558",
+    "custom_components/djconnect/historical_projection_query.py": "2481a6e49cfee54bec496046e06a8868178cf2ad37cecebf5cbb48c307fb05a1",
+    "custom_components/djconnect/historical_projection_retention.py": "29594182bc7e7fcbaf81fa65ddd70ea04b2f1129cec361b932ea67c3df841486",
+    "custom_components/djconnect/http.py": "2da54c578bbd602ea133a052383419c2c131b689f71d729d7c91c6caee8efbe6",
+    "custom_components/djconnect/hybrid_contract.py": "dcb16fd97e020a7103c0daafd35e0224feec2c77e331cc3e4fb993509420b105",
+    "custom_components/djconnect/hybrid_ingress_qualification.py": "8e220874b16e7bbb1162261a1e89607a2a6067dca3fa3c820d2cc52ee3232933",
+    "custom_components/djconnect/hybrid_local_policy.py": "711c4efc1d9a90bc92c02cb6c06af7c83a4b289cc3c9f34b675a156f099d864a",
+    "custom_components/djconnect/hybrid_service.py": "28dd7dab191e6619b15e2e9d12a02688c87f5c7ce2f67be4118a6f53efb74cd3",
+    "custom_components/djconnect/hybrid_transport.py": "635692511a36e955ec72a6c524d51d38140c14e50bb44d33bc9b6d7bab5ea48a",
+    "custom_components/djconnect/image_proxy.py": "77a855a75a02f8a8d643cfb9decfbb0c1ced33693cd8f70f91f01aa059296b53",
+    "custom_components/djconnect/moment_expression.py": "5ef7c3769ef046a989eff70812ed639c7203bf5b88c9d020bbc2827a94464929",
+    "custom_components/djconnect/moment_navigation.py": "7c4d94c6d4ebe947abf083818a2264c28e9d2ae3b577b45c2009e72712412af6",
+    "custom_components/djconnect/mood.py": "84aefec705178fe6b32f601771d6280e5eb788f161c8cff1fd106a061d792e8c",
+    "custom_components/djconnect/music_discovery.py": "c29433a74e0eb4a6cf216db1a6b057e0a24d67e13f57db74a0972c4b1ac39535",
+    "custom_components/djconnect/music_dna.py": "2fdb38693e1de8876aaf5ba16e5ddd62feb888133377a60922f8d9457de77bfe",
+    "custom_components/djconnect/music_intent.py": "1ae3c524e6f36d6ac80fd9145c1df0d811236c06c8af8226acbcc52747385af7",
+    "custom_components/djconnect/native_moment_delivery.py": "cef1af45da5352e7fe6b08d7cccd4ff2466419d4a89616e47101e7620fb7ae28",
+    "custom_components/djconnect/number.py": "57dd84220fbb1903708c9c4a0f850d699919aabbe4300dcce252fb0f205e3e7b",
+    "custom_components/djconnect/paired_live.py": "b4f2796aab724309b31e750b8991031527921916f295a488c3f36a69a8dd17b6",
+    "custom_components/djconnect/paired_live_contract.py": "fb4485b6acd9d548c17953edf64af4c4c4aa98c93cb325721acc033ff787f736",
+    "custom_components/djconnect/pairing_defaults.py": "d65b049671f2c594edadfeed12a8a5b0da4d1c3a4f33aaa77b0a7e35aae243b7",
+    "custom_components/djconnect/passive_session.py": "d4417b1ead5a6b22f69a02d9a324dc315b1d8297d0006430c6962709d246b0e5",
+    "custom_components/djconnect/persistence/__init__.py": "8dc97e8769e396ad480a8a5db345974f63b7ff334020980a3d15921e898c8b97",
+    "custom_components/djconnect/persistence/bootstrap.py": "e53a745c435a27232435a8957a0c20a6694882b92b1802794387066bfc0a6ed3",
+    "custom_components/djconnect/persistence/dj_settings.py": "26e30d177de1f112d723179235409336b939f72344cc2b3b0f6c33a83613a46e",
+    "custom_components/djconnect/persistence/history.py": "e28853529d8d55c1c7c6611a988f8a7cdadc730349046f1136516af2f067038e",
+    "custom_components/djconnect/persistence/ownership.py": "167eaa9ffb4ac5705987ac77e1e261d4741123787fd193192a4a65429bedc8e0",
+    "custom_components/djconnect/persistence/provider.py": "c0ea99393eafb1d31f5dc643164a55db763f8522cd5d93f5d19dd42984b2c201",
+    "custom_components/djconnect/persistence/reconciliation.py": "75d9dd20de1652f0a731870cb8d7885687c1dd04861b1250a3364e7715462c3e",
+    "custom_components/djconnect/persistence/schema.py": "fe1c57e47370c958b031c93b3a31069e1e11397a5099e636820e4c9e222cf429",
+    "custom_components/djconnect/persistence/service.py": "12c359933a1a1fac9452a596db59ac9a3b93151137de22c5554da8d27db422fc",
+    "custom_components/djconnect/persistence/sessions.py": "19e5f68577911da193e8d1a2508930621cf68db229668d24c5a7d15919a21df5",
+    "custom_components/djconnect/persistence/sqlite.py": "d162322a3e859644cb883eb5a26d5722d810e36567b57bd86d27440bf1e56d6c",
+    "custom_components/djconnect/persistence/summary.py": "f97711ebd2366e33d4164dd541cf6b2526f2d7cb0e26c0c13dcbc33b0e1125db",
+    "custom_components/djconnect/pipeline.py": "36ff6bf121bbc293714805f60bc7951c8341fb68cb14de4e6027d2af6040d237",
+    "custom_components/djconnect/playback_observation.py": "63ccc706edf892c670d3ddf80652fde63a15188e384372d4aaea768aac194d60",
+    "custom_components/djconnect/presence_policy.py": "dc31404f519979e14c1735cd23c3b82fd3b2ce1b9f14d6cf0d3ff25506d86672",
+    "custom_components/djconnect/presentation_composer.py": "bc16ebcf1c9e2fd2d53d8c7ba488b2e174771501d08030589af972baff5355a5",
+    "custom_components/djconnect/processor.py": "649b4867d996ec66f4af2dddd3edcb5ac2bae16de89759ad83f79f5955ed83c6",
+    "custom_components/djconnect/profile_backend.py": "4b19f7b37dac97573fd4dbccd3fe2973aeac236e5783a2d08ccdb360d38f3ad4",
+    "custom_components/djconnect/profile_context.py": "b65b5bc6159b10b4f8c864c5af4a2bdaeda34449eb8e839e0f253db302a58320",
+    "custom_components/djconnect/profile_export.py": "69146e56bfef2bc0983a9499acaa0ff54fa9c9664010d1e75e1c2acae10a316d",
+    "custom_components/djconnect/profile_privacy.py": "80a539a327c8d6c4650e0936ea0440800d0b0d8c71aff6c073520f343db77d88",
+    "custom_components/djconnect/profile_settings.py": "8d7387ad09a1b5302c20d03156413fb6c5031ca870622c7db824c57629c6f500",
+    "custom_components/djconnect/push.py": "69e5fd796adec720297498210080a11666d2ecf7e0a233abcc14c6a8ce3ffd4c",
+    "custom_components/djconnect/repairs.py": "8da089025d61e2031fc38af7a670938b3b6129cc0e1b554adc3e174daae2688b",
+    "custom_components/djconnect/request_auth.py": "f7fab1417869e350bcfd28e23bc48d6de34d53c22550c952f8e1490a0574c031",
+    "custom_components/djconnect/retired_provider.py": "f3de992cecc510365cafab54b04566b356a421cc4dc39a47758d1e86362dc788",
+    "custom_components/djconnect/select.py": "a65541b0aeaf29f37127fea0756a8ac8bef99f5307fcc36b21b61c237f0ce46a",
+    "custom_components/djconnect/sensor.py": "c4367a31d848f4a901bda036451082c931e296353a5db2521a2ed7a91da34fc8",
+    "custom_components/djconnect/session_artwork.py": "f6a805e51bc4250aa862105de6930647fd8023ed49f440484a7b2c7ee4af6c40",
+    "custom_components/djconnect/session_conversation.py": "06d62e1c264676d764ca1f54f4078a509f19a1006c3a3e90aa1f3397c6d6f981",
+    "custom_components/djconnect/session_facts.py": "5c5c698de1221c4d95190493ecef124577922a9c22ab23eaef60fd6e12f34518",
+    "custom_components/djconnect/session_forecast.py": "d57c7d6bb0abcfb7d881c395c3f2ee1615051908bbdfcc3b4ae80799d5f919f3",
+    "custom_components/djconnect/session_forecast_transport.py": "0b0a6ac26356a56319354dacb77b9a0e8ea1a5736745614223b6100afcc3b15d",
+    "custom_components/djconnect/session_history_maintenance.py": "accacfe711f7c97468b498fea1a773224f0a69fa1483c8a6404bd108656f1c33",
+    "custom_components/djconnect/session_history_projection.py": "db82379512a4f560939df5740c2581622a90b55cfff55b0a78540bf9842ee0d8",
+    "custom_components/djconnect/session_mood.py": "4780c512d3e59e3e2a501b129d470f75bd734f0929c5540667939efadec2a910",
+    "custom_components/djconnect/session_persona.py": "d07c30bd3b8b85b1b080a6db3e3aa6505fceeb37424c2663fd14cc3c783a41ef",
+    "custom_components/djconnect/session_presence.py": "8c7687c42ce931ad8abbda0a4f2323a074e472f8913cb93aab1c1f45d39e313f",
+    "custom_components/djconnect/session_runtime.py": "a6f0097af18901bcc365d7bd17a382c8de961da23119b916ef792ee5bfa9ebba",
+    "custom_components/djconnect/session_speech.py": "c00b42e95e08a0fc6f832c1948dd34a85c307a088d44e0c2252c56c1a2d49887",
+    "custom_components/djconnect/settings_migration.py": "1398a7e8c34adebf7e33b8fb5c9d339ef18d4e516ba8ca5f2504c034626e9d9a",
+    "custom_components/djconnect/speaker_delivery.py": "c1b2bb265684a41f179542839d42f8c0eff3045e229602f65e1564e32979dafb",
+    "custom_components/djconnect/speech_feedback.py": "d5ced0209a34324cc98adab1bfee5663cfce9e45c720b673ef06ef41b95df671",
+    "custom_components/djconnect/speech_processor.py": "7325ffb9a6e201d01452a17a2fa30da096e4d2ee7452f5e6a223b14d7e6a0048",
+    "custom_components/djconnect/spotify.py": "0e84480b356a9ae6649657c3fbe9f557663c04c8d0aba82fcca7ab150a1201b7",
+    "custom_components/djconnect/spotify_backend.py": "395c918d6649902a772f552cdcff8574463942822b2e59e3e54371159eef45e3",
+    "custom_components/djconnect/spotify_oauth.py": "e072ea0673dfd589abd09622813db5c2a29321f9906a49285695a1d792dc7d70",
+    "custom_components/djconnect/structural_invariant_validator.py": "5c16b015fe646e9da85f68f0c05bc79ab563c2feb56c7e6c1a409a139c546ae8",
+    "custom_components/djconnect/switch.py": "4dbc76dcf13427c4b945e86cf20ac499e6be11f226232d1bde78eba0f7d6fc9d",
+    "custom_components/djconnect/tool_handlers.py": "6d4a452ed7fc446aa27660a1348c35e74dd6159e1d309cb1c722bb16c28e046c",
+    "custom_components/djconnect/tool_registry.py": "ef94acfa61b20c24af1ad1a6d31140140a6469d020cc2a3baa981492f6154c7a",
+    "custom_components/djconnect/track_insight.py": "a333523f9bf299837dca2d95bebca940987c6dde4d06c4460fd701eb391eb4dc",
+    "custom_components/djconnect/track_insight_target.py": "6ab907bb71a34f4ad95a2a82111dae6b3173101e11980393af4f0f627711e770",
+    "custom_components/djconnect/transport_capabilities.py": "908b8f2e6f175f2822d6f0f0b354a26f4bc4b1ef4f7017fab807db2eb3c3bca2",
+    "custom_components/djconnect/transport_delivery.py": "70b45afe6e25f960973affd39ae6d77e8a695db41df8919e749ca6885aedd8af",
+    "custom_components/djconnect/transport_operations.py": "cf808dce680f958ee17876ce018a53b11b23c4f14d22cdeae61e2f13612b0e20",
+    "custom_components/djconnect/tts.py": "1d5154ae501174fcc43c287c97de6429b15f743cd2fac0ce7ccaf2a83215f7c7",
+    "custom_components/djconnect/universal_receiver_browser_e2e.py": "d781dc3334cfc5d50b80217912cfed3aeaf21a2e2205f053446fb5feece3d68d",
+    "custom_components/djconnect/update.py": "d6a1ea30a3a33e04e8668dd6b11b6720d5b8f531b1160ac8771a16742179c7a5",
+    "custom_components/djconnect/use_cases.py": "9303bd8d611e374227e20332bb9c46ebc1de5caaaf95efa0bf0758c33b291b0a",
+    "custom_components/djconnect/verification_clock.py": "7d2383659ea419abf747bbd5e2f3cd382e9e13d1ae5946d331fd3d9412bacf0e",
+    "custom_components/djconnect/vibecast.py": "afe141de6ab48c43bbc54ca745d8a7fb4d4a78326b6907f96825d1f81b743ed6",
+    "custom_components/djconnect/voice_profiles.py": "5aba9ae572b92c783686d9ccac3af3b97c2689ca98c10f086ba7ae4cdb2696c9",
+    "custom_components/djconnect/wav_util.py": "06841ae5e471e20b2c234c2214eebb14dc764bf3a59acd9cd4767fdef3cc7c45",
+    "custom_components/djconnect/websocket_api.py": "734fb8f8f7afe5573050a0224a17cb1b9e2040d9c506dcf3a4830b54cb01d73f",
+    "scripts/verification/profile_session_settings_lab.py": "857f8474ad8a383fe10b3ae7499d945b1e9ebb8a4a2ca191861c468945aed46f",
+    "scripts/verification/profile_session_settings_ws_lab.py": "6132e788dcb97e699ddb01e233bcad54aaff657f36551a74d97c904f6fe259c0",
+    "scripts/verification/verify_session_speech_http.py": "7f75d5227e57957a21f30cb93a650f25675495affbf71460d3087a9ecaa455cf",
+    "scripts/verification/session_speech_browser_lab.py": "290b2819977c6940ea134aa720dbf54e6940aaf44e915b5da47a289274f8681c",
+    "scripts/verification/session_speech_browser.mjs": "242c45004fb4337c01a858ec52993fb962b66d515ad428a9a16c8df1bc55f52d"
+  },
+  "boundaries": {
+    "provider": "installed_HA_Cloud_entity_external_waveform_fixture",
+    "real_speech": "PASS_CORE_HA_SYNTHESIS_EXTERNAL_WAVEFORM_FIXTURE_NOT_AUDIBLE",
+    "websocket": "PASS_PAIRED_TLS_THREE_SURFACES_AND_PROFILE_ISOLATION",
+    "native": "OPEN",
+    "installed": "NOT_RUN"
+  },
+  "producer_source_pin": "b58644bcc843d191aa95c87ec2e14cc9c099454b",
+  "settings_contract_version": 3,
+  "shared_parameters": [
+    "persona",
+    "voice",
+    "gender",
+    "mood",
+    "presence",
+    "announcement_output"
+  ],
+  "qualification": "LOCAL_CORE_REAL_HA_WITH_EXTERNAL_WAVEFORM_AND_SPEAKER_SINK_FIXTURES_NOT_NATIVE_OR_AUDIBLE"
+}

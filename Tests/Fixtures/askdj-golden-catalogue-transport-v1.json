@@ -1,0 +1,742 @@
+{
+  "core_commit": "7d6e5c07500ba281a2152c270ea5a8b2814a16c2",
+  "core_matrix_sha256": "0f21f97b8931580460113ba152dc60b3b020b765b0f52f8a5d4b3d57468ba046",
+  "core_catalogue_sha256": "5c8c52c044782f18dae53f10d6babe02b6c6e414131e52f16255d65ad60f730b",
+  "family_id": "ASKDJ-FLOW-catalogue-exact-questions",
+  "rows": [
+    {
+      "id": "catalogue-play.artist-en",
+      "entry_id": "play.artist",
+      "language": "en",
+      "question": "Play Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.artist-nl",
+      "entry_id": "play.artist",
+      "language": "nl",
+      "question": "Speel Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.artist-de",
+      "entry_id": "play.artist",
+      "language": "de",
+      "question": "Spiele Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.artist-fr",
+      "entry_id": "play.artist",
+      "language": "fr",
+      "question": "Joue Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.artist-es",
+      "entry_id": "play.artist",
+      "language": "es",
+      "question": "Reproduce Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.cooking-en",
+      "entry_id": "play.cooking",
+      "language": "en",
+      "question": "Play something for cooking",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.cooking-nl",
+      "entry_id": "play.cooking",
+      "language": "nl",
+      "question": "Speel iets voor tijdens het koken",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.cooking-de",
+      "entry_id": "play.cooking",
+      "language": "de",
+      "question": "Spiel etwas zum Kochen",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.cooking-fr",
+      "entry_id": "play.cooking",
+      "language": "fr",
+      "question": "Mets quelque chose pour cuisiner",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.cooking-es",
+      "entry_id": "play.cooking",
+      "language": "es",
+      "question": "Pon algo para cocinar",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.quiet-en",
+      "entry_id": "play.quiet",
+      "language": "en",
+      "question": "Put on a relaxing playlist",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.quiet-nl",
+      "entry_id": "play.quiet",
+      "language": "nl",
+      "question": "Zet een rustige playlist op",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.quiet-de",
+      "entry_id": "play.quiet",
+      "language": "de",
+      "question": "Starte eine ruhige Playlist",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.quiet-fr",
+      "entry_id": "play.quiet",
+      "language": "fr",
+      "question": "Mets une playlist calme",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-play.quiet-es",
+      "entry_id": "play.quiet",
+      "language": "es",
+      "question": "Pon una playlist tranquila",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.artist_albums-en",
+      "entry_id": "discover.artist_albums",
+      "language": "en",
+      "question": "Show me albums by Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.artist_albums-nl",
+      "entry_id": "discover.artist_albums",
+      "language": "nl",
+      "question": "Geef me albums van Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.artist_albums-de",
+      "entry_id": "discover.artist_albums",
+      "language": "de",
+      "question": "Zeig mir Alben von Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.artist_albums-fr",
+      "entry_id": "discover.artist_albums",
+      "language": "fr",
+      "question": "Montre-moi les albums de Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.artist_albums-es",
+      "entry_id": "discover.artist_albums",
+      "language": "es",
+      "question": "Muéstrame álbumes de Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.artist_tracks-en",
+      "entry_id": "discover.artist_tracks",
+      "language": "en",
+      "question": "Give me 5 songs by Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.artist_tracks-nl",
+      "entry_id": "discover.artist_tracks",
+      "language": "nl",
+      "question": "Geef me 5 nummers van Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.artist_tracks-de",
+      "entry_id": "discover.artist_tracks",
+      "language": "de",
+      "question": "Gib mir 5 Songs von Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.artist_tracks-fr",
+      "entry_id": "discover.artist_tracks",
+      "language": "fr",
+      "question": "Donne-moi 5 titres de Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.artist_tracks-es",
+      "entry_id": "discover.artist_tracks",
+      "language": "es",
+      "question": "Dame 5 canciones de Volbeat",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.playlists-en",
+      "entry_id": "discover.playlists",
+      "language": "en",
+      "question": "Which playlists do I have?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.playlists-nl",
+      "entry_id": "discover.playlists",
+      "language": "nl",
+      "question": "Welke playlists heb ik?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.playlists-de",
+      "entry_id": "discover.playlists",
+      "language": "de",
+      "question": "Welche Playlists habe ich?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.playlists-fr",
+      "entry_id": "discover.playlists",
+      "language": "fr",
+      "question": "Quelles playlists ai-je ?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.playlists-es",
+      "entry_id": "discover.playlists",
+      "language": "es",
+      "question": "¿Qué playlists tengo?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.recent-en",
+      "entry_id": "discover.recent",
+      "language": "en",
+      "question": "Which songs did I play in the last hour?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.recent-nl",
+      "entry_id": "discover.recent",
+      "language": "nl",
+      "question": "Welke nummers heb ik afgelopen uur afgespeeld?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.recent-de",
+      "entry_id": "discover.recent",
+      "language": "de",
+      "question": "Welche Songs habe ich in der letzten Stunde gehört?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.recent-fr",
+      "entry_id": "discover.recent",
+      "language": "fr",
+      "question": "Quels titres ai-je écoutés durant la dernière heure ?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-discover.recent-es",
+      "entry_id": "discover.recent",
+      "language": "es",
+      "question": "¿Qué canciones escuché en la última hora?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-listen.current-en",
+      "entry_id": "listen.current",
+      "language": "en",
+      "question": "What is playing now?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.current-nl",
+      "entry_id": "listen.current",
+      "language": "nl",
+      "question": "Wat speelt er nu?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.current-de",
+      "entry_id": "listen.current",
+      "language": "de",
+      "question": "Was läuft gerade?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.current-fr",
+      "entry_id": "listen.current",
+      "language": "fr",
+      "question": "Qu’est-ce qui passe maintenant ?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.current-es",
+      "entry_id": "listen.current",
+      "language": "es",
+      "question": "¿Qué está sonando ahora?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.release-en",
+      "entry_id": "listen.release",
+      "language": "en",
+      "question": "When was this song released?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.release-nl",
+      "entry_id": "listen.release",
+      "language": "nl",
+      "question": "Wanneer is dit nummer uitgekomen?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.release-de",
+      "entry_id": "listen.release",
+      "language": "de",
+      "question": "Wann wurde dieser Song veröffentlicht?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.release-fr",
+      "entry_id": "listen.release",
+      "language": "fr",
+      "question": "Quand ce titre est-il sorti ?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.release-es",
+      "entry_id": "listen.release",
+      "language": "es",
+      "question": "¿Cuándo salió esta canción?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.artist-en",
+      "entry_id": "listen.artist",
+      "language": "en",
+      "question": "Tell me about this artist",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.artist-nl",
+      "entry_id": "listen.artist",
+      "language": "nl",
+      "question": "Vertel iets over deze artiest",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.artist-de",
+      "entry_id": "listen.artist",
+      "language": "de",
+      "question": "Erzähl etwas über diesen Künstler",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.artist-fr",
+      "entry_id": "listen.artist",
+      "language": "fr",
+      "question": "Parle-moi de cet artiste",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.artist-es",
+      "entry_id": "listen.artist",
+      "language": "es",
+      "question": "Cuéntame sobre este artista",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.album_tracks-en",
+      "entry_id": "listen.album_tracks",
+      "language": "en",
+      "question": "Which other songs are on this album?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.album_tracks-nl",
+      "entry_id": "listen.album_tracks",
+      "language": "nl",
+      "question": "Welke nummers staan er nog meer op dit album?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.album_tracks-de",
+      "entry_id": "listen.album_tracks",
+      "language": "de",
+      "question": "Welche anderen Songs sind auf diesem Album?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.album_tracks-fr",
+      "entry_id": "listen.album_tracks",
+      "language": "fr",
+      "question": "Quels autres titres figurent sur cet album ?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.album_tracks-es",
+      "entry_id": "listen.album_tracks",
+      "language": "es",
+      "question": "¿Qué otras canciones hay en este álbum?",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.outputs-en",
+      "entry_id": "listen.outputs",
+      "language": "en",
+      "question": "Which speakers are available?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-listen.outputs-nl",
+      "entry_id": "listen.outputs",
+      "language": "nl",
+      "question": "Welke speakers zijn er?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-listen.outputs-de",
+      "entry_id": "listen.outputs",
+      "language": "de",
+      "question": "Welche Speaker gibt es?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-listen.outputs-fr",
+      "entry_id": "listen.outputs",
+      "language": "fr",
+      "question": "Quelles enceintes sont disponibles ?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-listen.outputs-es",
+      "entry_id": "listen.outputs",
+      "language": "es",
+      "question": "¿Qué altavoces hay?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-listen.queue-en",
+      "entry_id": "listen.queue",
+      "language": "en",
+      "question": "What is in the queue?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-listen.queue-nl",
+      "entry_id": "listen.queue",
+      "language": "nl",
+      "question": "Wat staat er in de wachtrij?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-listen.queue-de",
+      "entry_id": "listen.queue",
+      "language": "de",
+      "question": "Was steht in der Warteschlange?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-listen.queue-fr",
+      "entry_id": "listen.queue",
+      "language": "fr",
+      "question": "Qu’y a-t-il dans la file d’attente ?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-listen.queue-es",
+      "entry_id": "listen.queue",
+      "language": "es",
+      "question": "¿Qué hay en la cola?",
+      "active_session": false
+    },
+    {
+      "id": "catalogue-listen.forecast-en",
+      "entry_id": "listen.forecast",
+      "language": "en",
+      "question": "Show the session forecast",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.forecast-nl",
+      "entry_id": "listen.forecast",
+      "language": "nl",
+      "question": "Toon de vooruitblik",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.forecast-de",
+      "entry_id": "listen.forecast",
+      "language": "de",
+      "question": "Zeige den Ausblick",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.forecast-fr",
+      "entry_id": "listen.forecast",
+      "language": "fr",
+      "question": "Montre l’aperçu",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-listen.forecast-es",
+      "entry_id": "listen.forecast",
+      "language": "es",
+      "question": "Muestra el avance",
+      "active_session": true
+    },
+    {
+      "id": "catalogue-chain-speaker-en-offer",
+      "entry_id": "play.artist",
+      "language": "en",
+      "question": "Play Volbeat",
+      "chain": "catalogue-chain-speaker-en",
+      "operation": "offer"
+    },
+    {
+      "id": "catalogue-chain-speaker-en-accept",
+      "entry_id": "play.artist",
+      "language": "en",
+      "question": "Play here",
+      "chain": "catalogue-chain-speaker-en",
+      "operation": "accept"
+    },
+    {
+      "id": "catalogue-chain-speaker-en-duplicate",
+      "entry_id": "play.artist",
+      "language": "en",
+      "question": "Play here",
+      "chain": "catalogue-chain-speaker-en",
+      "operation": "duplicate"
+    },
+    {
+      "id": "catalogue-chain-album-en-offer",
+      "entry_id": "discover.artist_albums",
+      "language": "en",
+      "question": "Show me albums by Volbeat",
+      "chain": "catalogue-chain-album-en",
+      "operation": "offer"
+    },
+    {
+      "id": "catalogue-chain-album-en-accept",
+      "entry_id": "discover.artist_albums",
+      "language": "en",
+      "question": "Yes, I want to play that album.",
+      "chain": "catalogue-chain-album-en",
+      "operation": "accept"
+    },
+    {
+      "id": "catalogue-chain-album-en-duplicate",
+      "entry_id": "discover.artist_albums",
+      "language": "en",
+      "question": "Yes, I want to play that album.",
+      "chain": "catalogue-chain-album-en",
+      "operation": "duplicate"
+    },
+    {
+      "id": "catalogue-chain-speaker-nl-offer",
+      "entry_id": "play.artist",
+      "language": "nl",
+      "question": "Speel Volbeat",
+      "chain": "catalogue-chain-speaker-nl",
+      "operation": "offer"
+    },
+    {
+      "id": "catalogue-chain-speaker-nl-accept",
+      "entry_id": "play.artist",
+      "language": "nl",
+      "question": "Speel hier",
+      "chain": "catalogue-chain-speaker-nl",
+      "operation": "accept"
+    },
+    {
+      "id": "catalogue-chain-speaker-nl-duplicate",
+      "entry_id": "play.artist",
+      "language": "nl",
+      "question": "Speel hier",
+      "chain": "catalogue-chain-speaker-nl",
+      "operation": "duplicate"
+    },
+    {
+      "id": "catalogue-chain-album-nl-offer",
+      "entry_id": "discover.artist_albums",
+      "language": "nl",
+      "question": "Geef me albums van Volbeat",
+      "chain": "catalogue-chain-album-nl",
+      "operation": "offer"
+    },
+    {
+      "id": "catalogue-chain-album-nl-accept",
+      "entry_id": "discover.artist_albums",
+      "language": "nl",
+      "question": "Ja, die wil ik afspelen.",
+      "chain": "catalogue-chain-album-nl",
+      "operation": "accept"
+    },
+    {
+      "id": "catalogue-chain-album-nl-duplicate",
+      "entry_id": "discover.artist_albums",
+      "language": "nl",
+      "question": "Ja, die wil ik afspelen.",
+      "chain": "catalogue-chain-album-nl",
+      "operation": "duplicate"
+    },
+    {
+      "id": "catalogue-chain-speaker-de-offer",
+      "entry_id": "play.artist",
+      "language": "de",
+      "question": "Spiele Volbeat",
+      "chain": "catalogue-chain-speaker-de",
+      "operation": "offer"
+    },
+    {
+      "id": "catalogue-chain-speaker-de-accept",
+      "entry_id": "play.artist",
+      "language": "de",
+      "question": "Hier abspielen",
+      "chain": "catalogue-chain-speaker-de",
+      "operation": "accept"
+    },
+    {
+      "id": "catalogue-chain-speaker-de-duplicate",
+      "entry_id": "play.artist",
+      "language": "de",
+      "question": "Hier abspielen",
+      "chain": "catalogue-chain-speaker-de",
+      "operation": "duplicate"
+    },
+    {
+      "id": "catalogue-chain-album-de-offer",
+      "entry_id": "discover.artist_albums",
+      "language": "de",
+      "question": "Zeig mir Alben von Volbeat",
+      "chain": "catalogue-chain-album-de",
+      "operation": "offer"
+    },
+    {
+      "id": "catalogue-chain-album-de-accept",
+      "entry_id": "discover.artist_albums",
+      "language": "de",
+      "question": "Ja, dieses Album möchte ich hören.",
+      "chain": "catalogue-chain-album-de",
+      "operation": "accept"
+    },
+    {
+      "id": "catalogue-chain-album-de-duplicate",
+      "entry_id": "discover.artist_albums",
+      "language": "de",
+      "question": "Ja, dieses Album möchte ich hören.",
+      "chain": "catalogue-chain-album-de",
+      "operation": "duplicate"
+    },
+    {
+      "id": "catalogue-chain-speaker-fr-offer",
+      "entry_id": "play.artist",
+      "language": "fr",
+      "question": "Joue Volbeat",
+      "chain": "catalogue-chain-speaker-fr",
+      "operation": "offer"
+    },
+    {
+      "id": "catalogue-chain-speaker-fr-accept",
+      "entry_id": "play.artist",
+      "language": "fr",
+      "question": "Lire ici",
+      "chain": "catalogue-chain-speaker-fr",
+      "operation": "accept"
+    },
+    {
+      "id": "catalogue-chain-speaker-fr-duplicate",
+      "entry_id": "play.artist",
+      "language": "fr",
+      "question": "Lire ici",
+      "chain": "catalogue-chain-speaker-fr",
+      "operation": "duplicate"
+    },
+    {
+      "id": "catalogue-chain-album-fr-offer",
+      "entry_id": "discover.artist_albums",
+      "language": "fr",
+      "question": "Montre-moi les albums de Volbeat",
+      "chain": "catalogue-chain-album-fr",
+      "operation": "offer"
+    },
+    {
+      "id": "catalogue-chain-album-fr-accept",
+      "entry_id": "discover.artist_albums",
+      "language": "fr",
+      "question": "Oui, je veux écouter cet album.",
+      "chain": "catalogue-chain-album-fr",
+      "operation": "accept"
+    },
+    {
+      "id": "catalogue-chain-album-fr-duplicate",
+      "entry_id": "discover.artist_albums",
+      "language": "fr",
+      "question": "Oui, je veux écouter cet album.",
+      "chain": "catalogue-chain-album-fr",
+      "operation": "duplicate"
+    },
+    {
+      "id": "catalogue-chain-speaker-es-offer",
+      "entry_id": "play.artist",
+      "language": "es",
+      "question": "Reproduce Volbeat",
+      "chain": "catalogue-chain-speaker-es",
+      "operation": "offer"
+    },
+    {
+      "id": "catalogue-chain-speaker-es-accept",
+      "entry_id": "play.artist",
+      "language": "es",
+      "question": "Reproducir aquí",
+      "chain": "catalogue-chain-speaker-es",
+      "operation": "accept"
+    },
+    {
+      "id": "catalogue-chain-speaker-es-duplicate",
+      "entry_id": "play.artist",
+      "language": "es",
+      "question": "Reproducir aquí",
+      "chain": "catalogue-chain-speaker-es",
+      "operation": "duplicate"
+    },
+    {
+      "id": "catalogue-chain-album-es-offer",
+      "entry_id": "discover.artist_albums",
+      "language": "es",
+      "question": "Muéstrame álbumes de Volbeat",
+      "chain": "catalogue-chain-album-es",
+      "operation": "offer"
+    },
+    {
+      "id": "catalogue-chain-album-es-accept",
+      "entry_id": "discover.artist_albums",
+      "language": "es",
+      "question": "Sí, quiero escuchar ese álbum.",
+      "chain": "catalogue-chain-album-es",
+      "operation": "accept"
+    },
+    {
+      "id": "catalogue-chain-album-es-duplicate",
+      "entry_id": "discover.artist_albums",
+      "language": "es",
+      "question": "Sí, quiero escuchar ese álbum.",
+      "chain": "catalogue-chain-album-es",
+      "operation": "duplicate"
+    }
+  ],
+  "live_gate_ids": [
+    "ASKDJ-CATALOGUE-all-locales-actual-acceptance",
+    "ASKDJ-CATALOGUE-generated-variants-actual-execution"
+  ]
+}

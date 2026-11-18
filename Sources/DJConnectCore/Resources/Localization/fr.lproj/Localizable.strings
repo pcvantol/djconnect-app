@@ -1,0 +1,1755 @@
+"pairing.error.clientTypeMismatch" = "Le type d'app choisi dans Home Assistant ne correspond pas a cette app. Choisis le flux de configuration DJConnect %@, puis reessaie.";
+"pairing.error.invalidClientType" = "Mauvais type d'app choisi dans Home Assistant. Choisis le flux DJConnect %@ et utilise son nouveau code.";
+"pairing.error.invalidPairCode" = "Le code d'association est incorrect. Verifie le code dans Home Assistant.";
+"pairing.error.notConfigured" = "DJConnect n'est pas encore configure dans Home Assistant. Ouvre d'abord le flux de configuration DJConnect.";
+"pairing.error.unauthorized" = "Home Assistant a refuse cette app. Associe DJConnect a nouveau depuis Home Assistant.";
+"pairing.error.staleAuth" = "Cette association n'est plus valide. Genere un nouveau code dans Home Assistant et reessaie.";
+"pairing.error.generic" = "L'association n'a pas pu etre terminee. Verifie Home Assistant et reessaie.";
+"Ask DJ" = "Ask DJ";
+"Music DNA" = "Music DNA";
+"Track Insight" = "Track Insight";
+"Now Playing" = "Lecture";
+"Queue" = "File d'attente";
+"More" = "Plus";
+"Settings" = "Reglages";
+"About" = "A propos";
+"Legal" = "Mentions legales";
+"Privacy" = "Confidentialite";
+"Not now" = "Pas maintenant";
+"Continue" = "Continuer";
+"Cancel" = "Annuler";
+"Done" = "Termine";
+"Skip" = "Ignorer";
+"Previous" = "Precedent";
+"Next" = "Suivant";
+"Start Demo Mode" = "Demarrer le mode demo";
+"Allow Camera" = "Autoriser la camera";
+"Allow notifications" = "Autoriser les notifications";
+"Camera access for pairing" = "Acces camera pour l'association";
+"No connection to Home Assistant" = "Aucune connexion a Home Assistant";
+"Home Assistant is unreachable." = "Home Assistant est inaccessible.";
+"trackInsight.share.story" = "Story";
+"trackInsight.share.square" = "Square";
+"trackInsight.share.static" = "Static";
+"trackInsight.share.animated" = "Animated";
+"appModel.what.s.new.in.djconnect.value" = "Nouveautes de DJConnect %@";
+"appModel.playing.recommendation" = "Playing recommendation";
+"appModel.ask.dj.is.unreachable" = "Ask DJ is unreachable";
+"appModel.ask.dj.completed" = "Ask DJ completed.";
+"appModel.voice.request" = "Voice request";
+"appModel.i.m.listening" = "I'm listening";
+"appModel.ask.dj.answered" = "Ask DJ answered";
+"appModel.your.dj.response.is.ready" = "Your DJ response is ready.";
+"appModel.ask.dj" = "Ask DJ";
+"appModel.ask.dj.is.ready" = "Ask DJ is ready.";
+"appModel.ask.dj.is.processing" = "Ask DJ is still processing your request.";
+"appModel.input.not.recognized" = "Input not recognized";
+"appModel.not.recognized" = "Not recognized";
+"appModel.enter.the.home.assistant.url.and.pair.code" = "Enter the Home Assistant URL and pair code.";
+"appModel.living.room" = "Living Room";
+"appModel.kitchen" = "Kitchen";
+"appModel.friday.night" = "Friday Night";
+"appModel.dinner.vibes" = "Dinner Vibes";
+"ui.no.output.device.selected" = "No output device selected";
+"ui.more" = "Plus";
+"ui.askdj.help.catalogue.title" = "Demandez à votre DJ";
+"ui.askdj.help.catalogue.instructions" = "Touchez une demande complète pour l’envoyer. Pour une demande avec un champ à remplir, complétez d’abord la partie sélectionnée.";
+"ui.value.min.ago" = "il y a %d min";
+"ui.yesterday" = "Yesterday";
+"ui.value.days.ago" = "il y a %d jours";
+"ui.last.week" = "Last week";
+"ui.value.weeks.ago" = "il y a %d semaines";
+"ui.last.month" = "Last month";
+"ui.value.months.ago" = "il y a %d mois";
+"ui.paired" = "Paired";
+"ui.pairing" = "Pairing";
+"ui.waiting.for.home.assistant" = "Waiting for Home Assistant";
+"ui.stale" = "Stale";
+"ui.unpaired" = "Unpaired";
+"ui.now.playing" = "Lecture";
+"ui.queue" = "File d'attente";
+"ui.playlists" = "Playlists";
+"ui.games" = "Games";
+"ui.settings" = "Reglages";
+"ui.logs" = "Logs";
+"ui.about" = "A propos";
+"ui.legal" = "Mentions legales";
+"ui.privacy" = "Confidentialite";
+"ui.privacy.connection" = "DJConnect utilise un jeton d’appareil pour associer l’application à votre instance Home Assistant. L’application conserve ce jeton dans son espace de stockage privé.";
+"ui.privacy.home-assistant" = "Votre instance Home Assistant gère votre profil DJConnect, vos connexions musicales et votre historique Ask DJ. Selon vos réglages, les services vocaux et d’IA que vous avez choisis peuvent traiter vos demandes ou votre audio. Les réponses de l’IA et d’Assist peuvent être inexactes.";
+"ui.privacy.choices" = "Music DNA est facultatif. Vous pouvez effacer séparément Music DNA et votre historique Ask DJ dans Home Assistant.";
+"ui.privacy.push" = "Si vous activez les notifications Apple, le service de notifications DJConnect traite les données d’inscription et votre jeton de notification Apple. Apple remet les notifications à votre appareil. Le service utilise des données techniques de livraison pour surveiller sa fiabilité. Vous pouvez désactiver les notifications dans les réglages.";
+"ui.privacy.diagnostics" = "Vous choisissez de partager ou non les diagnostics de l’application avec l’assistance ou dans un ticket GitHub.";
+"ui.privacy.full-statement" = "Déclaration de confidentialité complète";
+"ui.share.feedback" = "Share Feedback";
+"ui.ask.dj.notifications" = "Ask DJ notifications";
+"ui.allow.notifications" = "Autoriser les notifications";
+"ui.not.now" = "Pas maintenant";
+"ui.app.permissions" = "App permissions";
+"ui.continue" = "Continuer";
+"ui.pair.apple.watch.via.qr.code" = "Pair Apple Watch via QR Code";
+"ui.pair.iphone.via.qr.code" = "Pair via QR Code";
+"ui.manual" = "Manual";
+"ui.manual.pairing" = "Manual pairing";
+"ui.local.home.assistant.url" = "Adresse Home Assistant";
+"ui.pair.code" = "Pair Code";
+"ui.pair.code.scanned" = "Pair code scanned";
+"ui.start.demo.mode" = "Demarrer le mode demo";
+"ui.quit.app" = "Quit App";
+"ui.demo.mode" = "Demo Mode";
+"ui.pairing.apple.watch.with.home.assistant" = "Pairing Apple Watch with Home Assistant";
+"ui.pairing.with.home.assistant" = "Pairing with Home Assistant";
+"ui.finish.setup.in.home.assistant" = "Finish setup in Home Assistant";
+"ui.not.connected.to.home.assistant" = "Not connected to Home Assistant";
+"ui.ready.to.pair.apple.watch" = "Ready to Pair Apple Watch";
+"ui.ready.to.pair" = "Ready to Pair";
+"ui.pair.apple.watch" = "Pair Apple Watch";
+"ui.pair.device.iphone" = "Associer l’iPhone";
+"ui.pair.device.ipad" = "Associer l’iPad";
+"ui.pair.device.mac" = "Associer le Mac";
+"ui.pair.djconnect" = "Pair DJConnect";
+"ui.pair.apple.watch.with.home.assistant" = "Pair Apple Watch with Home Assistant";
+"ui.pair.with.home.assistant" = "Pair with Home Assistant";
+"ui.apple.watch.paired" = "Apple Watch Paired";
+"ui.pairing.successful" = "Pairing successful";
+"ui.clear.home.assistant.url" = "Clear Home Assistant URL";
+"ui.confirm.home.assistant.url" = "Confirm Home Assistant URL";
+"ui.done" = "Termine";
+"ui.camera.access.for.pairing" = "Acces camera pour l'association";
+"ui.camera" = "Camera";
+"ui.open.settings" = "Open Settings";
+"ui.device.offline.enable.wifi" = "Appareil hors ligne, activez le Wi-Fi";
+"ui.offline.network.banner" = "Appareil hors ligne";
+"ui.refresh.network" = "Actualiser le reseau";
+"ui.allow.camera" = "Autoriser la camera";
+"ui.scan.qr.code" = "Scan QR Code";
+"ui.cancel" = "Annuler";
+"ui.copied.to.clipboard" = "Copied to clipboard";
+"ui.enable.voice.activation" = "Enable Voice Activation?";
+"ui.enable.voice.activation.321a28" = "Enable Voice Activation";
+"ui.not.now.b1e535" = "Not Now";
+"ui.update.required" = "Update Required";
+"ui.open.djconnect.update.page" = "Open DJConnect Update Page";
+"ui.the.app.may.have.crashed" = "The app may have crashed";
+"ui.version" = "Version";
+"ui.copy.logs" = "Copy Logs";
+"ui.open.github.issue" = "Open GitHub Issue";
+"ui.previous" = "Precedent";
+"ui.next" = "Suivant";
+"ui.let.s.start" = "Let's Start";
+"ui.skip" = "Ignorer";
+"ui.mini.games" = "Mini-games";
+"ui.what.s.new" = "What's New";
+"ui.loading.release.notes" = "Loading release notes...";
+"ui.updates" = "Updates";
+"ui.updates.open.testflight" = "Ouvrir TestFlight";
+"ui.updates.open.app.store" = "Ouvrir l’App Store";
+"ui.check.for.updates" = "Check for updates";
+"ui.checking.for.updates" = "Checking for updates...";
+"ui.djconnect.is.up.to.date" = "DJConnect is up to date.";
+"ui.update.available" = "Update Available";
+"appModel.update.available.value" = "DJConnect %@ is available";
+"appModel.update.available.from.value.to.value" = "Newer version found: %@ -> %@.";
+"appModel.update.check.failed" = "Updates could not be checked.";
+"ui.refresh" = "Actualiser";
+"ui.share.insight" = "Share Insight";
+"ui.refresh.track.insight" = "Actualiser Track Insight";
+"ui.refresh.music.dna" = "Refresh Music DNA";
+"ui.enable.music.dna" = "Enable Music DNA?";
+"ui.you.can.clear.the.learned.profile.at.any" = "You can clear the learned profile at any time.";
+"ui.you.can.always.turn.music.dna.off.in" = "You can always turn Music DNA off in Settings.";
+"ui.enable.music.dna.1adf61" = "Enable Music DNA";
+"ui.summary" = "Resume";
+"ui.favorite.genres" = "Favorite Genres";
+"ui.favorite.artists" = "Favorite Artists";
+"ui.mood" = "Ambiance";
+"ui.profile.mood" = "Profile mood";
+"ui.energy.profile" = "Energy Profile";
+"ui.listening.rhythm" = "Listening Rhythm";
+"ui.mood.mix" = "Mood mix";
+"ui.average" = "Average";
+"ui.playtime" = "Playtime";
+"ui.total.in.your.music.dna" = "Total in your Music DNA";
+"ui.top.artists.by.playtime" = "Top artists by playtime";
+"ui.top.albums.by.playtime" = "Top albums by playtime";
+"ui.repeat.magnets" = "Keeps Coming Back";
+"ui.explicit.positives" = "What You Said Yes To";
+"ui.favorites" = "Favorites";
+"ui.accepted.recommendations" = "Recommandations acceptees";
+"ui.taste.anchors" = "Taste Anchors";
+"ui.recent.tracks" = "Recent Tracks";
+"ui.recent.favorite.tracks" = "Recently Added Favorites";
+"ui.signals" = "Signaux";
+"ui.updated" = "Updated";
+"ui.not.enough.signals" = "Pas encore assez de signaux";
+"ui.music.dna.needs.more.listening.for.genres" = "Pas encore assez de donnees d'ecoute pour identifier les genres favoris.";
+"ui.music.dna.needs.more.listening.for.artists" = "Pas encore assez de donnees d'ecoute pour identifier les artistes favoris.";
+"ui.music.dna.needs.more.listening.for.profile.mood" = "Pas encore assez de donnees d'ecoute pour une humeur de profil.";
+"ui.music.dna.needs.more.listening.for.energy" = "Pas encore assez de donnees d'ecoute pour un profil d'energie.";
+"ui.music.dna.needs.more.listening.for.recent.tracks" = "Pas encore de titres recents dans Music DNA.";
+"ui.music.dna.needs.more.listening.for.basis" = "Pas encore assez de donnees d'ecoute pour fonder des recommandations.";
+"ui.high.energy.leaning" = "High-energy leaning";
+"ui.calm.and.spacious" = "Calm and spacious";
+"ui.balanced.energy" = "Balanced energy";
+"ui.generation.value" = "Generation %d";
+"ui.server.profile" = "Server profile";
+"ui.music.dna.is.not.enabled" = "Music DNA n'est pas active";
+"ui.no.music.dna.profile.yet" = "No Music DNA profile yet";
+"ui.ask.dj.track.insight.and.listening.signals.will" = "Ask DJ, Track Insight and listening signals will fill this in over time.";
+"ui.music.dna.could.not.be.loaded" = "Music DNA n'a pas pu etre charge";
+"ui.try.again" = "Reessayer";
+"ui.loading.music.dna.from.home.assistant" = "Loading Music DNA from Home Assistant...";
+"demo.music.dna.summary" = "Un profil fictif qui penche vers des grooves synthé nocturnes, des hooks lumineux, des lignes de basse chaudes et des découvertes ludiques.";
+"demo.music.dna.watch.summary" = "Un profil fictif pour des grooves synthé chaleureux, des hooks lumineux et des découvertes ludiques.";
+"demo.music.dna.mood.promptHint" = "Recommande des morceaux mélodiques avec du mouvement, de l'éclat et un rythme doux.";
+"demo.music.dna.mood.averagePromptHint" = "Garde les recommandations fluides, rythmiques, sociales et d'énergie moyenne.";
+"demo.music.dna.energy.promptHint" = "Une pulsation lumineuse avec assez d'élan pour la pièce.";
+"demo.music.dna.watch.mood.zone" = "énergie chaude";
+"demo.music.dna.watch.mood.promptHint" = "Recommande des morceaux mélodiques avec du mouvement et de l'éclat.";
+"demo.music.dna.daypart.evening" = "Soir";
+"demo.music.dna.daypart.afternoon" = "Après-midi";
+"demo.music.dna.weekday.friday" = "Vendredi";
+"demo.music.dna.weekday.saturday" = "Samedi";
+"demo.music.dna.weekday.thursday" = "Jeudi";
+"demo.music.dna.accepted.warmSynthGroove" = "Groove synthé chaleureux";
+"demo.music.dna.accepted.brightLateNightPulse" = "Pulsation nocturne lumineuse";
+"demo.music.dna.time.eveningListening" = "Écoute du soir";
+"demo.music.dna.time.weekendDiscovery" = "Découverte du week-end";
+"demo.music.dna.time.newArtists" = "nouveaux artistes";
+"demo.music.dna.time.fridayLift" = "Élan du vendredi";
+"demo.music.dna.time.higherEnergy" = "énergie plus haute";
+"demo.music.dna.signal.brightSynthHooks" = "Hooks synthé lumineux";
+"demo.music.dna.signal.warmRollingBass" = "Basse chaude et roulante";
+"demo.music.dna.signal.playfulVocalFragments" = "Fragments vocaux ludiques";
+"demo.music.dna.source.subtitle" = "Profil d'exemple fictif";
+"ui.rendered.privately.on.your.device" = "Rendered privately on your device";
+"ui.vibecast" = "VibeCast";
+"ui.genre" = "Genre";
+"ui.energy" = "Energie";
+"ui.dance" = "Danse";
+"ui.intensity" = "Intensite";
+"ui.vibe" = "Vibe";
+"ui.texture" = "Texture";
+"ui.production" = "Production";
+"ui.instrumentation" = "Instrumentation";
+"ui.arrangement" = "Arrangement";
+"ui.listening.cues" = "Listening cues";
+"ui.similar.tracks" = "Similar tracks";
+"ui.analyze.track" = "Analyze Track";
+"ui.code" = "Code";
+"ui.copy.pair.code" = "Copy Pair Code";
+"ui.playback.available" = "Playback available";
+"ui.playback.unavailable" = "Playback unavailable";
+"ui.app.store.preview.without.home.assistant" = "App Store preview without Home Assistant";
+"ui.enter.this.code.in.the.djconnect.home.assistant" = "Enter this code in the DJConnect Home Assistant integration";
+"ui.waiting.for.setup.to.be.completed.in.home" = "Waiting for setup to be completed in Home Assistant";
+"ui.open.settings.to.reset.or.recover.pairing" = "Open Settings to reset or recover pairing";
+"ui.add.your.home.assistant.url.in.settings" = "Add your Home Assistant URL in Settings";
+"ui.nothing.playing" = "Nothing Playing";
+"ui.select.an.output.device" = "Select an output device";
+"ui.previous.track" = "Previous Track";
+"ui.pause" = "Pause";
+"ui.play" = "Lire";
+"ui.next.track" = "Next Track";
+"ui.route" = "Route";
+"ui.backend" = "Backend";
+"ui.playback" = "Playback";
+"ui.disconnected" = "Disconnected";
+"ui.connected" = "Connected";
+"ui.local.demo.mode" = "Local Demo Mode";
+"ui.local.home.assistant" = "Local Home Assistant";
+"ui.remote.home.assistant" = "Remote Home Assistant";
+"ui.offline" = "Offline";
+"ui.not.reported" = "Not reported";
+"ui.value.available" = "%@ disponible";
+"ui.value.unavailable" = "%@ indisponible";
+"ui.locked.until.pairing" = "Locked until pairing";
+"ui.unavailable" = "Indisponible";
+"ui.playing" = "Lecture";
+"ui.paused" = "En pause";
+"ui.no.active.playback" = "No active playback";
+"ui.nothing.playing.13ae37" = "Nothing playing";
+"ui.playback.position" = "Playback position";
+"ui.back.15.seconds" = "Back 15 seconds";
+"ui.forward.15.seconds" = "Forward 15 seconds";
+"ui.open.track.insight" = "Open Track Insight";
+"ui.track.insight" = "Track Insight";
+"ui.remove.from.favorites" = "Remove from favorites";
+"ui.add.to.favorites" = "Add to favorites";
+"ui.output.device" = "Output Device";
+"ui.active" = "Active";
+"ui.output" = "Sortie";
+"ui.shuffle" = "Shuffle";
+"ui.on" = "On";
+"ui.off" = "Off";
+"ui.repeat" = "Repeat";
+"ui.track" = "Track";
+"ui.context" = "Context";
+"ui.scroll.to.bottom" = "Scroll to bottom";
+"ui.search.ask.dj" = "Search Ask DJ";
+"ui.refresh.ask.dj" = "Refresh Ask DJ";
+"ui.clear.chat" = "Clear chat";
+"ui.clear.ask.dj.chat" = "Clear Ask DJ chat?";
+"ui.clear.chat.9ad354" = "Clear Chat";
+"ui.previous.result" = "Résultat précédent";
+"ui.next.result" = "Résultat suivant";
+"ui.search" = "Search";
+"ui.close.search" = "Fermer la recherche";
+"ui.search.queue" = "Search Queue";
+"ui.search.playlists" = "Search Playlists";
+"ui.no.search.results" = "No search results";
+"ui.queue.1b6dc1" = "queue";
+"ui.playlists.5e5f2e" = "playlists";
+"ui.0" = "0";
+"ui.search.value" = "Rechercher dans %@";
+"ui.surprise.me.with.new.music" = "Surprise me with new music";
+"ui.which.albums.did.this.artist.release" = "Which albums did this artist release?";
+"ui.play.something.for.cooking" = "Play something for cooking";
+"ui.ask.dj" = "Ask DJ";
+"ui.finding.something.to.play" = "Finding something to play...";
+"ui.ask.dj.offline" = "Ask DJ offline";
+"ui.dj.fact" = "DJ fact";
+"ui.dj.note" = "DJ note";
+"ui.retry" = "Retry";
+"ui.feedback" = "Feedback";
+"ui.report.this.ask.dj.answer" = "Report this Ask DJ answer";
+"ui.set.in.prompt" = "Set in prompt";
+"ui.report.answer" = "Report answer";
+"ui.sending" = "sending...";
+"ui.sent" = "sent";
+"ui.failed" = "failed";
+"ui.loading.audio" = "Loading audio...";
+"ui.stop.dj.response" = "Stop DJ response";
+"ui.play.dj.response" = "Play DJ response";
+"ui.track.insight.preview" = "Track Insight preview";
+"ui.speaker" = "Speaker";
+"ui.activate" = "Activate";
+"ui.yes.please" = "Yes please";
+"ui.no.thanks" = "No thanks";
+"ui.album" = "Album";
+"ui.playlist" = "Playlist";
+"ui.podcast" = "Podcast";
+"ui.artist" = "Artist";
+"ui.sources" = "Sources";
+"ui.link" = "Link";
+"ui.open.in.browser" = "Open in Browser";
+"ui.close" = "Fermer";
+"ui.send" = "Send";
+"ui.processing.voice.request" = "Processing voice request";
+"ui.release.to.send" = "Release to send";
+"ui.hold.to.talk" = "Hold to talk";
+"ui.no.queue" = "No Queue";
+"ui.track.is.starting" = "Track is starting";
+"ui.reload.queue" = "Reload Queue";
+"ui.no.playlists" = "No Playlists";
+"ui.playlist.is.starting" = "Playlist is starting";
+"ui.reload.playlists" = "Reload Playlists";
+"ui.score" = "Score";
+"ui.high" = "High";
+"ui.tap.to.play" = "Tap to play";
+"ui.left" = "Left";
+"ui.up" = "Up";
+"ui.right" = "Right";
+"ui.down" = "Down";
+"ui.move.the.paddle.and.keep.the.ball.alive" = "Move the paddle and keep the ball alive.";
+"ui.move.left.and.right.fire.to.hit.meteors" = "Move left and right. Fire to hit meteors.";
+"ui.fly.through.the.gaps.fire.clears.an.obstacle" = "Vole et détruis les obstacles.";
+"ui.eat.dots.and.dodge.the.ghost" = "Eat dots and dodge the ghost.";
+"ui.fire" = "Fire";
+"ui.reset" = "Reset";
+"ui.app" = "App";
+"ui.stop.demo.mode" = "Stop Demo Mode";
+"ui.pair.app.again" = "Pair App Again";
+"ui.wakeword" = "Wakeword";
+"ui.disable.voice.activation" = "Disable Voice Activation";
+"ui.wakeword.status" = "Wakeword status";
+"ui.log.level" = "Log Level";
+"ui.log.disabled" = "Désactivé";
+"ui.log.disable.title" = "Désactiver la journalisation ?";
+"ui.log.disable.message" = "Tous les journaux de diagnostic affichés et enregistrés sur cet appareil seront supprimés.";
+"ui.log.disable.confirm" = "Désactiver et effacer";
+"ui.log.disable.failed" = "Les journaux n’ont pas pu être effacés. La journalisation reste activée. Réessayez.";
+"ui.warning" = "Warning";
+"ui.error" = "Error";
+"ui.how.it.works" = "How It Works";
+"ui.turn.off" = "Turn Off";
+"ui.turn.on" = "Turn On";
+"ui.listening.profile" = "Listening Profile";
+"ui.clear" = "Clear";
+"ui.permissions" = "Permissions";
+"ui.microphone" = "Microphone";
+"ui.speech.recognition" = "Reconnaissance vocale";
+"ui.notifications" = "Notifications";
+"ui.settings.moment.notifications" = "Notifications des interventions du DJ";
+"ui.settings.moment.notifications.detail" = "Recevez une notification sur cet appareil pour les nouvelles interventions du DJ.";
+"ui.request.permissions" = "Request Permissions";
+"ui.pair.app.again.c2c7b2" = "Pair App Again?";
+"ui.turn.off.music.dna" = "Turn Off Music DNA?";
+"ui.clear.music.dna" = "Clear Music DNA?";
+"ui.keep.demo.profile" = "Keep Demo Profile";
+"ui.clear.music.dna.817df9" = "Clear Music DNA";
+"ui.music.dna.export" = "Exporter Music DNA";
+"ui.music.dna.import" = "Importer Music DNA";
+"ui.music.dna.export.description" = "Enregistre ton Music DNA actuel comme sauvegarde JSON pour un autre client Apple ou une restauration Home Assistant.";
+"ui.music.dna.exporting" = "Export de Music DNA depuis Home Assistant...";
+"ui.music.dna.export.saved" = "Export enregistre";
+"ui.music.dna.import.ready.description" = "Verifie cette sauvegarde Music DNA avant de l'envoyer a Home Assistant. L'envoi remplace le profil serveur.";
+"ui.music.dna.import.requires.connection" = "Associe et connecte Home Assistant avant d'importer Music DNA.";
+"ui.music.dna.import.uploading" = "Envoi de Music DNA vers Home Assistant...";
+"ui.music.dna.import.uploaded" = "Music DNA importe dans Home Assistant.";
+"ui.music.dna.import.failed" = "Import Music DNA echoue.";
+"ui.music.dna.import.rejected" = "Home Assistant a refuse cet import.";
+"ui.music.dna.import.invalid.file" = "Ce fichier JSON Music DNA n'est pas valide.";
+"ui.music.dna.top.tracks.by.range" = "Top titres par periode";
+"ui.music.dna.top.artists.by.range" = "Top artistes par periode";
+"ui.music.dna.snapshot.history" = "Historique des snapshots";
+"ui.music.dna.discovery.feedback" = "Retour Decouvrir";
+"ui.music.dna.privacy.dashboard" = "Tableau de confidentialite";
+"ui.music.dna.active.data.sources" = "Sources de donnees actives";
+"ui.export" = "Exporter";
+"ui.import" = "Importer";
+"ui.filename" = "Nom du fichier";
+"ui.save.json" = "Enregistrer JSON";
+"ui.upload.to.home.assistant" = "Envoyer a Home Assistant";
+"ui.tracks" = "Tracks";
+"ui.artists" = "Artistes";
+"ui.genres" = "Genres";
+"ui.generation" = "Generation";
+"ui.exported" = "Exporte";
+"ui.search.logs" = "Search Logs";
+"ui.logs.copied.to.clipboard" = "Logs copied to clipboard";
+"ui.clear.logs" = "Clear Logs";
+"ui.no.logs" = "No Logs";
+"ui.logs.474c79" = "logs";
+"ui.clear.logs.1489bd" = "Clear Logs?";
+"ui.device.name" = "Device Name";
+"ui.website" = "Website";
+"ui.device.id" = "Device ID";
+"ui.connection" = "Connexion";
+"ui.connection.type" = "Connection Type";
+"ui.connection.speed" = "Connection Speed";
+"ui.home.assistant.address" = "Home Assistant address";
+"ui.push.notifications" = "Notifications push";
+"ui.music" = "Music";
+"ui.available" = "Available";
+"ui.registered" = "Enregistré";
+"ui.not.supported" = "Non pris en charge";
+"ui.action.needed" = "Action requise";
+"ui.notices" = "Mentions";
+"ui.demo" = "Demo";
+"ui.not.active" = "Not active";
+"ui.sandbox" = "Sandbox";
+"ui.fast.local.link.websocket" = "Connexion locale (WebSocket)";
+"ui.websocket.fast.path" = "WebSocket";
+"ui.use.websocket.fast.path.only.on.local.home.assistant" = "Utilise WebSocket pour des actions Home Assistant locales plus rapides. Disponible uniquement via la connexion locale.";
+"ui.normal.link.http" = "Normal link (HTTP)";
+"ui.report.ask.dj.answer" = "Report Ask DJ answer";
+"ui.what.was.wrong.or.missing" = "What was wrong or missing?";
+"ui.github.draft.context" = "GitHub draft context";
+"ui.update" = "Update";
+"ui.update.draft.context" = "Update draft context";
+"ui.open.github.draft" = "Open GitHub Draft";
+"ui.wake.word" = "Wake word";
+"ui.pair.home.assistant.first" = "Pair Home Assistant first";
+"ui.playback.backend.unavailable" = "Playback backend unavailable";
+"ui.voice.requests.unavailable" = "Voice requests unavailable";
+"ui.idle" = "Idle";
+"ui.listening.for.wake.word" = "Listening for wake word";
+"ui.wake.word.detected" = "Wake word detected";
+"ui.not.available.in.demo.mode" = "Not available in Demo Mode";
+"ui.not.available" = "Non disponible";
+"ui.ask.when.needed" = "Demander si nécessaire";
+"ui.allowed" = "Autorisé";
+"ui.denied" = "Refusé";
+"ui.restricted" = "Restreint";
+"mac.about" = "A propos";
+"mac.about.djconnect" = "About DJConnect";
+"widget.nothing.playing" = "Nothing playing";
+"widget.open.djconnect" = "Ouvrir DJConnect";
+"widget.ready" = "Pret";
+"widget.unknown.track" = "Morceau inconnu";
+"widget.unknown.artist" = "Artiste inconnu";
+"widget.djconnect" = "DJConnect";
+"widget.updated.from.djconnect" = "Updated from DJConnect";
+"widget.now" = "Maintenant";
+"widget.now.playing" = "Lecture";
+"widget.open.the.app.to.refresh" = "Open the app to refresh";
+"widget.queue" = "File d'attente";
+"widget.no.queue" = "Aucune file";
+"widget.queued" = "Queued";
+"widget.open.djconnect.to.refresh" = "Open DJConnect to refresh.";
+"widget.1.track.queued" = "1 track queued";
+"widget.value.tracks.queued" = "%d morceaux dans la file";
+"widget.playlists" = "Playlists";
+"widget.no.playlists" = "Aucune playlist";
+"widget.playlist" = "Playlist";
+"widget.1.playlist" = "1 playlist";
+"widget.value.playlists" = "%d playlists";
+"widget.no.track.insight.yet" = "No Track Insight yet";
+"widget.private" = "Prive";
+"widget.on.device" = "Sur l appareil";
+"widget.unknown.genre" = "Genre inconnu";
+"widget.evolving" = "Evolving";
+"widget.fresh" = "Fresh";
+"widget.rendered.privately.on.device" = "Rendered privately on device";
+"widget.energy" = "Energie";
+"widget.dance" = "Danse";
+"widget.intensity" = "Intensite";
+"widget.ask.dj" = "Ask DJ";
+"widget.private.on.device" = "Private - On device";
+"widget.no.ask.dj.snapshot.yet" = "Ask DJ is ready";
+"widget.playing" = "Lecture";
+"widget.paused" = "En pause";
+"widget.on" = "On";
+"widget.off" = "Off";
+"watch.value.m.ago" = "il y a %d min";
+"watch.yesterday" = "Yesterday";
+"watch.value.d.ago" = "il y a %d j";
+"watch.last.week" = "Last week";
+"watch.value.w.ago" = "il y a %d sem.";
+"watch.last.month" = "Last month";
+"watch.value.mo.ago" = "il y a %d mois";
+"watch.waiting.for.iphone.to.pair.this.watch.with" = "Waiting for iPhone to pair this Watch with Home Assistant.";
+"watch.previous.track" = "Previous track";
+"watch.pause" = "Pause";
+"watch.play" = "Lire";
+"watch.next.track" = "Next track";
+"watch.saving" = "Saving...";
+"watch.add.to.favorites" = "Add to favorites";
+"watch.remove.from.favorites" = "Remove from favorites";
+"watch.output" = "Sortie";
+"watch.queue" = "File d'attente";
+"watch.stop.demo" = "Stop demo";
+"watch.playlists" = "Playlists";
+"watch.settings" = "Reglages";
+"watch.about" = "A propos";
+"watch.legal" = "Mentions legales";
+"watch.share.feedback" = "Share feedback";
+"watch.refresh" = "Actualiser";
+"watch.apple.watch.paired" = "Apple Watch paired";
+"watch.apple.watch.is.paired.with.home.assistant.through" = "Apple Watch is paired with Home Assistant through your iPhone.";
+"watch.continue" = "Continuer";
+"watch.volume" = "Volume";
+"watch.unknown" = "Inconnu";
+"watch.no.track" = "Aucun morceau";
+"watch.ask.dj.can.fill.track.insight.details.for" = "Ask DJ can fill Track Insight details for this track.";
+"watch.rendered.privately.on.your.device" = "Rendered privately on your device";
+"watch.genre" = "Genre";
+"watch.mood" = "Ambiance";
+"watch.energy" = "Energie";
+"watch.dance" = "Danse";
+"watch.intensity" = "Intensite";
+"watch.vibe" = "Vibe";
+"watch.texture" = "Texture";
+"watch.production" = "Production";
+"watch.instrumentation" = "Instrumentation";
+"watch.arrangement" = "Arrangement";
+"watch.listening.cues" = "Listening cues";
+"watch.similar.tracks" = "Similar tracks";
+"watch.matches.music.dna" = "Matches Music DNA";
+"watch.expands.music.dna" = "Expands Music DNA";
+"watch.outside.music.dna" = "Outside Music DNA";
+"watch.refresh.music.dna" = "Refresh Music DNA";
+"watch.loading.music.dna" = "Loading Music DNA...";
+"watch.not.enabled" = "Not enabled";
+"watch.enable" = "Activer";
+"watch.no.profile.yet" = "No profile yet";
+"watch.could.not.load" = "Could not load";
+"watch.try.again" = "Reessayer";
+"watch.summary" = "Resume";
+"watch.genres" = "Genres";
+"watch.artists" = "Artistes";
+"watch.recent" = "Recent";
+"watch.signals" = "Signaux";
+"watch.not.enough.signals" = "Not enough signals";
+"watch.pair.djconnect" = "Associer la Watch";
+"watch.lan.pairing.runs.through.your.iphone" = "network pairing runs through your iPhone";
+"watch.iphone.companion" = "iPhone companion";
+"watch.demo.mode" = "Demo Mode";
+"watch.welcome.to.djconnect" = "Welcome to DJConnect";
+"watch.configure.djconnect.in.home.assistant.then.pair.this" = "Configure DJConnect in Home Assistant, then pair this Watch.";
+"watch.the.music.backend.runs.through.home.assistant" = "The music backend runs through Home Assistant.";
+"watch.microphone" = "Microphone";
+"watch.not.now" = "Pas maintenant";
+"watch.djconnect.only.uses.the.microphone.when.you.start" = "DJConnect only uses the microphone when you start an Ask DJ voice request.";
+"watch.voice.activation.only.listens.for.hey.dj.while" = "Voice activation only listens for Hey DJ while the Watch app is visible and open.";
+"watch.apple.will.ask.for.permission.next" = "Apple will ask for permission next.";
+"watch.no.wake.word.outside.the.app.apple.will" = "No wake word outside the app. Apple will ask for microphone and speech recognition permission next.";
+"watch.version" = "Version";
+"watch.device.name" = "Nom de l appareil";
+"watch.connection" = "Connexion";
+"watch.through.iphone" = "through iPhone";
+"watch.backend.error" = "Backend error";
+"watch.backend.unknown" = "Inconnu";
+"watch.target" = "Cible";
+"watch.unavailable" = "unavailable";
+"watch.local" = "Local";
+"watch.djconnect.is.not.affiliated.with.endorsed.by.or" = "DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.";
+"watch.spotify.is.a.trademark.of.spotify.ab.home" = "Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.";
+"watch.djconnect.uses.apple.platform.frameworks.and.swift.package" = "DJConnect uses Apple platform frameworks and Swift Package Manager.";
+"watch.third.party.notices.are.documented.in.the.repository" = "Third-party notices are documented in the repository when dependencies are added.";
+"watch.privacy" = "Confidentialite";
+"watch.open.a.github.issue.with.app.context.nothing" = "Open a GitHub issue with app context. Nothing is uploaded automatically.";
+"watch.open.github.issue" = "Open GitHub issue";
+"watch.does.opening.not.work.on.the.watch" = "Does opening not work on the Watch?";
+"watch.use.this.link.on.iphone.or.mac" = "Use this link on iPhone or Mac:";
+"watch.feedback" = "Feedback";
+"watch.checking.status" = "Checking status...";
+"watch.music.dna.is.enabled" = "Music DNA is enabled.";
+"watch.music.dna.is.disabled" = "Music DNA is disabled.";
+"watch.status.not.loaded.yet" = "Status not loaded yet.";
+"watch.mode" = "Mode";
+"watch.demo.mode.active" = "Demo Mode active";
+"watch.pairing" = "Pairing";
+"watch.reset.watch.pairing.and.pair.again.through.the" = "Reset Watch pairing and pair again through the iPhone companion.";
+"watch.pair.again" = "Pair again";
+"watch.clear.music.dna" = "Clear Music DNA";
+"watch.turn.off.music.dna" = "Turn Off Music DNA";
+"watch.turn.on.music.dna" = "Turn On Music DNA";
+"watch.voice.activation" = "Voice activation";
+"watch.stops.automatically.in.the.background.or.during.sleep" = "Stops automatically in the background or during sleep.";
+"watch.pair.again.9b37ad" = "Pair again?";
+"watch.cancel" = "Annuler";
+"watch.this.clears.local.watch.pairing.and.opens.the" = "This clears local Watch pairing and opens the pairing screen again.";
+"watch.turn.off.music.dna.9e036e" = "Turn Off Music DNA?";
+"watch.turn.off" = "Turn Off";
+"watch.clear.music.dna.3c1f0b" = "Clear Music DNA?";
+"watch.keep.demo.profile" = "Keep Demo Profile";
+"watch.no.logs" = "No logs";
+"watch.new.watch.actions.appear.here" = "New Watch actions appear here.";
+"watch.clear.logs" = "Clear logs";
+"watch.clear.logs.9f65b0" = "Clear logs?";
+"watch.this.removes.diagnostic.logs.on.this.watch" = "This removes diagnostic logs on this Watch.";
+"watch.no.output.devices.found" = "No output devices found.";
+"watch.refresh.output" = "Refresh Output";
+"watch.active" = "Active";
+"watch.no.playlists.found" = "No playlists found.";
+"watch.refresh.playlists" = "Refresh Playlists";
+"watch.no.queue.found" = "No queue found.";
+"watch.refresh.queue" = "Refresh Queue";
+"watch.ask.something.about.the.music.or.give.your" = "Ask something about the music or give your DJ a command.";
+"watch.why.this.track" = "Why this track?";
+"watch.surprise.me.with.new.music" = "Surprise me with new music";
+"watch.give.track.insight" = "Give Track Insight";
+"watch.play.something.for.cooking" = "Play something for cooking";
+"watch.ask.dj.can.adjust.music.when.you.ask" = "Ask DJ can adjust music when you ask.";
+"watch.finding.something" = "Finding something...";
+"watch.clearing" = "Clearing...";
+"watch.clear.chat" = "Clear chat";
+"watch.refresh.ask.dj" = "Refresh Ask DJ";
+"watch.working" = "Working";
+"watch.retry" = "Retry";
+"watch.dj.fact" = "DJ fact";
+"watch.dj.note" = "DJ note";
+"watch.stop.audio" = "Stop audio";
+"watch.play.audio" = "Play audio";
+"watch.enable.music.dna" = "Enable Music DNA?";
+"watch.explicit.opt.in" = "Explicit opt-in";
+"watch.clear.anytime" = "Clear anytime";
+"watch.can.be.turned.off.in.settings" = "Can be turned off in Settings";
+"watch.enabling" = "Enabling...";
+"watch.close" = "Fermer";
+"watch.activate" = "Activate";
+"watch.warnings" = "Warnings";
+"watch.errors" = "Errors";
+"appModel.local.wi.fi.lan.is.required.connect.this.device" = "A local network is required. Connect this device to the same local network as Home Assistant.";
+"appModel.pairing.use.external.https.or.local.network" = "Saisissez l’adresse HTTPS externe de Home Assistant ou connectez-vous à son réseau local.";
+"appModel.loading.release.notes" = "Loading release notes...";
+"appModel.release.notes.could.not.be.loaded.see.https.djconnect" = "Release notes could not be loaded. See https://djconnect.dev for more information.";
+"appModel.djconnect.token.restored.checking.home.assistant.pairing" = "DJConnect token restored. Checking Home Assistant pairing...";
+"appModel.no.djconnect.token.found.pair.again.to.continue" = "No DJConnect token found. Pair again to continue.";
+"appModel.djconnect.could.not.read.the.saved.device.token" = "DJConnect could not read the saved device token.";
+"appModel.checking.saved.home.assistant.pairing" = "Checking saved Home Assistant pairing...";
+"appModel.demo.mode.active.home.assistant.is.not.connected" = "Demo mode active. Home Assistant is not connected.";
+"appModel.demo.mode.stopped.pair.with.home.assistant.to.continue" = "Demo mode stopped. Pair with Home Assistant to continue.";
+"appModel.pairing.paused.while.djconnect.is.in.the.background" = "Pairing paused while DJConnect is in the background.";
+"appModel.open.djconnect.on.apple.watch.first.then.enter.the" = "Open DJConnect on Apple Watch first, then enter the Watch pair code again.";
+"appModel.enter.the.local.home.assistant.url.for.apple.watch" = "Enter the local Home Assistant URL for Apple Watch pairing.";
+"appModel.enter.the.6.digit.apple.watch.pair.code.shown" = "Enter the 6-digit Apple Watch pair code shown by Home Assistant.";
+"appModel.pair.apple.watch.sending.pairing.request.to.home.assistant" = "Pair Apple Watch: sending pairing request to Home Assistant...";
+"appModel.pairing.link.accepted.pairing.with.home.assistant" = "Pairing link accepted. Pairing with Home Assistant...";
+"appModel.invalid.djconnect.pairing.qr.code" = "Invalid DJConnect pairing QR code.";
+"appModel.invalid.djconnect.pairing.qr.code.or.link" = "Invalid DJConnect pairing QR code or link.";
+"appModel.invalid.apple.watch.pairing.qr.code" = "Invalid Apple Watch pairing QR code.";
+"appModel.apple.watch.is.not.reachable.open.djconnect.on.the" = "Apple Watch is not reachable. Open DJConnect on the Watch and keep iPhone, Watch and Home Assistant on the same local network.";
+"appModel.open.djconnect.on.apple.watch.first.then.scan.the" = "Open DJConnect on Apple Watch first, then scan the Watch pairing QR code again.";
+"appModel.enter.your.home.assistant.url.for.example.192.168" = "Enter your Home Assistant URL, for example 192.168.1.10:8123.";
+"appModel.enter.the.6.digit.pair.code.shown.by.home" = "Enter the 6-digit pair code shown by Home Assistant.";
+"appModel.pairing.wait.stopped" = "Pairing wait stopped.";
+"appModel.pairing.with.home.assistant" = "Pairing with Home Assistant...";
+"appModel.pairing.must.be.completed.on.the.same.local.network" = "Pairing must be completed on the same local network as Home Assistant. Use the local Home Assistant address, for example http://homeassistant.local:8123.";
+"appModel.home.assistant.recognized.this.device.finish.setup.in.home" = "Home Assistant recognized this device. Finish setup in Home Assistant.";
+"appModel.pairing.complete" = "Pairing complete.";
+"appModel.waiting.for.setup.to.be.completed.in.home.assistant" = "Waiting for setup to be completed in Home Assistant.";
+"appModel.not.completed.in.home.assistant.yet.finish.setup.there" = "Not completed in Home Assistant yet. Finish setup there, then try again.";
+"appModel.pairing.reset" = "Pairing reset.";
+"appModel.enter.the.new.pair.code.from.home.assistant" = "Enter the new pair code from Home Assistant.";
+"appModel.select.an.output.device.first" = "Select an output device first";
+"appModel.pair.with.home.assistant.before.saving.tracks" = "Pair with Home Assistant before saving tracks.";
+"appModel.favorite.status.could.not.be.changed" = "Favorite status could not be changed";
+"appModel.pair.with.home.assistant.before.using.ask.dj" = "Pair with Home Assistant before using Ask DJ.";
+"appModel.pair.with.home.assistant.before.playing.recommendations" = "Pair with Home Assistant before playing recommendations.";
+"appModel.this.recommendation.cannot.be.played.yet" = "This recommendation cannot be played yet";
+"appModel.action.could.not.be.completed" = "Action could not be completed";
+"appModel.shuffle.could.not.be.changed" = "La lecture aleatoire n'a pas pu etre modifiee";
+"appModel.repeat.could.not.be.changed" = "La repetition n'a pas pu etre modifiee";
+"appModel.volume.could.not.be.changed" = "Le volume n'a pas pu etre modifie";
+"appModel.seek.could.not.be.changed" = "Le deplacement dans le morceau a echoue";
+"appModel.track.could.not.be.changed" = "Le morceau n'a pas pu etre change";
+"appModel.playback.could.not.be.changed" = "La lecture n'a pas pu etre modifiee";
+"appModel.output.could.not.be.changed" = "La sortie n'a pas pu etre modifiee";
+"appModel.output.changed" = "Output changed";
+"appModel.choose.a.speaker.to.continue" = "Choose a speaker to continue.";
+"appModel.favorite.status.updated" = "Favorite status updated";
+"appModel.pair.with.home.assistant.before.using.voice" = "Pair with Home Assistant before using voice.";
+"appModel.microphone.access.is.required.for.push.to.talk" = "Microphone access is required for push-to-talk.";
+"appModel.mood.set.to.value" = "Ambiance definie sur %@.";
+"appModel.voice.request.completed" = "Voice request completed.";
+"appModel.voice.recording.is.not.available.on.this.platform" = "Voice recording is not available on this platform.";
+"appModel.this.action.belongs.to.a.previous.music.backend.ask" = "This action belongs to a previous music backend. Ask DJConnect again for a current recommendation.";
+"appModel.this.music.backend.does.not.support.that.action" = "This music backend does not support that action.";
+"appModel.update.the.djconnect.app.or.home.assistant.integration" = "Update the DJConnect app or Home Assistant integration.";
+"appModel.djconnect.route.missing.in.home.assistant.check.the.integration" = "DJConnect route missing in Home Assistant. Check the integration setup.";
+"appModel.not.connected.to.home.assistant" = "Not connected to Home Assistant.";
+"appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up" = "Pairing was not completed. Scan the QR code again or enter the pair code.";
+"appModel.pairing.is.stale.open.home.assistant.setup.and.enter" = "Pairing is stale. Open Home Assistant setup and enter the new pair code here.";
+"appModel.no.connection.to.home.assistant" = "Aucune connexion a Home Assistant";
+"appModel.music.backend.unavailable" = "Backend musical indisponible";
+"appModel.music.backend.temporarily.unavailable.retrying" = "The music backend in Home Assistant is temporarily unavailable. DJConnect will retry automatically.";
+"appModel.now.playing.updated" = "Speelt Nu mis a jour";
+"appModel.now.playing.update.failed" = "La mise a jour de Speelt Nu a echoue";
+"appModel.track.insight.updated" = "Track Insight mis a jour";
+"appModel.track.insight.update.failed" = "La mise a jour de Track Insight a echoue";
+"appModel.ask.dj.updated" = "Ask DJ mis a jour";
+"appModel.queue.updated" = "File d'attente mise a jour";
+"appModel.queue.update.failed" = "La mise a jour de la file d'attente a echoue";
+"appModel.discovery.updated" = "Decouvrir mis a jour";
+"appModel.discovery.update.failed" = "La mise a jour de Decouvrir a echoue";
+"appModel.playlists.updated" = "Playlists mises a jour";
+"appModel.playlists.update.failed" = "La mise a jour des playlists a echoue";
+"appModel.music.dna.updated" = "Music DNA mis a jour";
+"appModel.music.dna.update.failed" = "La mise a jour de Music DNA a echoue";
+"appModel.home.assistant.is.unreachable" = "Home Assistant est inaccessible.";
+"appModel.home.assistant.could.not.complete.pairing.check.the.pair" = "Home Assistant could not complete pairing. Check the pair code and try again.";
+"appModel.home.assistant.rejected.this.pair.code.generate.a.fresh" = "Home Assistant rejected this pair code. Generate a fresh 6-digit code in Home Assistant and try again.";
+"appModel.djconnect.update.required" = "DJConnect update required";
+"appModel.home.assistant.could.not.complete.pairing.check.the.url" = "Home Assistant could not complete pairing. Check the URL and pair code, then try again.";
+"appModel.pair.code.is.incorrect.check.the.code.in.home" = "Pair code is incorrect. Check the code in Home Assistant.";
+"appModel.home.assistant.expected.a.different.djconnect.app.type.choose" = "Home Assistant attend un autre type d app DJConnect. Choisis le flux de configuration DJConnect %@ dans Home Assistant puis associe a nouveau.";
+"appModel.update.the.djconnect.app.or.home.assistant.integration.to" = "Mets a jour l app DJConnect ou l integration Home Assistant vers %@.";
+"appModel.ask.dj.gives.real.answers.as.soon.as.djconnect" = "Ask DJ gives real answers as soon as DJConnect is paired with Home Assistant.";
+"appModel.track.insight.is.unavailable.for.this.track" = "Track Insight is unavailable for this track.";
+"appModel.start.playback.before.opening.track.insight" = "Start playback before opening Track Insight.";
+"appModel.track.insight.rate.limited.try.again.later" = "Track Insight is busy. Try refreshing again later.";
+"appModel.track.insight.is.not.available.in.this.home.assistant" = "Track Insight is not available in this Home Assistant integration yet. Update or restart the DJConnect integration.";
+"appModel.finish.the.djconnect.setup.in.home.assistant.before.using" = "Finish the DJConnect setup in Home Assistant before using Track Insight.";
+"appModel.the.music.backend.in.home.assistant.is.not.available" = "The music backend in Home Assistant is not available for Track Insight.";
+"appModel.home.assistant.could.not.create.track.insight.http.value" = "Home Assistant n a pas pu creer Track Insight. HTTP %d.";
+"appModel.home.assistant.returned.an.unexpected.track.insight.response" = "Home Assistant returned an unexpected Track Insight response.";
+"appModel.home.assistant.returned.an.unreadable.track.insight.response" = "Home Assistant returned an unreadable Track Insight response.";
+"appModel.home.assistant.is.unreachable.for.track.insight.value" = "Home Assistant est inaccessible pour Track Insight : %@";
+"appModel.pair.with.home.assistant.again.before.using.track.insight" = "Pair with Home Assistant again before using Track Insight.";
+"appModel.home.assistant.returned.an.invalid.track.insight.response" = "Home Assistant returned an invalid Track Insight response.";
+"appModel.pair.with.home.assistant.before.using.track.insight" = "Pair with Home Assistant before using Track Insight.";
+"appModel.update.the.djconnect.app.or.home.assistant.integration.before" = "Update the DJConnect app or Home Assistant integration before using Track Insight.";
+"appModel.home.assistant.did.not.respond" = "Home Assistant did not respond";
+"appModel.private.music.dna.context" = "Private Music DNA context";
+"appModel.refresh.the.spotify.connection.in.home.assistant" = "Verifie l'autorisation du service musical dans Home Assistant";
+"appModel.no.active.playback.device.found" = "No active playback device found";
+"appModel.active.player.rejected.this.command" = "Le lecteur actif n'autorise pas cette commande pour le moment";
+"appModel.not.paired.yet.open.djconnect.in.home.assistant.and" = "Not paired yet. Open DJConnect in Home Assistant and enter the current code from this screen.";
+"appModel.home.assistant.rejected.this.app.pair.djconnect.again.from" = "Home Assistant rejected this app. Pair DJConnect again from Home Assistant.";
+"appModel.pairing.could.not.be.completed.check.home.assistant.and" = "Pairing could not be completed. Check Home Assistant and enter the Home Assistant pair code again.";
+"appModel.home.assistant.refused.the.connection.because.this.address.is" = "Home Assistant refused the connection because this address is not allowed by iOS/macOS security. Use a valid local Home Assistant URL or the approved ngrok development URL.";
+"appModel.home.assistant.was.not.found.at.this.address.check" = "Home Assistant was not found at this address. Check the hostname or IP address.";
+"appModel.home.assistant.did.not.respond.in.time.check.that" = "Home Assistant did not respond in time. Check that this device is on the same network and try again.";
+"appModel.no.network.connection.to.home.assistant.check.wi.fi" = "No network connection to Home Assistant. Check Wi-Fi or the local network and try again.";
+"appModel.home.assistant.is.unreachable.on.this.local.network.check" = "Home Assistant is unreachable on this local network. Check the URL and try again.";
+"appModel.djconnect.was.not.found.in.home.assistant.open.the" = "DJConnect was not found in Home Assistant. Open the DJConnect setup flow first.";
+"appModel.home.assistant.says.this.pairing.request.is.no.longer" = "Home Assistant says this pairing request is no longer current. Generate a new pair code and try again.";
+"appModel.djconnect.and.home.assistant.are.not.on.the.same" = "DJConnect and Home Assistant are not on the same version line. Update DJConnect or the Home Assistant integration.";
+"appModel.home.assistant.received.too.many.pairing.attempts.wait.a" = "Home Assistant received too many pairing attempts. Wait a moment and try again.";
+"appModel.home.assistant.had.an.internal.error.while.pairing.check" = "Home Assistant had an internal error while pairing. Check Home Assistant and try again.";
+"appModel.audio.could.not.be.played.again" = "Audio could not be played again";
+"appModel.tap.the.microphone.icon.to.hear.a.sample.announcement" = "Tap the microphone icon to hear a sample announcement.";
+"appModel.apple.watch.is.ready.scan.the.apple.watch.qr" = "Apple Watch is ready. Scan the Apple Watch QR code from Home Assistant or enter the Watch pair code manually.";
+"appModel.open.djconnect.on.iphone.and.pair.with.local.home" = "Open DJConnect on iPhone and pair with local Home Assistant first.";
+"appModel.invalid.local.home.assistant.url.for.apple.watch.pairing" = "Invalid local Home Assistant URL for Apple Watch pairing.";
+"appModel.home.assistant.recognized.apple.watch.finish.setup.in.home" = "Home Assistant recognized Apple Watch. Finish setup in Home Assistant.";
+"appModel.home.assistant.did.not.accept.the.apple.watch.pair" = "Home Assistant did not accept the Apple Watch pair code.";
+"appModel.apple.watch.paired.with.home.assistant" = "Apple Watch paired with Home Assistant.";
+"widget.run.track.insight.in.the.app.to.update.this" = "Run Track Insight in the app to update this widget.";
+"widget.ask.dj.in.the.app.to.update.this.widget" = "Ask DJ in the app to update this widget.";
+"watch.server.side.taste.profile.for.ask.dj.context.and.recommendations" = "Server-side taste profile for Ask DJ context and recommendations.";
+"watch.enable.music.dna.to.let.home.assistant.build.a.private" = "Enable Music DNA to let Home Assistant build a private profile from future signals.";
+"watch.music.dna.is.on.but.home.assistant.has.not.built" = "Music DNA is on, but Home Assistant has not built data yet. This can happen after enabling or clearing.";
+"watch.this.is.a.temporary.backend.or.connection.issue.not.the" = "This is a temporary backend or connection issue, not the same as Music DNA being turned off.";
+"watch.open.djconnect.on.your.iphone.the.iphone.will.show.apple" = "Open DJConnect on your iPhone. Keep iPhone, Watch and Home Assistant on the same local network.";
+"watch.music.dna.is.enabled.home.assistant.can.build.a.private" = "Music DNA is enabled. Home Assistant can build a private profile from future listening signals.";
+"watch.music.dna.is.disabled.no.profile.is.being.built.and" = "Music DNA is disabled. No profile is being built, and the learned profile has already been cleared.";
+"watch.djconnect.is.still.checking.the.current.music.dna.status" = "DJConnect is still checking the current Music DNA status.";
+"watch.this.clears.learned.music.dna.on.home.assistant.and.stops" = "This clears learned Music DNA on Home Assistant and stops future buildup until you turn it on again.";
+"watch.in.the.real.app.this.clears.learned.music.dna.on" = "In the real app this clears learned Music DNA on Home Assistant. Demo data stays visible.";
+"watch.this.clears.learned.music.dna.if.music.dna.stays.enabled" = "This clears learned Music DNA. If Music DNA stays enabled, Home Assistant starts learning again from empty.";
+"watch.with.music.dna.djconnect.can.learn.from.your.taste.and" = "With Music DNA, DJConnect can learn from your taste and listening behavior to give recommendations tailored to your listening profile.";
+"watch.demo.mode.only.unlocks.fictional.sample.data.on.this.watch" = "Demo mode only unlocks fictional sample data on this watch. No backend call is made.";
+"appModel.saved.to.favorites" = "Ajoute aux favoris";
+"appModel.removed.from.favorites" = "Retire des favoris";
+"ui.djconnect" = "DJConnect";
+"ui.djconnect.can.send.a.notification.when.ask.dj.has.an" = "DJConnect can send a notification when Ask DJ has an answer for you.";
+"ui.after.this.screen.apple.will.ask.for.permission.you.can" = "After this screen, Apple will ask for permission. You can change this later in Settings.";
+"ui.djconnect.asks.for.microphone.access.for.voice.requests.and.notifications" = "DJConnect asks for microphone access for voice requests and notifications for Ask DJ responses.";
+"ui.server.push.notifications.use.apple.apns.and.contain.only.a" = "Server push notifications use Apple APNs and contain only a small wake-up message; the app syncs the real Ask DJ history after opening.";
+"ui.enter.your.home.assistant.url.for.example.192.168.1" = "Enter your Home Assistant URL, for example 192.168.1.10:8123.";
+"ui.open.djconnect.on.apple.watch.then.scan.or.enter.the" = "Open DJConnect on Apple Watch, then scan or enter the Apple Watch pair code from Home Assistant on this iPhone.";
+"ui.enter.or.scan.the.code.shown.by.home.assistant.while" = "Enter or scan the code shown by Home Assistant while this device and Home Assistant are on the same network.";
+"ui.enter.the.code.shown.by.home.assistant.while.this.device" = "Enter the code shown by Home Assistant while this device and Home Assistant are on the same network.";
+"ui.apple.watch.is.paired.with.home.assistant.through.this.iphone" = "Apple Watch is paired with Home Assistant through this iPhone.";
+"ui.djconnect.is.paired.with.home.assistant" = "DJConnect is paired with Home Assistant.";
+"ui.pairing.is.local.only.use.the.lan.address.of.home" = "L’association se fait uniquement en local. Utilisez l’adresse réseau de Home Assistant. Apple peut demander l’accès au réseau local afin que DJConnect puisse se connecter à Home Assistant sur ce réseau.";
+"ui.enter.a.valid.local.home.assistant.url.for.example.http" = "Enter a valid local Home Assistant URL, for example http://homeassistant.local:8123.";
+"ui.enter.the.6.digit.code.shown.by.home.assistant" = "Enter the 6-digit code shown by Home Assistant.";
+"ui.choose.value.in.the.home.assistant.djconnect.setup.flow.and" = "Choisissez %@ dans le flux de configuration DJConnect de Home Assistant, puis saisissez le code Home Assistant ici.";
+"ui.camera.access.is.disabled.enable.it.in.settings.to.scan" = "Camera access is disabled. Enable it in Settings to scan the DJConnect pairing QR code from Home Assistant.";
+"ui.djconnect.uses.the.camera.only.to.scan.the.pairing.qr" = "DJConnect uses the camera only to scan the pairing QR code from Home Assistant or Apple Watch. Nothing is recorded or stored.";
+"ui.scan.the.djconnect.qr.code.shown.by.home.assistant" = "Scan the DJConnect QR code shown by Home Assistant.";
+"ui.start.hands.free.with.hey.dj.while.djconnect.is.open" = "Start hands-free with \"Hey DJ\" while DJConnect is open. Microphone and speech recognition permission may be requested.";
+"ui.update.djconnect.before.continuing" = "Update DJConnect before continuing.";
+"ui.playback.queue.playlists.output.selection.and.voice.controls.are.blocked" = "Playback, queue, playlists, output selection and voice controls are blocked until the app and Home Assistant integration are compatible.";
+"ui.you.can.share.redacted.diagnostics.by.opening.a.github.issue" = "You can share logs if you want to. Nothing is uploaded automatically.";
+"ui.setup.runs.through.home.assistant.spotify.playback.requires.spotify.premium" = "Setup and music playback run through Home Assistant.";
+"ui.control.playback.volume.and.the.active.output.from.the.main" = "Control playback, volume and the active output from the main screen.";
+"ui.ask.for.music.context.or.a.voice.reply.djconnect.keeps" = "Interrogez votre DJ sur la musique, les artistes et plus encore. Écrivez ou dictez votre question, puis lisez ou écoutez la réponse.";
+"ui.analyze.the.current.track.for.mood.energy.genre.and.musical" = "Découvrez l’ambiance, l’énergie et le genre du morceau en cours, ainsi que ses détails musicaux et son histoire.";
+"ui.learn.from.your.taste.and.listening.behavior.to.shape.recommendations" = "Learn from your taste and listening behavior to shape recommendations around your listening profile.";
+"ui.play.local.mini.games.while.keeping.djconnect.ready.for.your" = "Play local mini-games while keeping DJConnect ready for your music setup.";
+"ui.djconnect.in.your.home.assistant.environment.does.not.build.a" = "DJConnect in your Home Assistant environment does not build a listening profile about you.";
+"ui.with.music.dna.djconnect.can.learn.from.your.taste.and" = "With Music DNA, DJConnect can learn from your taste and listening behavior to give recommendations tailored to your listening profile.";
+"ui.in.demo.mode.this.only.unlocks.fictional.sample.data.on" = "In demo mode this only unlocks fictional sample data on this device.";
+"ui.enable.music.dna.to.get.recommendations.tailored.to.your.listening" = "Enable Music DNA to get recommendations tailored to your listening profile.";
+"ui.music.dna.is.enabled.but.home.assistant.has.not.built" = "Music DNA est active, mais Home Assistant n'a pas encore construit de donnees de profil. Cela peut arriver juste apres l'activation ou apres l'effacement du profil appris.";
+"ui.djconnect.cannot.read.the.current.music.dna.state.from.home" = "DJConnect cannot read the current Music DNA state from Home Assistant right now. This is a temporary connection or backend issue, not the same as Music DNA being turned off.";
+"ui.future.timeline.taste.evolution.artist.affinity.mood.shifts.year.in" = "Future timeline: taste evolution, artist affinity, mood shifts, Year in Music and compatibility scores.";
+"ui.see.what.makes.the.current.track.feel.the.way.it" = "See what makes the current track feel the way it does.";
+"ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant" = "Playback is unavailable\nCheck the music service authorization in Home Assistant";
+"ui.sends.the.current.track.to.the.backend.for.analysis.and" = "Sends the current track to the backend for analysis and opens Track Insight.";
+"ui.repeat.value.click.for.value" = "Repeter : %@. Cliquez pour %@.";
+"ui.this.clears.the.ask.dj.chat.history.on.this.home" = "This clears the Ask DJ chat history on this Home Assistant account.";
+"ui.what.did.i.listen.to.last.week" = "What did I listen to last week?";
+"ui.give.me.track.insight.for.this.song" = "Give me Track Insight for this song";
+"ui.ask.about.the.music.or.give.your.dj.a.request" = "Ask about the music or give your DJ a request.";
+"ui.ask.dj.can.change.the.music.when.you.ask.for" = "Ask DJ can change the music when you ask for it.";
+"ui.shown.messages.may.be.stale.until.djconnect.is.paired.with" = "Shown messages may be stale until DJConnect is paired with Home Assistant again.";
+"ui.mood.guides.ask.dj.s.recommendations.from.calmer.tracks.to" = "Mood stylise l'app et personnalise les recommandations musicales et annonces DJ.";
+"ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic" = "Mood stylise l'app et personnalise les recommandations musicales et annonces DJ.";
+"ui.hold.to.record.a.voice.request.for.ask.dj" = "Hold to record a voice request for Ask DJ.";
+"ui.music.dna.is.enabled.home.assistant.can.use.future.listening" = "Music DNA est active. Home Assistant peut utiliser les futurs signaux d'ecoute pour creer cote serveur un profil de gout prive et ameliorer le contexte Ask DJ.";
+"ui.music.dna.is.disabled.no.listening.profile.is.being.built" = "Music DNA est desactive. Aucun profil d'ecoute n'est construit, et la desactivation a deja efface le profil appris.";
+"ui.djconnect.is.still.checking.the.current.music.dna.status" = "DJConnect is still checking the current Music DNA status.";
+"ui.needed.for.push.to.talk.voice.requests" = "Nécessaire pour les requêtes vocales en maintenant le bouton enfoncé.";
+"ui.needed.for.the.foreground.wake.phrase" = "Nécessaire pour la phrase d’activation lorsque l’app est au premier plan.";
+"ui.needed.for.server.push.notifications.when.ask.dj.answers" = "Nécessaire pour les notifications push du serveur lorsque Ask DJ répond.";
+"ui.this.clears.the.local.djconnect.pairing.and.opens.pairing.setup" = "This clears the local DJConnect pairing and opens pairing setup again.";
+"ui.this.turns.off.music.dna.and.removes.your.listening.profile" = "This turns off Music DNA and removes your listening profile data from the server.";
+"ui.in.the.real.app.this.clears.learned.music.dna.on" = "In the real app this clears learned Music DNA on your Home Assistant backend. Because this is demo mode, the fictional sample profile stays visible.";
+"ui.this.clears.learned.music.dna.on.your.home.assistant.backend" = "This clears learned Music DNA on your Home Assistant backend. If Music DNA remains enabled, it starts learning again from an empty profile.";
+"ui.this.removes.the.visible.and.persisted.diagnostic.logs" = "This removes the visible and persisted diagnostic logs.";
+"ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by" = "DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.";
+"ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is" = "Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.";
+"ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third" = "DJConnect uses Apple platform frameworks and Swift Package Manager. Third-party notices are documented in the repository when dependencies are added.";
+"ui.create.a.github.issue.draft.with.redacted.ask.dj.context" = "Create a GitHub issue draft with redacted Ask DJ context. Nothing is sent automatically.";
+"ui.review.this.text.before.opening.github.remove.anything.you.do" = "Review this text before opening GitHub. Remove anything you do not want to share.";
+"ui.open.a.github.issue.with.redacted.app.context.nothing.is" = "Open a GitHub issue with redacted app context. Nothing is uploaded automatically.";
+"trackInsight.share.share.track.insight" = "Share Track Insight";
+"trackInsight.share.create.a.share.card.or.short.animated.clip.from.this" = "Create a share card or short animated clip from this track analysis. Nothing is posted automatically.";
+"trackInsight.share.media" = "Media";
+"trackInsight.share.format" = "Format";
+"trackInsight.share.not.now" = "Not Now";
+"trackInsight.share.share.animated.vibe" = "Share Animated Vibe";
+"trackInsight.share.cancel.export" = "Cancel export";
+"trackInsight.share.preparing.share.card" = "Preparing share card...";
+"trackInsight.share.export.cancelled" = "Export cancelled.";
+"trackInsight.share.share.media.could.not.be.generated" = "Share media could not be generated.";
+"trackInsight.share.the.share.image.could.not.be.rendered" = "The share image could not be rendered.";
+"trackInsight.share.the.animated.share.video.could.not.be.prepared" = "The animated share video could not be prepared.";
+"trackInsight.share.a.video.frame.could.not.be.rendered" = "A video frame could not be rendered.";
+"trackInsight.share.the.animated.share.video.could.not.be.encoded" = "The animated share video could not be encoded.";
+"trackInsight.share.animated.video.export.is.not.supported.on.this.platform" = "Animated video export is not supported on this platform.";
+"trackInsight.share.energy" = "Energy";
+"trackInsight.share.danceability" = "Danceability";
+"trackInsight.share.intensity" = "Intensity";
+"watch.complication.open.music.control" = "Open music control";
+"watch.complication.nothing.playing" = "Nothing playing";
+"watch.complication.queue" = "File d'attente";
+"watch.complication.no.queue.snapshot" = "No queue snapshot";
+"watch.complication.queued" = "queued";
+"watch.complication.playlists" = "Playlists";
+"watch.complication.no.playlist.snapshot" = "No playlist snapshot";
+"watch.complication.open.ask.dj" = "Open Ask DJ";
+"ui.ready.click.pair.apple.watch.with.home.assistant" = "Tout est pret. Appuie sur Associer Apple Watch avec Home Assistant pour commencer.";
+"ui.ready.click.pair.with.home.assistant" = "Tout est pret. Appuie sur Associer avec Home Assistant pour commencer.";
+"ui.enter.apple.watch.6.digit.pair.code" = "Saisis le code Apple Watch a 6 chiffres affiche par Home Assistant.";
+"ui.enter.the.6.digit.pair.code.shown.by.home" = "Saisis le code a 6 chiffres affiche par Home Assistant.";
+"watch.track.energy" = "Energie du morceau";
+"ui.app.language" = "Langue de l’app";
+"ui.system.language" = "Langue du système";
+"watch.app" = "App";
+"watch.app.language" = "Langue de l’app";
+"watch.system.language" = "Langue du système";
+"widget.ask.dj.example.analyze.this.track" = "Analyse ce morceau";
+"widget.ask.dj.example.why.does.this.vibe.work" = "Pourquoi cette vibe marche ?";
+"widget.ask.dj.example.what.should.play.next" = "Que jouer ensuite ?";
+"widget.now.playing.description" = "Affiche le morceau DJConnect actuel, l’artiste, l’etat de lecture et la progression.";
+"widget.queue.description" = "Affiche la file d’attente DJConnect dans des widgets compacts et detailles.";
+"widget.playlists.description" = "Affiche les playlists DJConnect dans des widgets compacts et detailles.";
+"widget.track.insight" = "Track Insight";
+"widget.track.insight.description" = "Visualisation DJConnect Track Insight pour ta vibe actuelle.";
+"widget.ask.dj.description" = "Widget DJConnect Ask DJ pour des questions musicales rapides et le contexte de vibe.";
+"widget.ask.dj.placeholder.response" = "Demande la vibe, decouvre pourquoi un morceau fonctionne ou laisse DJConnect proposer la suite.";
+"widget.track.insight.placeholder.summary" = "Affiche l'energie, la dansabilite et l'ambiance du morceau actuel en un coup d'oeil.";
+"widget.private.on.device.music.dna" = "Prive - Sur l’appareil - Music DNA";
+"widget.djconnect.ask.dj" = "DJConnect Ask DJ";
+"watch.complication.djconnect.description" = "Ouvre DJConnect depuis ton cadran.";
+"watch.complication.now.playing.description" = "Lecture DJConnect actuelle.";
+"watch.complication.queue.description" = "Prochains morceaux DJConnect.";
+"watch.complication.playlists.description" = "Raccourcis de playlists DJConnect.";
+"watch.complication.track.insight" = "Track Insight";
+"watch.complication.track.insight.description" = "Vibe et energie du morceau par DJConnect.";
+"watch.complication.ask.dj.description" = "Ouvre Ask DJ depuis ton cadran.";
+"watch.complication.ready" = "Pret";
+"widget.preview.mood.dreamy" = "Reveur";
+"widget.preview.mood.nostalgic" = "Nostalgique";
+"ui.discover" = "Decouvrir";
+"ui.session.title" = "Session DJ";
+"ui.session.idle" = "Aucune session active.";
+"ui.session.select_mood" = "Choisissez votre ambiance";
+"ui.session.mood.chill" = "Détente";
+"ui.session.mood.groove" = "Groove";
+"ui.session.mood.energy" = "Énergie";
+"ui.session.mood.party" = "Fête";
+"ui.session.start" = "Démarrer la session DJ";
+"ui.session.active" = "Session DJ active";
+"ui.session.mood" = "Ambiance";
+"ui.session.backend" = "Service musical";
+"ui.session.started_at" = "Démarrée à";
+"ui.session.planner" = "Planificateur";
+"ui.session.horizon" = "Horizon de planification";
+"ui.session.direction" = "Direction actuelle";
+"ui.session.flow" = "Déroulement de session";
+"ui.session.queue" = "File de lecture";
+"ui.session.end" = "Terminer la session";
+"ui.refresh.discover" = "Actualiser Decouvrir";
+"ui.discovery.could.not.be.loaded" = "Decouvrir n a pas pu etre charge";
+"ui.no.discovery.recommendations" = "Aucune recommandation pour le moment";
+"ui.no.discovery.recommendations.available.currently" = "Aucune recommandation disponible pour le moment";
+"ui.discovery.recommendations.will.appear.after.music.dna.has.more.signals" = "Découvrez des morceaux, artistes et albums adaptés à vos goûts musicaux. Écoutez les recommandations et indiquez ce qui vous plaît.";
+"ui.discovery.not.for.me" = "Pas pour moi";
+"ui.discovery.less.like.this" = "Moins comme ca";
+"ui.discovery.hide.artist" = "Masquer l artiste";
+"ui.why.this" = "Pourquoi ?";
+"ui.play.now" = "Lire maintenant";
+"ui.chat.history" = "Historique du chat";
+"ui.auto.play.dj.answers" = "Auto play DJ answers";
+"ui.play.dj.answer.audio.as.soon.as.it.arrives" = "Play DJ answer audio as soon as it arrives.";
+"ui.export.ask.dj.history" = "Exporter l'historique Ask DJ";
+"ui.ask.dj.history.export.description" = "Telecharge en JSON l'export d'historique Ask DJ cree par Home Assistant.";
+"ui.ask.dj.history.exporting" = "Export de l'historique Ask DJ...";
+"ui.ask.dj.history.export.saved" = "Export de l'historique Ask DJ enregistre.";
+"ui.ask.dj.history.export.failed" = "Impossible d'exporter l'historique Ask DJ.";
+"ui.output.recently.seen" = "Vu récemment";
+"appModel.cached.spotify.output.unavailable" = "Spotify n’expose pas cette sortie pour le moment. Ouvrez Spotify une fois sur cet appareil puis réessayez.";
+"ui.vibecast.handoff.title" = "Démarrer une session VibeCast";
+"ui.vibecast.handoff.instructions" = "Ouvrez VibeCast sur l’écran où vous souhaitez afficher votre session DJ. Saisissez ci-dessous le code qui y apparaît. Seule votre session DJ active est partagée.";
+"ui.vibecast.handoff.code" = "Code à six chiffres";
+"ui.vibecast.handoff.approve" = "Démarrer une session VibeCast";
+"ui.vibecast.handoff.approved" = "Code approuvé. En attente de la connexion de VibeCast.";
+"ui.vibecast.handoff.failed" = "Le code a expiré ou le transfert a échoué.";
+
+// Native Moment-first Session
+"ui.session.back_current" = "Revenir à la contribution actuelle";
+"ui.session.music_progress" = "Progression musicale";
+"ui.session.moment.generic" = "Contribution du DJ";
+"ui.session.moment.track_context" = "Histoire du morceau";
+"ui.session.moment.artist_story" = "Histoire de l’artiste";
+"ui.session.moment.album_story" = "Histoire de l’album";
+"ui.session.moment.genre_story" = "Histoire du genre";
+"ui.session.moment.transition" = "Transition";
+"ui.session.moment.session_direction" = "Direction de la session";
+"ui.session.moment.recommendation" = "Recommandation";
+"ui.session.unavailable" = "La session DJ est temporairement indisponible.";
+"ui.session.demo_unavailable" = "Les sessions DJ ne sont pas disponibles en mode démo.";
+"ui.session.requires_connection" = "Connectez-vous à Home Assistant pour démarrer une session DJ.";
+
+"ui.session.source_current" = "Enregistrement";
+"ui.session.source_previous" = "Enregistrement précédent";
+
+"ui.session.reconnecting" = "Reconnexion à la session DJ…";
+
+// Native Session conversation and owner history
+"ui.session.history.title" = "Sessions précédentes";
+"ui.session.history.coverage" = "Seules les contributions enregistrées autorisées sont affichées ; cet historique ne couvre pas toutes les écoutes.";
+"ui.session.history.loading" = "Chargement des sessions";
+"ui.session.history.unavailable" = "L’historique des sessions est temporairement indisponible.";
+"ui.session.history.empty" = "Aucune session enregistrée";
+"ui.session.history.interrupted" = "Interrompue";
+"ui.session.history.no_entries" = "Cette session ne contient aucune contribution enregistrée.";
+"ui.session.history.changed" = "Le contexte ou l’historique a changé. Réessayez.";
+"ui.session.history.current_context" = "Utiliser le contexte actuel";
+"ui.session.history.awaiting" = "En attente de la réponse du DJ";
+"ui.session.history.new_entries" = "Nouvelles contributions";
+"ui.session.history.selected_context" = "Contribution sélectionnée";
+"ui.session.history.search" = "Rechercher dans cette session";
+"ui.session.history.no_match" = "Aucun résultat dans cette session";
+"ui.session.history.complete" = "Recherche terminée";
+"ui.session.history.partial" = "D’autres résultats peuvent suivre";
+"ui.session.history.voice" = "Question vocale";
+"ui.session.history.playback" = "Lecture observée";
+"ui.session.history.ask_entry" = "Question sur cette contribution";
+"ui.session.history.observed" = "Une lecture a été observée ; l’écoute complète n’est pas prouvée.";
+"ui.session.history.open" = "Ouvrir la session";
+"ui.session.history.earlier" = "Charger les contributions précédentes";
+
+"ui.session.history.voice_failed" = "L’enregistrement ou la demande vocale a échoué. Réessayez d’enregistrer.";
+
+"ui.session.history.no_entries_active" = "Cette session ne contient pas encore de contributions.";
+"ui.music.dna.temporarily_unavailable" = "Music DNA est indisponible pour le moment. Réessaie.";
+
+"ui.session.live_unavailable" = "La session DJ ne peut pas être actualisée pour le moment.";
+
+"ui.session.history.end_unknown" = "heure de fin inconnue";
+"ui.session.history.less_than_minute" = "moins de 1 minute";
+
+// Native session refresh and readable Music DNA privacy.
+"ui.session.history.refresh" = "Actualiser les sessions précédentes";
+"ui.session.history.updated" = "Sessions précédentes actualisées";
+"ui.music.dna.privacy.enabled.yes" = "Music DNA est activé.";
+"ui.music.dna.privacy.enabled.no" = "Music DNA est désactivé.";
+"ui.music.dna.privacy.clear.yes" = "Vous pouvez effacer votre Music DNA.";
+"ui.music.dna.privacy.clear.no" = "La suppression est actuellement indisponible.";
+"ui.music.dna.privacy.export.yes" = "Vous pouvez télécharger votre Music DNA.";
+"ui.music.dna.privacy.export.no" = "Le téléchargement est actuellement indisponible.";
+"ui.music.dna.privacy.import.yes" = "Vous pouvez importer votre Music DNA.";
+"ui.music.dna.privacy.import.no" = "L’importation est actuellement indisponible.";
+"ui.music.dna.privacy.audio.yes" = "Les enregistrements vocaux sont conservés.";
+"ui.music.dna.privacy.audio.no" = "Les enregistrements vocaux ne sont pas conservés.";
+"ui.music.dna.privacy.credentials.yes" = "Les jetons d’accès aux services musicaux sont conservés.";
+"ui.music.dna.privacy.credentials.no" = "Les jetons d’accès aux services musicaux ne sont pas conservés.";
+"ui.music.dna.privacy.questions.yes" = "Les questions complètes sont conservées.";
+"ui.music.dna.privacy.questions.no" = "Les questions complètes ne sont pas conservées.";
+"ui.music.dna.privacy.unknown" = "Les informations de confidentialité sont actuellement indisponibles.";
+"ui.session.mood.updating" = "Actualisation de l’ambiance…";
+"ui.session.mood.failed" = "Ambiance non actualisée. Vérifiez le choix actuel et réessayez.";
+"ui.output.refresh" = "Actualiser les appareils de sortie";
+"ui.session.history.start_unknown" = "heure de début inconnue";
+
+// Curated local App Store review sessions.
+"demo.horizon.notice" = "Démo · Exemple Horizon";
+"demo.horizon.current" = "Maintenant";
+"demo.horizon.guidance" = "Les prochaines minutes";
+"demo.horizon.aim" = "Mon objectif";
+"demo.horizon.direction" = "Je vais faire monter doucement l’énergie en partant du groove actuel.";
+"demo.session.notice" = "Démo · Sessions fictives, pas votre historique d’écoute";
+"demo.session.title" = "Une soirée avec le DJ";
+"demo.session.direction" = "Nous gardons le groove. Des synthés chaleureux et une transition douce laissent place au morceau suivant.";
+"demo.session.archive_direction" = "Cette session a commencé doucement puis a gagné en énergie. Un exemple de la façon dont le DJ accompagne votre écoute.";
+"demo.session.question" = "Parle-moi de cette contribution";
+"demo.session.answer" = "Dans cet exemple, le DJ maintient l’ambiance et prépare une transition douce. Dans une vraie session, votre musique et la contribution choisie fournissent le contexte.";
+"demo.session.voice_question" = "Exemple de question vocale : que choisir ensuite ?";
+"demo.session.voice_answer" = "Un morceau un peu plus énergique convient à ce groove. Cette réponse de démo est préparée ; rien n’a été enregistré ni joué.";
+"demo.session.voice_hint" = "Afficher un exemple de question vocale";
+
+// Native invitation when no DJ Session is active.
+"ui.session.welcome.eyebrow" = "Bienvenue sur DJConnect";
+"ui.session.welcome.title" = "Votre DJ est prêt.";
+"ui.session.welcome.subtitle" = "Découvrez la musique qui vous correspond et les histoires derrière ce que vous écoutez.\nDemandez-en plus à votre DJ ou laissez-vous guider.";
+"ui.session.welcome.mood" = "Votre ambiance";
+
+"ui.session.music_duration" = "Temps écoulé et durée totale";
+"ui.session.music_remaining" = "Temps restant";
+
+"ui.session.end.confirm" = "Terminer cette session DJ ?";
+
+"ui.connection.status" = "État de la connexion";
+
+"ui.connection.offline" = "Pas de connexion à Home Assistant";
+"ui.connection.recovering" = "Reconnexion à la session DJ…";
+"ui.connection.backend_unavailable" = "La musique est temporairement indisponible";
+
+"ui.session.playback_paused_detail" = "Votre musique est en pause. Votre session DJ reste active.";
+
+"ui.chat.you" = "Vous";
+
+"ui.session.mood.unavailable" = "Le changement d’ambiance n’est pas encore disponible via cette connexion.";
+
+"ui.session.chat.placeholder" = "Discutez avec le DJ…";
+
+"ui.music.dna.range.short_term" = "Court terme";
+
+"ui.music.dna.range.medium_term" = "Moyen terme";
+
+"ui.music.dna.range.long_term" = "Long terme";
+
+"ui.music.dna.recovering" = "Music DNA est temporairement indisponible et sera rechargé automatiquement.";
+
+"ui.music.dna.profile_access" = "Music DNA est inaccessible pour ce profil. Vérifiez votre profil dans les réglages.";
+
+"ui.music.dna.processing_failed" = "Music DNA n’a pas pu être traité. Signalez-le via Feedback.";
+
+"ui.session.history.detail.label" = "Session";
+"ui.session.history.detail.title" = "Session %@";
+
+// Ephemeral active Session presence, Core v1.
+"ui.session.presence.music_only" = "Musique uniquement";
+"ui.session.presence.occasional" = "De temps en temps";
+"ui.session.presence.balanced" = "Équilibré";
+"ui.session.presence.talkative" = "Bavard";
+"ui.session.presence.presenter" = "Narratif";
+"ui.session.presence.title" = "Présence du DJ";
+"ui.session.presence.explanation" = "Combien le DJ raconte-t-il pendant votre session ?";
+"ui.session.presence.confirmed" = "Confirmé";
+"ui.session.presence.pending" = "Choisi";
+"ui.session.presence.unavailable" = "La présence du DJ est indisponible sur cette connexion.";
+"ui.session.presence.conflict" = "Le réglage de la session a changé ailleurs. Gardez-le ou appliquez votre choix.";
+"ui.session.presence.uncertain" = "La confirmation est indisponible. Vérifiez le réglage confirmé avant de réappliquer votre choix.";
+"ui.session.presence.accept_current" = "Garder le réglage confirmé";
+"ui.session.presence.apply_choice" = "Appliquer mon choix";
+"ui.session.presence.music_only_help" = "Musique uniquement arrête les futures interventions spontanées du DJ. Vous pouvez toujours discuter avec le DJ et lire les interventions précédentes.";
+
+"ui.session.history.back_top" = "Revenir en haut";
+
+"ui.music.dna.hero.description" = "Music DNA apprend de tes goûts musicaux et de tes habitudes d’écoute pour te proposer des recommandations adaptées.";
+
+"ui.navigation.menu" = "Afficher ou masquer le menu de navigation";
+
+"ui.track.insight.play.music.first" = "Lancez de la musique pour analyser un morceau.";
+
+"ui.session.presence.loading" = "Vérification de la présence du DJ…";
+"ui.session.presence.temporarily_unavailable" = "Impossible de charger la présence du DJ. Rouvrez ce panneau pour réessayer.";
+"ui.session.presence.unsupported" = "L’intégration DJConnect dans Home Assistant ne propose pas encore la présence du DJ.";
+"ui.session.presence.no_active_session" = "Aucune session active valide pour ce réglage.";
+"ui.session.presence.invalid_state" = "La session n’a pas renvoyé de réglage valide pour la présence du DJ.";
+"ui.session.presence.incompatible_response" = "Le serveur a renvoyé une réponse incompatible pour la présence du DJ.";
+
+"ui.session.presence.level" = "Présence";
+
+"ui.connection.combined.demo" = "Mode démo";
+"ui.connection.combined.ready" = "Non associé";
+"ui.connection.combined.pairing" = "Association…";
+"ui.connection.combined.setupPending" = "Confirmer dans Home Assistant";
+"ui.connection.combined.stale" = "Nouvelle association requise";
+"ui.connection.combined.networkUnavailable" = "Aucun réseau";
+"ui.connection.combined.offline" = "Home Assistant inaccessible";
+"ui.connection.combined.connecting" = "Reconnexion…";
+"ui.connection.combined.recovering" = "Connecté · mise à jour de la session";
+"ui.connection.combined.liveUnavailable" = "Connecté · session indisponible";
+"ui.connection.combined.backendUnavailable" = "Connecté · musique indisponible";
+"ui.connection.combined.updateRequired" = "Mise à jour requise";
+"ui.connection.combined.connected" = "Connecté · local";
+"ui.connection.combined.remote" = "Connecté · distant";
+
+"ui.push.configuration_needed" = "Configuration requise";
+"ui.push.registration_failed" = "Échec de l’enregistrement";
+"ui.push.registration_confirmed_detail" = "Cet appareil est enregistré pour les notifications push.";
+"ui.push.registration_pending_detail" = "L’enregistrement push de cet appareil n’est pas encore confirmé.";
+"ui.push.configuration_detail" = "Le service d’enregistrement de confiance ou la preuve d’amorçage manque. La configuration DJConnect doit être corrigée ; refaire l’association n’est pas une solution générale.";
+"ui.push.environment_detail" = "Les environnements push de l’app et du serveur ne correspondent pas. La configuration de l’app doit être corrigée.";
+"ui.push.apns_detail" = "L’enregistrement auprès d’Apple a échoué. Vérifiez les réglages de notification. Si le problème persiste, la configuration de l’app doit être vérifiée.";
+"ui.push.transport_detail" = "Le service d’enregistrement est inaccessible. Réessayez une fois la connexion rétablie.";
+"ui.push.permission_detail" = "L’autorisation des notifications n’est pas confirmée. Vérifiez les réglages de cette app.";
+"ui.push.open_settings" = "Ouvrir les réglages de notification";
+
+"ui.vibecast.handoff.unconfirmed" = "Le transfert n’est pas confirmé. Vérifiez l’écran VibeCast avant de réessayer.";
+"ui.vibecast.handoff.code_unavailable" = "Ce code n’est plus disponible. Ouvrez VibeCast et utilisez le code actuel.";
+
+"ui.session.insight.loading" = "Chargement de Track Insight pour ce titre…";
+
+"ui.session.insight.unavailable" = "Impossible de charger Track Insight pour cette contribution. Réessayez.";
+
+"ui.session.insight.expired" = "Track Insight pour cette contribution n’est plus disponible.";
+
+"ui.session.insight.context_changed" = "Les paramètres de la session ont changé. Rechargez cette analyse.";
+
+"ui.trackInsight.verified_credits" = "Crédits vérifiés";
+"ui.trackInsight.interpretation" = "Interprétation";
+"ui.refresh.page" = "Actualiser la page";
+
+"ui.transport.automatic" = "L’app choisit automatiquement une connexion disponible et la rétablit lorsque le réseau change.";
+
+"ui.transport.confirmed_no_body" = "Votre action a été effectuée. L’affichage n’a pas encore été actualisé.";
+"ui.transport.uncertain" = "Nous ne pouvons pas encore confirmer que votre action a réussi.";
+"ui.transport.untrusted" = "Cette connexion n’a pas pu être vérifiée comme votre Home Assistant associé. Vérifiez l’adresse configurée.";
+"ui.transport.recovering" = "La connexion est en cours de rétablissement. Réessayez l’action plus tard.";
+"ui.transport.snapshot_gap" = "La session actuelle est à jour. Certaines contributions pendant l’interruption n’ont pas pu être récupérées.";
+
+"ui.connection.details" = "Détails";
+
+"ui.connection.transport" = "Transport";
+
+"ui.connection.address.active" = "Serveur Home Assistant";
+
+"ui.connection.address.unconfirmed" = "Route active pas encore confirmée";
+
+"ui.output.switching" = "Changement en cours…";
+"ui.output.switch.unconfirmed" = "Le changement d’enceinte n’est pas encore confirmé. Actualisez les appareils de sortie pour vérifier son état.";
+
+"surface.session.active" = "Session DJ active";
+"surface.session.open" = "Ouvrir la session DJ";
+"surface.session.open.app" = "Ouvrez DJConnect pour voir votre session.";
+"surface.session.description" = "Votre session DJ avec un statut commun.";
+
+"ui.session.artwork.refresh" = "Actualiser l’image";
+"ui.session.artwork.unavailable" = "Aucune image n’est disponible pour le moment.";
+
+// Session speech recovery presentation; producer mapping remains separate.
+"ui.session.speech.recovery.title" = "La lecture vocale est indisponible";
+"ui.session.speech.recovery.body" = "Vous pouvez toujours lire la contribution. Dans Home Assistant, vérifiez le pipeline Assist sélectionné dans DJConnect : son fournisseur TTS, la connexion et les autorisations du fournisseur, la langue et la voix.";
+"ui.session.speech.recovery.help" = "Instructions de dépannage";
+"ui.session.speech.recovery.retry" = "Écouter à nouveau";
+"ui.session.speech.recovery.checking" = "Vérification de la lecture vocale…";
+"ui.session.speech.recovery.retry_later" = "Patientez un instant avant de réécouter.";
+"ui.session.speech.recovery.retained" = "Vous pouvez toujours lire la contribution et utiliser les commandes de la session.";
+
+// Confirmed active Session Persona; shared backend state.
+"ui.session.persona.title" = "Caractère du DJ";
+"ui.session.persona.home_dj" = "DJ à la maison";
+"ui.session.persona.radio_dj" = "DJ radio";
+"ui.session.persona.club_dj" = "DJ de club";
+"ui.session.persona.festival_dj" = "DJ de festival";
+"ui.session.persona.confirmed" = "Confirmée";
+"ui.session.persona.pending" = "Modification du caractère du DJ…";
+"ui.session.persona.unavailable" = "Le caractère du DJ est actuellement indisponible.";
+"ui.session.persona.conflict" = "Le caractère du DJ a changé sur un autre appareil. Vérifiez le choix confirmé et choisissez à nouveau.";
+"ui.session.persona.failed" = "La modification n’a pas été confirmée. Vérifiez le caractère actuel du DJ avant de réessayer.";
+
+"ui.session.voice.title" = "Voix";
+"ui.session.voice.scope" = "Le choix de voix s’applique à vous dans cette session sur cet appareil.";
+"ui.session.voice.loading" = "Chargement des voix…";
+"ui.session.voice.default" = "Voix par défaut de Home Assistant";
+"ui.session.voice.configured" = "Voix configurée par défaut";
+"ui.session.voice.unavailable" = "Voix indisponible. Vérifiez les réglages vocaux de Home Assistant ou actualisez les voix disponibles.";
+"ui.session.voice.refresh" = "Actualiser les voix";
+"ui.session.voice.selected" = "Sélectionnée";
+
+"ui.session.voice.choice" = "Choisir une voix";
+"ui.session.voice.selection_unavailable" = "Voix sélectionnée indisponible";
+
+"ui.session.voice.gender" = "Type de voix";
+"ui.session.voice.male" = "Masculine";
+"ui.session.voice.female" = "Féminine";
+
+"ui.trackInsight.analysis.title" = "Analyse musicale";
+"ui.trackInsight.analysis.unavailable" = "Aucune mesure audio n’est disponible pour ce morceau. Le contexte et l’interprétation sont distincts des mesures audio.";
+
+/* First DJ session navigation introduction */
+"ui.session.intro.skip" = "Ignorer";
+"ui.session.intro.back" = "Retour";
+"ui.session.intro.next" = "Suivant";
+"ui.session.intro.done" = "Commencer";
+"ui.session.intro.toolbar.title" = "Menus en haut";
+"ui.session.intro.toolbar.body" = "Choisissez l’ambiance, la présence et le caractère du DJ. Le carré rouge met fin à la session DJ. Le globe affiche l’état de la connexion.";
+"ui.session.intro.chat.title" = "Discuter avec le DJ";
+"ui.session.intro.chat.body" = "Choisissez une suggestion ou posez votre question par texte ou au microphone. Le point d’interrogation explique les possibilités disponibles.";
+"ui.session.intro.artwork.title" = "Contrôler la pochette";
+"ui.session.intro.artwork.body" = "Lorsqu’un morceau joue, utilisez ces gestes sur sa pochette. Il n’est pas nécessaire de les essayer maintenant.";
+"ui.session.intro.gesture.1" = "1× : pause ou lecture";
+"ui.session.intro.gesture.2" = "2× : morceau suivant";
+"ui.session.intro.gesture.3" = "3× : morceau précédent";
+"ui.session.intro.navigation.title" = "Navigation en bas";
+"ui.session.intro.navigation.body" = "Passez entre Session DJ, File d’attente, Track Insight, Découvrir et Plus. Les réglages se trouvent sous Plus.";
+"ui.session.intro.sidebar.title" = "Navigation à gauche";
+"ui.session.intro.sidebar.body" = "Utilisez la barre latérale pour passer entre la session DJ, la lecture en cours, Track Insight, Découvrir et les autres écrans.";
+
+// Shared main brand tagline: launch, About, setup and Watch About.
+"brand.tagline" = "Votre musique. Votre DJ.";
+
+// Shared Profile and Session DJ settings contract3.
+"ui.dj_settings.profile" = "Profil";
+"ui.dj_settings.title" = "Préférences vocales";
+"ui.dj_settings.persona" = "Caractère du DJ";
+"ui.dj_settings.voice" = "Préférence de voix";
+"ui.dj_settings.gender" = "Genre de voix";
+"ui.dj_settings.mood" = "Ambiance";
+"ui.dj_settings.presence" = "Présence";
+"ui.dj_settings.output" = "Préférence de lecture";
+"ui.dj_settings.defaults_scope" = "Réglages de départ de votre prochaine session.";
+"ui.dj_settings.session_scope" = "S’applique maintenant et sera mémorisé pour votre prochaine session.";
+"ui.dj_settings.review_choices" = "Vérifiez les six choix proposés avant de les activer. Aucun choix n’a été repris automatiquement.";
+"ui.dj_settings.confirm_six" = "Confirmer ces six choix";
+"ui.dj_settings.selection_unavailable" = "Choix enregistré indisponible";
+"ui.dj_settings.voice_unavailable" = "Votre voix enregistrée est indisponible. Conservez-la ou choisissez une autre voix.";
+"ui.dj_settings.provider_default" = "Voix par défaut du fournisseur";
+"ui.dj_settings.reset_voice" = "Utiliser la voix par défaut sans préférence de genre";
+"ui.dj_settings.voice_preserved_text_only" = "Les choix de voix sont conservés. Le mode texte seul ne produit aucun audio.";
+"ui.dj_settings.speaker_unavailable" = "Le haut-parleur HA est indisponible. Configurez-le dans Home Assistant.";
+"ui.dj_settings.device_local" = "La lecture automatique, la sortie et les autorisations restent propres à cet appareil.";
+"ui.dj_settings.demo_unavailable" = "Les réglages personnels sont indisponibles en mode démo.";
+"ui.dj_settings.unavailable" = "Vos réglages DJ sont indisponibles. Vérifiez la connexion et la version de Home Assistant.";
+"ui.dj_settings.loading" = "Chargement des choix confirmés…";
+"ui.dj_settings.saving" = "Enregistrement de votre choix…";
+"ui.dj_settings.saved" = "Enregistré pour ce profil.";
+"ui.dj_settings.conflict" = "Ce choix n’a pas pu être enregistré. Vérifie les réglages actuels avant de choisir à nouveau.";
+"ui.dj_settings.uncertain" = "Le résultat est inconnu. Votre modification ne sera pas renvoyée automatiquement.";
+"ui.dj_settings.check_outcome" = "Vérifier le résultat";
+"ui.dj_settings.use_current" = "Utiliser les choix actuels confirmés";
+"ui.dj_settings.refresh" = "Actualiser";
+"ui.dj_settings.gender.default" = "Sans préférence";
+"ui.dj_settings.gender.female" = "Féminin";
+"ui.dj_settings.gender.male" = "Masculin";
+"ui.dj_settings.output.client_device" = "Mes appareils DJConnect";
+"ui.dj_settings.output.both" = "Mes appareils DJConnect + enceinte HA";
+"ui.dj_settings.output.ha_speaker" = "Enceinte HA uniquement";
+"ui.dj_settings.output.text_only" = "Texte uniquement (sans voix)";
+
+// Target-aware manual speech.
+"ui.dj_settings.listen_local" = "Écouter sur cet appareil";
+"ui.dj_settings.stop_local" = "Arrêter sur cet appareil";
+"ui.dj_settings.target.local" = "Cet appareil";
+"ui.dj_settings.target.ha_speaker" = "Haut-parleur HA";
+"ui.dj_settings.target.both" = "Les deux";
+"ui.dj_settings.target.choose" = "Lire sur…";
+"ui.dj_settings.delivery.preparing" = "Préparation";
+"ui.dj_settings.delivery.ready" = "Prêt";
+"ui.dj_settings.delivery.queued" = "En file, lecture audible non confirmée";
+"ui.dj_settings.delivery.accepted" = "Accepté, lecture audible non confirmée";
+"ui.dj_settings.delivery.playing" = "Lecture locale";
+"ui.dj_settings.delivery.finished" = "Lecture locale terminée";
+"ui.dj_settings.delivery.failed" = "Échec";
+"ui.dj_settings.delivery.unavailable" = "Indisponible";
+"ui.dj_settings.delivery.unknown" = "Résultat inconnu ; aucun renvoi";
+
+"ui.dj_settings.replay_local" = "Réécouter sur cet appareil";
+
+"ui.dj_settings.delivery.stopped" = "Arrêté";
+
+"appModel.device.volume.control.unavailable" = "Réglez le volume directement sur cet appareil.";
+
+"ui.output.name.unavailable" = "Nom indisponible";
+"surface.consent.title" = "Affichage hors de l’app";
+"surface.consent.explanation" = "Afficher les courtes interventions DJ, les informations musicales et les pochettes autorisées de cette session hors de l’app, même lorsque l’appareil est verrouillé.";
+"surface.consent.widget" = "Interventions sur les widgets";
+"surface.consent.activity" = "Interventions sur l’écran verrouillé";
+"surface.consent.unavailable" = "Cet affichage est actuellement indisponible.";
+"surface.consent.failed" = "Impossible de confirmer l’affichage. Réessayez.";
+"surface.consent.expiry" = "Valable pour cette session. Le contenu expire en deux minutes maximum. Autorisez-le à nouveau après un redémarrage de l’app. Le système peut conserver plus longtemps des images déjà affichées.";
+"watch.session.loading" = "Chargement de votre session DJ…";
+"watch.session.unavailable" = "La session DJ est temporairement indisponible. Ouvrez DJConnect sur votre iPhone.";
+"watch.session.waiting" = "Le DJ écoute avec vous.";
+"watch.session.settings" = "Réglages DJ";
+
+"ui.app.glass.effects" = "Effets de verre";
+"ui.app.glass.effects.description" = "Désactivez pour un affichage plus simple avec moins d’effets graphiques.";
+
+"ui.session.start_metadata" = "Session DJ démarrée à %1$@ le %2$@";
+
+// Ask DJ submission failures are distinct from history availability.
+"ui.ask_dj.answer.unavailable" = "Ask DJ ne peut malheureusement pas répondre à ta question ou demande pour le moment.";
+"ui.ask_dj.answer.connection" = "Ask DJ ne peut pas répondre à ta question ou demande pour le moment, car la connexion a été interrompue.";
+"ui.ask_dj.answer.context_changed" = "Le contexte de la session a changé. Vérifie ta question avant de la renvoyer.";
+
+// Device-local Apple speech renderer
+"ui.device_speech.title" = "Sur cet appareil · Voix";
+"ui.device_speech.enabled" = "Utiliser Apple TTS sur cet appareil";
+"ui.device_speech.explanation" = "Lorsque cette option est activée, une voix Apple lit les interventions du DJ sur cet appareil. Choisissez ci-dessous la voix, le débit et la hauteur. Réglez séparément la lecture automatique et la lecture via Home Assistant.";
+"ui.device_speech.gender" = "Type de voix";
+"ui.device_speech.system" = "Automatique";
+"ui.device_speech.female" = "Féminine";
+"ui.device_speech.male" = "Masculine";
+"ui.device_speech.voice" = "Voix";
+"ui.device_speech.unavailable" = "Aucune voix adaptée disponible";
+"ui.device_speech.rate" = "Débit de parole";
+"ui.device_speech.pitch" = "Hauteur de la voix";
+"ui.device_speech.stop" = "Arrêter l’extrait";
+"ui.device_speech.preview" = "Écouter un extrait";
+"ui.device_speech.pending" = "La voix du DJ sur cet appareil nécessite la prise en charge par Home Assistant connecté.";
+"ui.device_speech.sample" = "Votre musique. Votre DJ. Voici un extrait de la voix de cet appareil.";
+
+"watch.session.current" = "Dernier moment DJ";
+"watch.session.listen" = "Écouter";
+"watch.session.stop_speech" = "Arrêter";
+"watch.session.speech_settings" = "Voix sur cette Watch";
+"watch.session.enable_speech" = "Activez Apple TTS pour écouter les interventions du DJ sur cette Watch.";
+"watch.session.speech_unavailable" = "Cette intervention ne peut pas être lue pour le moment. Réessayez.";
+
+"ui.music.availability.unconfirmed" = "Impossible à vérifier";
+
+"ui.session.history.search_sessions" = "Rechercher des sessions précédentes";
+"ui.session.history.search_loaded" = "Rechercher dans les sessions chargées";
+
+"ui.feedback.issue.title" = "Commentaires sur l’application DJConnect";
+"ui.feedback.issue.intro" = "Décrivez vos commentaires ou la fonctionnalité souhaitée :";
+
+"ui.session.history.silence" = "Moment DJ volontairement silencieux";
+
+"ui.session.history.contribution_unavailable" = "Cette contribution du DJ n’est plus disponible.";
+
+"ui.session.history.source_revision" = "Version de la source";
+
+"ui.session.history.update_required" = "Mettez DJConnect à jour pour consulter l’historique de cette session.";
+
+"ui.session.end.action" = "Terminer";
+"ui.session.end.saved_in_profile" = "Votre session reste enregistrée dans votre profil. Retrouvez-la dans les sessions précédentes.";
+
+"ui.session.history.delete.title" = "Supprimer la session";
+"ui.session.history.delete.confirm" = "Supprimer cette session ?";
+"ui.session.history.delete.message" = "Cette session sera définitivement supprimée de votre profil. Cette action est irréversible.";
+"ui.session.history.delete.action" = "Supprimer";
+"ui.session.history.delete.failed" = "La session n’a pas pu être supprimée. Vérifiez la connexion et réessayez.";
+
+"ui.session.history.delete_all.title" = "Supprimer toutes les sessions précédentes";
+"ui.session.history.delete_all.confirm" = "Supprimer toutes les sessions précédentes ?";
+"ui.session.history.delete_all.message" = "Vous supprimez définitivement %lld sessions précédentes de votre profil. Votre session active et les sessions terminées ensuite seront conservées.";
+"ui.session.history.delete_all.action" = "Supprimer";
+"ui.session.history.delete_all.failed" = "Les sessions précédentes n’ont pas pu être supprimées. Vérifiez la connexion et réessayez.";
+
+// Private owner Session history summary
+"ui.session.history.start_time" = "Début";
+"ui.session.history.end_time" = "Fin";
+"ui.session.summary.tracks" = "Titres enregistrés";
+"ui.session.summary.moments" = "Interventions du DJ publiées";
+"ui.session.summary.retained" = "Interventions du DJ conservées";
+"ui.session.summary.mood" = "Ambiance dominante";
+"ui.session.summary.mixed" = "Mixte";
+"ui.session.summary.unknown" = "Inconnu";
+"ui.session.summary.withdrawn" = "Indisponible";
+"ui.session.summary.partial" = "Enregistré en partie";
+"ui.session.summary.provisional" = "Provisoire";
+
+"ui.device_stt.enabled" = "Utiliser Apple STT sur cet appareil";
+
+"ui.device_stt.explanation" = "Convertissez votre enregistrement Ask DJ en texte sur cet appareil et envoyez-le automatiquement. Aucun audio n’est envoyé à Home Assistant. Ce choix s’applique uniquement ici.";
+
+"ui.device_stt.unavailable" = "La reconnaissance vocale Apple sur cet appareil est indisponible pour cette langue ou n’est pas autorisée. Aucun audio n’a été envoyé.";
+
+"ui.device_stt.failed" = "L’enregistrement n’a pas pu être transcrit localement ou le contexte de discussion a changé. Réessayez. Aucun audio n’a été envoyé.";
+
+
+
+"ui.refresh.loading" = "Actualisation…";
+
+"ui.refresh.updated" = "Mis à jour";
+
+"ui.refresh.failed" = "Échec de l’actualisation";
+
+"ui.session.start_here.title" = "Votre session commence ici";
+"ui.session.start_here.detail" = "Lancez de la musique ou parlez à votre DJ. DJConnect donne vie à votre session avec des interventions adaptées à ce que vous écoutez.";
+
+"ui.session.avatar.label" = "Votre DJ";
+"ui.session.avatar.activity.resting" = "Au repos";
+"ui.session.avatar.activity.listening" = "À l’écoute";
+"ui.session.avatar.activity.preparing" = "En préparation";
+"ui.session.avatar.activity.announcement" = "Annonce musicale";
+"ui.session.avatar.activity.speaking" = "Parle";
+"ui.session.avatar.activity.text" = "Réponse textuelle";
+"ui.session.reaction.check_in" = "Saluer votre DJ";
+"ui.session.reaction.playful" = "Réaction ludique";
+"ui.session.reaction.easter_egg" = "Réaction surprise";
+"ui.session.reaction.hint" = "Touchez votre DJ pour une réaction. D’autres réactions sont disponibles dans le menu.";
+"ui.session.reaction.unavailable" = "Votre DJ est momentanément indisponible. Réessayez bientôt.";
+"ui.session.reaction.speech_unavailable" = "La lecture vocale est indisponible pour cette réaction.";
+"ui.session.reaction.text_only" = "Texte uniquement, selon vos préférences vocales.";
+"ui.session.reaction.speaker_unavailable" = "Cette réaction est disponible en texte. La lecture sur une enceinte est actuellement indisponible.";
+"ui.session.reaction.speaker_partial" = "Cette réaction est lue uniquement sur cet appareil ; la lecture sur une enceinte est actuellement indisponible.";
+
+// Native Session Forecast
+"ui.session.forecast.mode" = "Vue";
+"ui.session.forecast.flow" = "Flow";
+"ui.session.forecast.tab" = "Horizon";
+"ui.session.forecast.title" = "Horizon · env. 15 min";
+"ui.session.forecast.notice" = "Une direction pour les prochaines minutes. La musique et les interventions peuvent changer.";
+"ui.session.forecast.loading" = "Chargement de Horizon…";
+"ui.session.forecast.unavailable" = "Horizon est indisponible pour le moment.";
+"ui.session.forecast.source" = "Source";
+"ui.session.forecast.claim.current" = "En cours";
+"ui.session.forecast.claim.intention" = "Intention";
+"ui.session.forecast.claim.conditional_target" = "Objectif possible";
+// VibeCast rendezvous: routing preparation is distinct from display consent.
+"ui.rendezvous.scan" = "Scanner le code QR du téléviseur";
+"ui.rendezvous.choose" = "Choisissez votre Home Assistant associé. Seule son adresse d’affichage sera partagée avec ce téléviseur.";
+"ui.rendezvous.invalid" = "Ce code QR est invalide ou a expiré. Scannez un nouveau code sur le téléviseur.";
+"ui.rendezvous.savedHA" = "Utiliser mon Home Assistant associé";
+"ui.rendezvous.confirm" = "Confirmer Home Assistant";
+"ui.rendezvous.unsupported" = "Cet appareil ne permet pas l’association sécurisée du téléviseur. Aucune requête envoyée.";
+"ui.rendezvous.notReady" = "L’association sécurisée du téléviseur n’est pas encore prête. Rien n’a été envoyé au téléviseur.";
+"ui.rendezvous.failed" = "Home Assistant n’a pas pu préparer l’adresse d’affichage. Scannez un nouveau code et réessayez.";
+
+"ui.displayConsent.open" = "Connecter un écran VibeCast";
+"ui.displayConsent.title" = "Partager la Session actuelle";
+"ui.displayConsent.instructions" = "Saisissez le code affiché sur votre écran VibeCast. La recherche du code ne partage rien.";
+"ui.displayConsent.instructions_after_scan" = "Ou saisissez le code affiché sur votre écran VibeCast. La recherche du code ne partage rien.";
+"ui.displayConsent.lookup" = "Rechercher l’écran";
+"ui.displayConsent.create" = "Partager uniquement votre DJ Session actuelle avec cet écran pendant deux heures ?";
+"ui.displayConsent.existing" = "Autoriser cet écran à utiliser le partage existant de votre Session actuelle, sans prolonger son expiration ?";
+"ui.displayConsent.confirm" = "Autoriser cet écran";
+"ui.displayConsent.active_title" = "VibeCast est actif";
+"ui.displayConsent.approved" = "Écran autorisé pour votre Session actuelle.";
+"ui.displayConsent.uncertain" = "L’autorisation n’a pas été confirmée. Vérifiez l’écran avant une nouvelle demande.";
+"ui.displayConsent.unavailable" = "Le code de l’écran ou la Session actuelle n’est plus disponible.";
+
+/* Home Assistant speech configuration; never an audio-success claim. */
+"ui.ha_speech.configuration" = "Configuration Home Assistant";
+"ui.ha_speech.input" = "Reconnaissance vocale";
+"ui.ha_speech.output" = "Synthèse vocale";
+"ui.ha_speech.speaker" = "Enceinte de destination";
+"ui.ha_speech.configured" = "Configuré";
+"ui.ha_speech.unconfigured" = "Non configuré";
+"ui.ha_speech.unavailable" = "Temporairement indisponible";
+"ui.ha_speech.unsupported" = "Non pris en charge";
+"ui.ha_speech.unknown" = "Inconnu";
+"ui.ha_speech.retry_delay" = "La synthèse vocale est temporairement suspendue après une tentative échouée.";
+
+"ui.session.history.delete.unconfirmed" = "Nous ne pouvons pas encore confirmer la suppression. Veuillez vérifier à nouveau.";
+
+/* Server-confirmed individual content deletion. */
+"ui.content.delete.action" = "Supprimer la contribution";
+"ui.content.delete.confirm" = "Supprimer cette contribution ?";
+"ui.content.delete.unit.moment" = "Moment du DJ";
+"ui.content.delete.unit.exchange" = "Question et réponse complètes";
+"ui.content.delete.unit.attempt" = "Demande initiale en attente";
+"ui.content.delete.scope" = "Lignes : %d supprimées, %d indisponibles. Messages : %d supprimés, %d indisponibles. Moments du DJ : %d. Demandes bloquées : %d.";
+"ui.content.delete.playback" = "La session et la lecture musicale sont conservées.";
+"ui.content.delete.expires" = "Valable jusqu’à %@";
+"ui.content.delete.status" = "Vérifier à nouveau";
+
+"ui.session.search.clear" = "Effacer les termes de recherche";
+
+"ui.session.playback.speaker_question" = "Afficher les enceintes disponibles.";
+
+"ui.rendezvous.sending" = "Préparation de la connexion TV sécurisée…";
+"ui.rendezvous.accepted" = "L’adresse a été envoyée. Continuez sur le téléviseur et saisissez le code TV dans l’app pour confirmer le partage d’écran.";
+"ui.rendezvous.uncertain" = "Nous n’avons pas pu confirmer l’envoi de l’adresse. Vérifiez le téléviseur avant de réessayer.";
+"ui.rendezvous.repairNeeded" = "La connexion sécurisée n’a pas pu être préparée. Réessayez plus tard.";
+
+// VibeScape preview: ephemeral native visuals.
+"ui.vibescape.dynamics" = "Dynamique";
+"ui.vibescape.dynamics.auto" = "Suivre le DJ";
+"ui.vibescape.dynamics.manual" = "Manuel";
+"ui.vibescape.dynamics.follow" = "Suivre le DJ";
+"ui.vibescape.calm" = "Calme";
+"ui.vibescape.intense" = "Intense";
+"ui.vibescape.follow" = "Suivre le DJ";
+"ui.vibescape.unavailable" = "Les visuels ne sont pas disponibles sur cet appareil.";
+"ui.vibescape.voice.unavailable" = "La commande vocale des visuels n’est pas encore disponible.";
+"ui.vibescape.voice.label" = "Parler des visuels";
+
+"ui.ask_dj.answer.delivery_unknown" = "Nous ne pouvons pas encore confirmer si ta question a été traitée. Consulte l’historique avant de la renvoyer.";
+"ui.ask_dj.answer.review_question" = "Vérifier la question";
+
+"ui.sources.current_playback" = "Informations sur la lecture en cours";
+
+"ui.session.history.search_all" = "Rechercher dans toutes les sessions et contributions";
+
+"ui.vibescape.help.title" = "Aide VibeScape";
+"ui.vibescape.help.touch" = "Touchez pour une réaction vive. Faites glisser le doigt ou la souris sur l’animation pour un effet fluide.";
+"ui.vibescape.help.intensity" = "Le curseur rend le monde actuel plus calme ou plus intense. Le centre est neutre. Votre choix reste actif pendant cette visite ; Suivre le DJ rétablit la base automatique.";
+"ui.vibescape.help.controls" = "Les commandes se masquent après quelques secondes. Touchez leur zone ou survolez-la pour les afficher.";
+
+"ui.vibescape.help.voice" = "Commandes vocales";
+"ui.vibescape.help.unavailable" = "Les commandes vocales sont actuellement indisponibles.";
+"ui.vibescape.voice.recording" = "Énoncez votre commande visuelle. Touchez à nouveau pour arrêter.";
+"ui.vibescape.voice.applied" = "Commande visuelle appliquée.";
+"ui.vibescape.voice.failed" = "La commande visuelle n’a pas pu être appliquée. Réessayez.";
+
+"ui.vibescape.help.loading" = "Chargement des commandes vocales…";
+"ui.vibescape.voice.stop" = "Arrêter l’enregistrement";
+
+"ui.session.shortcut.open" = "Ouvrir la session DJ";
+
+"ui.displayConsent.stop" = "Arrêter le partage d’écran";
+
+"ui.displayConsent.stopped" = "Le partage d’écran est arrêté. Votre session DJ continue.";
+"ui.displayConsent.ended_title" = "Session VibeCast terminée";
+"ui.displayConsent.return_to_session" = "Retour à la session DJ";
+
+"ui.displayConsent.stop_uncertain" = "L’arrêt du partage d’écran n’a pas été confirmé. Vérifiez l’écran avant de continuer.";
+
+"ui.rendezvous.tv_code" = "Saisir le code TV";
+
+"ui.rendezvous.tv_code_help" = "Un code est déjà affiché sur le téléviseur ? Saisissez-le ici et confirmez le partage d’écran pour votre session DJ active.";
+
+"ui.content.delete.failed" = "La contribution n’a pas pu être supprimée. Actualisez et réessayez.";
+
+"ui.content.delete.unconfirmed" = "La suppression de cette contribution n’est pas encore confirmée. Vérifiez son état avant de réessayer.";
+
+"ui.session.suggestion.match_mood" = "Mets une musique adaptée à l’ambiance de ma session";
+"watch.session.connect_phone" = "Gardez DJConnect ouvert sur votre iPhone pour connecter votre Watch.";
+"watch.session.retry" = "La session n’a pas pu être chargée. Touchez Actualiser pour réessayer.";
+"watch.session.pair_again" = "Jumelez à nouveau votre Watch via DJConnect sur votre iPhone.";
+"watch.session.expired" = "Votre session doit être actualisée. Touchez Actualiser.";
+
+"ui.askdj.help.global.entry" = "Comment utiliser Ask DJ";
+
+"ui.askdj.help.session.entry" = "Aide pendant la session DJ";
+
+"ui.askdj.help.global.title" = "Que voulez-vous écouter ?";
+
+"ui.askdj.help.global.intro" = "Parlez à votre DJ avec vos propres mots. Demandez de la musique, faites des découvertes ou posez des questions.";
+
+"ui.askdj.help.global.footer" = "Une question ou un choix ne lance pas automatiquement la musique. La lecture nécessite une demande explicite ou une action de lecture confirmée.";
+
+"ui.askdj.help.session.title" = "Écoutez avec votre DJ";
+
+"ui.askdj.help.session.intro" = "Posez des questions sur ce que vous entendez et ce que votre DJ vous montre. Mood définit l’ambiance, Persona le style du récit et Présence la fréquence des interventions du DJ.";
+
+"ui.askdj.help.session.footer" = "Ton DJ utilise le contexte de conversation disponible. Tu confirmes ton choix avant que la musique démarre.";
+
+"ui.askdj.help.unavailable" = "Je ne peux pas confirmer les options musicales disponibles pour le moment. Vous pouvez toujours saisir votre question.";
+
+"ui.rendezvous.repair" = "Rétablir la liaison sécurisée";
+
+"ui.rendezvous.repairing" = "Rétablissement de la liaison sécurisée…";
+
+"ui.rendezvous.repaired" = "La liaison sécurisée a été rétablie. Scannez un nouveau QR code sur le téléviseur pour continuer. Aucune session n’est encore partagée.";
+
+"ui.rendezvous.repair_wait" = "Le rétablissement n’est pas confirmé ou n’est pas encore disponible. Patientez avant de réessayer. Vous pouvez aussi saisir le code du récepteur Home Assistant.";
+
+"ui.rendezvous.repair_paused" = "La liaison sécurisée reste en pause. Votre application et votre session DJ restent disponibles. Utilisez le code du récepteur Home Assistant pour associer cet écran.";
+
+"ui.session.moment.dj_bulletin" = "Bulletin du DJ";
+
+"ui.ask_dj.answer.retained_unavailable" = "Votre demande a été traitée. La réponse originale n’est pas disponible dans l’historique enregistré.";
+
+"ui.askdj.suggestions.title" = "Suggestions";
+
+"surface.research.adapted" = "Adapté à partir des sources ci-dessus.";
+"ui.host.wake.reviewed.device.test" = "Lancer le test d’appareil validé";
+
+"surface.playback.observed.playing" = "Lecture observée";
+"surface.playback.observed.paused" = "Pause observée";
+"surface.playback.observed.stopped" = "Arrêt observé";
+"surface.playback.observed.unknown" = "État de lecture inconnu";
+"surface.playback.last.observed" = "Dernière observation";
+"ui.content.delete.readback.pending" = "L’historique actualisé n’est pas encore disponible. Veuillez réessayer.";
+"ui.content.delete.refresh" = "Actualiser à nouveau";
+"ui.content.delete.checking" = "Veuillez patienter…";
+
+"ui.content.delete.blocked.unavailable" = "La suppression est indisponible pour le moment.";
+"ui.content.delete.blocked.busy" = "Une autre modification est en cours.";
+"ui.content.delete.blocked.pending" = "Une suppression précédente n’a pas encore été confirmée.";
+"ui.content.delete.blocked.request" = "Une autre demande au DJ est encore en attente.";
+"ui.content.delete.blocked.voice" = "Arrêtez d’abord l’enregistrement vocal.";
+"ui.content.delete.recover_previous" = "Vérifier la suppression précédente";
+"ui.vibescape.voice.starting" = "Préparation du microphone…";
+"ui.vibescape.voice.start_failed" = "L’enregistrement n’a pas pu démarrer. Réessayez.";
+
+"ui.welcome.session.description" = "Vivez votre musique avec les interventions de votre DJ. Découvrez les histoires derrière les morceaux, posez des questions et orientez votre session.\n\nHorizon présente la direction envisagée par votre DJ pour les prochaines minutes. VibeScape anime votre session avec des visuels en mouvement. VibeCast partage la session sur un autre écran.";
+"ui.welcome.queue.description" = "Consultez les prochains titres et choisissez quoi écouter.";
+
+"ui.askdj.help.item.unavailable" = "Indisponible pour le moment";
+
+"ui.vibescape.scope.title" = "Durée";
+"ui.vibescape.scope.hint" = "Choisissez la durée de votre prochain ajustement vocal. Vous pouvez aussi préciser la durée dans votre commande.";
+"ui.vibescape.scope.track" = "Prend fin au début du morceau suivant.";
+"ui.vibescape.scope.visit" = "Reste actif jusqu’à ce que vous quittiez VibeScape.";
+
+"ui.trackInsight.visual.decorative" = "Animation visuelle · pas une mesure audio";
+
+"ui.vibescape.world.home" = "Monde liquide";
+"ui.vibescape.world.radio" = "Atelier cinétique";
+"ui.vibescape.world.club" = "Architecture lumineuse";
+"ui.vibescape.world.festival" = "Floraison cosmique";
+
+// Watch companion V2
+"watch.v2.moments" = "Moments DJ";
+"watch.v2.more" = "Plus";
+"watch.v2.ask.prompt" = "Interrogez votre DJ sur la musique, les artistes et plus.";
+"watch.v2.text" = "Saisir une question";
+"watch.v2.sound" = "Son";
+"watch.v2.music" = "Musique";
+"watch.v2.voice" = "Voix et réponses";
+"watch.v2.notifications" = "Notifications";
+"watch.v2.ask_about" = "Poser une question à ce sujet";
+"watch.v2.listen" = "Écouter";
+"watch.v2.no_moments" = "Aucune contribution récente.";
+"watch.v2.speak" = "Parlez à votre DJ";
+"watch.v2.send" = "Envoyer";
+"watch.v2.stop_send" = "Arrêter et envoyer";
+
+"watch.v2.transfer.confirm" = "Transférer la musique sur cette enceinte ?";
+
+"watch.v2.notification.confirmed" = "Préférence confirmée par le serveur";
+"watch.v2.notification.pending" = "Préférence pas encore confirmée par le serveur";
+"watch.v2.notification.permission" = "Autoriser les notifications";
+
+"watch.v2.widget.ask_dj" = "Ask DJ";
+"watch.v2.widget.open_session" = "Ouvrir la session DJ";
+
+"watch.v2.moments.new" = "Dernières contributions";
+
+"watch.v2.question.new" = "Nouvelle question";
+
+"watch.v2.track.question" = "Parle-moi de %@ de %@.";
+"watch.v2.recording_cancelled" = "Enregistrement annulé.";
+"watch.v2.recording_interrupted" = "Enregistrement interrompu.";
+
+"watch.v2.flow.question" = "Question Ask DJ";
+"watch.v2.flow.answer" = "Réponse Ask DJ";
+
+"watch.playback.controls" = "Commandes de lecture";
+"watch.playback.replay" = "Rejouer le titre";
+
+"ui.welcome.connection.title" = "Connectez votre musique";
+
+"ui.welcome.connection.description" = "Connectez DJConnect à Home Assistant pour contrôler votre musique et vos enceintes. Connectez Spotify dans Home Assistant pour choisir et écouter des morceaux et des playlists.";
+
+"ui.ha_speech.demo_unavailable" = "La configuration Home Assistant n’est pas disponible en mode démo.";
+
+"ui.pair.code.integration.label" = "Code de jumelage Home Assistant";
+"ui.pair.code.integration.choice" = "Choisissez ‘Associer l’app DJConnect : iPhone/iPad, Apple Watch ou macOS’.";
+
+"ui.pair.code.placeholder.six.digits" = "Code à 6 chiffres";
+
+"ui.network" = "réseau";
+
+"ui.local.network.explanation.title" = "Accès au réseau local";
+"ui.local.network.explanation.body" = "DJConnect utilise ton réseau local pour se connecter à Home Assistant. Après Continuer, Apple peut demander ton autorisation. Tu peux modifier ce choix plus tard dans Réglages.";
+
+"ui.crash.no.thanks" = "Non merci";
+
+"ui.connection.pair.again" = "Associer à nouveau";
+
+// Watch arcade controls
+"watch.game.controls.pong" = "Couronne : déplacer · Toucher : position";
+"watch.game.controls.asteroids" = "Couronne : déplacer · Toucher : tirer";
+"watch.game.controls.fly" = "Couronne : altitude · Toucher : tirer";
+"watch.game.controls.pacman" = "Couronne : tourner · Toucher : direction";
+"watch.game.restart" = "Recommencer";
+
+"ui.for_you.pending" = "En attente de confirmation. Choisis si besoin une enceinte dans la session.";
+"ui.for_you.unavailable" = "Ces choix sont indisponibles ou ont expiré. Actualise pour en demander de nouveaux.";
+"ui.for_you.refresh" = "Actualiser les choix";
+"ui.for_you.art.local" = "Illustration de paysage générée localement ; aucune analyse audio.";
+"ui.for_you.art.procedural" = "Illustration de paysage procédurale ; aucune analyse audio.";
+
+"ui.session.moment.music_announcement" = "Annonce musicale";
+"ui.session.welcome.feature.music" = "Une musique\npour vous";
+"ui.session.welcome.feature.stories" = "Histoires musicales\net temps forts";
+"ui.session.welcome.feature.discovery" = "Chaque session,\nune découverte";
+"ui.session.welcome.instruction" = "Vous pouvez commencer tout de suite ou ajuster vos choix.";
+"ui.session.welcome.for_you_tip" = "Retrouvez ensuite trois suggestions de mix personnalisés dans « Pour vous ».";
+"ui.session.welcome.mood.explanation" = "Choisissez l’ambiance de cette session";
+"ui.session.welcome.presence.explanation" = "À quelle fréquence votre DJ intervient";
+"ui.session.welcome.persona.explanation" = "Le style et le ton de votre DJ";
+"watch.game.resume" = "Reprendre";
+"watch.widget.track_cover" = "Titre et pochette";
+"watch.widget.locked_explanation" = "Afficher le titre et la pochette dans la pile intelligente, même lorsque votre Watch est verrouillée.";
+"ui.for_you.choose_output" = "Choisissez où écouter ce mix.";
+"ui.for_you.preparing" = "Préparation de nouveaux mix pour votre humeur…";
+
+"ui.widget.retained.title" = "Dernière intervention du DJ dans le widget";
+"ui.widget.retained.detail" = "Autorisez le grand widget à afficher la dernière intervention disponible du DJ pour cette session.";
+
+"ui.surface.push.widget" = "Autoriser les mises à jour du widget en arrière-plan";
+"ui.surface.push.widget.detail" = "Actualisez le widget DJConnect pendant que l’app est en arrière-plan.";
+"ui.surface.push.activity" = "Autoriser les mises à jour des activités en direct en arrière-plan";
+"ui.surface.push.activity.detail" = "Actualisez votre activité en direct sur l’écran verrouillé et, si disponible, dans la Dynamic Island.";
+
+"ui.vibecast.destinations.title" = "Choisir un écran";
+"ui.vibecast.destinations.screen" = "Écran VibeCast";
+"ui.vibecast.destinations.scanning" = "Recherche d’appareils Google Cast…";
+"ui.vibecast.destinations.empty" = "Aucun appareil Google Cast détecté.";
+"ui.vibecast.destinations.network" = "Vérifiez que DJConnect a accès au réseau local.";
+"ui.vibecast.destinations.unavailable" = "Le partage via Google Cast n’est pas encore disponible.";
+
+"ui.displayConsent.inactive" = "Aucun écran connecté";
+"ui.displayConsent.status_unknown" = "État de l’écran indisponible";
+"ui.displayConsent.stop_numbered" = "Arrêter le partage de l’écran %d";

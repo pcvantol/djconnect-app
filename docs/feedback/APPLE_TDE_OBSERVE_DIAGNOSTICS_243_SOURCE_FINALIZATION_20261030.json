@@ -1,0 +1,200 @@
+{
+  "schema_version": 1,
+  "scope": "Original Source243 engineering delivery and actual separate NOT_QUALIFIED diagnostic integration only",
+  "source_pr": 243,
+  "original_source_delivery": {
+    "source_pr": 243,
+    "candidate": "bbc3f15a17001bbd0706b9d1d6a3ba8635e54819",
+    "main": "6c25c4d4f34f823532304e4a843de2d01241ba89",
+    "tree": "73413ca047281d7bb41d1a77738fa4ffdc521539",
+    "reviewed_and_merged_tree_equal": true,
+    "main_CI_run": 41074204427,
+    "formal_run": 41075992288,
+    "original_run_attempts": 1,
+    "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+    "formal_digest": "d33ee33476ab85c2542a9299f5a856cfc1cc7862d88194ccc0c98626b9be15df",
+    "formal_findings": [],
+    "formal_raw_sha256": "5d6a5a08041ea7e9a8da70f6edf54d6d2647181173b94179c93ca6e3d2b552ca",
+    "formal_original_artifact_id": 12987386473,
+    "formal_original_ZIP_actual_provider_sha256": "29e2f332d06433e01680b2f985ec065f8a9538e5b60abf264deb96820d2becd3",
+    "formal_raw_joined_to_original_ZIP": true,
+    "durable_asset_id": 692441014,
+    "durable_actual_and_provider_sha256": "a3b1f4b9291b7745dca84c764c02451d73d864d205fa42cfb5421f35c022ffc4",
+    "durable_inner_integrity_verified": true,
+    "all12_required_checks": {
+      "post_merge_build_validation": "PASS",
+      "post_merge_ci": "PASS",
+      "post_merge_coverage": "PASS",
+      "post_merge_governance": "PASS",
+      "post_merge_lint": "PASS",
+      "post_merge_static_analysis": "PASS",
+      "post_merge_tests": "PASS",
+      "required_checks": "PASS",
+      "software_assurance": "PASS",
+      "trusted_delivery": "PASS",
+      "verification": "PASS",
+      "workflow_integrity": "PASS"
+    },
+    "review_sha256": "ce82d8444cad57e07cdad54d7f16f8bc44ec1ef456de1d3bdcb0cbd98891473f",
+    "scope": "Apple observe-diagnostics source243 delivery only; supplemental diagnostics are NOT_QUALIFIED, no TDE analysis or product/device acceptance"
+  },
+  "original_policy_and_native_coverage": {
+    "scope": "Original exact-policy deterministic validation and own coverage binding; not independent reviewer closure or native acceptance.",
+    "source_pr": 243,
+    "candidate": "bbc3f15a17001bbd0706b9d1d6a3ba8635e54819",
+    "main": "6c25c4d4f34f823532304e4a843de2d01241ba89",
+    "original_qualification_receipt_sha256": "ac263afebb440bd9c486af6a71feec5316e57d0809b84b9879a8ae3d9960ad4f",
+    "policy_ref": "ebbb35f038a7a3c7d46c12660968bcd50eb67580",
+    "policy_sha256": "2419a355e1fb6b85448d362681c061470d59d45936b06f2b9a6249278351a449",
+    "policy_validation_findings": [],
+    "original_coverage": {
+      "main": "6c25c4d4f34f823532304e4a843de2d01241ba89",
+      "own_main_run": 41074204427,
+      "artifact_id": 12986044652,
+      "actual_and_provider_zip_sha256": "88b8c1ada8502c315bbfb8235db0a883c8d58a00098baab751269a172a2ab943",
+      "members": {
+        "coverage.json": {
+          "bytes": 3423837,
+          "sha256": "ac6210cd1c7b51d3adcbf97ae44942772cb7a76ec007eb1283df6772fceab69d"
+        },
+        "coverage-main-sha.txt": {
+          "bytes": 41,
+          "sha256": "fa4a8bcea9b50b2f08ed565983eb0b9d7220845f6290a2f2a1fa8b4ea36d0bac"
+        }
+      },
+      "selected_native_runtime_coverage": [
+        {
+          "name": "DJConnectRichSurfaceFieldGuard.swift",
+          "coveredLines": 42,
+          "executableLines": 43
+        },
+        {
+          "name": "DJConnectNativeSurfaceClockCapture.swift",
+          "coveredLines": 54,
+          "executableLines": 54
+        },
+        {
+          "name": "SessionSurfaceNativeCustody.swift",
+          "coveredLines": 78,
+          "executableLines": 83
+        },
+        {
+          "name": "PassiveSessionSurfaceModel.swift",
+          "coveredLines": 422,
+          "executableLines": 436
+        },
+        {
+          "name": "DJConnectAppModel.swift",
+          "coveredLines": 11411,
+          "executableLines": 17771
+        }
+      ],
+      "scope": "Own original selected native Core/UI runtime coverage; iOS-only SDK and widget animation are not covered by Mac target, no physical/provider/push acceptance."
+    },
+    "native_coverage_limit": "Own Source243 selected unchanged native runtime coverage; not successor permission, cross-domain rate, iOS-only SDK/provider/push or OS animation acceptance."
+  },
+  "original_owner_authorization": {
+    "schema_version": 1,
+    "kind": "trusted_delivery_owner_authorization",
+    "repository": "pcvantol/djconnect-app",
+    "branch": "main",
+    "pr_number": 243,
+    "candidate_sha": "bbc3f15a17001bbd0706b9d1d6a3ba8635e54819",
+    "classification": "HIGH_RISK",
+    "owner": "pcvantol",
+    "github_actor": "pcvantol",
+    "workflow_run_id": "41074033119",
+    "timestamp": "2026-10-30T14:42:48.200Z",
+    "result": "PASS"
+  },
+  "actual_main_observe_integration": {
+    "scope": "Actual protected main observe diagnostic integration only; TDE assessment remains BLOCKED/NOT_QUALIFIED",
+    "run": 41074203642,
+    "head": "6c25c4d4f34f823532304e4a843de2d01241ba89",
+    "artifacts": [
+      {
+        "id": 12986193395,
+        "name": "tde-observe-evidence",
+        "actual_provider_zip_sha256": "95b465e5776e72cf060bb5c08b92c09f48636fefba9d29f2ec3f3ecb0fef7734"
+      },
+      {
+        "id": 12986243152,
+        "name": "tde-observe-diagnostic-NOT-QUALIFIED",
+        "actual_provider_zip_sha256": "a13bd7b6f9142f9867a68b7010434e953ef8ece0b2f18c8cefeeb698f0481b98"
+      }
+    ],
+    "all_output_hashes_verified": true,
+    "original_cli_decisions_exits_preserved": true,
+    "actual_head_clean_and_inputs_unchanged": true,
+    "supplemental_validation": "BLOCKED"
+  },
+  "independent_original_source_closure": {
+    "at": "2026-10-30T14:59:35.491280+00:00",
+    "verdict": "ORIGINAL_SOURCE_QUALIFIED",
+    "pr": 243,
+    "reviewed": "bbc3f15a17001bbd0706b9d1d6a3ba8635e54819",
+    "protected": "6c25c4d4f34f823532304e4a843de2d01241ba89",
+    "tree": "73413ca047281d7bb41d1a77738fa4ffdc521539",
+    "packet_sha256": "c49dfdb7ce135b88aad64f119a9bea69b1f546c1631955df622668842793dbb5",
+    "checks": {
+      "all31_packet_hashes": "MATCH",
+      "own_original_live_runs": [
+        {
+          "id": 41074204427,
+          "head_sha": "6c25c4d4f34f823532304e4a843de2d01241ba89",
+          "run_attempt": 1,
+          "conclusion": "success"
+        },
+        {
+          "id": 41075992288,
+          "head_sha": "6c25c4d4f34f823532304e4a843de2d01241ba89",
+          "run_attempt": 1,
+          "conclusion": "success"
+        },
+        {
+          "id": 41074203642,
+          "head_sha": "6c25c4d4f34f823532304e4a843de2d01241ba89",
+          "run_attempt": 1,
+          "conclusion": "success"
+        },
+        {
+          "id": 41074033119,
+          "head_sha": "fd893ff50b263bde41cf86aac03eadf8a2140f4b",
+          "run_attempt": 1,
+          "conclusion": "success"
+        }
+      ],
+      "provider_formal_coverage_observe_supplemental_auth_durable_digests": "MATCH",
+      "formal_raw_and_canonical_digest": "d33ee33476ab85c2542a9299f5a856cfc1cc7862d88194ccc0c98626b9be15df",
+      "durable_exact_policy_findings": [],
+      "durable_checks": "12/12 PASS",
+      "own_coverage_zip_members_main_marker": "MATCH; unchanged native coverage is not Python helper coverage",
+      "exact_owner_authorization_original_receipt": "PASS original PR243/bbc/main/actor/run binding",
+      "main_observe_original": "BLOCKED exit3 for assess and qualify; diagnostic NOT_QUALIFIED/worker0/input+head unchanged, outputhashes verified/rawvalidationBLOCKED",
+      "reviewed_protected_tree_and_parent": "MATCH"
+    },
+    "scope": "Engineering source243 delivery and actual diagnostic integration only. TDE analysis remains BLOCKED/NOT_QUALIFIED. Separate Final required, no product/provider/native/clock/custody acceptance."
+  },
+  "independent_original_source_closure_sha256": "2f20620be693d7be518b7ecf9814b2ad5d72b34de3f872a506407a52fa7184cd",
+  "source_join_packet_sha256": "c49dfdb7ce135b88aad64f119a9bea69b1f546c1631955df622668842793dbb5",
+  "validation": {
+    "qualification_python39_checks": 7,
+    "qualification_python314_checks": 7,
+    "four_new_fixture_tests": "Actual workflow shell preservation, BLOCKED selection, complete public result/no store/no credential export, errors/timeout/oversize",
+    "causal": "Identical updated fixtures on actual predecessor helper fail once at blocked=false; corrected helper passes. Original and failed evidence retained.",
+    "independent_reviewer_tests": "Four new fixture tests independently run on Python3.15.2; separate from Apple3.9.6/3.14.10 checks.",
+    "native_coverage_scope": "Own unchanged native Core/UI coverage, not Python-helper coverage or product/device acceptance."
+  },
+  "unchanged": [
+    "All prior register identities/statuses/counts and historical evidence/remaining retained",
+    "Requirement acceptance JSON and Markdown byte-identical",
+    "No workflow/helper/test/compiled input, app version, signature, installation or other lane changed in this Final"
+  ],
+  "remaining": [
+    "TDE assessment and repository qualification remain BLOCKED; supplemental diagnostic is NOT_QUALIFIED, not a second assessment acceptance.",
+    "Qualify actual Swift declaration/identity handling in the owning analyzer integration; no initializer rewrite, suppression, row filtering or threshold relaxation.",
+    "No outbound TDE-lane message or repository mutation was performed. Upstream source correction and later genuine complexity triage remain separate.",
+    "All existing Apple source/product/native/provider/device and rich permission/read/artwork/clock gates remain open as previously recorded."
+  ],
+  "this_final": "Requires its own exact review, normal CI/protected delivery and original qualification; Source243 evidence does not qualify this documentary Final."
+}

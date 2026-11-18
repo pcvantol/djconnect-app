@@ -1,0 +1,134 @@
+{
+  "producer_source": "0f92b74e76ae055efdbf2b375d95c58e86328e27",
+  "delivery": "MERGED_SOURCE_INSTALLED_NATIVE_ACCEPTANCE_SEPARATE",
+  "capability": {
+    "available": true,
+    "version": 1,
+    "requires_authenticated_tls": true,
+    "transport_security": {
+      "policy_version": 1,
+      "deployment_qualification_required": true,
+      "external": "authenticated_tls",
+      "local_plaintext": "qualified_direct_only",
+      "peer_policy": "enabled_interface_subnet_or_loopback",
+      "internal_origin_required": true,
+      "forwarded_plaintext": "forbidden"
+    },
+    "client_types": [
+      "ios",
+      "macos",
+      "watchos"
+    ],
+    "audience": "paired_owner_actions",
+    "path": "/api/djconnect/v1/actions/paired",
+    "auth": "paired_device_first_frame",
+    "ha_credentials_issued": false,
+    "commands": [
+      "djconnect/read",
+      "djconnect/operation/execute",
+      "djconnect/operation/status"
+    ],
+    "context_path": "/api/djconnect/v1/transport/context",
+    "operation_path": "/api/djconnect/v1/transport/operation",
+    "status_path": "/api/djconnect/v1/transport/operation/status",
+    "recovery_path": "/api/djconnect/v1/session/broadcast/recovery",
+    "lease_seconds": 300,
+    "auth_timeout_seconds": 5,
+    "revocation_check_seconds": 1,
+    "heartbeat_seconds": 15,
+    "frame_bytes": 65536,
+    "pending_limit": 8,
+    "outgoing_queue_limit": 64,
+    "connection_request_limit": 256,
+    "connection_limit": 16,
+    "paired_device_connection_limit": 2,
+    "operation_identity": "uuidv7",
+    "operation_lifetime_ms": 300000,
+    "after_send_retry": "reconcile_original_operation_only",
+    "cross_origin_redirects": "forbidden",
+    "browser_origin": "same_https_origin_only",
+    "native_adoption": "separate_consumer_qualification"
+  },
+  "tls_context": {
+    "success": true,
+    "contract_version": 1,
+    "ha_install_id": "ha_owned_hybrid_fixture",
+    "operation_epoch": "651269b9d387c0bc84378cfdab94d94f",
+    "server_time_ms": 1792099311140,
+    "operation_lifetime_ms": 300000,
+    "requires_authenticated_tls": true,
+    "action_operations": [
+      "ask_dj/message",
+      "command",
+      "session/mood",
+      "session/presence",
+      "track_insight"
+    ],
+    "http_operations": [
+      "ask_dj/message",
+      "command",
+      "session/end",
+      "session/mood",
+      "session/presence",
+      "session/start",
+      "track_insight"
+    ],
+    "read_operations": [
+      "session/active",
+      "session/broadcast/recover",
+      "session/broadcast/snapshot",
+      "session/forecast"
+    ],
+    "transport_security": {
+      "policy_version": 1,
+      "deployment_qualification_required": true,
+      "external": "authenticated_tls",
+      "local_plaintext": "qualified_direct_only",
+      "peer_policy": "enabled_interface_subnet_or_loopback",
+      "internal_origin_required": true,
+      "forwarded_plaintext": "forbidden",
+      "mode": "authenticated_tls"
+    }
+  },
+  "local_context": {
+    "success": true,
+    "contract_version": 1,
+    "ha_install_id": "ha_owned_hybrid_fixture",
+    "operation_epoch": "651269b9d387c0bc84378cfdab94d94f",
+    "server_time_ms": 1792099311218,
+    "operation_lifetime_ms": 300000,
+    "requires_authenticated_tls": false,
+    "action_operations": [
+      "ask_dj/message",
+      "command",
+      "session/mood",
+      "session/presence",
+      "track_insight"
+    ],
+    "http_operations": [
+      "ask_dj/message",
+      "command",
+      "session/end",
+      "session/mood",
+      "session/presence",
+      "session/start",
+      "track_insight"
+    ],
+    "read_operations": [
+      "session/active",
+      "session/broadcast/recover",
+      "session/broadcast/snapshot",
+      "session/forecast"
+    ],
+    "transport_security": {
+      "policy_version": 1,
+      "deployment_qualification_required": true,
+      "external": "authenticated_tls",
+      "local_plaintext": "qualified_direct_only",
+      "peer_policy": "enabled_interface_subnet_or_loopback",
+      "internal_origin_required": true,
+      "forwarded_plaintext": "forbidden",
+      "mode": "qualified_direct_http"
+    }
+  }
+}

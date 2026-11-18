@@ -1,0 +1,16 @@
+{
+  "build": "40106",
+  "selective_base": "/private/tmp/djc-hero-gradient-40105-source",
+  "source_commit": "a08f4bbc8d21ab63a560ef465d438bc2484a590c",
+  "file": "Sources/DJConnectUI/DJConnectRootView.swift",
+  "source_sha256": "a7062c485cc684e4c56aa1f226fe6a96010f936e114a94a44fb871370624775d",
+  "presentation": "Shared native hero glyph remains fixed. White angular highlight with soft tail masked to actual symbol strokes,12secondcycle,smallbloom. Removed whole-symbol bob/rotation. Inactive/reduced-motion render static. InactiveMusicDNAheart uses shared glyph too.",
+  "signed_ios_watch_build": "PASS",
+  "physical_install_readback": "40106",
+  "physical_native_probe": "PASS:3AskDJframes over4seconds and2Discoverframes over2seconds; ordinary installed app, no fixture or messages sent",
+  "physical_visual_inspection": "AskDJframes0and2 and bothDiscoverframes inspected: white highlight changes contour location, icon position/shape remains fixed. No measuredFPS claim.",
+  "evidence": "/private/tmp/djc-hero-glow-40106-physical.xcresult",
+  "screenshots_dir": "/private/tmp/djc-hero-glow-40106-physical-images",
+  "cleanup": "One active writerworktree; onlycurrentlaneandmain in merged list. No eligible stale artifacts removed; otherrefs/untrackedprojectdirs preserved.",
+  "scope": "Decorative Apple presentation only; no backend contract, profile, pairing or sourcepublication changes"
+}

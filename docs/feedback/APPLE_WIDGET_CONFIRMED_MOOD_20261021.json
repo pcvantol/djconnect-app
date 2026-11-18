@@ -1,0 +1,27 @@
+{
+  "base_commit": "b5fafc5",
+  "change": [
+    "On a same-Session confirmed mood change, sync the existing passive grants with force=True to bypass the normal 15-second read cadence. Busy reads retain existing bounded coalescing/owner fencing.",
+    "Widget presentation prioritizes the current separately confirmed Session palette over older rich-content mood, retaining independent expiry checks.",
+    "Existing palette/theme-change reload logic immediately requests updates for the Session widget and all four legacy widget kinds. No optimistic/unconfirmed mood publication or new authorization replay."
+  ],
+  "validation": {
+    "mac_build_and_two_focused_tests": "PASS",
+    "iOS_widget_unsigned_build": "PASS",
+    "diff_check": "PASS"
+  },
+  "limits": [
+    "WidgetKit owns final scheduling/render timing; the client submits the reload immediately.",
+    "No device installation, physical widget refresh or background acceptance qualified."
+  ],
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-widget-confirmed-mood-20261021/tests.log",
+      "sha256": "0e662aec9fd920c453e2110f29767f0191581a0e91c3e872c5a522563dae0abd"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-widget-confirmed-mood-20261021/widget-build.log",
+      "sha256": "47574e9e2b809314037a3ff5c67c25033b137f5e6525310742aff0260a1ce5df"
+    }
+  ]
+}

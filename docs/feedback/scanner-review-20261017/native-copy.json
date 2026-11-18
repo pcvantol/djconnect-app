@@ -1,0 +1,222 @@
+{
+  "scope": "design copy only; not runtime localization or independent language review",
+  "languages": [
+    "en",
+    "nl",
+    "de",
+    "fr",
+    "es"
+  ],
+  "strings": {
+    "scan_title": {
+      "en": "Scan the TV QR code",
+      "nl": "Scan de QR-code op de tv",
+      "de": "QR-Code auf dem Fernseher scannen",
+      "fr": "Scanner le QR code du téléviseur",
+      "es": "Escanear el código QR del televisor"
+    },
+    "choose_ha": {
+      "en": "Choose Home Assistant",
+      "nl": "Kies Home Assistant",
+      "de": "Home Assistant auswählen",
+      "fr": "Choisir Home Assistant",
+      "es": "Elegir Home Assistant"
+    },
+    "choose_help": {
+      "en": "Choose the Home Assistant already paired with this app.",
+      "nl": "Kies de Home Assistant die al met deze app is gekoppeld.",
+      "de": "Wähle den Home Assistant, der bereits mit dieser App gekoppelt ist.",
+      "fr": "Choisissez le Home Assistant déjà associé à cette app.",
+      "es": "Elige el Home Assistant que ya está vinculado con esta app."
+    },
+    "destination_title": {
+      "en": "Open this Home Assistant on the TV?",
+      "nl": "Deze Home Assistant openen op de tv?",
+      "de": "Diesen Home Assistant auf dem Fernseher öffnen?",
+      "fr": "Ouvrir ce Home Assistant sur le téléviseur ?",
+      "es": "¿Abrir este Home Assistant en el televisor?"
+    },
+    "destination_help": {
+      "en": "Check the installation and address below before sending.",
+      "nl": "Controleer hieronder de installatie en het adres voordat je ze verstuurt.",
+      "de": "Prüfe unten die Installation und die Adresse vor dem Senden.",
+      "fr": "Vérifiez ci-dessous l’installation et l’adresse avant l’envoi.",
+      "es": "Comprueba la instalación y la dirección antes de enviarlas."
+    },
+    "send": {
+      "en": "Send address to TV",
+      "nl": "Stuur adres naar tv",
+      "de": "Adresse an Fernseher senden",
+      "fr": "Envoyer l’adresse au téléviseur",
+      "es": "Enviar dirección al televisor"
+    },
+    "cancel": {
+      "en": "Cancel",
+      "nl": "Annuleren",
+      "de": "Abbrechen",
+      "fr": "Annuler",
+      "es": "Cancelar"
+    },
+    "scan_again": {
+      "en": "Scan again",
+      "nl": "Opnieuw scannen",
+      "de": "Erneut scannen",
+      "fr": "Scanner à nouveau",
+      "es": "Volver a escanear"
+    },
+    "checking": {
+      "en": "Checking your connection…",
+      "nl": "Je verbinding controleren…",
+      "de": "Verbindung wird geprüft …",
+      "fr": "Vérification de votre connexion…",
+      "es": "Comprobando la conexión…"
+    },
+    "preparing": {
+      "en": "Preparing the address…",
+      "nl": "Adres voorbereiden…",
+      "de": "Adresse wird vorbereitet …",
+      "fr": "Préparation de l’adresse…",
+      "es": "Preparando la dirección…"
+    },
+    "sending": {
+      "en": "Sending the address…",
+      "nl": "Adres versturen…",
+      "de": "Adresse wird gesendet …",
+      "fr": "Envoi de l’adresse…",
+      "es": "Enviando la dirección…"
+    },
+    "sent": {
+      "en": "Address sent",
+      "nl": "Adres verstuurd",
+      "de": "Adresse gesendet",
+      "fr": "Adresse envoyée",
+      "es": "Dirección enviada"
+    },
+    "sent_help": {
+      "en": "Continue on the TV. Approve the screen with the existing six-digit Home Assistant code.",
+      "nl": "Ga verder op de tv. Keur het scherm goed met de bestaande zescijferige Home Assistant-code.",
+      "de": "Fahre auf dem Fernseher fort. Genehmige den Bildschirm mit dem bestehenden sechsstelligen Home-Assistant-Code.",
+      "fr": "Continuez sur le téléviseur. Autorisez l’écran avec le code Home Assistant existant à six chiffres.",
+      "es": "Continúa en el televisor. Autoriza la pantalla con el código existente de Home Assistant de seis dígitos."
+    },
+    "not_paired": {
+      "en": "Pair this app with Home Assistant before sending an address.",
+      "nl": "Koppel deze app aan Home Assistant voordat je een adres verstuurt.",
+      "de": "Kopple diese App mit Home Assistant, bevor du eine Adresse sendest.",
+      "fr": "Associez cette app à Home Assistant avant d’envoyer une adresse.",
+      "es": "Vincula esta app con Home Assistant antes de enviar una dirección."
+    },
+    "camera_denied": {
+      "en": "Camera access is off. Allow access in Settings to scan.",
+      "nl": "Cameratoegang staat uit. Geef toegang in Instellingen om te scannen.",
+      "de": "Der Kamerazugriff ist deaktiviert. Erlaube ihn in den Einstellungen zum Scannen.",
+      "fr": "L’accès à la caméra est désactivé. Autorisez-le dans Réglages pour scanner.",
+      "es": "El acceso a la cámara está desactivado. Permítelo en Ajustes para escanear."
+    },
+    "open_settings": {
+      "en": "Open Settings",
+      "nl": "Open Instellingen",
+      "de": "Einstellungen öffnen",
+      "fr": "Ouvrir Réglages",
+      "es": "Abrir Ajustes"
+    },
+    "unsupported": {
+      "en": "Use your paired iPhone to send the TV address.",
+      "nl": "Gebruik je gekoppelde iPhone om het tv-adres te versturen.",
+      "de": "Verwende dein gekoppeltes iPhone, um die TV-Adresse zu senden.",
+      "fr": "Utilisez votre iPhone associé pour envoyer l’adresse au téléviseur.",
+      "es": "Usa tu iPhone vinculado para enviar la dirección al televisor."
+    },
+    "expired": {
+      "en": "This QR code has expired. Show a new code on the TV and scan again.",
+      "nl": "Deze QR-code is verlopen. Toon een nieuwe code op de tv en scan opnieuw.",
+      "de": "Dieser QR-Code ist abgelaufen. Zeige einen neuen Code auf dem Fernseher an und scanne erneut.",
+      "fr": "Ce QR code a expiré. Affichez un nouveau code sur le téléviseur et scannez à nouveau.",
+      "es": "Este código QR ha caducado. Muestra uno nuevo en el televisor y vuelve a escanear."
+    },
+    "invalid_qr": {
+      "en": "This QR code is not supported. Open vibecast.tv on the TV and scan its code.",
+      "nl": "Deze QR-code wordt niet ondersteund. Open vibecast.tv op de tv en scan die code.",
+      "de": "Dieser QR-Code wird nicht unterstützt. Öffne vibecast.tv auf dem Fernseher und scanne dessen Code.",
+      "fr": "Ce QR code n’est pas pris en charge. Ouvrez vibecast.tv sur le téléviseur et scannez son code.",
+      "es": "Este código QR no es compatible. Abre vibecast.tv en el televisor y escanea su código."
+    },
+    "no_external_route": {
+      "en": "This Home Assistant has no supported external HTTPS address. Check its network settings.",
+      "nl": "Deze Home Assistant heeft geen ondersteund extern HTTPS-adres. Controleer de netwerkinstellingen.",
+      "de": "Dieser Home Assistant hat keine unterstützte externe HTTPS-Adresse. Prüfe seine Netzwerkeinstellungen.",
+      "fr": "Ce Home Assistant n’a pas d’adresse HTTPS externe prise en charge. Vérifiez ses réglages réseau.",
+      "es": "Este Home Assistant no tiene una dirección HTTPS externa compatible. Comprueba sus ajustes de red."
+    },
+    "context_changed": {
+      "en": "The selected Home Assistant or profile changed. Check your choice again.",
+      "nl": "De gekozen Home Assistant of het profiel is gewijzigd. Controleer je keuze opnieuw.",
+      "de": "Der ausgewählte Home Assistant oder das Profil hat sich geändert. Prüfe deine Auswahl erneut.",
+      "fr": "Le Home Assistant sélectionné ou le profil a changé. Vérifiez à nouveau votre choix.",
+      "es": "El Home Assistant seleccionado o el perfil ha cambiado. Comprueba de nuevo tu elección."
+    },
+    "route_changed": {
+      "en": "The address changed. Confirm the new destination before sending.",
+      "nl": "Het adres is gewijzigd. Bevestig de nieuwe bestemming voordat je verstuurt.",
+      "de": "Die Adresse hat sich geändert. Bestätige das neue Ziel vor dem Senden.",
+      "fr": "L’adresse a changé. Confirmez la nouvelle destination avant l’envoi.",
+      "es": "La dirección ha cambiado. Confirma el nuevo destino antes de enviarlo."
+    },
+    "offline": {
+      "en": "No connection. Check your network and try again while the QR code is valid.",
+      "nl": "Geen verbinding. Controleer je netwerk en probeer opnieuw zolang de QR-code geldig is.",
+      "de": "Keine Verbindung. Prüfe dein Netzwerk und versuche es erneut, solange der QR-Code gültig ist.",
+      "fr": "Aucune connexion. Vérifiez votre réseau et réessayez tant que le QR code est valide.",
+      "es": "Sin conexión. Comprueba tu red y vuelve a intentarlo mientras el código QR sea válido."
+    },
+    "proof_unavailable": {
+      "en": "The app could not be verified. Try again later.",
+      "nl": "De app kon niet worden geverifieerd. Probeer het later opnieuw.",
+      "de": "Die App konnte nicht verifiziert werden. Versuche es später erneut.",
+      "fr": "L’app n’a pas pu être vérifiée. Réessayez plus tard.",
+      "es": "No se ha podido verificar la app. Vuelve a intentarlo más tarde."
+    },
+    "uncertain": {
+      "en": "We could not confirm the transfer. Check the TV before starting again.",
+      "nl": "We konden de overdracht niet bevestigen. Controleer de tv voordat je opnieuw begint.",
+      "de": "Die Übertragung konnte nicht bestätigt werden. Prüfe den Fernseher, bevor du erneut beginnst.",
+      "fr": "Le transfert n’a pas pu être confirmé. Vérifiez le téléviseur avant de recommencer.",
+      "es": "No se ha podido confirmar la transferencia. Comprueba el televisor antes de empezar de nuevo."
+    },
+    "cancelled_after_send": {
+      "en": "Stopped on this device. The address may already have reached the TV.",
+      "nl": "Gestopt op dit apparaat. Het adres kan de tv al hebben bereikt.",
+      "de": "Auf diesem Gerät gestoppt. Die Adresse hat den Fernseher möglicherweise bereits erreicht.",
+      "fr": "Arrêté sur cet appareil. L’adresse peut déjà avoir atteint le téléviseur.",
+      "es": "Detenido en este dispositivo. Es posible que la dirección ya haya llegado al televisor."
+    },
+    "no_session": {
+      "en": "Start a DJ session before approving the display.",
+      "nl": "Start een DJ-sessie voordat je het scherm goedkeurt.",
+      "de": "Starte eine DJ-Session, bevor du den Bildschirm genehmigst.",
+      "fr": "Démarrez une session DJ avant d’autoriser l’écran.",
+      "es": "Inicia una sesión de DJ antes de autorizar la pantalla."
+    },
+    "b_denied": {
+      "en": "The screen was not approved. Check the Home Assistant code and try again.",
+      "nl": "Het scherm is niet goedgekeurd. Controleer de Home Assistant-code en probeer opnieuw.",
+      "de": "Der Bildschirm wurde nicht genehmigt. Prüfe den Home-Assistant-Code und versuche es erneut.",
+      "fr": "L’écran n’a pas été autorisé. Vérifiez le code Home Assistant et réessayez.",
+      "es": "La pantalla no se ha autorizado. Comprueba el código de Home Assistant y vuelve a intentarlo."
+    },
+    "display_approved": {
+      "en": "Screen approved",
+      "nl": "Scherm goedgekeurd",
+      "de": "Bildschirm genehmigt",
+      "fr": "Écran autorisé",
+      "es": "Pantalla autorizada"
+    },
+    "close": {
+      "en": "Close",
+      "nl": "Sluiten",
+      "de": "Schließen",
+      "fr": "Fermer",
+      "es": "Cerrar"
+    }
+  }
+}

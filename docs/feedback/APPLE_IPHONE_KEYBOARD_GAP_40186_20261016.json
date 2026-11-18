@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-16",
+  "build": "40186",
+  "scope": "Move iPhone chat bar closer to keyboard, preserve iPad spacing",
+  "implementation": [
+    "Use keyboard will-show/hide notifications to select actual keyboard state for composer spacing in SessionTimelineScreen and AskDJView.",
+    "iPhone keyboard-visible6pt; keyboard-hidden21pt. iPad/macOS retain8pt.",
+    "Existing scroll-content clearance follows same spacing value; no send/draft behavior changed."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "signature": "strict deep PASS",
+    "manifest": "452 hashes PASS",
+    "installed": "iPhone40186 confirmed; iPad remains40185",
+    "session_visual": "Screenshot actually viewed: expanded composer lower border approximately1265px, visible keyboard/predictive strip top1280px,6.4pt gap at942px/402pt scale.",
+    "native_tests": "First combined test FAILED: Ask DJ navigation unavailable and Session assertion used AX keyboard frame which excludes44pt predictive strip. Session screenshot confirms requested gap. Focused Ask DJ navigation rerun also failed to reach Ask DJ. No claim of complete suite PASS or separately photographed Ask DJ page."
+  },
+  "evidence": {
+    "manifest": "build/recovery/iphone40186-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/iphone40186-keyboard-gap-20261016.patch",
+    "session_screenshot": "/private/tmp/djc-iphone-40186-keyboard-gap-attachments/A72634CF-17D1-41C2-B80C-A18C87FB21FA.png",
+    "combined_result": "/private/tmp/djc-iphone-40186-keyboard-gap-20261016.xcresult",
+    "askdj_attempt": "/private/tmp/djc-iphone-40186-askdj-keyboard-20261016.xcresult"
+  },
+  "preservation": [
+    "No text entered or sent, playback commands or settings changes.",
+    "External probe restored. All recovery/results retained.",
+    "No Core messages, timer restart or publication."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}

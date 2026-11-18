@@ -1,0 +1,112 @@
+{
+  "scope": "Shared launch/About banner: icon left, smaller DJConnect on first line, larger localized slogan below, both beside icon.",
+  "base": "8d9371e",
+  "validation": {
+    "native_Mac_render_test": "1 PASS",
+    "captures": 20,
+    "visually_inspected": [
+      "nl-280-standard",
+      "nl-600-standard",
+      "fr-280-accessibility",
+      "en-600-standard"
+    ],
+    "unsigned_iOS_iPadOS_compile": "PASS",
+    "diff_check": "PASS"
+  },
+  "limitations": [
+    "Mac ImageRenderer component evidence only; no physical device or full About/launch acceptance",
+    "Large-text environment supplied to Mac renderer is not an iOS Dynamic Type runtime qualification"
+  ],
+  "installed": false,
+  "published": false,
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/final-render-test.log",
+      "sha256": "2d0dbcaaf16f2131583a8257fc9fb0541b818252988ea1d241fd5245adb03503"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/final-ios-build.log",
+      "sha256": "6105a8b87cbadd40fffbc7705ce63a3550f53e724ad25d800f102b88506a56dd"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/de-280-accessibility.png",
+      "sha256": "fdf9cbbbe30ac4285215aafe9acb0e550c5993f1cf6d842a8cf7bbb41ea6f5ce"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/de-280-standard.png",
+      "sha256": "fdf9cbbbe30ac4285215aafe9acb0e550c5993f1cf6d842a8cf7bbb41ea6f5ce"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/de-600-accessibility.png",
+      "sha256": "7b0a4f275f7170468ef3b0ce4df12a042356f699a72c9e302216600832132662"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/de-600-standard.png",
+      "sha256": "c1a9d70b9e3fc6cfe7fd2c1a9120c4fdb2b0727d68fcb73a7612dad5abf8c322"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/en-280-accessibility.png",
+      "sha256": "19f4b53a28c93fc33f3ab9c5bc9f9df0dd94d89d0004e244a2934f1a2ba11ff1"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/en-280-standard.png",
+      "sha256": "19f4b53a28c93fc33f3ab9c5bc9f9df0dd94d89d0004e244a2934f1a2ba11ff1"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/en-600-accessibility.png",
+      "sha256": "05fa97534dd01e647f8879de3b102a4f0f7b6dece924e7314dcd300cf2fe975c"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/en-600-standard.png",
+      "sha256": "05fa97534dd01e647f8879de3b102a4f0f7b6dece924e7314dcd300cf2fe975c"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/es-280-accessibility.png",
+      "sha256": "b0adc279499134c231ca7adfb8618a78ab22c7720556edf7994fe95a1ddd1d2c"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/es-280-standard.png",
+      "sha256": "b0adc279499134c231ca7adfb8618a78ab22c7720556edf7994fe95a1ddd1d2c"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/es-600-accessibility.png",
+      "sha256": "ed787ec1e86814f905e799e8c08b71b0b1cb078c9de9bc300635ca77e7fbc68a"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/es-600-standard.png",
+      "sha256": "ed787ec1e86814f905e799e8c08b71b0b1cb078c9de9bc300635ca77e7fbc68a"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/fr-280-accessibility.png",
+      "sha256": "c2df5305cc5e5ce5eecf1312886ba366f9983ee88a901d590f99c3f64421dea4"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/fr-280-standard.png",
+      "sha256": "c2df5305cc5e5ce5eecf1312886ba366f9983ee88a901d590f99c3f64421dea4"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/fr-600-accessibility.png",
+      "sha256": "1d379db1566f259b12eb58f23b19efd2c562eee6372a6063b4d7c55a32741f41"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/fr-600-standard.png",
+      "sha256": "1d379db1566f259b12eb58f23b19efd2c562eee6372a6063b4d7c55a32741f41"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/nl-280-accessibility.png",
+      "sha256": "a9603d04aad9304e4a12269e395adf7ea13635fda49632d775cac057c7101455"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/nl-280-standard.png",
+      "sha256": "a9603d04aad9304e4a12269e395adf7ea13635fda49632d775cac057c7101455"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/nl-600-accessibility.png",
+      "sha256": "cc37e744a8b897f8c3b275dd1a58aaa1e44860b766e73b10e4f76467bd725a5b"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-brand-two-line-20261021/renders-final/nl-600-standard.png",
+      "sha256": "cc37e744a8b897f8c3b275dd1a58aaa1e44860b766e73b10e4f76467bd725a5b"
+    }
+  ]
+}

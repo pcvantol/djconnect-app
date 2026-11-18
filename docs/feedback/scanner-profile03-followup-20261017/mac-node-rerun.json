@@ -1,0 +1,38 @@
+{
+  "scope": "isolated synthetic Mac CLI JOSESwift3.0.0 <-> Node jose6.2.12; no app integration or sender authentication",
+  "joseswift_commit": "c2664a902e75c0426a1d43132bd4babc6fd173d3",
+  "jose_version": "6.2.12",
+  "jose_artifact": "npm tarball SHA512 verified; registry gitHead absent, not a source-reproduction claim",
+  "checks": [
+    "Mac JOSESwift encrypt -> Node jose decrypt: exact plaintext and protected header",
+    "Node jose encrypt -> Mac JOSESwift decrypt: exact plaintext",
+    "Both outputs: five compact segments, 12-byte IV, 16-byte tag",
+    "Mac denies tamper segment 1",
+    "Mac denies tamper segment 2",
+    "Mac denies tamper segment 3",
+    "Mac denies tamper segment 4",
+    "Mac denies tamper authenticated header",
+    "Mac denies extra compact segment",
+    "Mac denies truncated compact serialization",
+    "Node denies tamper segment 1",
+    "Node denies tamper segment 2",
+    "Node denies tamper segment 3",
+    "Node denies tamper segment 4",
+    "Node denies tamper authenticated header",
+    "Node denies extra compact segment",
+    "Node denies truncated compact serialization",
+    "Mac denies wrong RSA private key",
+    "Node denies wrong RSA private key"
+  ],
+  "characterization": [
+    "Generic JOSESwift decrypt accepts valid crypto with different typ; future strict profile admission must reject before use",
+    "Generic JOSESwift decrypt accepts valid crypto with extra header field; future strict profile admission must reject before use",
+    "Generic JOSESwift decrypt accepts valid crypto with wrong kid; future strict profile admission must reject before use"
+  ],
+  "plaintext_sha256": "29ba35a8347478ab40244ba43429198e018971d4d4f40adcacc5b85cbd11b400",
+  "key_material": "ephemeral synthetic exportable test keys; private DER files deleted after run",
+  "native_iphone_ipad": "NOT_RUN",
+  "chromium_webkit": "NOT_RUN",
+  "AppAttest": "NOT_RUN",
+  "strict_profile_validator": "NOT_IMPLEMENTED"
+}

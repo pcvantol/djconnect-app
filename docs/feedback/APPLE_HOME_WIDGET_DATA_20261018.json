@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-18",
+  "status": "OPEN_DATA_STREAM_WITHDRAWAL",
+  "physical_app": "iPhone40315 (last verified this debugging session)",
+  "source": "Read-only CoreDevice AppGroup-cache copy; no installation or provider mutation",
+  "shared_cache_sha256": "e98046df6343ebf4be78f02f95cec2ba26058e4ed26a5d4d269c1a1ecd5ccf44",
+  "widget_cache_present": false,
+  "neutral_session_snapshot_present": true,
+  "live_activity": {
+    "state": "active",
+    "observed_at": "2026-10-18T02:04:35.644715+00:00",
+    "expires_at": "2026-10-18T02:06:35.644715+00:00",
+    "has_playback": true,
+    "has_contribution": false,
+    "artwork_count": 0
+  },
+  "earlier_tunnel_metadata": {
+    "local_time": "03:44:50",
+    "widget_authorize": 200,
+    "live_activity_authorize": 200,
+    "widget_read": 200,
+    "observed_at": "2026-10-18T01:44:50.106175+00:00",
+    "expires_at": "2026-10-18T01:46:50.106175+00:00",
+    "has_contribution": true,
+    "has_playback": false,
+    "artwork_count": 0
+  },
+  "conclusion": "No widget-specific rich cache exists at readback; renderer therefore selects generic Session fallback. Earlier authorization/read succeeded, so initial configuration alone is not the demonstrated cause.",
+  "unresolved": [
+    "Exact later grant/cache withdrawal reason and transport response",
+    "Producer current cover/latest authorized Moment availability",
+    "Native WidgetCenter configuration and refresh acceptance",
+    "Physical active-data rendering after repair"
+  ],
+  "core_handoff": {
+    "sent": true,
+    "authorization": "Earlier explicit owner yes to widget diagnosis and repair in existing Core chat",
+    "thread_id": "01a120e2-b557-76c3-8568-129dbce2f2d2",
+    "latest": "Core writer actively investigates widget authorization loss; no repair result yet"
+  },
+  "not_claimed": [
+    "No fix or installed acceptance",
+    "No expired data retained or grant replay",
+    "No inference from private foreground content"
+  ]
+}

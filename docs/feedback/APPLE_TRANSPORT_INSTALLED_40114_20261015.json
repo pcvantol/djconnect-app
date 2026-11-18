@@ -1,0 +1,23 @@
+{
+  "build": "40114",
+  "source_commit": "944427f4efaba2e099cce13f15d0b5d294f3b5f4",
+  "producer_source": "0f92b74e76ae055efdbf2b375d95c58e86328e27",
+  "producer_finalization_main": "58205056c235a73488591591dd3d83f80f7bf847",
+  "signed_builds": "Mac and iOS/embeddedWatch PASS",
+  "installed": {
+    "macmini": "40114, codesign strict PASS, installed/built executable SHA256 d62a14c9d959688f5567fdc0b255cbe7ec5805fe85355ea42430bca68e10cc5a",
+    "ipad": "40114, install and actual About version visually verified",
+    "iphone": "40114, device install and app listing readback PASS; previous40060. Physical UI not run: passcodeRequired=true, no unlock attempted."
+  },
+  "ipad_navigation_smoke": "PASS: native DJ-session/Now Playing/Track Insight/Discover/More and About opened; no Internal Server Error text detected. Actual About, Now Playing, Track Insight and Session screenshots visually inspected. Read-only navigation, not all commands/providers qualified.",
+  "ipad_connection": "Actual About shows Connected external, HTTPS TLS, active ngrok origin, push registered Sandbox, music available. This is external readiness, NOT proof of LAN failover/WS or APNs delivery.",
+  "ipad_resume": "PASS on real installed app: initially empty Ask DJ editor received temporary test draft, Home/background and foreground resumed with exact draft preserved; test text then removed without sending. First probe used wrong TextField selector and failed before typing; corrected TextView probe passed. No selection/scroll/network-transition proof implied.",
+  "smoke_evidence": "/private/tmp/djc-local-ws-40114-ipad-smoke.xcresult",
+  "resume_evidence": "/private/tmp/djc-local-ws-40114-ipad-resume2.xcresult",
+  "about_screenshot": "/private/tmp/djc-local-ws-40114-ipad-smoke-images/896448E9-D892-460C-B82C-C8B2A7B1F150.png",
+  "resume_screenshot": "/private/tmp/djc-local-ws-40114-ipad-resume2-images/C782E3B5-5D70-4141-9669-285BB66095C1.png",
+  "core_status": "Finalization1185 merged; existing Core writer owns final artifact/readback and authorized dev/prod installation. Apple reported no conflicting HA mutations. Last HA-dev readback62c8156d, no ingress qualification. Do not deploy in parallel.",
+  "remaining": "Real source-preserving ingress/operator qualification, native local WS and LAN/external/background transitions across devices. No LAN PASS. iPhone UI blocked by device lock. Track Insight analysis separate Core scope.",
+  "cleanup": "Removed only unused rebuildable intermediates/index from own older keyboard simulator/session-surfaces test caches after lsof check, approx578MiB logical size. Preserved sources/apps/screenshots/xcresults. Fresh internal df5.9GiB free (concurrent disk usage; no net-free-space gain claim). No eligible stale branch/worktree; unrelated untracked projects retained.",
+  "delivery": "Local source only; publication pause preserved. Next app build40115+."
+}

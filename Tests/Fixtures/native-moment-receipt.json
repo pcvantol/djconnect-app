@@ -1,0 +1,2603 @@
+{
+  "assignment_id": "DJC-CORE-NATIVE-MOMENT-DELIVERY-V1-20261008",
+  "evidence_class": "SOFTWARE_SOURCE_SHAPED_PROVIDER_NO_LIVE_HA_OR_NATIVE_RENDER",
+  "base": "ee05c9422cd7a7a08bbe769925248632fa651961",
+  "before": {
+    "initial": {
+      "session": {
+        "session_id": "session-083b7d49ce5f4e9c96aeb5dd4c2e7b57",
+        "runtime_state": "active",
+        "selected_mood": "neutral",
+        "locale": "nl"
+      },
+      "playback": {
+        "state": "playing",
+        "item_id": "02e3d582594577327c335fc0",
+        "title": "Amber Lines",
+        "artist": "Artist 0",
+        "album": "Test edition",
+        "artwork_url": "/api/djconnect/v1/image_proxy/software-art",
+        "updated_at": "2026-10-08T13:11:00.959206+00:00",
+        "duration_ms": 300000,
+        "position_ms": 0,
+        "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "planner": {
+        "planning_state": "ready",
+        "planning_horizon_minutes": 15,
+        "current_direction": "exploring",
+        "session_direction": {
+          "direction": "exploring",
+          "initialized_at": "2026-10-08T13:11:00.959206+00:00",
+          "updated_at": "2026-10-08T13:11:00.959206+00:00",
+          "start_strategy": "discover"
+        }
+      },
+      "session_flow": {
+        "flow_id": "flow-session-083b7d49ce5f4e9c96aeb5dd4c2e7b57",
+        "flow_revision": 1,
+        "planning_horizon_minutes": 15,
+        "created_at": "2026-10-08T13:11:00.959206+00:00",
+        "items": [
+          {
+            "item_id": "now-current-track",
+            "item_type": "current_track",
+            "position": "now",
+            "label": "Current Track"
+          },
+          {
+            "item_id": "next-planning-horizon",
+            "item_type": "planning_horizon",
+            "position": "next",
+            "label": "Planning Horizon"
+          },
+          {
+            "item_id": "next-maintain-direction",
+            "item_type": "maintain_direction",
+            "position": "next",
+            "label": "Maintain Direction"
+          },
+          {
+            "item_id": "later-future-direction",
+            "item_type": "future_direction",
+            "position": "later",
+            "label": "Future Direction"
+          },
+          {
+            "item_id": "later-future-placeholder",
+            "item_type": "future_placeholder",
+            "position": "later",
+            "label": "Future Placeholder"
+          },
+          {
+            "item_id": "moment-moment-0c217b88074c4625a3f6f084f98b2d78",
+            "item_type": "dj_moment",
+            "position": "next",
+            "label": "Even de credits erbij",
+            "moment_id": "moment-0c217b88074c4625a3f6f084f98b2d78",
+            "moment_type": "track"
+          }
+        ]
+      },
+      "audience": {
+        "signal_totals": {},
+        "recent_activity": []
+      },
+      "dj_moments": [
+        {
+          "moment_id": "moment-0c217b88074c4625a3f6f084f98b2d78",
+          "session_id": "session-083b7d49ce5f4e9c96aeb5dd4c2e7b57",
+          "created_at": "2026-10-08T13:11:00.959206+00:00",
+          "type": "track",
+          "knowledge_intent": {
+            "type": "track_context",
+            "goal": "Share one qualified current-track fact."
+          },
+          "presentation_intent": {
+            "source_session_mood": "neutral",
+            "dj_persona": "home_dj",
+            "tone_of_voice": "warm and conversational",
+            "energy_level": "neutral",
+            "delivery_style": "short contextual music story",
+            "voice_style": "persona-guided",
+            "visual_theme": "music-context",
+            "importance": "normal",
+            "maximum_duration_seconds": 40,
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "visibility": "session_shared"
+          },
+          "title": "Even de credits erbij",
+          "summary": "Even de credits erbij",
+          "content": "Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd.",
+          "artwork": null,
+          "actions": [],
+          "visibility": "session_shared",
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "importance": "normal",
+          "source_references": [
+            "MusicBrainz"
+          ],
+          "generation_metadata": {
+            "provider": "MusicBrainz",
+            "validated": "true"
+          },
+          "source_attribution": {
+            "provider": "MusicBrainz",
+            "url": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001",
+            "license": "CC0-1.0"
+          },
+          "playback_item_id": "02e3d582594577327c335fc0"
+        }
+      ],
+      "presentations": [
+        {
+          "presentation_id": "presentation-moment-0c217b88074c4625a3f6f084f98b2d78",
+          "source_moment_id": "moment-0c217b88074c4625a3f6f084f98b2d78",
+          "source_moment_type": "track",
+          "visibility": "session_shared"
+        }
+      ],
+      "broadcast": {
+        "started_at": "2026-10-08T13:11:00.959206+00:00",
+        "snapshot_watermark": 7
+      }
+    },
+    "shared_producer": {
+      "session": {
+        "session_id": "session-083b7d49ce5f4e9c96aeb5dd4c2e7b57",
+        "runtime_state": "active",
+        "selected_mood": "neutral",
+        "locale": "nl"
+      },
+      "playback": {
+        "state": "playing",
+        "item_id": "e1f96e7d01ebb78c79b8d959",
+        "title": "Slow Lanterns",
+        "artist": "Artist 1",
+        "album": "Test edition",
+        "artwork_url": "/api/djconnect/v1/image_proxy/software-art",
+        "updated_at": "2026-10-08T13:16:00.959206+00:00",
+        "duration_ms": 300000,
+        "position_ms": 0,
+        "source_url": "https://open.spotify.com/track/BBBBBBBBBBBBBBBBBBBBBB"
+      },
+      "planner": {
+        "planning_state": "ready",
+        "planning_horizon_minutes": 15,
+        "current_direction": "exploring",
+        "session_direction": {
+          "direction": "exploring",
+          "initialized_at": "2026-10-08T13:11:00.959206+00:00",
+          "updated_at": "2026-10-08T13:11:00.959206+00:00",
+          "start_strategy": "discover"
+        }
+      },
+      "session_flow": {
+        "flow_id": "flow-session-083b7d49ce5f4e9c96aeb5dd4c2e7b57",
+        "flow_revision": 2,
+        "planning_horizon_minutes": 15,
+        "created_at": "2026-10-08T13:16:00.959206+00:00",
+        "items": [
+          {
+            "item_id": "now-current-track",
+            "item_type": "current_track",
+            "position": "now",
+            "label": "Current Track"
+          },
+          {
+            "item_id": "next-planning-horizon",
+            "item_type": "planning_horizon",
+            "position": "next",
+            "label": "Planning Horizon"
+          },
+          {
+            "item_id": "next-maintain-direction",
+            "item_type": "maintain_direction",
+            "position": "next",
+            "label": "Maintain Direction"
+          },
+          {
+            "item_id": "later-future-direction",
+            "item_type": "future_direction",
+            "position": "later",
+            "label": "Future Direction"
+          },
+          {
+            "item_id": "later-future-placeholder",
+            "item_type": "future_placeholder",
+            "position": "later",
+            "label": "Future Placeholder"
+          },
+          {
+            "item_id": "moment-moment-0c217b88074c4625a3f6f084f98b2d78",
+            "item_type": "dj_moment",
+            "position": "next",
+            "label": "Even de credits erbij",
+            "moment_id": "moment-0c217b88074c4625a3f6f084f98b2d78",
+            "moment_type": "track"
+          },
+          {
+            "item_id": "moment-moment-d1a21aa3832042fdb2eafa5b49f89621",
+            "item_type": "dj_moment",
+            "position": "next",
+            "label": "Even de credits erbij",
+            "moment_id": "moment-d1a21aa3832042fdb2eafa5b49f89621",
+            "moment_type": "track"
+          }
+        ]
+      },
+      "audience": {
+        "signal_totals": {},
+        "recent_activity": []
+      },
+      "dj_moments": [
+        {
+          "moment_id": "moment-0c217b88074c4625a3f6f084f98b2d78",
+          "session_id": "session-083b7d49ce5f4e9c96aeb5dd4c2e7b57",
+          "created_at": "2026-10-08T13:11:00.959206+00:00",
+          "type": "track",
+          "knowledge_intent": {
+            "type": "track_context",
+            "goal": "Share one qualified current-track fact."
+          },
+          "presentation_intent": {
+            "source_session_mood": "neutral",
+            "dj_persona": "home_dj",
+            "tone_of_voice": "warm and conversational",
+            "energy_level": "neutral",
+            "delivery_style": "short contextual music story",
+            "voice_style": "persona-guided",
+            "visual_theme": "music-context",
+            "importance": "normal",
+            "maximum_duration_seconds": 40,
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "visibility": "session_shared"
+          },
+          "title": "Even de credits erbij",
+          "summary": "Even de credits erbij",
+          "content": "Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd.",
+          "artwork": null,
+          "actions": [],
+          "visibility": "session_shared",
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "importance": "normal",
+          "source_references": [
+            "MusicBrainz"
+          ],
+          "generation_metadata": {
+            "provider": "MusicBrainz",
+            "validated": "true"
+          },
+          "source_attribution": {
+            "provider": "MusicBrainz",
+            "url": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001",
+            "license": "CC0-1.0"
+          },
+          "playback_item_id": "02e3d582594577327c335fc0"
+        },
+        {
+          "moment_id": "moment-d1a21aa3832042fdb2eafa5b49f89621",
+          "session_id": "session-083b7d49ce5f4e9c96aeb5dd4c2e7b57",
+          "created_at": "2026-10-08T13:16:00.959206+00:00",
+          "type": "track",
+          "knowledge_intent": {
+            "type": "track_context",
+            "goal": "Share one qualified current-track fact."
+          },
+          "presentation_intent": {
+            "source_session_mood": "neutral",
+            "dj_persona": "home_dj",
+            "tone_of_voice": "warm and conversational",
+            "energy_level": "neutral",
+            "delivery_style": "short contextual music story",
+            "voice_style": "persona-guided",
+            "visual_theme": "music-context",
+            "importance": "normal",
+            "maximum_duration_seconds": 40,
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "visibility": "session_shared"
+          },
+          "title": "Even de credits erbij",
+          "summary": "Even de credits erbij",
+          "content": "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits.",
+          "artwork": null,
+          "actions": [],
+          "visibility": "session_shared",
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "importance": "normal",
+          "source_references": [
+            "MusicBrainz"
+          ],
+          "generation_metadata": {
+            "provider": "MusicBrainz",
+            "validated": "true"
+          },
+          "source_attribution": {
+            "provider": "MusicBrainz",
+            "url": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000002",
+            "license": "CC0-1.0",
+            "url_previous": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001"
+          },
+          "playback_item_id": "e1f96e7d01ebb78c79b8d959"
+        }
+      ],
+      "presentations": [
+        {
+          "presentation_id": "presentation-moment-0c217b88074c4625a3f6f084f98b2d78",
+          "source_moment_id": "moment-0c217b88074c4625a3f6f084f98b2d78",
+          "source_moment_type": "track",
+          "visibility": "session_shared"
+        },
+        {
+          "presentation_id": "presentation-moment-d1a21aa3832042fdb2eafa5b49f89621",
+          "source_moment_id": "moment-d1a21aa3832042fdb2eafa5b49f89621",
+          "source_moment_type": "track",
+          "visibility": "session_shared"
+        }
+      ],
+      "broadcast": {
+        "started_at": "2026-10-08T13:11:00.959206+00:00",
+        "snapshot_watermark": 12
+      }
+    },
+    "expired": {
+      "session": {
+        "session_id": "session-083b7d49ce5f4e9c96aeb5dd4c2e7b57",
+        "runtime_state": "active",
+        "selected_mood": "neutral",
+        "locale": "nl"
+      },
+      "playback": {
+        "state": "playing",
+        "item_id": "e1f96e7d01ebb78c79b8d959",
+        "title": "Slow Lanterns",
+        "artist": "Artist 1",
+        "album": "Test edition",
+        "artwork_url": "/api/djconnect/v1/image_proxy/software-art",
+        "updated_at": "2026-10-08T13:16:00.959206+00:00",
+        "duration_ms": 300000,
+        "position_ms": 0,
+        "source_url": "https://open.spotify.com/track/BBBBBBBBBBBBBBBBBBBBBB"
+      },
+      "planner": {
+        "planning_state": "ready",
+        "planning_horizon_minutes": 15,
+        "current_direction": "exploring",
+        "session_direction": {
+          "direction": "exploring",
+          "initialized_at": "2026-10-08T13:11:00.959206+00:00",
+          "updated_at": "2026-10-08T13:11:00.959206+00:00",
+          "start_strategy": "discover"
+        }
+      },
+      "session_flow": {
+        "flow_id": "flow-session-083b7d49ce5f4e9c96aeb5dd4c2e7b57",
+        "flow_revision": 2,
+        "planning_horizon_minutes": 15,
+        "created_at": "2026-10-08T13:16:00.959206+00:00",
+        "items": [
+          {
+            "item_id": "now-current-track",
+            "item_type": "current_track",
+            "position": "now",
+            "label": "Current Track"
+          },
+          {
+            "item_id": "next-planning-horizon",
+            "item_type": "planning_horizon",
+            "position": "next",
+            "label": "Planning Horizon"
+          },
+          {
+            "item_id": "next-maintain-direction",
+            "item_type": "maintain_direction",
+            "position": "next",
+            "label": "Maintain Direction"
+          },
+          {
+            "item_id": "later-future-direction",
+            "item_type": "future_direction",
+            "position": "later",
+            "label": "Future Direction"
+          },
+          {
+            "item_id": "later-future-placeholder",
+            "item_type": "future_placeholder",
+            "position": "later",
+            "label": "Future Placeholder"
+          },
+          {
+            "item_id": "moment-moment-0c217b88074c4625a3f6f084f98b2d78",
+            "item_type": "dj_moment",
+            "position": "next",
+            "label": "Even de credits erbij",
+            "moment_id": "moment-0c217b88074c4625a3f6f084f98b2d78",
+            "moment_type": "track"
+          },
+          {
+            "item_id": "moment-moment-d1a21aa3832042fdb2eafa5b49f89621",
+            "item_type": "dj_moment",
+            "position": "next",
+            "label": "Even de credits erbij",
+            "moment_id": "moment-d1a21aa3832042fdb2eafa5b49f89621",
+            "moment_type": "track"
+          }
+        ]
+      },
+      "audience": {
+        "signal_totals": {},
+        "recent_activity": []
+      },
+      "dj_moments": [
+        {
+          "moment_id": "moment-0c217b88074c4625a3f6f084f98b2d78",
+          "session_id": "session-083b7d49ce5f4e9c96aeb5dd4c2e7b57",
+          "created_at": "2026-10-08T13:11:00.959206+00:00",
+          "type": "track",
+          "knowledge_intent": {
+            "type": "track_context",
+            "goal": "Share one qualified current-track fact."
+          },
+          "presentation_intent": {
+            "source_session_mood": "neutral",
+            "dj_persona": "home_dj",
+            "tone_of_voice": "warm and conversational",
+            "energy_level": "neutral",
+            "delivery_style": "short contextual music story",
+            "voice_style": "persona-guided",
+            "visual_theme": "music-context",
+            "importance": "normal",
+            "maximum_duration_seconds": 40,
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "visibility": "session_shared"
+          },
+          "title": "Even de credits erbij",
+          "summary": "Even de credits erbij",
+          "content": "Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd.",
+          "artwork": null,
+          "actions": [],
+          "visibility": "session_shared",
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "importance": "normal",
+          "source_references": [
+            "MusicBrainz"
+          ],
+          "generation_metadata": {
+            "provider": "MusicBrainz",
+            "validated": "true"
+          },
+          "source_attribution": {
+            "provider": "MusicBrainz",
+            "url": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001",
+            "license": "CC0-1.0"
+          },
+          "playback_item_id": "02e3d582594577327c335fc0"
+        },
+        {
+          "moment_id": "moment-d1a21aa3832042fdb2eafa5b49f89621",
+          "session_id": "session-083b7d49ce5f4e9c96aeb5dd4c2e7b57",
+          "created_at": "2026-10-08T13:16:00.959206+00:00",
+          "type": "track",
+          "knowledge_intent": {
+            "type": "track_context",
+            "goal": "Share one qualified current-track fact."
+          },
+          "presentation_intent": {
+            "source_session_mood": "neutral",
+            "dj_persona": "home_dj",
+            "tone_of_voice": "warm and conversational",
+            "energy_level": "neutral",
+            "delivery_style": "short contextual music story",
+            "voice_style": "persona-guided",
+            "visual_theme": "music-context",
+            "importance": "normal",
+            "maximum_duration_seconds": 40,
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "visibility": "session_shared"
+          },
+          "title": "Even de credits erbij",
+          "summary": "Even de credits erbij",
+          "content": "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits.",
+          "artwork": null,
+          "actions": [],
+          "visibility": "session_shared",
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "importance": "normal",
+          "source_references": [
+            "MusicBrainz"
+          ],
+          "generation_metadata": {
+            "provider": "MusicBrainz",
+            "validated": "true"
+          },
+          "source_attribution": {
+            "provider": "MusicBrainz",
+            "url": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000002",
+            "license": "CC0-1.0",
+            "url_previous": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001"
+          },
+          "playback_item_id": "e1f96e7d01ebb78c79b8d959"
+        }
+      ],
+      "presentations": [
+        {
+          "presentation_id": "presentation-moment-0c217b88074c4625a3f6f084f98b2d78",
+          "source_moment_id": "moment-0c217b88074c4625a3f6f084f98b2d78",
+          "source_moment_type": "track",
+          "visibility": "session_shared"
+        },
+        {
+          "presentation_id": "presentation-moment-d1a21aa3832042fdb2eafa5b49f89621",
+          "source_moment_id": "moment-d1a21aa3832042fdb2eafa5b49f89621",
+          "source_moment_type": "track",
+          "visibility": "session_shared"
+        }
+      ],
+      "broadcast": {
+        "started_at": "2026-10-08T13:11:00.959206+00:00",
+        "snapshot_watermark": 12
+      }
+    }
+  },
+  "after": {
+    "http_initial": {
+      "success": true,
+      "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+      "snapshot": {
+        "session": {
+          "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "runtime_state": "active",
+          "selected_mood": "neutral",
+          "locale": "nl"
+        },
+        "playback": {
+          "state": "playing",
+          "item_id": "02e3d582594577327c335fc0",
+          "title": "Amber Lines",
+          "artist": "Artist 0",
+          "album": "Test edition",
+          "artwork_url": "/api/djconnect/v1/image_proxy/software-art",
+          "updated_at": "2026-10-08T13:11:00.921235+00:00",
+          "duration_ms": 300000,
+          "position_ms": 0,
+          "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+        },
+        "planner": {
+          "planning_state": "ready",
+          "planning_horizon_minutes": 15,
+          "current_direction": "exploring",
+          "session_direction": {
+            "direction": "exploring",
+            "initialized_at": "2026-10-08T13:11:00.921235+00:00",
+            "updated_at": "2026-10-08T13:11:00.921235+00:00",
+            "start_strategy": "discover"
+          }
+        },
+        "session_flow": {
+          "flow_id": "flow-session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "flow_revision": 1,
+          "planning_horizon_minutes": 15,
+          "created_at": "2026-10-08T13:11:00.921235+00:00",
+          "items": [
+            {
+              "item_id": "now-current-track",
+              "item_type": "current_track",
+              "position": "now",
+              "label": "Current Track"
+            },
+            {
+              "item_id": "next-planning-horizon",
+              "item_type": "planning_horizon",
+              "position": "next",
+              "label": "Planning Horizon"
+            },
+            {
+              "item_id": "next-maintain-direction",
+              "item_type": "maintain_direction",
+              "position": "next",
+              "label": "Maintain Direction"
+            },
+            {
+              "item_id": "later-future-direction",
+              "item_type": "future_direction",
+              "position": "later",
+              "label": "Future Direction"
+            },
+            {
+              "item_id": "later-future-placeholder",
+              "item_type": "future_placeholder",
+              "position": "later",
+              "label": "Future Placeholder"
+            },
+            {
+              "item_id": "moment-moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "Even de credits erbij",
+              "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "moment_type": "track"
+            }
+          ]
+        },
+        "audience": {
+          "signal_totals": {},
+          "recent_activity": []
+        },
+        "dj_moments": [
+          {
+            "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "created_at": "2026-10-08T13:11:00.921235+00:00",
+            "type": "track",
+            "knowledge_intent": {
+              "type": "track_context",
+              "goal": "Share one qualified current-track fact."
+            },
+            "presentation_intent": {
+              "source_session_mood": "neutral",
+              "dj_persona": "home_dj",
+              "tone_of_voice": "warm and conversational",
+              "energy_level": "neutral",
+              "delivery_style": "short contextual music story",
+              "voice_style": "persona-guided",
+              "visual_theme": "music-context",
+              "importance": "normal",
+              "maximum_duration_seconds": 40,
+              "delivery_channels": [
+                "broadcast",
+                "owner",
+                "shared"
+              ],
+              "visibility": "session_shared"
+            },
+            "title": "Even de credits erbij",
+            "summary": "Even de credits erbij",
+            "content": "Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd.",
+            "artwork": null,
+            "actions": [],
+            "visibility": "session_shared",
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "importance": "normal",
+            "source_references": [
+              "MusicBrainz"
+            ],
+            "generation_metadata": {
+              "provider": "MusicBrainz",
+              "validated": "true"
+            },
+            "source_attribution": {
+              "provider": "MusicBrainz",
+              "url": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001",
+              "license": "CC0-1.0"
+            },
+            "playback_item_id": "02e3d582594577327c335fc0"
+          }
+        ],
+        "presentations": [
+          {
+            "presentation_id": "presentation-moment-bfe9d5b3e50b439a9deeec003e2e3075",
+            "source_moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+            "source_moment_type": "track",
+            "visibility": "session_shared"
+          }
+        ],
+        "broadcast": {
+          "started_at": "2026-10-08T13:11:00.921235+00:00",
+          "snapshot_watermark": 7
+        },
+        "native_delivery": {
+          "schema_version": 1,
+          "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "current_moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+          "active_flow_moment_ids": [
+            "moment-bfe9d5b3e50b439a9deeec003e2e3075"
+          ],
+          "admissions": [
+            {
+              "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "qualification": "qualified",
+              "current_display_allowed": true,
+              "active_flow_display_allowed": true,
+              "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+              "display_expires_at": "2026-10-08T13:11:40.921235+00:00",
+              "executable_actions": [],
+              "requires_spotify_attribution": false
+            }
+          ],
+          "revocation_scope": "session",
+          "revision": "78b01288a642d3224f28c3b2"
+        }
+      }
+    },
+    "websocket_initial": {
+      "subscription_id": "broadcast-subscription-6af6d540863c4f21b617f46685364bf8",
+      "success": true,
+      "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+      "snapshot": {
+        "session": {
+          "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "runtime_state": "active",
+          "selected_mood": "neutral",
+          "locale": "nl"
+        },
+        "playback": {
+          "state": "playing",
+          "item_id": "02e3d582594577327c335fc0",
+          "title": "Amber Lines",
+          "artist": "Artist 0",
+          "album": "Test edition",
+          "artwork_url": "/api/djconnect/v1/image_proxy/software-art",
+          "updated_at": "2026-10-08T13:11:00.921235+00:00",
+          "duration_ms": 300000,
+          "position_ms": 0,
+          "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+        },
+        "planner": {
+          "planning_state": "ready",
+          "planning_horizon_minutes": 15,
+          "current_direction": "exploring",
+          "session_direction": {
+            "direction": "exploring",
+            "initialized_at": "2026-10-08T13:11:00.921235+00:00",
+            "updated_at": "2026-10-08T13:11:00.921235+00:00",
+            "start_strategy": "discover"
+          }
+        },
+        "session_flow": {
+          "flow_id": "flow-session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "flow_revision": 1,
+          "planning_horizon_minutes": 15,
+          "created_at": "2026-10-08T13:11:00.921235+00:00",
+          "items": [
+            {
+              "item_id": "now-current-track",
+              "item_type": "current_track",
+              "position": "now",
+              "label": "Current Track"
+            },
+            {
+              "item_id": "next-planning-horizon",
+              "item_type": "planning_horizon",
+              "position": "next",
+              "label": "Planning Horizon"
+            },
+            {
+              "item_id": "next-maintain-direction",
+              "item_type": "maintain_direction",
+              "position": "next",
+              "label": "Maintain Direction"
+            },
+            {
+              "item_id": "later-future-direction",
+              "item_type": "future_direction",
+              "position": "later",
+              "label": "Future Direction"
+            },
+            {
+              "item_id": "later-future-placeholder",
+              "item_type": "future_placeholder",
+              "position": "later",
+              "label": "Future Placeholder"
+            },
+            {
+              "item_id": "moment-moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "Even de credits erbij",
+              "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "moment_type": "track"
+            }
+          ]
+        },
+        "audience": {
+          "signal_totals": {},
+          "recent_activity": []
+        },
+        "dj_moments": [
+          {
+            "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "created_at": "2026-10-08T13:11:00.921235+00:00",
+            "type": "track",
+            "knowledge_intent": {
+              "type": "track_context",
+              "goal": "Share one qualified current-track fact."
+            },
+            "presentation_intent": {
+              "source_session_mood": "neutral",
+              "dj_persona": "home_dj",
+              "tone_of_voice": "warm and conversational",
+              "energy_level": "neutral",
+              "delivery_style": "short contextual music story",
+              "voice_style": "persona-guided",
+              "visual_theme": "music-context",
+              "importance": "normal",
+              "maximum_duration_seconds": 40,
+              "delivery_channels": [
+                "broadcast",
+                "owner",
+                "shared"
+              ],
+              "visibility": "session_shared"
+            },
+            "title": "Even de credits erbij",
+            "summary": "Even de credits erbij",
+            "content": "Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd.",
+            "artwork": null,
+            "actions": [],
+            "visibility": "session_shared",
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "importance": "normal",
+            "source_references": [
+              "MusicBrainz"
+            ],
+            "generation_metadata": {
+              "provider": "MusicBrainz",
+              "validated": "true"
+            },
+            "source_attribution": {
+              "provider": "MusicBrainz",
+              "url": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001",
+              "license": "CC0-1.0"
+            },
+            "playback_item_id": "02e3d582594577327c335fc0"
+          }
+        ],
+        "presentations": [
+          {
+            "presentation_id": "presentation-moment-bfe9d5b3e50b439a9deeec003e2e3075",
+            "source_moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+            "source_moment_type": "track",
+            "visibility": "session_shared"
+          }
+        ],
+        "broadcast": {
+          "started_at": "2026-10-08T13:11:00.921235+00:00",
+          "snapshot_watermark": 7
+        },
+        "native_delivery": {
+          "schema_version": 1,
+          "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "current_moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+          "active_flow_moment_ids": [
+            "moment-bfe9d5b3e50b439a9deeec003e2e3075"
+          ],
+          "admissions": [
+            {
+              "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "qualification": "qualified",
+              "current_display_allowed": true,
+              "active_flow_display_allowed": true,
+              "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+              "display_expires_at": "2026-10-08T13:11:40.921235+00:00",
+              "executable_actions": [],
+              "requires_spotify_attribution": false
+            }
+          ],
+          "revocation_scope": "session",
+          "revision": "78b01288a642d3224f28c3b2"
+        }
+      }
+    },
+    "http_shared_producer": {
+      "success": true,
+      "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+      "snapshot": {
+        "session": {
+          "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "runtime_state": "active",
+          "selected_mood": "neutral",
+          "locale": "nl"
+        },
+        "playback": {
+          "state": "playing",
+          "item_id": "e1f96e7d01ebb78c79b8d959",
+          "title": "Slow Lanterns",
+          "artist": "Artist 1",
+          "album": "Test edition",
+          "updated_at": "2026-10-08T13:16:00.921235+00:00",
+          "duration_ms": 300000,
+          "position_ms": 0,
+          "source_url": "https://open.spotify.com/track/BBBBBBBBBBBBBBBBBBBBBB"
+        },
+        "planner": {
+          "planning_state": "ready",
+          "planning_horizon_minutes": 15,
+          "current_direction": "exploring",
+          "session_direction": {
+            "direction": "exploring",
+            "initialized_at": "2026-10-08T13:11:00.921235+00:00",
+            "updated_at": "2026-10-08T13:11:00.921235+00:00",
+            "start_strategy": "discover"
+          }
+        },
+        "session_flow": {
+          "flow_id": "flow-session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "flow_revision": 2,
+          "planning_horizon_minutes": 15,
+          "created_at": "2026-10-08T13:16:00.921235+00:00",
+          "items": [
+            {
+              "item_id": "now-current-track",
+              "item_type": "current_track",
+              "position": "now",
+              "label": "Current Track"
+            },
+            {
+              "item_id": "next-planning-horizon",
+              "item_type": "planning_horizon",
+              "position": "next",
+              "label": "Planning Horizon"
+            },
+            {
+              "item_id": "next-maintain-direction",
+              "item_type": "maintain_direction",
+              "position": "next",
+              "label": "Maintain Direction"
+            },
+            {
+              "item_id": "later-future-direction",
+              "item_type": "future_direction",
+              "position": "later",
+              "label": "Future Direction"
+            },
+            {
+              "item_id": "later-future-placeholder",
+              "item_type": "future_placeholder",
+              "position": "later",
+              "label": "Future Placeholder"
+            },
+            {
+              "item_id": "moment-moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "Even de credits erbij",
+              "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "moment_type": "track"
+            },
+            {
+              "item_id": "moment-moment-e6465c5dc7344ef592f4019d6552a421",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "Even de credits erbij",
+              "moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+              "moment_type": "track"
+            }
+          ]
+        },
+        "audience": {
+          "signal_totals": {},
+          "recent_activity": []
+        },
+        "dj_moments": [
+          {
+            "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "created_at": "2026-10-08T13:11:00.921235+00:00",
+            "type": "track",
+            "knowledge_intent": {
+              "type": "track_context",
+              "goal": "Share one qualified current-track fact."
+            },
+            "presentation_intent": {
+              "source_session_mood": "neutral",
+              "dj_persona": "home_dj",
+              "tone_of_voice": "warm and conversational",
+              "energy_level": "neutral",
+              "delivery_style": "short contextual music story",
+              "voice_style": "persona-guided",
+              "visual_theme": "music-context",
+              "importance": "normal",
+              "maximum_duration_seconds": 40,
+              "delivery_channels": [
+                "broadcast",
+                "owner",
+                "shared"
+              ],
+              "visibility": "session_shared"
+            },
+            "title": "Even de credits erbij",
+            "summary": "Even de credits erbij",
+            "content": "Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd.",
+            "artwork": null,
+            "actions": [],
+            "visibility": "session_shared",
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "importance": "normal",
+            "source_references": [
+              "MusicBrainz"
+            ],
+            "generation_metadata": {
+              "provider": "MusicBrainz",
+              "validated": "true"
+            },
+            "source_attribution": {
+              "provider": "MusicBrainz",
+              "url": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001",
+              "license": "CC0-1.0"
+            },
+            "playback_item_id": "02e3d582594577327c335fc0"
+          },
+          {
+            "moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "created_at": "2026-10-08T13:16:00.921235+00:00",
+            "type": "track",
+            "knowledge_intent": {
+              "type": "track_context",
+              "goal": "Share one qualified current-track fact."
+            },
+            "presentation_intent": {
+              "source_session_mood": "neutral",
+              "dj_persona": "home_dj",
+              "tone_of_voice": "warm and conversational",
+              "energy_level": "neutral",
+              "delivery_style": "short contextual music story",
+              "voice_style": "persona-guided",
+              "visual_theme": "music-context",
+              "importance": "normal",
+              "maximum_duration_seconds": 40,
+              "delivery_channels": [
+                "broadcast",
+                "owner",
+                "shared"
+              ],
+              "visibility": "session_shared"
+            },
+            "title": "Even de credits erbij",
+            "summary": "Even de credits erbij",
+            "content": "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits.",
+            "artwork": null,
+            "actions": [],
+            "visibility": "session_shared",
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "importance": "normal",
+            "source_references": [
+              "MusicBrainz"
+            ],
+            "generation_metadata": {
+              "provider": "MusicBrainz",
+              "validated": "true"
+            },
+            "source_attribution": {
+              "provider": "MusicBrainz",
+              "url": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000002",
+              "license": "CC0-1.0",
+              "url_previous": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001"
+            },
+            "playback_item_id": "e1f96e7d01ebb78c79b8d959"
+          }
+        ],
+        "presentations": [
+          {
+            "presentation_id": "presentation-moment-bfe9d5b3e50b439a9deeec003e2e3075",
+            "source_moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+            "source_moment_type": "track",
+            "visibility": "session_shared"
+          },
+          {
+            "presentation_id": "presentation-moment-e6465c5dc7344ef592f4019d6552a421",
+            "source_moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+            "source_moment_type": "track",
+            "visibility": "session_shared"
+          }
+        ],
+        "broadcast": {
+          "started_at": "2026-10-08T13:11:00.921235+00:00",
+          "snapshot_watermark": 12
+        },
+        "native_delivery": {
+          "schema_version": 1,
+          "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "current_moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+          "active_flow_moment_ids": [
+            "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+            "moment-e6465c5dc7344ef592f4019d6552a421"
+          ],
+          "admissions": [
+            {
+              "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "qualification": "qualified",
+              "current_display_allowed": false,
+              "active_flow_display_allowed": true,
+              "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+              "display_expires_at": "2026-10-08T13:11:40.921235+00:00",
+              "executable_actions": [],
+              "requires_spotify_attribution": false
+            },
+            {
+              "moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+              "qualification": "qualified",
+              "current_display_allowed": true,
+              "active_flow_display_allowed": true,
+              "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+              "display_expires_at": "2026-10-08T13:16:40.921235+00:00",
+              "executable_actions": [],
+              "requires_spotify_attribution": false
+            }
+          ],
+          "revocation_scope": "session",
+          "revision": "027192d83d684700ea63fac8"
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "playback_changed",
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "delivery_sequence": 8,
+        "payload": {
+          "playback": {
+            "state": "playing",
+            "item_id": "e1f96e7d01ebb78c79b8d959",
+            "title": "Slow Lanterns",
+            "artist": "Artist 1",
+            "album": "Test edition",
+            "updated_at": "2026-10-08T13:16:00.921235+00:00",
+            "duration_ms": 300000,
+            "position_ms": 0,
+            "source_url": "https://open.spotify.com/track/BBBBBBBBBBBBBBBBBBBBBB"
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [
+              "moment-bfe9d5b3e50b439a9deeec003e2e3075"
+            ],
+            "admissions": [
+              {
+                "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+                "qualification": "qualified",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": true,
+                "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+                "display_expires_at": "2026-10-08T13:11:40.921235+00:00",
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              }
+            ],
+            "revocation_scope": "session",
+            "revision": "ca99ac7e82011bac8149d330"
+          }
+        }
+      },
+      {
+        "event_type": "planner_updated",
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "delivery_sequence": 9,
+        "payload": {
+          "planner": {
+            "planning_state": "ready",
+            "planning_horizon_minutes": 15,
+            "current_direction": "exploring",
+            "session_direction": {
+              "direction": "exploring",
+              "initialized_at": "2026-10-08T13:11:00.921235+00:00",
+              "updated_at": "2026-10-08T13:11:00.921235+00:00",
+              "start_strategy": "discover"
+            }
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [
+              "moment-bfe9d5b3e50b439a9deeec003e2e3075"
+            ],
+            "admissions": [
+              {
+                "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+                "qualification": "qualified",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": true,
+                "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+                "display_expires_at": "2026-10-08T13:11:40.921235+00:00",
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              }
+            ],
+            "revocation_scope": "session",
+            "revision": "ca99ac7e82011bac8149d330"
+          }
+        }
+      },
+      {
+        "event_type": "session_flow_updated",
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "delivery_sequence": 10,
+        "payload": {
+          "session_flow": {
+            "flow_id": "flow-session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "flow_revision": 2,
+            "planning_horizon_minutes": 15,
+            "created_at": "2026-10-08T13:16:00.921235+00:00",
+            "items": [
+              {
+                "item_id": "now-current-track",
+                "item_type": "current_track",
+                "position": "now",
+                "label": "Current Track"
+              },
+              {
+                "item_id": "next-planning-horizon",
+                "item_type": "planning_horizon",
+                "position": "next",
+                "label": "Planning Horizon"
+              },
+              {
+                "item_id": "next-maintain-direction",
+                "item_type": "maintain_direction",
+                "position": "next",
+                "label": "Maintain Direction"
+              },
+              {
+                "item_id": "later-future-direction",
+                "item_type": "future_direction",
+                "position": "later",
+                "label": "Future Direction"
+              },
+              {
+                "item_id": "later-future-placeholder",
+                "item_type": "future_placeholder",
+                "position": "later",
+                "label": "Future Placeholder"
+              },
+              {
+                "item_id": "moment-moment-bfe9d5b3e50b439a9deeec003e2e3075",
+                "item_type": "dj_moment",
+                "position": "next",
+                "label": "Even de credits erbij",
+                "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+                "moment_type": "track"
+              },
+              {
+                "item_id": "moment-moment-e6465c5dc7344ef592f4019d6552a421",
+                "item_type": "dj_moment",
+                "position": "next",
+                "label": "Even de credits erbij",
+                "moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+                "moment_type": "track"
+              }
+            ]
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [
+              "moment-bfe9d5b3e50b439a9deeec003e2e3075"
+            ],
+            "admissions": [
+              {
+                "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+                "qualification": "qualified",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": true,
+                "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+                "display_expires_at": "2026-10-08T13:11:40.921235+00:00",
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              }
+            ],
+            "revocation_scope": "session",
+            "revision": "ca99ac7e82011bac8149d330"
+          }
+        }
+      },
+      {
+        "event_type": "dj_moment_published",
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "delivery_sequence": 11,
+        "payload": {
+          "dj_moment": {
+            "moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "created_at": "2026-10-08T13:16:00.921235+00:00",
+            "type": "track",
+            "knowledge_intent": {
+              "type": "track_context",
+              "goal": "Share one qualified current-track fact."
+            },
+            "presentation_intent": {
+              "source_session_mood": "neutral",
+              "dj_persona": "home_dj",
+              "tone_of_voice": "warm and conversational",
+              "energy_level": "neutral",
+              "delivery_style": "short contextual music story",
+              "voice_style": "persona-guided",
+              "visual_theme": "music-context",
+              "importance": "normal",
+              "maximum_duration_seconds": 40,
+              "delivery_channels": [
+                "broadcast",
+                "owner",
+                "shared"
+              ],
+              "visibility": "session_shared"
+            },
+            "title": "Even de credits erbij",
+            "summary": "Even de credits erbij",
+            "content": "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits.",
+            "artwork": null,
+            "actions": [],
+            "visibility": "session_shared",
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "importance": "normal",
+            "source_references": [
+              "MusicBrainz"
+            ],
+            "generation_metadata": {
+              "provider": "MusicBrainz",
+              "validated": "true"
+            },
+            "source_attribution": {
+              "provider": "MusicBrainz",
+              "url": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000002",
+              "license": "CC0-1.0",
+              "url_previous": "https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001"
+            },
+            "playback_item_id": "e1f96e7d01ebb78c79b8d959"
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "current_moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+            "active_flow_moment_ids": [
+              "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "moment-e6465c5dc7344ef592f4019d6552a421"
+            ],
+            "admissions": [
+              {
+                "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+                "qualification": "qualified",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": true,
+                "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+                "display_expires_at": "2026-10-08T13:11:40.921235+00:00",
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              },
+              {
+                "moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+                "qualification": "qualified",
+                "current_display_allowed": true,
+                "active_flow_display_allowed": true,
+                "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+                "display_expires_at": "2026-10-08T13:16:40.921235+00:00",
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              }
+            ],
+            "revocation_scope": "session",
+            "revision": "027192d83d684700ea63fac8"
+          }
+        }
+      },
+      {
+        "event_type": "presentation_published",
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "delivery_sequence": 12,
+        "payload": {
+          "presentation": {
+            "presentation_id": "presentation-moment-e6465c5dc7344ef592f4019d6552a421",
+            "source_moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+            "source_moment_type": "track",
+            "visibility": "session_shared"
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "current_moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+            "active_flow_moment_ids": [
+              "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "moment-e6465c5dc7344ef592f4019d6552a421"
+            ],
+            "admissions": [
+              {
+                "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+                "qualification": "qualified",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": true,
+                "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+                "display_expires_at": "2026-10-08T13:11:40.921235+00:00",
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              },
+              {
+                "moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+                "qualification": "qualified",
+                "current_display_allowed": true,
+                "active_flow_display_allowed": true,
+                "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+                "display_expires_at": "2026-10-08T13:16:40.921235+00:00",
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              }
+            ],
+            "revocation_scope": "session",
+            "revision": "027192d83d684700ea63fac8"
+          }
+        }
+      },
+      {
+        "event_type": "session_flow_updated",
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "delivery_sequence": 13,
+        "payload": {
+          "session_flow": {
+            "flow_id": "flow-session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "flow_revision": 2,
+            "planning_horizon_minutes": 15,
+            "created_at": "2026-10-08T13:16:00.921235+00:00",
+            "items": [
+              {
+                "item_id": "now-current-track",
+                "item_type": "current_track",
+                "position": "now",
+                "label": "Current Track"
+              },
+              {
+                "item_id": "next-planning-horizon",
+                "item_type": "planning_horizon",
+                "position": "next",
+                "label": "Planning Horizon"
+              },
+              {
+                "item_id": "next-maintain-direction",
+                "item_type": "maintain_direction",
+                "position": "next",
+                "label": "Maintain Direction"
+              },
+              {
+                "item_id": "later-future-direction",
+                "item_type": "future_direction",
+                "position": "later",
+                "label": "Future Direction"
+              },
+              {
+                "item_id": "later-future-placeholder",
+                "item_type": "future_placeholder",
+                "position": "later",
+                "label": "Future Placeholder"
+              }
+            ]
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [],
+            "admissions": [
+              {
+                "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+                "qualification": "expired",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": false,
+                "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+                "display_expires_at": null,
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              },
+              {
+                "moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+                "qualification": "expired",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": false,
+                "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+                "display_expires_at": null,
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              }
+            ],
+            "revocation_scope": "session",
+            "revision": "7b6503d6c8813ef52d2c782a"
+          }
+        }
+      },
+      {
+        "event_type": "playback_progress",
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "delivery_sequence": 14,
+        "payload": {
+          "playback": {
+            "state": "playing",
+            "item_id": "e1f96e7d01ebb78c79b8d959",
+            "title": "Slow Lanterns",
+            "artist": "Artist 1",
+            "album": "Test edition",
+            "updated_at": "2026-10-08T13:41:01.921235+00:00",
+            "duration_ms": 300000,
+            "position_ms": 300000,
+            "source_url": "https://open.spotify.com/track/BBBBBBBBBBBBBBBBBBBBBB"
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [],
+            "admissions": [
+              {
+                "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+                "qualification": "expired",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": false,
+                "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+                "display_expires_at": null,
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              },
+              {
+                "moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+                "qualification": "expired",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": false,
+                "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+                "display_expires_at": null,
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              }
+            ],
+            "revocation_scope": "session",
+            "revision": "7b6503d6c8813ef52d2c782a"
+          }
+        }
+      },
+      {
+        "event_type": "runtime_ended",
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "delivery_sequence": 15,
+        "payload": {
+          "session": {
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "runtime_state": "ended",
+            "selected_mood": "neutral",
+            "locale": "nl"
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [],
+            "admissions": [],
+            "revocation_scope": "session",
+            "revision": "d0c8d400f1154fc54cde6de5"
+          }
+        }
+      },
+      {
+        "event_type": "broadcast_stopped",
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "delivery_sequence": 16,
+        "payload": {
+          "broadcast": {
+            "started_at": "2026-10-08T13:11:00.921235+00:00",
+            "snapshot_watermark": 14
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [],
+            "admissions": [],
+            "revocation_scope": "session",
+            "revision": "d0c8d400f1154fc54cde6de5"
+          }
+        }
+      }
+    ],
+    "expired": {
+      "session": {
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "runtime_state": "active",
+        "selected_mood": "neutral",
+        "locale": "nl"
+      },
+      "playback": {
+        "state": "playing",
+        "item_id": "e1f96e7d01ebb78c79b8d959",
+        "title": "Slow Lanterns",
+        "artist": "Artist 1",
+        "album": "Test edition",
+        "updated_at": "2026-10-08T13:41:01.921235+00:00",
+        "duration_ms": 300000,
+        "position_ms": 300000,
+        "source_url": "https://open.spotify.com/track/BBBBBBBBBBBBBBBBBBBBBB"
+      },
+      "planner": {
+        "planning_state": "ready",
+        "planning_horizon_minutes": 15,
+        "current_direction": "exploring",
+        "session_direction": {
+          "direction": "exploring",
+          "initialized_at": "2026-10-08T13:11:00.921235+00:00",
+          "updated_at": "2026-10-08T13:11:00.921235+00:00",
+          "start_strategy": "discover"
+        }
+      },
+      "session_flow": {
+        "flow_id": "flow-session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "flow_revision": 2,
+        "planning_horizon_minutes": 15,
+        "created_at": "2026-10-08T13:16:00.921235+00:00",
+        "items": [
+          {
+            "item_id": "now-current-track",
+            "item_type": "current_track",
+            "position": "now",
+            "label": "Current Track"
+          },
+          {
+            "item_id": "next-planning-horizon",
+            "item_type": "planning_horizon",
+            "position": "next",
+            "label": "Planning Horizon"
+          },
+          {
+            "item_id": "next-maintain-direction",
+            "item_type": "maintain_direction",
+            "position": "next",
+            "label": "Maintain Direction"
+          },
+          {
+            "item_id": "later-future-direction",
+            "item_type": "future_direction",
+            "position": "later",
+            "label": "Future Direction"
+          },
+          {
+            "item_id": "later-future-placeholder",
+            "item_type": "future_placeholder",
+            "position": "later",
+            "label": "Future Placeholder"
+          }
+        ]
+      },
+      "audience": {
+        "signal_totals": {},
+        "recent_activity": []
+      },
+      "dj_moments": [],
+      "presentations": [],
+      "broadcast": {
+        "started_at": "2026-10-08T13:11:00.921235+00:00",
+        "snapshot_watermark": 14
+      },
+      "native_delivery": {
+        "schema_version": 1,
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "current_moment_id": null,
+        "active_flow_moment_ids": [],
+        "admissions": [
+          {
+            "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+            "qualification": "expired",
+            "current_display_allowed": false,
+            "active_flow_display_allowed": false,
+            "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+            "display_expires_at": null,
+            "executable_actions": [],
+            "requires_spotify_attribution": false
+          },
+          {
+            "moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+            "qualification": "expired",
+            "current_display_allowed": false,
+            "active_flow_display_allowed": false,
+            "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+            "display_expires_at": null,
+            "executable_actions": [],
+            "requires_spotify_attribution": false
+          }
+        ],
+        "revocation_scope": "session",
+        "revision": "7b6503d6c8813ef52d2c782a"
+      }
+    },
+    "reconnect": {
+      "recovery": "snapshot_required",
+      "snapshot": {
+        "session": {
+          "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "runtime_state": "active",
+          "selected_mood": "neutral",
+          "locale": "nl"
+        },
+        "playback": {
+          "state": "playing",
+          "item_id": "e1f96e7d01ebb78c79b8d959",
+          "title": "Slow Lanterns",
+          "artist": "Artist 1",
+          "album": "Test edition",
+          "updated_at": "2026-10-08T13:41:01.921235+00:00",
+          "duration_ms": 300000,
+          "position_ms": 300000,
+          "source_url": "https://open.spotify.com/track/BBBBBBBBBBBBBBBBBBBBBB"
+        },
+        "planner": {
+          "planning_state": "ready",
+          "planning_horizon_minutes": 15,
+          "current_direction": "exploring",
+          "session_direction": {
+            "direction": "exploring",
+            "initialized_at": "2026-10-08T13:11:00.921235+00:00",
+            "updated_at": "2026-10-08T13:11:00.921235+00:00",
+            "start_strategy": "discover"
+          }
+        },
+        "session_flow": {
+          "flow_id": "flow-session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "flow_revision": 2,
+          "planning_horizon_minutes": 15,
+          "created_at": "2026-10-08T13:16:00.921235+00:00",
+          "items": [
+            {
+              "item_id": "now-current-track",
+              "item_type": "current_track",
+              "position": "now",
+              "label": "Current Track"
+            },
+            {
+              "item_id": "next-planning-horizon",
+              "item_type": "planning_horizon",
+              "position": "next",
+              "label": "Planning Horizon"
+            },
+            {
+              "item_id": "next-maintain-direction",
+              "item_type": "maintain_direction",
+              "position": "next",
+              "label": "Maintain Direction"
+            },
+            {
+              "item_id": "later-future-direction",
+              "item_type": "future_direction",
+              "position": "later",
+              "label": "Future Direction"
+            },
+            {
+              "item_id": "later-future-placeholder",
+              "item_type": "future_placeholder",
+              "position": "later",
+              "label": "Future Placeholder"
+            }
+          ]
+        },
+        "audience": {
+          "signal_totals": {},
+          "recent_activity": []
+        },
+        "dj_moments": [],
+        "presentations": [],
+        "broadcast": {
+          "started_at": "2026-10-08T13:11:00.921235+00:00",
+          "snapshot_watermark": 14
+        },
+        "native_delivery": {
+          "schema_version": 1,
+          "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+          "current_moment_id": null,
+          "active_flow_moment_ids": [],
+          "admissions": [
+            {
+              "moment_id": "moment-bfe9d5b3e50b439a9deeec003e2e3075",
+              "qualification": "expired",
+              "current_display_allowed": false,
+              "active_flow_display_allowed": false,
+              "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+              "display_expires_at": null,
+              "executable_actions": [],
+              "requires_spotify_attribution": false
+            },
+            {
+              "moment_id": "moment-e6465c5dc7344ef592f4019d6552a421",
+              "qualification": "expired",
+              "current_display_allowed": false,
+              "active_flow_display_allowed": false,
+              "source_expires_at": "2026-10-08T13:41:00.921235+00:00",
+              "display_expires_at": null,
+              "executable_actions": [],
+              "requires_spotify_attribution": false
+            }
+          ],
+          "revocation_scope": "session",
+          "revision": "7b6503d6c8813ef52d2c782a"
+        }
+      }
+    },
+    "terminal": {
+      "session": {
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "runtime_state": "ended",
+        "selected_mood": "neutral",
+        "locale": "nl"
+      },
+      "playback": {
+        "state": "playing",
+        "item_id": "e1f96e7d01ebb78c79b8d959",
+        "title": "Slow Lanterns",
+        "artist": "Artist 1",
+        "album": "Test edition",
+        "updated_at": "2026-10-08T13:41:01.921235+00:00",
+        "duration_ms": 300000,
+        "position_ms": 300000,
+        "source_url": "https://open.spotify.com/track/BBBBBBBBBBBBBBBBBBBBBB"
+      },
+      "planner": {
+        "planning_state": "ready",
+        "planning_horizon_minutes": 15,
+        "current_direction": "exploring",
+        "session_direction": {
+          "direction": "exploring",
+          "initialized_at": "2026-10-08T13:11:00.921235+00:00",
+          "updated_at": "2026-10-08T13:11:00.921235+00:00",
+          "start_strategy": "discover"
+        }
+      },
+      "session_flow": {
+        "flow_id": "flow-session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "flow_revision": 2,
+        "planning_horizon_minutes": 15,
+        "created_at": "2026-10-08T13:16:00.921235+00:00",
+        "items": [
+          {
+            "item_id": "now-current-track",
+            "item_type": "current_track",
+            "position": "now",
+            "label": "Current Track"
+          },
+          {
+            "item_id": "next-planning-horizon",
+            "item_type": "planning_horizon",
+            "position": "next",
+            "label": "Planning Horizon"
+          },
+          {
+            "item_id": "next-maintain-direction",
+            "item_type": "maintain_direction",
+            "position": "next",
+            "label": "Maintain Direction"
+          },
+          {
+            "item_id": "later-future-direction",
+            "item_type": "future_direction",
+            "position": "later",
+            "label": "Future Direction"
+          },
+          {
+            "item_id": "later-future-placeholder",
+            "item_type": "future_placeholder",
+            "position": "later",
+            "label": "Future Placeholder"
+          }
+        ]
+      },
+      "audience": {
+        "signal_totals": {},
+        "recent_activity": []
+      },
+      "dj_moments": [],
+      "presentations": [],
+      "broadcast": {
+        "started_at": "2026-10-08T13:11:00.921235+00:00",
+        "snapshot_watermark": 0
+      },
+      "native_delivery": {
+        "schema_version": 1,
+        "session_id": "session-1e4eec5478244f3797f53f6e6b35d3f5",
+        "current_moment_id": null,
+        "active_flow_moment_ids": [],
+        "admissions": [],
+        "revocation_scope": "session",
+        "revision": "d0c8d400f1154fc54cde6de5"
+      }
+    },
+    "http_headers": {
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer"
+    }
+  },
+  "candidate_files": {
+    "custom_components/djconnect/session_runtime.py": "d9130e4e360c7d3f14a73cdb0c8191c2f1775f9cc26703b2fb0062786a829dad",
+    "custom_components/djconnect/native_moment_delivery.py": "a7edfb2d82aa8776e6a5535e651a7ad575273c12fb7b0f6d76c648c7d4dd8f4b",
+    "custom_components/djconnect/http.py": "6bca3edaac7cf7035aba2e787a0b9b7c0a3aa249fd1b03081fd0b9f005d53985",
+    "custom_components/djconnect/api_handlers.py": "a4c8277188afc5ec374dbc7e67c584afecc8f9b98808c919e10874e145642954",
+    "custom_components/djconnect/transport_capabilities.py": "e40f1295e892a0ab5a89de402e005cc1bb3a23de98c39d8cbec150585d944183"
+  },
+  "producer_sha": "3d17994d28c71402a9076c0082c490820204ccda",
+  "spotify": {
+    "runtime": {
+      "session_id": "session-d57defd1244e45019df1d954a5f355de",
+      "owner_profile_id": "synthetic-spotify-owner",
+      "room": "",
+      "selected_mood": "",
+      "dj_persona": "home_dj",
+      "locale": "en",
+      "music_backend": "",
+      "runtime_state": "active",
+      "created_at": "2026-10-08T13:11:01.058861+00:00",
+      "started_at": "2026-10-08T13:11:01.058960+00:00",
+      "session_start_strategy": "manual",
+      "initial_session_mood": "",
+      "interaction_profile": "balanced",
+      "session_direction": {
+        "direction": "maintaining_energy",
+        "initialized_at": "2026-10-08T13:11:01.058861+00:00",
+        "updated_at": "2026-10-08T13:11:01.058861+00:00",
+        "start_strategy": "manual"
+      },
+      "discover_personalization_available": false,
+      "performance_memory": {
+        "source_flow_id": "flow-session-d57defd1244e45019df1d954a5f355de",
+        "recent_moment_ids": [],
+        "recent_moment_types": [],
+        "recent_artists": [],
+        "recent_albums": [],
+        "recent_genres": [],
+        "recent_recommendations": [],
+        "recent_session_directions": [],
+        "recent_silence_count": 0
+      },
+      "planner": {
+        "planner_state": "ready",
+        "planning_horizon_minutes": 15,
+        "created_at": "2026-10-08T13:11:01.058861+00:00",
+        "last_replan_at": "2026-10-08T13:11:01.059108+00:00",
+        "current_goal": "",
+        "configuration": {
+          "minimum_time_between_moments_seconds": 60.0,
+          "maximum_track_context_per_track": 1,
+          "allow_consecutive_silence": true,
+          "recommendation_preference": "balanced",
+          "exploration_preference": "balanced",
+          "energy_preference": "balanced",
+          "interaction_profile": "balanced"
+        },
+        "pending_events": [],
+        "output": {
+          "session_flow": {
+            "flow_id": "flow-session-d57defd1244e45019df1d954a5f355de",
+            "flow_revision": 1,
+            "planning_horizon_minutes": 15,
+            "created_at": "2026-10-08T13:11:01.059108+00:00",
+            "items": [
+              {
+                "item_id": "now-current-track",
+                "item_type": "current_track",
+                "position": "now",
+                "label": "Current Track"
+              },
+              {
+                "item_id": "next-planning-horizon",
+                "item_type": "planning_horizon",
+                "position": "next",
+                "label": "Planning Horizon"
+              },
+              {
+                "item_id": "next-maintain-direction",
+                "item_type": "maintain_direction",
+                "position": "next",
+                "label": "Maintain Direction"
+              },
+              {
+                "item_id": "later-future-direction",
+                "item_type": "future_direction",
+                "position": "later",
+                "label": "Future Direction"
+              },
+              {
+                "item_id": "later-future-placeholder",
+                "item_type": "future_placeholder",
+                "position": "later",
+                "label": "Future Placeholder"
+              },
+              {
+                "item_id": "moment-moment-c4c72eaeffc9401d940639d9261c0a91",
+                "item_type": "dj_moment",
+                "position": "next",
+                "label": "Test edition",
+                "moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+                "moment_type": "album"
+              }
+            ]
+          }
+        }
+      },
+      "broadcast": {
+        "session": {
+          "session_id": "session-d57defd1244e45019df1d954a5f355de",
+          "runtime_state": "active",
+          "selected_mood": "",
+          "locale": "en"
+        },
+        "playback": {
+          "state": "playing",
+          "item_id": "02e3d582594577327c335fc0",
+          "title": "Test recording",
+          "artist": "Test artist",
+          "album": "Test edition",
+          "updated_at": "2026-10-08T13:11:01.058967+00:00",
+          "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+        },
+        "planner": {
+          "planning_state": "ready",
+          "planning_horizon_minutes": 15,
+          "current_direction": "maintaining_energy",
+          "session_direction": {
+            "direction": "maintaining_energy",
+            "initialized_at": "2026-10-08T13:11:01.058861+00:00",
+            "updated_at": "2026-10-08T13:11:01.058861+00:00",
+            "start_strategy": "manual"
+          }
+        },
+        "session_flow": {
+          "flow_id": "flow-session-d57defd1244e45019df1d954a5f355de",
+          "flow_revision": 1,
+          "planning_horizon_minutes": 15,
+          "created_at": "2026-10-08T13:11:01.059108+00:00",
+          "items": [
+            {
+              "item_id": "now-current-track",
+              "item_type": "current_track",
+              "position": "now",
+              "label": "Current Track"
+            },
+            {
+              "item_id": "next-planning-horizon",
+              "item_type": "planning_horizon",
+              "position": "next",
+              "label": "Planning Horizon"
+            },
+            {
+              "item_id": "next-maintain-direction",
+              "item_type": "maintain_direction",
+              "position": "next",
+              "label": "Maintain Direction"
+            },
+            {
+              "item_id": "later-future-direction",
+              "item_type": "future_direction",
+              "position": "later",
+              "label": "Future Direction"
+            },
+            {
+              "item_id": "later-future-placeholder",
+              "item_type": "future_placeholder",
+              "position": "later",
+              "label": "Future Placeholder"
+            },
+            {
+              "item_id": "moment-moment-c4c72eaeffc9401d940639d9261c0a91",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "Test edition",
+              "moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+              "moment_type": "album"
+            }
+          ]
+        },
+        "audience": {
+          "signal_totals": {},
+          "recent_activity": []
+        },
+        "dj_moments": [
+          {
+            "moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+            "session_id": "session-d57defd1244e45019df1d954a5f355de",
+            "created_at": "2026-10-08T13:11:01.059094+00:00",
+            "type": "album",
+            "knowledge_intent": {
+              "type": "album_story",
+              "goal": "display current album"
+            },
+            "presentation_intent": {
+              "source_session_mood": "neutral",
+              "dj_persona": "home_dj",
+              "tone_of_voice": "warm and conversational",
+              "energy_level": "neutral",
+              "delivery_style": "short contextual music story",
+              "voice_style": "persona-guided",
+              "visual_theme": "music-context",
+              "importance": "normal",
+              "maximum_duration_seconds": 40,
+              "delivery_channels": [
+                "broadcast",
+                "owner",
+                "shared"
+              ],
+              "visibility": "session_shared"
+            },
+            "title": "Test edition",
+            "summary": "Test edition",
+            "content": "A little date beside this edition of Test edition: Spotify lists 2001-03-04.",
+            "artwork": null,
+            "actions": [],
+            "visibility": "session_shared",
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "importance": "normal",
+            "source_references": [
+              "Spotify"
+            ],
+            "generation_metadata": {
+              "provider": "Spotify",
+              "validated": "true"
+            },
+            "source_attribution": {
+              "provider": "Spotify",
+              "url": "https://open.spotify.com/album/BBBBBBBBBBBBBBBBBBBBBB",
+              "license": "Spotify metadata display"
+            },
+            "playback_item_id": "02e3d582594577327c335fc0"
+          }
+        ],
+        "presentations": [
+          {
+            "presentation_id": "presentation-moment-c4c72eaeffc9401d940639d9261c0a91",
+            "source_moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+            "source_moment_type": "album",
+            "visibility": "session_shared"
+          }
+        ],
+        "broadcast": {
+          "started_at": "2026-10-08T13:11:01.058861+00:00",
+          "snapshot_watermark": 7
+        },
+        "native_delivery": {
+          "schema_version": 1,
+          "session_id": "session-d57defd1244e45019df1d954a5f355de",
+          "current_moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+          "active_flow_moment_ids": [],
+          "admissions": [
+            {
+              "moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+              "qualification": "qualified",
+              "current_display_allowed": true,
+              "active_flow_display_allowed": false,
+              "source_expires_at": "2026-10-08T13:41:01.059094+00:00",
+              "display_expires_at": "2026-10-08T13:11:41.059094+00:00",
+              "executable_actions": [],
+              "requires_spotify_attribution": true
+            }
+          ],
+          "revocation_scope": "session",
+          "revision": "539a9917cf411b84cd3761e6"
+        }
+      }
+    },
+    "snapshot": {
+      "session": {
+        "session_id": "session-d57defd1244e45019df1d954a5f355de",
+        "runtime_state": "active",
+        "selected_mood": "",
+        "locale": "en"
+      },
+      "playback": {
+        "state": "playing",
+        "item_id": "02e3d582594577327c335fc0",
+        "title": "Test recording",
+        "artist": "Test artist",
+        "album": "Test edition",
+        "updated_at": "2026-10-08T13:11:01.058967+00:00",
+        "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "planner": {
+        "planning_state": "ready",
+        "planning_horizon_minutes": 15,
+        "current_direction": "maintaining_energy",
+        "session_direction": {
+          "direction": "maintaining_energy",
+          "initialized_at": "2026-10-08T13:11:01.058861+00:00",
+          "updated_at": "2026-10-08T13:11:01.058861+00:00",
+          "start_strategy": "manual"
+        }
+      },
+      "session_flow": {
+        "flow_id": "flow-session-d57defd1244e45019df1d954a5f355de",
+        "flow_revision": 1,
+        "planning_horizon_minutes": 15,
+        "created_at": "2026-10-08T13:11:01.059108+00:00",
+        "items": [
+          {
+            "item_id": "now-current-track",
+            "item_type": "current_track",
+            "position": "now",
+            "label": "Current Track"
+          },
+          {
+            "item_id": "next-planning-horizon",
+            "item_type": "planning_horizon",
+            "position": "next",
+            "label": "Planning Horizon"
+          },
+          {
+            "item_id": "next-maintain-direction",
+            "item_type": "maintain_direction",
+            "position": "next",
+            "label": "Maintain Direction"
+          },
+          {
+            "item_id": "later-future-direction",
+            "item_type": "future_direction",
+            "position": "later",
+            "label": "Future Direction"
+          },
+          {
+            "item_id": "later-future-placeholder",
+            "item_type": "future_placeholder",
+            "position": "later",
+            "label": "Future Placeholder"
+          },
+          {
+            "item_id": "moment-moment-c4c72eaeffc9401d940639d9261c0a91",
+            "item_type": "dj_moment",
+            "position": "next",
+            "label": "Test edition",
+            "moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+            "moment_type": "album"
+          }
+        ]
+      },
+      "audience": {
+        "signal_totals": {},
+        "recent_activity": []
+      },
+      "dj_moments": [
+        {
+          "moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+          "session_id": "session-d57defd1244e45019df1d954a5f355de",
+          "created_at": "2026-10-08T13:11:01.059094+00:00",
+          "type": "album",
+          "knowledge_intent": {
+            "type": "album_story",
+            "goal": "display current album"
+          },
+          "presentation_intent": {
+            "source_session_mood": "neutral",
+            "dj_persona": "home_dj",
+            "tone_of_voice": "warm and conversational",
+            "energy_level": "neutral",
+            "delivery_style": "short contextual music story",
+            "voice_style": "persona-guided",
+            "visual_theme": "music-context",
+            "importance": "normal",
+            "maximum_duration_seconds": 40,
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "visibility": "session_shared"
+          },
+          "title": "Test edition",
+          "summary": "Test edition",
+          "content": "A little date beside this edition of Test edition: Spotify lists 2001-03-04.",
+          "artwork": null,
+          "actions": [],
+          "visibility": "session_shared",
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "importance": "normal",
+          "source_references": [
+            "Spotify"
+          ],
+          "generation_metadata": {
+            "provider": "Spotify",
+            "validated": "true"
+          },
+          "source_attribution": {
+            "provider": "Spotify",
+            "url": "https://open.spotify.com/album/BBBBBBBBBBBBBBBBBBBBBB",
+            "license": "Spotify metadata display"
+          },
+          "playback_item_id": "02e3d582594577327c335fc0"
+        }
+      ],
+      "presentations": [
+        {
+          "presentation_id": "presentation-moment-c4c72eaeffc9401d940639d9261c0a91",
+          "source_moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+          "source_moment_type": "album",
+          "visibility": "session_shared"
+        }
+      ],
+      "broadcast": {
+        "started_at": "2026-10-08T13:11:01.058861+00:00",
+        "snapshot_watermark": 7
+      },
+      "native_delivery": {
+        "schema_version": 1,
+        "session_id": "session-d57defd1244e45019df1d954a5f355de",
+        "current_moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+        "active_flow_moment_ids": [],
+        "admissions": [
+          {
+            "moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+            "qualification": "qualified",
+            "current_display_allowed": true,
+            "active_flow_display_allowed": false,
+            "source_expires_at": "2026-10-08T13:41:01.059094+00:00",
+            "display_expires_at": "2026-10-08T13:11:41.059094+00:00",
+            "executable_actions": [],
+            "requires_spotify_attribution": true
+          }
+        ],
+        "revocation_scope": "session",
+        "revision": "539a9917cf411b84cd3761e6"
+      }
+    },
+    "expired": {
+      "session": {
+        "session_id": "session-d57defd1244e45019df1d954a5f355de",
+        "runtime_state": "active",
+        "selected_mood": "",
+        "locale": "en"
+      },
+      "playback": {
+        "state": "playing",
+        "item_id": "02e3d582594577327c335fc0",
+        "title": "Test recording",
+        "artist": "Test artist",
+        "album": "Test edition",
+        "updated_at": "2026-10-08T13:11:01.058967+00:00",
+        "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "planner": {
+        "planning_state": "ready",
+        "planning_horizon_minutes": 15,
+        "current_direction": "maintaining_energy",
+        "session_direction": {
+          "direction": "maintaining_energy",
+          "initialized_at": "2026-10-08T13:11:01.058861+00:00",
+          "updated_at": "2026-10-08T13:11:01.058861+00:00",
+          "start_strategy": "manual"
+        }
+      },
+      "session_flow": {
+        "flow_id": "flow-session-d57defd1244e45019df1d954a5f355de",
+        "flow_revision": 1,
+        "planning_horizon_minutes": 15,
+        "created_at": "2026-10-08T13:11:01.059108+00:00",
+        "items": [
+          {
+            "item_id": "now-current-track",
+            "item_type": "current_track",
+            "position": "now",
+            "label": "Current Track"
+          },
+          {
+            "item_id": "next-planning-horizon",
+            "item_type": "planning_horizon",
+            "position": "next",
+            "label": "Planning Horizon"
+          },
+          {
+            "item_id": "next-maintain-direction",
+            "item_type": "maintain_direction",
+            "position": "next",
+            "label": "Maintain Direction"
+          },
+          {
+            "item_id": "later-future-direction",
+            "item_type": "future_direction",
+            "position": "later",
+            "label": "Future Direction"
+          },
+          {
+            "item_id": "later-future-placeholder",
+            "item_type": "future_placeholder",
+            "position": "later",
+            "label": "Future Placeholder"
+          }
+        ]
+      },
+      "audience": {
+        "signal_totals": {},
+        "recent_activity": []
+      },
+      "dj_moments": [],
+      "presentations": [],
+      "broadcast": {
+        "started_at": "2026-10-08T13:11:01.058861+00:00",
+        "snapshot_watermark": 8
+      },
+      "native_delivery": {
+        "schema_version": 1,
+        "session_id": "session-d57defd1244e45019df1d954a5f355de",
+        "current_moment_id": null,
+        "active_flow_moment_ids": [],
+        "admissions": [
+          {
+            "moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+            "qualification": "expired",
+            "current_display_allowed": false,
+            "active_flow_display_allowed": false,
+            "source_expires_at": "2026-10-08T13:41:01.059094+00:00",
+            "display_expires_at": null,
+            "executable_actions": [],
+            "requires_spotify_attribution": false
+          }
+        ],
+        "revocation_scope": "session",
+        "revision": "35bc28ef1854fa7bcc10578b"
+      }
+    },
+    "expiry_events": [
+      {
+        "event_type": "session_flow_updated",
+        "session_id": "session-d57defd1244e45019df1d954a5f355de",
+        "delivery_sequence": 8,
+        "payload": {
+          "session_flow": {
+            "flow_id": "flow-session-d57defd1244e45019df1d954a5f355de",
+            "flow_revision": 1,
+            "planning_horizon_minutes": 15,
+            "created_at": "2026-10-08T13:11:01.059108+00:00",
+            "items": [
+              {
+                "item_id": "now-current-track",
+                "item_type": "current_track",
+                "position": "now",
+                "label": "Current Track"
+              },
+              {
+                "item_id": "next-planning-horizon",
+                "item_type": "planning_horizon",
+                "position": "next",
+                "label": "Planning Horizon"
+              },
+              {
+                "item_id": "next-maintain-direction",
+                "item_type": "maintain_direction",
+                "position": "next",
+                "label": "Maintain Direction"
+              },
+              {
+                "item_id": "later-future-direction",
+                "item_type": "future_direction",
+                "position": "later",
+                "label": "Future Direction"
+              },
+              {
+                "item_id": "later-future-placeholder",
+                "item_type": "future_placeholder",
+                "position": "later",
+                "label": "Future Placeholder"
+              }
+            ]
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-d57defd1244e45019df1d954a5f355de",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [],
+            "admissions": [
+              {
+                "moment_id": "moment-c4c72eaeffc9401d940639d9261c0a91",
+                "qualification": "expired",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": false,
+                "source_expires_at": "2026-10-08T13:41:01.059094+00:00",
+                "display_expires_at": null,
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              }
+            ],
+            "revocation_scope": "session",
+            "revision": "35bc28ef1854fa7bcc10578b"
+          }
+        }
+      }
+    ],
+    "end_events": [
+      {
+        "event_type": "runtime_ended",
+        "session_id": "session-d57defd1244e45019df1d954a5f355de",
+        "delivery_sequence": 9,
+        "payload": {
+          "session": {
+            "session_id": "session-d57defd1244e45019df1d954a5f355de",
+            "runtime_state": "ended",
+            "selected_mood": "",
+            "locale": "en"
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-d57defd1244e45019df1d954a5f355de",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [],
+            "admissions": [],
+            "revocation_scope": "session",
+            "revision": "bb3b8689dda203dc79d42de0"
+          }
+        }
+      },
+      {
+        "event_type": "broadcast_stopped",
+        "session_id": "session-d57defd1244e45019df1d954a5f355de",
+        "delivery_sequence": 10,
+        "payload": {
+          "broadcast": {
+            "started_at": "2026-10-08T13:11:01.058861+00:00",
+            "snapshot_watermark": 8
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-d57defd1244e45019df1d954a5f355de",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [],
+            "admissions": [],
+            "revocation_scope": "session",
+            "revision": "bb3b8689dda203dc79d42de0"
+          }
+        }
+      }
+    ]
+  }
+}

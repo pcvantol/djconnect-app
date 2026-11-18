@@ -1,0 +1,19 @@
+{
+  "base_commit": "3bb21e0",
+  "change": "Shared game card and selector use djSessionFrostedSurface; selected game uses interactive glass; remove opaque gradient and black canvas layers for all four games.",
+  "source_path": "Sources/DJConnectUI/DJConnectRootView.swift",
+  "source_sha256": "84585565d15a984dca7f900ad747d267bcb32564f2e3d0cafa3bf163aaa0dff6",
+  "validation": {
+    "mac_DJConnectUI_build": "PASS",
+    "elapsed_seconds": 22.46,
+    "diff_check": "PASS",
+    "build_log": "/Volumes/Shared Data/tmp/pcvantol/djc-games-glass-20261021/mac-build.log",
+    "build_log_sha256": "d3bfc48e7078622d51b7c3d4774364cf2c0693d0336f7d402d39c593b60d99df"
+  },
+  "scope": "Presentation only; game state, scores, controls and geometry unchanged. Shared surface retains glass preference and Reduce Transparency fallback.",
+  "limits": [
+    "No new device installation or physical visual acceptance in this change.",
+    "No additional gameplay tests run for this styling-only change."
+  ],
+  "warnings": "Existing closure Entry warning in ContentDeletionActions, unhandled JOSESwift Info.plist and native build-system deprecation retained in log."
+}

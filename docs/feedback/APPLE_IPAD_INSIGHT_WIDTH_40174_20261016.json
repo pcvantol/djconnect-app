@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-16",
+  "build": "40174",
+  "scope": "Full-width iPad Track Insight portrait with same side margins as landscape",
+  "root_cause": "Portrait used the smaller general content-width cap while landscape used the larger desktop cap.",
+  "implementation": [
+    "On iPad, TrackInsightView content width now equals available GeometryReader width before the existing16pt horizontal padding.",
+    "Both orientations and narrower iPad windows follow the same rule. iPhone/macOS width policy unchanged.",
+    "Added contained accessibility identifier for geometry measurement; no analysis or playback changes."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "manifest": "452 hashes PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPad/iPhone40174 PASS",
+    "initial_geometry_probe": "PASS: measured margins15.375pt each side in both orientations (stroke bounds; nominal padding16pt).",
+    "portrait_visual": "PASS: full width empty-state card actually viewed.",
+    "landscape_visual": "NOT_QUALIFIED: screenshot remained portrait-shaped/cropped despite landscape AX window geometry; stricter second probe failed image aspect assertion."
+  },
+  "evidence": {
+    "manifest": "build/recovery/ipad40174-selective-source-manifest-20261016.json",
+    "build": "/private/tmp/djc-ios-40174-insight-width-build.log",
+    "first_xcresult": "/private/tmp/djc-ipad-40174-insight-width-20261016.xcresult",
+    "strict_xcresult": "/private/tmp/djc-ipad-40174-insight-width-stable-20261016.xcresult",
+    "strict_summary": "/private/tmp/djc-ipad-40174-insight-width-stable-summary.json",
+    "portrait_screenshot_actually_viewed": "/private/tmp/djc-ipad-40174-insight-width-attachments/9609820C-F5A1-4AF8-99A9-153486EB721F.png",
+    "rejected_landscape_screenshot_actually_viewed": "/private/tmp/djc-ipad-40174-insight-width-attachments/3ACF05B0-8B79-4442-8975-DFAEAF3F5DF2.png",
+    "portrait_geometry": "window(970,1389), content x15.375 width939.25",
+    "landscape_geometry": "window(1389,970), content x15.375 width1358.25"
+  },
+  "limits": [
+    "Ordinary app had no current Track Insight payload; physical view shows empty-state container. Populated hero/metrics share the same changed parent width, but were not physically requalified here.",
+    "No provider request, analysis action or playback command sent.",
+    "Portrait restored in test defer; original external probe restored.",
+    "Mac remains40173; no desktop layout change."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

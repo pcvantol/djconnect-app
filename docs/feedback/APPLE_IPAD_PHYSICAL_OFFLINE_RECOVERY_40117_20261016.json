@@ -1,0 +1,90 @@
+{
+  "status": "PHYSICAL_OFFLINE_AND_EXTERNAL_UI_RECOVERY_PASS",
+  "device": "Real iPad 00008027-000211140231002E",
+  "installed_build_context": "40117 retained; no install in this work",
+  "connection_preflight": "wired / paired / connected confirmed via CoreDevice immediately before radio test; normal CoreDevice pair flow restored Mac trust, no DJConnect re-pair",
+  "initial_wifi": "on",
+  "sequence": [
+    "ordinary installed app foreground, no fixture",
+    "Settings Wifi native switch 1 -> 0",
+    "app foreground, wait12s, Geen netwerk / Apparaat offline",
+    "Settings Wifi native switch 0 -> 1",
+    "app foreground, wait18s, Verbonden \u00b7 extern; offline banner absent",
+    "separate fresh detail popover confirms Verbonden \u00b7 extern"
+  ],
+  "verification": {
+    "wifi_switch_assertions": "PASS 1->0->1",
+    "AX_three_state_comparison": "PASS",
+    "screenshots_actually_viewed": 4,
+    "main_test": "Passed",
+    "detail_test": "Passed"
+  },
+  "results": [
+    "/private/tmp/djc-ipad-physical-offline-restore-20261016.xcresult",
+    "/private/tmp/djc-ipad-restored-detail-20261016.xcresult"
+  ],
+  "probe_source": "/private/tmp/djc-ipad-physical-offline-qualified-probe.swift",
+  "source_restored": "temporary external Probe.swift restored to saved original after tests",
+  "effects": "Wifi restored on; app foreground on Speelt Nu; no media controls, AskDJ sends, profile/pairing, HA config, app install, push/PR/merge. Detail screenshot later shows actual track; no playback command was issued by these tests. No device code stored.",
+  "limits": [
+    "External connection UI recovery only, no new TLS/WS handshake instrumentation",
+    "No LAN HTTP/WS qualification, APNs delivery, provider completeness, audible output, original operationID recovery or execute retry test",
+    "No claim that longer passcode delay eliminates XCTest authentication"
+  ],
+  "core_context": "Core thread reports dev/prod8757ecd38a5fe31254a36aba5e0cbe5852edfa7e exact169file installation; no parallel deployment",
+  "storage_readback": {
+    "internal": "7.5GiB",
+    "EP_DATA": "1.0GiB",
+    "cleanup": "none"
+  },
+  "evidence": [
+    {
+      "name": "WiFi restored physical observation_0_7A8D1BBE-DC3C-49FA-8512-8D597056EE03.png",
+      "path": "/private/tmp/djc-ipad-physical-network-attachments/9B701154-39F8-43AC-AF2D-4DF3ACE72277.png",
+      "sha256": "bf65faf560798f766e21ee4b8f80fea3217ec26e3acda5690ca8feb5a7e470c4",
+      "viewed": true
+    },
+    {
+      "name": "WiFi restored physical observation AX_0_30B06374-DC72-4C61-896D-45D3187019EC.txt",
+      "path": "/private/tmp/djc-ipad-physical-network-attachments/2C180B24-FA3D-468B-9F8E-D36BF26206EF.txt",
+      "sha256": "91ad025a3f04ad29ab7ea59c91f0609797cc6dd1595b9c48e361d5149f81cfad",
+      "viewed": false
+    },
+    {
+      "name": "WiFi off physical observation_0_C417169E-6734-486D-BF2D-88450F547F46.png",
+      "path": "/private/tmp/djc-ipad-physical-network-attachments/73647C1B-F0F8-42D4-BC80-4E721F5B3667.png",
+      "sha256": "e5b1daf86941d72e8f008ead6cd4184160d19f263d1171c16f104aabc626ecd4",
+      "viewed": true
+    },
+    {
+      "name": "WiFi off physical observation AX_0_CD964AE3-0754-44B1-8174-238E998D128C.txt",
+      "path": "/private/tmp/djc-ipad-physical-network-attachments/6BF63EAE-87A2-4311-9358-DF6496FBA7E5.txt",
+      "sha256": "04f0213e9e2da20ff92a9fc6d2d92aa558ece3a4b1c70cc8d8ee728b2519b386",
+      "viewed": false
+    },
+    {
+      "name": "Before physical offline_0_C3F81377-4180-4478-8CE3-0DCB846688BD.png",
+      "path": "/private/tmp/djc-ipad-physical-network-attachments/B2A3829A-F19C-45AC-852F-3B5318A17BE8.png",
+      "sha256": "e18a3e4a27ac8c41bc93851431b1a3ee2d5af0e8ac0837017b7dd4598bef701f",
+      "viewed": true
+    },
+    {
+      "name": "Before physical offline AX_0_F62CF673-C3A4-4A83-BCF6-9BEC600D1A32.txt",
+      "path": "/private/tmp/djc-ipad-physical-network-attachments/CB395DDA-CCE3-4572-93C7-4880C234D013.txt",
+      "sha256": "43ae26edd4937d32a5a7a4ecc4bf8840d1a8927bd09286bed0e32bc8590b61b9",
+      "viewed": false
+    },
+    {
+      "name": "Restored connection details_0_63E25078-41A6-4072-B8A4-FE1B5459ADCB.png",
+      "path": "/private/tmp/djc-ipad-restored-detail-attachments/537B39B8-1A46-440C-AFF6-74D897F3DAF4.png",
+      "sha256": "1803be5270952b2f2baeec01f196825718d73bff8be37a970d455d9b90cd6db8",
+      "viewed": true
+    },
+    {
+      "name": "Restored connection details AX_0_5EF1899A-0C4E-4882-8489-30943D369922.txt",
+      "path": "/private/tmp/djc-ipad-restored-detail-attachments/4AF582E0-1283-41CC-A41D-040AFFB107F6.txt",
+      "sha256": "9418ffae590a8621d2dedcfe9357528adbbc5b0eddde2edb49403fd294b210fb",
+      "viewed": false
+    }
+  ]
+}

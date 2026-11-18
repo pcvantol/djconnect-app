@@ -1,0 +1,16 @@
+{
+  "identity": {
+    "profile_id": "remote-playback-status-v1",
+    "native_attributes_type": "DJConnectRemotePlaybackStatusActivityAttributesV1",
+    "attributes_schema_sha256": "639dad776e1ee25465cc82154ccdf1b0d2c0a59a48b326fc3e7a91b55224a76b",
+    "content_state_schema_sha256": "2e38225064a2cec0252f8cab60f8d1db8eada5dba53a9701333fab47c02c239c"
+  },
+  "identity_sha256": "090b8c9cd0d0b74622cd8ce00accaaecd816feb9d762f0554a9709bbf6342517",
+  "hash_contract": {
+    "preimage": "Exactly the value of the identity object, containing exactly the four declared identity members; no outer metadata/hash/status fields",
+    "encoding": "UTF-8 without BOM, sorted object keys, compact separators comma/colon, ensure_ascii=false, no trailing newline",
+    "algorithm": "SHA-256 lowercase hex",
+    "expected_canonical_preimage_utf8": "{\"attributes_schema_sha256\":\"639dad776e1ee25465cc82154ccdf1b0d2c0a59a48b326fc3e7a91b55224a76b\",\"content_state_schema_sha256\":\"2e38225064a2cec0252f8cab60f8d1db8eada5dba53a9701333fab47c02c239c\",\"native_attributes_type\":\"DJConnectRemotePlaybackStatusActivityAttributesV1\",\"profile_id\":\"remote-playback-status-v1\"}"
+  },
+  "status": "PRIVATE_CANDIDATE_NOT_ACCEPTED_NATIVE_PROFILE_OR_REGISTRATION"
+}

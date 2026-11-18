@@ -1,0 +1,57 @@
+{
+  "source_commit": "5ea65c6a422c8a9255e5aaa2f632828f51238d6d",
+  "base_commit": "efe39dd",
+  "installed_device": "Mac mini",
+  "version": "4.0.0",
+  "build": "40404",
+  "cause": "HTTP 200 timeline contains server-authored setting_feedback conversation records; the closed Apple read allowlist accepted only text/voice, rejecting the entire page.",
+  "producer_confirmation": "Existing protected Core58561f97a04c36fce21ba5e6886eb6c3640a4ec3 / Finalb4bf4701; Core owner confirms same232productbytes in newer source/finalization. Server strips client-provided internal flag and emits setting_feedback only for qualified settings feedback.",
+  "fix": "Add only setting_feedback to history conversation input-type validation. All original owner/context/role/retention checks retained; no new outbound input type or command.",
+  "validation": {
+    "negative": "6 cases, exactly1 expected issue on setting_feedback before correction",
+    "qualified": "4 functions /12 cases PASS,0fail/skip; includes private real200response decode and unchanged context/error guards",
+    "signed_mac_build": "PASS",
+    "installed_bundle_full_match": "PASS",
+    "strict_signature": "PASS",
+    "actual_native_UI_before": "Timeline unavailable; retry toast Bijwerken mislukt",
+    "actual_native_UI_after": "No timeline error; same refresh toast Bijgewerkt; history rows visible"
+  },
+  "other_devices": "iPhone/iPad/MacBook/Watch remain40403; no new installation there.",
+  "effects": "No question resend, personal delete or diagnostic playback command. Existing app data/pairing/backend Session preserved. New transient recovery app removed only after full duplicate recheck against retained40403product.",
+  "publication": "Local development source and local Mac install; no push/PR/merge/publicrelease.",
+  "privacy": "Actual timeline/history replies remain private, access-limited local evidence and are not committed as fixtures. Portable report has only diagnostic metadata and hashes.",
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-current-session-debug-20261021/read-summary.json",
+      "sha256": "b2af490fcb265db35f10608f0adc47255ec295f395483e263ca1d5010f8b6570"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-current-session-debug-20261021/timeline.json",
+      "sha256": "d5a85dc3a111395bbd47aedc951b9d54d1b8d1acc370ff56f37dd27abee80c1d"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-current-session-debug-20261021/negative.log",
+      "sha256": "3b80608892659a4571812be18970dca9aa8ba2dd8e901b0a0e8dc8a0eff63fc0"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-current-session-debug-20261021/qualified.log",
+      "sha256": "89a10833d06f5eea0e8148b9e5f05fb2549e3c1fd24cb633e6810f02cec2dde0"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-current-session-debug-20261021/source-receipt.json",
+      "sha256": "a020a27d08b75572a1012ffe9da17a6e3c7d55949fac4ff1fb075209d66a787c"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-current-session-debug-20261021/mac-build.log",
+      "sha256": "e6eb568d2ec51607322c621993f5d1314ecf103f4960defefb9b1cc206176953"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-current-session-debug-20261021/mac-install.json",
+      "sha256": "9038c17a24b9a94b3522878d9b07fc17b52084605971c4814aef0761a82da692"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-current-session-debug-20261021/runtime-readback.json",
+      "sha256": "e725a67ef3b6759f47017b6a9ca1ef84d3df23e3e0a97004ecce8402bd0854c0"
+    }
+  ]
+}

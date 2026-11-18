@@ -1,0 +1,176 @@
+name: Apple Secure Distribution Relay
+
+on:
+  workflow_dispatch:
+    inputs:
+      action: {required: true, type: choice, options: [deployment]}
+      candidate_sha: {required: true, type: string}
+      execution_mode: {required: true, type: choice, options: [execute]}
+      manifest_id: {required: true, type: string}
+      artifact_id: {required: true, type: string}
+      artifact_sha256: {required: true, type: string}
+      target: {required: true, type: choice, options: [apple_private_device]}
+      target_device: {required: true, type: choice, options: [macbook, iphone, ipad]}
+      paired_watch_validation: {required: true, type: choice, options: [required, optional, disabled]}
+      platform_version: {required: true, type: string}
+      release_profile: {required: true, type: choice, options: [INTERNAL_RELEASE]}
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, macOS, ARM64, internal-release, macmini-build]
+    environment: apple-secure-distribution
+    steps:
+      - name: Validate artifact credential selection
+        env:
+          ARTIFACT_CREDENTIAL_OWNER: ${{ vars.DJCONNECT_APPLE_ARTIFACT_CREDENTIAL_OWNER }}
+          PERSONAL_CREDENTIAL_PRESENT: ${{ secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN != '' }}
+          ORG_CREDENTIAL_PRESENT: ${{ secrets.DJCONNECT_APPLE_ORG_ARTIFACT_READ_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          case "$ARTIFACT_CREDENTIAL_OWNER" in
+            ''|personal) [ "$PERSONAL_CREDENTIAL_PRESENT" = true ] ;;
+            organization) [ "$ORG_CREDENTIAL_PRESENT" = true ] ;;
+            *) echo 'Invalid artifact credential selection.' >&2; exit 1 ;;
+          esac
+      - name: Validate typed immutable deployment request
+        env:
+          ACTION: ${{ inputs.action }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          EXECUTION_MODE: ${{ inputs.execution_mode }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          PAIRED_WATCH_VALIDATION: ${{ inputs.paired_watch_validation }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+        run: |
+          set -euo pipefail
+          test "$ACTION" = deployment && test "$EXECUTION_MODE" = execute
+          test "$RELEASE_PROFILE" = INTERNAL_RELEASE
+          test "$TARGET" = apple_private_device
+          test "$TARGET_DEVICE" = macbook
+          test "$PAIRED_WATCH_VALIDATION" = disabled
+          printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$MANIFEST_ID" | grep -Eq '^release-[A-Za-z0-9._-]+$'
+          printf '%s' "$ARTIFACT_ID" | grep -Eq '^[1-9][0-9]*$'
+          printf '%s' "$ARTIFACT_SHA256" | grep -Eq '^[0-9a-f]{64}$'
+          printf '%s' "$PLATFORM_VERSION" | grep -Eq '^[0-9]+\.[0-9]+$'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+        with:
+          persist-credentials: false
+      - id: manifest
+        name: Require approved central operational manifest source
+        env:
+          DJCONNECT_ARTIFACT_READ_TOKEN: ${{ vars.DJCONNECT_APPLE_ARTIFACT_CREDENTIAL_OWNER == 'organization' && secrets.DJCONNECT_APPLE_ORG_ARTIFACT_READ_TOKEN || secrets.DJCONNECT_APPLE_ARTIFACT_READ_TOKEN }}
+          ARTIFACT_REPOSITORY_ID: ${{ vars.DJCONNECT_APPLE_ARTIFACT_REPOSITORY_ID }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          PAIRED_WATCH_VALIDATION: ${{ inputs.paired_watch_validation }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+        run: |
+          set -euo pipefail
+          manifest="$(mktemp)"
+          trap 'rm -f "$manifest"' EXIT
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/djconnect-music-dj/djconnect/main/docs/release/PLATFORM_4_0_RC1_APPLE_OPERATIONAL_MANIFEST.json \
+            --output "$manifest"
+          manifest_status="$(jq -r '.status' "$manifest")"
+          case "$manifest_status" in
+            APPROVED_DEPLOYMENT_DISPATCH_PENDING|APPROVED_PARTIAL_DEPLOYMENT_OPERATIONAL) ;;
+            *) echo "Manifest is not open for an authorized target deployment: $manifest_status" >&2; exit 1 ;;
+          esac
+          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
+          test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
+          test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
+          release_version="$(jq -r --arg sha "$CANDIDATE_SHA" --arg repo "$GITHUB_REPOSITORY" '.repositories[] | select(.repository == $repo and .source_sha == $sha) | .version' "$manifest")"
+          printf '%s' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+          /usr/bin/python3 Tools/release/private_apple_artifact.py "$manifest" macbook
+          printf 'release_version=%s\n' "$release_version" >> "$GITHUB_OUTPUT"
+      - name: Validate Mac mini signing and exact SSH MacBook target
+        env:
+          EXPECTED_MACBOOK_UUID: ${{ secrets.DJCONNECT_APPLE_MACBOOK_HARDWARE_UUID }}
+          SIGNING_IDENTITY: ${{ secrets.DJCONNECT_APPLE_DEVELOPMENT_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$EXPECTED_MACBOOK_UUID" | grep -Eq '^[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$'
+          printf '%s' "$SIGNING_IDENTITY" | grep -Eq '^[0-9A-Fa-f]{40}$'
+          mini_uuid="$(ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/{print $4; exit}')"
+          test -n "$mini_uuid" && test "$mini_uuid" != "$EXPECTED_MACBOOK_UUID"
+          security find-identity -v -p codesigning | grep -F -- "$SIGNING_IDENTITY" >/dev/null
+          signing_probe="$(mktemp)"
+          trap 'rm -f "$signing_probe"' EXIT
+          cp /usr/bin/true "$signing_probe"
+          codesign --force --sign "$SIGNING_IDENTITY" --timestamp=none "$signing_probe"
+          codesign --verify --strict "$signing_probe"
+          book_uuid="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 pcvantol@MacBook-Pro-van-Peter.local ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/{print $4; exit}')"
+          test "$book_uuid" = "$EXPECTED_MACBOOK_UUID"
+      - name: Sign on Mac mini and install the same app on both Macs
+        env:
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          MAC_APP_PROFILE: ${{ vars.DJCONNECT_MAC_APP_PROFILE_PATH }}
+          MAC_WIDGET_PROFILE: ${{ vars.DJCONNECT_MAC_WIDGET_PROFILE_PATH }}
+          MAC_MINI_PROVISIONING_UDID: ${{ secrets.DJCONNECT_MAC_MINI_PROVISIONING_UDID }}
+          MACBOOK_PROVISIONING_UDID: ${{ secrets.DJCONNECT_MACBOOK_PROVISIONING_UDID }}
+          RELEASE_VERSION: ${{ steps.manifest.outputs.release_version }}
+          SIGNING_IDENTITY: ${{ secrets.DJCONNECT_APPLE_DEVELOPMENT_SIGNING_IDENTITY }}
+          EXPECTED_MACBOOK_UUID: ${{ secrets.DJCONNECT_APPLE_MACBOOK_HARDWARE_UUID }}
+        run: |
+          set -euo pipefail
+          test "$(shasum -a 256 artifact.zip | awk '{print $1}')" = "$ARTIFACT_SHA256"
+          staging="$(mktemp -d)"
+          trap 'rm -rf "$staging"' EXIT
+          ditto -x -k artifact.zip "$staging"
+          app_bundle="$staging/DJConnect.app"
+          test -d "$app_bundle"
+          find "$app_bundle" -name '._*' -type f -delete
+          xattr -cr "$app_bundle"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_bundle/Contents/Info.plist")" = dev.djconnect.mac
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_bundle/Contents/Info.plist")" = "$RELEASE_VERSION"
+          bash Tools/release/sign_internal_macos_bundle.sh "$app_bundle" "$SIGNING_IDENTITY"
+          signed_archive="$staging/DJConnect-signed.zip"
+          ditto -c -k --keepParent "$app_bundle" "$signed_archive"
+          signed_sha="$(shasum -a 256 "$signed_archive" | awk '{print $1}')"
+          mini_uuid="$(ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/{print $4; exit}')"
+          bash Tools/release/install_signed_macos_archive.sh "$signed_archive" "$signed_sha" "$RELEASE_VERSION" "$mini_uuid" "$GITHUB_RUN_ID"
+          ssh_options=(-o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10)
+          book=pcvantol@MacBook-Pro-van-Peter.local
+          remote_dir="$(ssh "${ssh_options[@]}" "$book" 'mktemp -d /private/tmp/djconnect-deploy.XXXXXXXX')"
+          [[ "$remote_dir" =~ ^/private/tmp/djconnect-deploy\.[A-Za-z0-9]{8}$ ]]
+          scp "${ssh_options[@]}" "$signed_archive" "$book:$remote_dir/DJConnect.zip"
+          ssh "${ssh_options[@]}" "$book" bash -s -- "$remote_dir/DJConnect.zip" "$signed_sha" "$RELEASE_VERSION" "$EXPECTED_MACBOOK_UUID" "$GITHUB_RUN_ID" < Tools/release/install_signed_macos_archive.sh
+          ssh "${ssh_options[@]}" "$book" rm -f -- "$remote_dir/DJConnect.zip"
+          ssh "${ssh_options[@]}" "$book" rmdir -- "$remote_dir"
+      - name: Publish redacted MacBook deployment evidence
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          PAIRED_WATCH_VALIDATION: ${{ inputs.paired_watch_validation }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          RELEASE_VERSION: ${{ steps.manifest.outputs.release_version }}
+        run: |
+          python3 - <<'PY'
+          from datetime import UTC, datetime
+          import json, os
+          with open("apple-macbook-deployment-evidence.json", "w", encoding="utf-8") as file:
+              json.dump({"schema_version": 1, "kind": "apple_private_macbook_deployment", "repository": os.environ["GITHUB_REPOSITORY"], "candidate_sha": os.environ["CANDIDATE_SHA"], "manifest_id": os.environ["MANIFEST_ID"], "artifact_id": os.environ["ARTIFACT_ID"], "artifact_sha256": os.environ["ARTIFACT_SHA256"], "target": os.environ["TARGET"], "target_device": os.environ["TARGET_DEVICE"], "paired_watch_validation": os.environ["PAIRED_WATCH_VALIDATION"], "platform_version": os.environ["PLATFORM_VERSION"], "release_profile": os.environ["RELEASE_PROFILE"], "release_version": os.environ["RELEASE_VERSION"], "installed_bundle_identifier": "dev.djconnect.mac", "installed_hosts": ["macmini", "macbook"], "signing_scope": "runner_local_apple_development_identity", "deployment_result": "DEPLOYED_PENDING_SMOKE", "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")}, file, sort_keys=True)
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apple-macbook-deployment-evidence
+          path: apple-macbook-deployment-evidence.json
+          if-no-files-found: error

@@ -1,0 +1,142 @@
+name: Apple post-deployment smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha: {required: true, type: string}
+      manifest_id: {required: true, type: string}
+      artifact_id: {required: true, type: string}
+      artifact_sha256: {required: true, type: string}
+      target: {required: true, type: choice, options: [apple_private_device]}
+      target_device: {required: true, type: choice, options: [macbook, iphone, ipad]}
+      paired_watch_validation: {required: true, type: choice, options: [required, optional, disabled]}
+      platform_version: {required: true, type: string}
+      release_profile: {required: true, type: choice, options: [INTERNAL_RELEASE]}
+      deployment_workflow_run: {required: true, type: string}
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, macOS, ARM64, internal-release, macmini-build]
+    environment: apple-secure-distribution
+    steps:
+      - name: Validate immutable MacBook smoke request
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          PAIRED_WATCH_VALIDATION: ${{ inputs.paired_watch_validation }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          DEPLOYMENT_WORKFLOW_RUN: ${{ inputs.deployment_workflow_run }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$MANIFEST_ID" | grep -Eq '^release-[A-Za-z0-9._-]+$'
+          printf '%s' "$ARTIFACT_ID" | grep -Eq '^[1-9][0-9]*$'
+          printf '%s' "$ARTIFACT_SHA256" | grep -Eq '^[0-9a-f]{64}$'
+          test "$TARGET" = apple_private_device
+          test "$TARGET_DEVICE" = macbook
+          test "$PAIRED_WATCH_VALIDATION" = disabled
+          printf '%s' "$PLATFORM_VERSION" | grep -Eq '^[0-9]+\.[0-9]+$'
+          test "$RELEASE_PROFILE" = INTERNAL_RELEASE
+          printf '%s' "$DEPLOYMENT_WORKFLOW_RUN" | grep -Eq '^[0-9]+$'
+      - id: manifest
+        name: Require approved central operational manifest source
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+        run: |
+          set -euo pipefail
+          manifest="$(mktemp)"
+          trap 'rm -f "$manifest"' EXIT
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/djconnect-music-dj/djconnect/main/docs/release/PLATFORM_4_0_RC1_APPLE_OPERATIONAL_MANIFEST.json --output "$manifest"
+          manifest_status="$(jq -r '.status' "$manifest")"
+          case "$manifest_status" in
+            APPROVED_DEPLOYMENT_DISPATCH_PENDING|APPROVED_PARTIAL_DEPLOYMENT_OPERATIONAL) ;;
+            *) echo "Manifest is not open for an authorized target deployment: $manifest_status" >&2; exit 1 ;;
+          esac
+          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
+          test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
+          test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
+          release_version="$(jq -r --arg sha "$CANDIDATE_SHA" --arg repo "$GITHUB_REPOSITORY" '.repositories[] | select(.repository == $repo and .source_sha == $sha) | .version' "$manifest")"
+          printf '%s' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+          jq -e --arg target "$TARGET" --arg device "$TARGET_DEVICE" --arg artifact "$ARTIFACT_ID" --arg sha "$ARTIFACT_SHA256" '.artifact_bindings[] | select(.target == $target and .target_device == $device and .artifact_id == $artifact and .artifact_sha256 == $sha and .signing == "local_developer_provisioning_required")' "$manifest" >/dev/null
+          printf 'release_version=%s\n' "$release_version" >> "$GITHUB_OUTPUT"
+      - name: Download deployment evidence
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: apple-macbook-deployment-evidence
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.deployment_workflow_run }}
+          path: deployment-evidence
+      - name: Verify deployment evidence identity
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          PAIRED_WATCH_VALIDATION: ${{ inputs.paired_watch_validation }}
+        run: |
+          set -euo pipefail
+          evidence=deployment-evidence/apple-macbook-deployment-evidence.json
+          test "$(jq -r '.candidate_sha' "$evidence")" = "$CANDIDATE_SHA"
+          test "$(jq -r '.manifest_id' "$evidence")" = "$MANIFEST_ID"
+          test "$(jq -r '.artifact_id' "$evidence")" = "$ARTIFACT_ID"
+          test "$(jq -r '.artifact_sha256' "$evidence")" = "$ARTIFACT_SHA256"
+          test "$(jq -r '.target' "$evidence")" = "$TARGET"
+          test "$(jq -r '.target_device' "$evidence")" = "$TARGET_DEVICE"
+          test "$(jq -r '.paired_watch_validation' "$evidence")" = "$PAIRED_WATCH_VALIDATION"
+          test "$(jq -r '.deployment_result' "$evidence")" = DEPLOYED_PENDING_SMOKE
+          jq -e '.installed_hosts == ["macmini", "macbook"]' "$evidence" >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+      - name: Verify signed application and safe launch on both Macs
+        env:
+          EXPECTED_MACBOOK_UUID: ${{ secrets.DJCONNECT_APPLE_MACBOOK_HARDWARE_UUID }}
+          RELEASE_VERSION: ${{ steps.manifest.outputs.release_version }}
+        run: |
+          set -euo pipefail
+          mini_uuid="$(ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/{print $4; exit}')"
+          test "$mini_uuid" != "$EXPECTED_MACBOOK_UUID"
+          bash Tools/release/smoke_installed_macos_app.sh "$RELEASE_VERSION" "$mini_uuid"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 pcvantol@MacBook-Pro-van-Peter.local bash -s -- "$RELEASE_VERSION" "$EXPECTED_MACBOOK_UUID" < Tools/release/smoke_installed_macos_app.sh
+      - name: Publish redacted MacBook smoke evidence
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          PAIRED_WATCH_VALIDATION: ${{ inputs.paired_watch_validation }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          DEPLOYMENT_WORKFLOW_RUN: ${{ inputs.deployment_workflow_run }}
+          SMOKE_WORKFLOW_RUN: ${{ github.run_id }}
+          RELEASE_VERSION: ${{ steps.manifest.outputs.release_version }}
+        run: |
+          python3 - <<'PY'
+          from datetime import UTC, datetime
+          import json, os
+          with open("apple-macbook-smoke-evidence.json", "w", encoding="utf-8") as file:
+              timestamp = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+              json.dump({"schema_version": 1, "kind": "apple_private_macbook_smoke", "repository": os.environ["GITHUB_REPOSITORY"], "candidate_sha": os.environ["CANDIDATE_SHA"], "manifest_id": os.environ["MANIFEST_ID"], "artifact_id": os.environ["ARTIFACT_ID"], "artifact_sha256": os.environ["ARTIFACT_SHA256"], "target": os.environ["TARGET"], "target_device": os.environ["TARGET_DEVICE"], "paired_watch_validation": os.environ["PAIRED_WATCH_VALIDATION"], "platform_version": os.environ["PLATFORM_VERSION"], "release_profile": os.environ["RELEASE_PROFILE"], "release_version": os.environ["RELEASE_VERSION"], "deployment_workflow_run": os.environ["DEPLOYMENT_WORKFLOW_RUN"], "smoke_workflow_run": os.environ["SMOKE_WORKFLOW_RUN"], "runner_identity": "self-hosted-macos-apple-secure-distribution", "smoked_hosts": ["macmini", "macbook"], "signing_result": "PASS", "install_result": "PASS", "safe_launch_result": "PASS", "paired_watch_result": "NOT_APPLICABLE", "final_result": "SMOKE_PASSED", "timestamp": timestamp}, file, sort_keys=True)
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apple-macbook-smoke-evidence
+          path: apple-macbook-smoke-evidence.json
+          if-no-files-found: error

@@ -1,0 +1,50 @@
+{
+  "assignment": "DJC-APPLE-VIBECAST-OWNER-SCANNER-V1-20261016",
+  "scope": "isolated contract qualification; no production scanner",
+  "status": "PARTIAL_NATIVE_DEVICE_AND_FREEZE_OPEN",
+  "branch": "codex/apple-history-row-play-launch",
+  "head": "075895634feca03b5cc068b45a6fa7bfe781762e",
+  "remote_main_readback": "f6b0a71b3d8a2076539a2aea5e853626558b04ad",
+  "first_material_source": "Tools/qualification/vibecast-native/Sources/VibeCastBindingQualification/Binding.swift",
+  "first_material_source_created_utc": "2026-10-18T00:07:56.717173+00:00",
+  "api_commit": "fbe118b3b62b53793ec4d1bbc0aa8adcdff69ba4",
+  "portable_tests": {
+    "result": "PASS",
+    "count": 10,
+    "seconds": 0.006
+  },
+  "native_node_checks": {
+    "result": "PASS",
+    "count": 33
+  },
+  "signed_ios_build": {
+    "app_bundle": "dev.djconnect.ios",
+    "build": "40315",
+    "app_id": "ZEML4LPXH4.dev.djconnect.ios",
+    "team": "ZEML4LPXH4",
+    "get_task_allow": true,
+    "strict_app_and_test_signatures": "PASS",
+    "embedded_qualification_bundles": [
+      "PlugIns/VibeCastNativeQualification.xctest"
+    ],
+    "scope": "DIAGNOSTIC_ONLY, not installed; ordinary original40315 retained",
+    "executed_on_device": false
+  },
+  "physical_execution": "NOT_RUN_LOCKED",
+  "new_app_attest_keys": 0,
+  "app_attest_calls": 0,
+  "new_installation": false,
+  "product_dependency_or_contract_change": false,
+  "independent_security_review": "NOT_RUN_NOT_RUNTIME_GO",
+  "publication": "NOT_RUN",
+  "source_files": {
+    "Tools/qualification/vibecast-native/DestinationJOSE.swift": "c6a45a4e4cec3eae16c43496f19a36084a9feb99de60c6f25c0f01ecacae0bc3",
+    "Tools/qualification/vibecast-native/HostedQualification.swift": "6a2290b892d85f0eb1ac8f718665cd5756593856d3a0c72a49b588e1a0fd08f3",
+    "Tools/qualification/vibecast-native/InteropMain.swift": "7bc583d2f9e59e702036028f3f5a517d9da1b60bc5c2605c235f0a8d19737b70",
+    "Tools/qualification/vibecast-native/Package.swift": "5de028099c23acc306d595476f35dfdd301102c338d4510c240fad7afbd55fb5",
+    "Tools/qualification/vibecast-native/README.md": "c37234e41fbfc4cb802d3de36ee170e678b0eaf6570c5cd9346ab2c14b4c2013",
+    "Tools/qualification/vibecast-native/Sources/VibeCastBindingQualification/Binding.swift": "c951d46104bcaa9c8b0b29c579fc3c8a5c3225084d0755162f891b50a41bee34",
+    "Tools/qualification/vibecast-native/Tests/VibeCastBindingQualificationTests/BindingTests.swift": "01159d2c475129bf70759ed644805da7681b41058c123c02c4856ca85f937412",
+    "Tools/qualification/vibecast-native/run_interop.mjs": "fc1dcd1c971fce1a9e80e19ffc2b471c3490f1115a483956bf14d1246b9ff9f0"
+  }
+}

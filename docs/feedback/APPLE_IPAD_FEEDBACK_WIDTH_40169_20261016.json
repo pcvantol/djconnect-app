@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-16",
+  "build": "40169",
+  "scope": "Ask DJ feedback sheet width on iPad",
+  "root_cause": "Regular iPad size class inherited desktop minWidth760/idealWidth920 although the native sheet can be narrower.",
+  "implementation": [
+    "Keep desktop minimum/ideal width on macOS only. iOS/iPadOS content follows the available native sheet width.",
+    "Retain vertical ScrollView, editor heights, issue draft redaction and explicit GitHub-open action.",
+    "Add stable content accessibility identifier for physical bounds verification."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "manifest": "452 file hashes PASS",
+    "diff_check": "PASS",
+    "physical_iPad": "PASS: content within window bounds, footer hittable, cancelled with Niet nu",
+    "physical_iPhone": "PASS: content within window bounds, footer hittable, cancelled with Niet nu",
+    "installed_readback": "iPad/iPhone40169 PASS"
+  },
+  "evidence": {
+    "manifest": "build/recovery/ipad40169-selective-source-manifest-20261016.json",
+    "build": "/private/tmp/djc-ios-40169-feedback-width-build.log",
+    "ipad_xcresult": "/private/tmp/djc-ipad-40169-feedback-width-20261016.xcresult",
+    "iphone_xcresult": "/private/tmp/djc-iphone-40169-feedback-width-20261016.xcresult",
+    "ipad_screenshots_actually_viewed": [
+      "/private/tmp/djc-ipad-40169-feedback-width-attachments/4267C7A3-639F-475B-A3E2-7A8E942A2D27.png",
+      "/private/tmp/djc-ipad-40169-feedback-width-attachments/26B64558-F8CD-4066-9089-8F5C5861DB46.png"
+    ],
+    "iphone_screenshot_actually_viewed": "/private/tmp/djc-iphone-40169-feedback-width-attachments/D04A1054-DFA2-44DA-B4B3-EEAE56763AF6.png"
+  },
+  "limits": [
+    "Native portrait sheet with current text size verified; no full rotation/Split View/Dynamic Type matrix.",
+    "No feedback submitted, GitHub opened or user text entered.",
+    "Mac remains40168; desktop sizing unchanged."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

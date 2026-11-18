@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "kind": "apple_native_surface_push_source215_finalization",
+  "source_pr": 215,
+  "source_candidate": "ed8b4e6a2987f92fa127d6a14a818308809db138",
+  "source_main": "f9a4089a9b7126d7ecb0b53941645e4266700b3f",
+  "source_tree": "be6c71306d5ad254dd3dbdde967b56ad5c7d7193",
+  "source_parent": "b9d0ea6922c6a6036feec8f88f67314bf75b5bb3",
+  "reviewed_and_merged_tree_equal": true,
+  "whole_eleven_review_sha256": "c6d2c6d19b969145f19cc1010499fd2847b04a0a99ad5d0fca5910dadc0086ff",
+  "main_CI_run": 40400189271,
+  "formal_run": 40401922984,
+  "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+  "formal_digest": "c3ffd0d2ce1fc6bd13b9727dad528eb0d12313487fb43f96a84aa143e2e946e6",
+  "formal_findings": [],
+  "durable_asset_id": 679483366,
+  "durable_provider_and_actual_sha256": "1b158a887b098d76fcb9ab8bba65c0ef1b0b694aabb5ca015fffffb586e314c5",
+  "durable_required_checks": {
+    "post_merge_build_validation": "PASS",
+    "post_merge_ci": "PASS",
+    "post_merge_coverage": "PASS",
+    "post_merge_governance": "PASS",
+    "post_merge_lint": "PASS",
+    "post_merge_static_analysis": "PASS",
+    "post_merge_tests": "PASS",
+    "required_checks": "PASS",
+    "software_assurance": "PASS",
+    "trusted_delivery": "PASS",
+    "verification": "PASS",
+    "workflow_integrity": "PASS"
+  },
+  "coverage_artifact_sha256": "sha256:d57042826d34d4dad93a1ed042839cb1976910aaf450b4ffca77d3b08dab97df",
+  "test_receipt_sha256": "a5027de563530e2b49bd111fb37500acaa8c30fb5ae16a3614b625209e33af26",
+  "validation": {
+    "swift_tests": 1304,
+    "suites": 30,
+    "native_ios_tests": 14,
+    "native_macos_tests": 14,
+    "test_inputs": 529,
+    "scope": "SDK compilation and explicitly modeled admission/inventory/transport only"
+  },
+  "source_scope": "Paired native registration task custody with closed production admission",
+  "not_accepted": [
+    "production admission factory or inferred APNs environment",
+    "native original clock/rate/suspend/domain and first-purpose history",
+    "cold extension B read delegation/publication",
+    "remote Activity profile adoption",
+    "enrollment or provider activation",
+    "physical token/provisioning/APNs delivery",
+    "OS display or privacy wipe guarantees",
+    "ordinary build or installation"
+  ],
+  "historical_predecessors": {
+    "79ef3f56": "HOLD retained: late inventory success/error fence",
+    "1cb0d26": "HOLD retained: capture inside child; no retrospective GO"
+  },
+  "qualification_source": "Own original Source215 receipts; no inheritance from Source214"
+}

@@ -1,0 +1,27 @@
+name: Firmware security scan
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 4 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  software-assurance-governance:
+    name: Software Assurance governance
+    permissions:
+      contents: read
+    uses: djconnect-music-dj/djconnect-shared-workflows/.github/workflows/software-assurance-governance-aabd.yml@2a1c6fd2841b08630aee01402850f56840b50f70
+    with:
+      execution_profile: balanced
+      owner: ${{ github.repository }}
+
+  semgrep:
+    name: Semgrep
+    uses: djconnect-music-dj/djconnect-shared-workflows/.github/workflows/djconnect-semgrep-191.yml@4bd9731a6fe7bb50c932e36635eb3ff5c5372687 # Repaired reachable workflow closure
+    with:
+      continue-on-error: true

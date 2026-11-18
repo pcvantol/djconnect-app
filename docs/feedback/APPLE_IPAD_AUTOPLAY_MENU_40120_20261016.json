@@ -1,0 +1,146 @@
+{
+  "status": "INSTALLED_IPAD40120_AUTOPLAY_NATIVE_SWITCH_PRESENTATION_AND_SETTINGS_REMOVAL_VERIFIED; ordinary app restored",
+  "writer_parent": "deac067",
+  "source": "/private/tmp/djc-neon-brand-40108-source",
+  "source_qualification": "Baseline40117 source archive and exact452files reverified before/after build with only recorded40118autoplay/40119switch patches. No extra Sources/Apps files. No full unfinished writer imported",
+  "source_manifest": "build/recovery/ipad40120-selective-source-manifest-20261016.json",
+  "build": "xcodebuild DJConnectIOS Debug generic iOS CURRENT_PROJECT_VERSION=40120, signed iOS/Watch products PASS",
+  "build_log": "/private/tmp/djc-ios-40120-selective-build-20261016.log",
+  "candidate_executable_sha256": "43fc5aa5bf6f6fe2e0a3c516d85a761b681c4c4047ff30e56a967d4f92760739",
+  "signature": "Strict/deep codesign with normal host access PASS. Sandbox first reported CSSMERR_TP_NOT_TRUSTED; no trust config changed",
+  "installation": "CoreDevice normal in-place install PASS on physical iPad00008027-000211140231002E; installed build40120 then independently visible in About. No device-executable hash readback claimed",
+  "install_result": "/private/tmp/djc-ipad-40120-install-20261016.json",
+  "native": {
+    "menu": "PASS test40120VoiceMenuSwitch: active Session review_demo, Stem button hittable, native switch session-voice-autoplay exists/hittable/value0, left unchanged. Glass popover screenshot actually viewed",
+    "settings": "Autoplay title and identifier absent across4Settings scroll captures, all relevant assertions passed and4screenshots viewed",
+    "original_suite": "Not all tests passed: Settings method failed in its ordinary-app restoration, Voice method passed20.469s. Do not mark entire result green",
+    "restoration_retry": "Bounded hittable wait did not resolve Settings restoration; second attempt failed33.484s. No product fix inferred. Separate ordinary readback identified actual De app is mogelijk gecrasht modal blocking tabs",
+    "final_restore": "PASS separate test40120OrdinaryRestoreAndVersion: dismissed observed modal with Niet nu (no upload/issue), ordinary Speelt Nu selected, status Verbonden \u00b7 extern, About4.0.0(40120), Remote Home Assistant/HTTPS \u00b7 TLS, push RegisteredSandbox, returned Speelt Nu selected",
+    "crash_boundary": "Possible-crash alert observed; no independent crash report or new actual crash/root cause qualified. Prior forced test launches/terminations are not proof of a runtime defect",
+    "fixtures": "Only isolated --uitesting review_demo suite and in-memory nil token. Ordinary defaults/token/profile not deliberately modified; no switch toggled or provider audio played",
+    "screenshots_viewed": 8,
+    "temporary_probe": "External Probe.swift restored to original; initial/settle/final qualified test sources retained in private tmp"
+  },
+  "results": [
+    "/private/tmp/djc-ipad-40120-voice-menu-20261016.xcresult",
+    "/private/tmp/djc-ipad-40120-settings-restored-20261016.xcresult",
+    "/private/tmp/djc-ipad-40120-ordinary-readback-20261016.xcresult",
+    "/private/tmp/djc-ipad-40120-ordinary-restored-20261016.xcresult"
+  ],
+  "scope_limits": [
+    "Autoplay menu only; full concrete voices/gender/Persona/new Speech/widgets and recent writer-only push fix not installed",
+    "Voice menu requires an active DJ Session; ordinary app currently has no active Session, none started for qualification",
+    "No live provider synthesis, audible speech, LAN/WS/APNs delivery, FPS or all-product acceptance",
+    "Read-only permission status checkmarks remain status indicators; no fake OS-permission toggles added"
+  ],
+  "current_apps": "iPad40120; Mac40119 and iPhone40116 unchanged per existing receipts. Next new build40121+",
+  "effects": "App/embedded companion build and iPad-only installation, local Demo navigation, ordinary app readback. No playback command, AskDJ send, radio/settings/HA/Core migration/deploy, push/PR/merge, automation or trust-config change",
+  "evidence": [
+    {
+      "name": "Installed40120 Settings no autoplay page 3_0_A4FCD59D-1940-4B43-A1A0-A92495DCC4E5.png",
+      "path": "/private/tmp/djc-ipad-40120-voice-menu-attachments-20261016/7CEE4478-2B25-439D-A6B6-D9437D80742F.png",
+      "sha256": "c3aaa0d733ce0e92249ea30741db2f9e6f97fcdfe038dda74d139b97e5b76cd6",
+      "viewed": true
+    },
+    {
+      "name": "Installed40120 Settings no autoplay page 3 AX_0_4E51D21C-0895-45E1-9764-F8D47F9E6955.txt",
+      "path": "/private/tmp/djc-ipad-40120-voice-menu-attachments-20261016/3BF63BA3-D1B4-4912-9634-B06F1BAB66DE.txt",
+      "sha256": "3d34ea3ec75a133f31658977257e3a415e5ca4f2a555eb197acef368c222ee7c",
+      "viewed": false
+    },
+    {
+      "name": "Installed40120 Settings no autoplay page 2_0_7292D02F-761B-4793-8ABB-A3C6E02439C1.png",
+      "path": "/private/tmp/djc-ipad-40120-voice-menu-attachments-20261016/11C0FFA8-C45F-4D85-AD77-C9FF214A7FC6.png",
+      "sha256": "c3aaa0d733ce0e92249ea30741db2f9e6f97fcdfe038dda74d139b97e5b76cd6",
+      "viewed": true
+    },
+    {
+      "name": "Installed40120 Settings no autoplay page 2 AX_0_178CDBD8-C7E5-445B-BFFE-1502169EB805.txt",
+      "path": "/private/tmp/djc-ipad-40120-voice-menu-attachments-20261016/4F87DC10-A31E-4495-B421-1B20DFD00F1F.txt",
+      "sha256": "b26a2b1e56411d7e3ae3b5f63a1ffb3b36fbedbd40f0a49221b1193c2dfd5345",
+      "viewed": false
+    },
+    {
+      "name": "Installed40120 Settings no autoplay page 1_0_88C04AA9-F763-4464-8782-EEDB70C7723E.png",
+      "path": "/private/tmp/djc-ipad-40120-voice-menu-attachments-20261016/17F8C1AC-E752-49A9-9933-697811BADA06.png",
+      "sha256": "3f9158ac394a709de52fc7c0913107f9160a3defebecafd85386674eabe85f46",
+      "viewed": true
+    },
+    {
+      "name": "Installed40120 Settings no autoplay page 1 AX_0_ED9CB8DE-EE1E-4F9B-BCDC-ADE3241CCCDF.txt",
+      "path": "/private/tmp/djc-ipad-40120-voice-menu-attachments-20261016/99FC3551-58CE-4689-8705-E547FDBDF705.txt",
+      "sha256": "5bf384a836741c0cb17889b8da71005ccdba1f764e249a7abf9830ea381297e4",
+      "viewed": false
+    },
+    {
+      "name": "Installed40120 Settings no autoplay page 0_0_10DD108E-ED8B-4A84-AA4B-2694520DA860.png",
+      "path": "/private/tmp/djc-ipad-40120-voice-menu-attachments-20261016/6395820D-E116-415B-9183-CD223D0E0E4C.png",
+      "sha256": "150d7ada09e5bef640ce86dbd7bac9d7cff5d8f41712b6f1fa69815bda197db4",
+      "viewed": true
+    },
+    {
+      "name": "Installed40120 Settings no autoplay page 0 AX_0_21A13A48-F28E-4EE0-B7C7-DC71D80B6806.txt",
+      "path": "/private/tmp/djc-ipad-40120-voice-menu-attachments-20261016/FFA08D92-FF8E-40D0-9824-237C0D979F30.txt",
+      "sha256": "1f2defe4b39fb9767acfd6becd79e6e7e90a08336f77db5be66aef2de1362b42",
+      "viewed": false
+    },
+    {
+      "name": "Installed40120 Stem native switch Demo unchanged_0_F343F57C-1C69-4C83-A63A-FF48DFD1D980.png",
+      "path": "/private/tmp/djc-ipad-40120-voice-menu-attachments-20261016/35C31A62-D97A-441A-B943-2542C8C81321.png",
+      "sha256": "f01707f790661aab31349a16eca3ddbc530b2e666d81145c3c077082aa6acd80",
+      "viewed": true
+    },
+    {
+      "name": "Installed40120 Stem native switch Demo unchanged AX_0_8B554E26-12ED-4AA5-BF39-591FBF20213C.txt",
+      "path": "/private/tmp/djc-ipad-40120-voice-menu-attachments-20261016/0457CDD7-2FF1-4874-B2D1-6070A2A71760.txt",
+      "sha256": "eaf8d6b4ce54f3d2d1cc280e867e4e277fe410e29a8f0ca6ce7c603fbb1a0ffa",
+      "viewed": false
+    },
+    {
+      "name": "Installed iPad screenshot_0_EC7F8021-CD87-4B68-ABCC-FF431AF536C5.png",
+      "path": "/private/tmp/djc-ipad-40120-ordinary-readback-attachments-20261016/3A2E5381-2783-4C97-9499-220649711B1C.png",
+      "sha256": "6c5fd41f95a1884020c101bee9c9c34b69039447427a9bbaaa94af3295557a0e",
+      "viewed": true
+    },
+    {
+      "name": "Installed iPad UI tree_0_D3C4BB18-8128-41F3-BE66-8707BB062A14.txt",
+      "path": "/private/tmp/djc-ipad-40120-ordinary-readback-attachments-20261016/F4633C20-26B5-419D-8AFC-15B5E4F38144.txt",
+      "sha256": "ae8eec8f7d8d26e92ad5e36d3a39cb43c14ca268f36b8c3108e0f65a599cebc4",
+      "viewed": false
+    },
+    {
+      "name": "Installed40120 About version_0_70DD65B9-3222-4159-93A0-72D069BA713A.png",
+      "path": "/private/tmp/djc-ipad-40120-ordinary-restored-attachments-20261016/45E154E9-B560-4464-8F99-8B0248E4C254.png",
+      "sha256": "dfd0dbf7bcd8c1ee43a8c594076d53a92cfd611e4e8d5cd308f71b1e3a495853",
+      "viewed": true
+    },
+    {
+      "name": "Installed40120 About version AX_0_A60B5500-290A-40E7-A9C7-A669C2D2BFB1.txt",
+      "path": "/private/tmp/djc-ipad-40120-ordinary-restored-attachments-20261016/9720AA54-ACD6-40B5-A784-E6FD950A19DB.txt",
+      "sha256": "77c7708cde092064d00ab9bdc27ddb284e810ff3c089bd1922ce0097d9b682f9",
+      "viewed": false
+    },
+    {
+      "name": "Installed40120 ordinary paired restored_0_FCBC3EA3-D6BF-4F86-A99E-5BF484BBDC8A.png",
+      "path": "/private/tmp/djc-ipad-40120-ordinary-restored-attachments-20261016/FDDDD1C2-B489-4511-8EF7-68FE93E85929.png",
+      "sha256": "62e0093c7ef2c135a75ad6fa19f7a73b546149833743f63640327c63c05ea651",
+      "viewed": true
+    },
+    {
+      "name": "Installed40120 ordinary paired restored AX_0_16AE8AA5-6D28-4D99-BFED-2317DBF80B7A.txt",
+      "path": "/private/tmp/djc-ipad-40120-ordinary-restored-attachments-20261016/2BE92932-3AA3-4C4A-B4B9-C51A1ED5DC2A.txt",
+      "sha256": "60ffd1fa61980eee582d4db759cf71838bd25f9fa38cbf506e8eb515a9d0cf67",
+      "viewed": false
+    }
+  ],
+  "safety": {
+    "worktrees": "Single existing writer; current/main only merged refs; no eligible deletion",
+    "locks": [],
+    "processes": "No active xcodebuild/swift-test/swift-build/xctrace in final readback",
+    "df_internal": "15GiB",
+    "df_EP_DATA": "887MiB",
+    "APFS_disk3_free_bytes": 14787096576,
+    "APFS_disk7_free_bytes": 2480422912,
+    "cleanup": "None. Separate free-space snapshots can differ; no cleanup gain claimed. Source archive/candidate/recovery/evidence and untracked DJConnectApp 2/3.xcodeproj preserved"
+  }
+}

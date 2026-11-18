@@ -1,0 +1,76 @@
+{
+  "content_pin": "648496f3c218305323c752a632a086cfad97fb15f8f0c9d9126ae92fc319f58b",
+  "receipts": [
+    {
+      "control": "restore_profile"
+    },
+    {
+      "control": "start"
+    },
+    {
+      "connection": 1,
+      "frame": "auth_required"
+    },
+    {
+      "connection": 1,
+      "frame": "auth_ok",
+      "protocol_version": 1
+    },
+    {
+      "connection": 1,
+      "frame": "result",
+      "success": true,
+      "snapshot_sent": true
+    },
+    {
+      "control": "update"
+    },
+    {
+      "connection": 1,
+      "frame": "event",
+      "event_type": "djconnect/session/broadcast"
+    },
+    {
+      "control": "resume_update"
+    },
+    {
+      "connection": 1,
+      "frame": "event",
+      "event_type": "djconnect/session/broadcast"
+    },
+    {
+      "connection": 2,
+      "frame": "auth_required"
+    },
+    {
+      "connection": 2,
+      "frame": "auth_ok",
+      "protocol_version": 1
+    },
+    {
+      "connection": 2,
+      "frame": "result",
+      "success": true,
+      "snapshot_sent": true
+    },
+    {
+      "control": "state"
+    },
+    {
+      "control": "state"
+    },
+    {
+      "control": "end"
+    },
+    {
+      "connection": 2,
+      "frame": "event",
+      "event_type": "djconnect/session/broadcast"
+    },
+    {
+      "connection": 2,
+      "frame": "event",
+      "event_type": "djconnect/session/broadcast"
+    }
+  ]
+}
