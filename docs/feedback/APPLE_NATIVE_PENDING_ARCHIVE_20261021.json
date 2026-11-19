@@ -1,0 +1,37 @@
+{
+  "base_commit": "1313da5b53e8a63a344ddee7c742bdf87c4fae23",
+  "test_passed": 1,
+  "failures": 0,
+  "seconds": 1.724,
+  "production_changed": false,
+  "receipts": [
+    {
+      "path": "/private/tmp/djc-pending-archive-native-20261021.log",
+      "sha256": "0d3b4012b973833f0c6334eee6d919b701f2953b369f42e1c7fd171a53a32ece"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "9b95775954252243668199e5aee6ec2e6592db8fa0e53425addcb95dd0c5e885"
+    },
+    {
+      "path": "/private/tmp/djc-pending-archive-native-20261021/observations/authorized-before.png",
+      "sha256": "7ef2854c8a7a76c73eac74cf7e1ad807dba1e39a16c3fbe325f6775620f0d824"
+    },
+    {
+      "path": "/private/tmp/djc-pending-archive-native-20261021/observations/observations.json",
+      "sha256": "2adeb0b8211fc1de21d4f24157d9bc19fb84dcf4b67668e93bde4a2b0b323b07"
+    },
+    {
+      "path": "/private/tmp/djc-pending-archive-native-20261021/observations/pending-430.png",
+      "sha256": "5cd3eb332a9ebb2f1e517295caf076106b5091a26022a4ace0d4f76962627498"
+    },
+    {
+      "path": "/private/tmp/djc-pending-archive-native-20261021/observations/pending-after-refresh-320.png",
+      "sha256": "70fe465d2453d63026c584b42cb3d11d1a0e6b1fcf78daac40bb1929a7998707"
+    },
+    {
+      "path": "/private/tmp/djc-pending-archive-native-20261021/observations/pending-after-refresh-430.png",
+      "sha256": "5cd3eb332a9ebb2f1e517295caf076106b5091a26022a4ace0d4f76962627498"
+    }
+  ]
+}

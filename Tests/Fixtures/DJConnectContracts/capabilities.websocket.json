@@ -1,0 +1,67 @@
+{
+  "success": true,
+  "domain": "djconnect",
+  "websocket_supported": true,
+  "commands": [
+    "djconnect/command",
+    "djconnect/ask_dj/message",
+    "djconnect/ask_dj/history",
+    "djconnect/ask_dj/history/clear",
+    "djconnect/ask_dj/history/state",
+    "djconnect/ask_dj/idle_suggestion",
+    "djconnect/track_insight",
+    "djconnect/music_dna/profile",
+    "djconnect/music_dna/settings",
+    "djconnect/music_dna/clear",
+    "djconnect/music_dna/import",
+    "djconnect/music_dna/export",
+    "djconnect/music_discovery/feed",
+    "djconnect/music_discovery/refresh",
+    "djconnect/music_discovery/play",
+    "djconnect/music_discovery/feedback"
+  ],
+  "features": {
+    "ask_dj_chat": true,
+    "ask_dj_history": true,
+    "ask_dj_idle_suggestion": true,
+    "backend_commands": true,
+    "track_insight": true,
+    "music_dna": true,
+    "music_discovery": true,
+    "music_discovery_feedback": true
+  },
+  "fallbacks": {
+    "music_dna": {
+      "available": true,
+      "preferred_transport": "websocket",
+      "http_paths": {
+        "profile": "/api/djconnect/v1/music_dna/profile",
+        "settings": "/api/djconnect/v1/music_dna/settings",
+        "clear": "/api/djconnect/v1/music_dna/clear",
+        "import": "/api/djconnect/v1/music_dna/import",
+        "export": "/api/djconnect/v1/music_dna/export"
+      },
+      "missing_behavior": "use_http_or_hide_feature"
+    },
+    "music_discovery": {
+      "available": true,
+      "preferred_transport": "websocket",
+      "http_paths": {
+        "feed": "/api/djconnect/v1/music_discovery",
+        "refresh": "/api/djconnect/v1/music_discovery/refresh",
+        "play": "/api/djconnect/v1/music_discovery/play"
+      },
+      "missing_behavior": "use_http_or_hide_feature"
+    },
+    "music_discovery_feedback": {
+      "available": true,
+      "preferred_transport": "websocket",
+      "http_path": "/api/djconnect/v1/music_discovery/feedback",
+      "missing_behavior": "hide_negative_feedback_controls"
+    }
+  },
+  "transports": {
+    "http": true,
+    "websocket": true
+  }
+}

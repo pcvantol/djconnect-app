@@ -1,0 +1,45 @@
+{
+  "status": "SOURCE_WAV_MP3_BOUNDS_PASS; no app install or audible/provider acceptance",
+  "source_parent": "2daf6f4a767673f34d4fbb3bb2e240bfe893e362",
+  "producer_contract_pin": "9faffe533d4a117eb8ad362e73809d126bdcc9d7",
+  "changes": [
+    "Private speech audio accepts canonical audio/mpeg alongside existing WAV MIME types; MIME alone never admits bytes",
+    "MPEG1/2/2.5 Layer III frames walked completely; malformed/truncated/free-bitrate/reserved/rate-changing/channel-changing/trailing data rejected. Maximum 2MiB and 20seconds independently enforced",
+    "Optional bounded ID3v2 and ID3v1 metadata stripped before native AVAudioPlayer data initialization; no playback or prepareToPlay call",
+    "Native parser checks finite bounded duration, sample rate and channel agreement after structural checks",
+    "WAV PCM validation now bounds actual data samples to 20seconds independently of byte limit",
+    "Existing private paired POST, no redirects, transfer budget, timeout, expiry and provider withdrawal handling retained"
+  ],
+  "validation": {
+    "focused": "13 tests, 1 serialized suite PASS, including 3 MPEG version cases",
+    "focused_log": "/private/tmp/djc-mp3-focused-20261016.log",
+    "full": "662 tests in 8 suites PASS,30.148seconds",
+    "full_log": "/private/tmp/djc-mp3-regression-20261016.log",
+    "ios": "DJConnectUI arm64 iOS26 simulator library compilation PASS31.85seconds",
+    "ios_log": "/private/tmp/djc-mp3-ios-build-20261016.log",
+    "fixtures": "Tests/Fixtures/speech-silence-provenance.json records synthetic frame construction, SHA256 and independent Apple afconvert complete decode. No provider/personal audio or playback",
+    "negative_cases": "Malformed frames/tags/truncation/trailing bytes/MIME swaps; under-byte-limit MP3 >20s and WAV21s rejected; WAV20s accepted",
+    "warnings": "Existing native build-system deprecation and SwiftUI actor-isolation warnings; no new failure",
+    "diff_check": "PASS"
+  },
+  "references": [
+    "https://developer.apple.com/documentation/avfaudio/avaudioplayer/init(data:filetypehint:)",
+    "https://id3.org/id3v2.4.0-structure",
+    "https://github.com/lieff/minimp3/blob/master/minimp3.h"
+  ],
+  "remaining": [
+    "Reference-bound owner DTO admission, fresh-before-prepare refresh and playback owner integration remain open",
+    "Expiry/withdrawal/background/selection cancellation and autoplay dedup must be qualified together before installing full Speech slice",
+    "Native full Voice pulldown/gender layout and audible/provider-switch acceptance not performed"
+  ],
+  "installed": "Mac40119 autoplay-only Voice switch unchanged; iPad40117/iPhone40116 per previous receipts. Selective source unchanged, no new app build or installation",
+  "effects": "Local source/tests/fixtures/receipt only. No synthesis, provider request, personal data, playback, HA mutation/deploy, publication, migration, automation change or cleanup",
+  "safety": "One writer/worktree, current/main only merged refs. No Git locks or active build/trace processes in final readback. No refs/files deleted; untracked DJConnectApp 2/3.xcodeproj preserved",
+  "storage": {
+    "df_internal": "5.7GiB",
+    "df_EP_DATA": "609MiB",
+    "APFS_disk3_free_bytes": 5959716864,
+    "APFS_disk7_free_bytes": 692064256,
+    "note": "Fresh snapshots; no own cleanup/free-space gain claimed"
+  }
+}

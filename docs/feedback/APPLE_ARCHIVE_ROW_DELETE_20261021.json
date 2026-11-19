@@ -1,0 +1,45 @@
+{
+  "base_commit": "e2e2762",
+  "receipts": [
+    {
+      "path": "Sources/DJConnectUI/SessionTimelineScreen.swift",
+      "sha256": "bc72d8987efdcdde21e01bd1ef529de9d37f869d7c4ff3ed4cffb920ad9e5abd"
+    },
+    {
+      "path": "/private/tmp/djc-archive-row-delete-20261021-ios-qualified.log",
+      "sha256": "741c81b79bad769631ff132b4e0994a9bb17973fb45a9e4cf2b5ef756fe26d58"
+    },
+    {
+      "path": "/private/tmp/djc-archive-row-delete-20261021-ios.log",
+      "sha256": "efba8731c24a2645e8ff68a99657140740f6c50205b81807e1e8f5a03702c621"
+    },
+    {
+      "path": "/private/tmp/djc-archive-row-delete-20261021-qualified.log",
+      "sha256": "7f057a27cbd78acdf4020b59e32075bb1abdcc91728f67c9b1d9ce6e850275b5"
+    },
+    {
+      "path": "/private/tmp/djc-archive-row-delete-20261021.log",
+      "sha256": "340603fde944a05c0de2bcde58c993e87a2d47d2dbb45a2a3137cd52398e2563"
+    },
+    {
+      "path": "/private/tmp/djc-archive-row-delete-20261021/observations-qualified/authorized-before.png",
+      "sha256": "be5ad36d3134c10f96b958bd4827b8d9bd6ce87b02dd2fb9f7e2bf9b16a23a41"
+    },
+    {
+      "path": "/private/tmp/djc-archive-row-delete-20261021/observations-qualified/observations.json",
+      "sha256": "2adeb0b8211fc1de21d4f24157d9bc19fb84dcf4b67668e93bde4a2b0b323b07"
+    },
+    {
+      "path": "/private/tmp/djc-archive-row-delete-20261021/observations-qualified/pending-430.png",
+      "sha256": "7601f65b814ef328d481482022a7d7377ec8160b359d27b7063a98cd252aacb0"
+    },
+    {
+      "path": "/private/tmp/djc-archive-row-delete-20261021/observations-qualified/pending-after-refresh-320.png",
+      "sha256": "9df324c407fee50c7723def1ce8081ab1528438d11ff6a3ba57c640a6c38f0b9"
+    },
+    {
+      "path": "/private/tmp/djc-archive-row-delete-20261021/observations-qualified/pending-after-refresh-430.png",
+      "sha256": "7601f65b814ef328d481482022a7d7377ec8160b359d27b7063a98cd252aacb0"
+    }
+  ]
+}

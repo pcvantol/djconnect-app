@@ -1,0 +1,484 @@
+import Foundation
+
+#if os(iOS) && canImport(ActivityKit)
+import ActivityKit
+
+@available(iOS 16.1, *)
+public struct TrackInsightLiveActivityAttributes: ActivityAttributes, Sendable {
+    public struct ContentState: Codable, Hashable, Sendable {
+        public var title: String
+        public var artist: String
+        public var deviceName: String?
+        public var progressMS: Int?
+        public var durationMS: Int?
+        public var artworkURL: URL?
+        public var isPlaying: Bool
+        public var volumePercent: Int?
+        public var isLiked: Bool?
+        public var animationSeed: Int
+
+        public init(
+            title: String,
+            artist: String,
+            deviceName: String? = nil,
+            progressMS: Int? = nil,
+            durationMS: Int? = nil,
+            artworkURL: URL? = nil,
+            isPlaying: Bool = false,
+            volumePercent: Int? = nil,
+            isLiked: Bool? = nil,
+            animationSeed: Int = 0
+        ) {
+            self.title = title
+            self.artist = artist
+            self.deviceName = deviceName
+            self.progressMS = progressMS
+            self.durationMS = durationMS
+            self.artworkURL = artworkURL
+            self.isPlaying = isPlaying
+            self.volumePercent = volumePercent
+            self.isLiked = isLiked
+            self.animationSeed = animationSeed
+        }
+    }
+
+    public var sessionID: String
+
+    public init(sessionID: String) {
+        self.sessionID = sessionID
+    }
+}
+
+@available(iOS 16.1, *)
+public extension TrackInsightLiveActivityAttributes.ContentState {
+    init(playback: DJConnectPlayback) {
+        self.init(
+            title: playback.trackName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? playback.trackName! : "DJConnect",
+            artist: playback.artistName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? playback.artistName! : "Speelt Nu",
+            deviceName: playback.device?.name,
+            progressMS: playback.progressMS,
+            durationMS: playback.durationMS,
+            artworkURL: playback.albumImageURL,
+            isPlaying: playback.isPlaying == true,
+            volumePercent: playback.volumePercent ?? playback.device?.volumePercent,
+            isLiked: playback.isLiked ?? playback.favoriteStatus,
+            animationSeed: TrackInsightLiveActivityAttributes.ContentState.seed(for: playback)
+        )
+    }
+
+    static func seed(for playback: DJConnectPlayback) -> Int {
+        let value = "\(playback.trackName ?? "")|\(playback.artistName ?? "")|\(playback.device?.name ?? "")"
+        return value.unicodeScalars.reduce(0) { result, scalar in
+            ((result &* 31) &+ Int(scalar.value)) & 0x7fffffff
+        }
+    }
+
+    var progress: Double {
+        guard let progressMS, let durationMS, durationMS > 0 else {
+            return 0
+        }
+        return min(1, max(0, Double(progressMS) / Double(durationMS)))
+    }
+}
+#endif
+
+
+/// Shared renderer palette, not personal content or a new backend Mood model.
+/// Only closed color tokens are retained as bounded device UI state.
+public enum DJConnectSessionMoodTheme: String, Codable, CaseIterable, Sendable {
+    case brand, chill, groove, energy, party
+
+    public init(sessionMood: String?) {
+        self = sessionMood.flatMap(Self.init(rawValue:)) ?? .brand
+    }
+    public var colorValues: [UInt32] {
+        switch self {
+        case .brand: [0x3285FF, 0x843DF5, 0xCB27F5]
+        case .chill: [0x4DA3FF, 0x7B61FF, 0xD184FF]
+        case .groove: [0x06C7AD, 0x169BC8, 0x10B981]
+        case .energy: [0xDDFF00, 0x00B8FF, 0x39FF78]
+        case .party: [0xFF287F, 0xAA38F5, 0xF43DCE]
+        }
+    }
+    public var horizonHeroColorValues: [UInt32] {
+        self == .groove ? [0x10B5D2, 0x169BC8, 0x169BC0] : colorValues
+    }
+
+    public var glow: Double {
+        switch self {
+        case .brand, .chill: 0.36
+        case .groove: 0.46
+        case .energy: 0.58
+        case .party: 0.66
+        }
+    }
+}
+
+/// Explicit, short-lived local demonstration. Never contains authenticated content,
+/// artwork URLs, Profile identity or passive-surface grants.
+public struct DJConnectDemoWidgetSnapshot: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectDemoWidget.v1"
+    public static let enabledKey = "DJConnectDemoWidget.enabled.v1"
+    public let observedAt: Date
+    public let theme: DJConnectSessionMoodTheme
+    public let track: String?
+    public let artist: String?
+    public let album: String?
+    public let isPlaying: Bool
+    public var expiresAt: Date { observedAt.addingTimeInterval(120) }
+    public init(theme: DJConnectSessionMoodTheme, track: String?, artist: String?, album: String?, isPlaying: Bool, at now: Date) {
+        self.theme = theme; self.track = track; self.artist = artist; self.album = album
+        self.isPlaying = isPlaying; observedAt = now
+    }
+    public func isCurrent(at now: Date) -> Bool { now >= observedAt && now < expiresAt }
+    public func sameContent(as other: Self) -> Bool {
+        theme == other.theme && track == other.track && artist == other.artist && album == other.album && isPlaying == other.isPlaying
+    }
+    public static func load(from defaults: UserDefaults, at now: Date) -> Self? {
+        guard defaults.bool(forKey: enabledKey), let data = defaults.data(forKey: storageKey),
+              let value = try? JSONDecoder().decode(Self.self, from: data), value.isCurrent(at: now) else { return nil }
+        return value
+    }
+    public static func replace(_ value: Self?, in defaults: UserDefaults) {
+        if let value, let data = try? JSONEncoder().encode(value) {
+            defaults.set(data, forKey: storageKey)
+            defaults.set(true, forKey: enabledKey)
+        } else {
+            defaults.removeObject(forKey: storageKey)
+            defaults.removeObject(forKey: enabledKey)
+        }
+    }
+}
+
+/// Closed, expiring renderer preference only; never proof of an active Session.
+public struct DJConnectWidgetPaletteSnapshot: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectWidgetPalette.v1"
+    public let observedAt: Date
+    public let theme: DJConnectSessionMoodTheme
+    public var expiresAt: Date { observedAt.addingTimeInterval(120) }
+    public init(theme: DJConnectSessionMoodTheme, at now: Date) { self.theme = theme; observedAt = now }
+    public static func resolve(session: String?, trackInsight: DJConnectSessionMoodTheme?, profile: String?) -> DJConnectSessionMoodTheme {
+        if let session, let theme = DJConnectSessionMoodTheme(rawValue: session), theme != .brand { return theme }
+        return trackInsight ?? DJConnectSessionMoodTheme(sessionMood: profile)
+    }
+    public func renderingTheme(at now: Date) -> DJConnectSessionMoodTheme {
+        now >= observedAt && now < expiresAt ? theme : .brand
+    }
+    public static func load(from defaults: UserDefaults, at now: Date) -> Self? {
+        guard let data = defaults.data(forKey: storageKey), let value = try? JSONDecoder().decode(Self.self, from: data),
+              now >= value.observedAt, now < value.expiresAt else { return nil }
+        return value
+    }
+}
+
+/// Passive surfaces carry neutral runtime status and closed UI styling until
+/// an independently qualified passive grant supplies explicit rich content. Owner Moments and
+/// authenticated no-store artwork must never be copied into this store.
+public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sendable {
+    public static let storageKey = "DJConnectSessionSurfaceSnapshot.v1"
+    public static let widgetKind = "DJConnectSessionWidget"
+    public static let maximumLifetime: TimeInterval = 120
+    public let observedAt: Date
+    public let expiresAt: Date
+    /// Optional for existing caches. This is a renderer-only palette token;
+    /// it never grants permission to export Moment/artwork or generated copy.
+    public let theme: DJConnectSessionMoodTheme?
+    public let rich: DJConnectPassiveActivityContent?
+    public let playbackObservation: DJConnectSessionPlaybackObservation?
+    /// Negative-only privacy latch. It cannot establish an OS choice, native
+    /// target, original grant or publication authority.
+    public static let statusPrivacyLatchKey = "DJConnectSessionSurfaceSnapshot.suppressPrivateFallback.v1"
+
+    public init(observedAt: Date, theme: DJConnectSessionMoodTheme? = nil, rich: DJConnectPassiveActivityContent? = nil) {
+        self.observedAt = observedAt
+        self.expiresAt = min(observedAt.addingTimeInterval(Self.maximumLifetime), rich?.expiresAt ?? .distantFuture)
+        self.theme = theme
+        self.rich = rich
+        playbackObservation = nil
+    }
+
+    init(playbackObservation: DJConnectSessionPlaybackObservation) {
+        self.playbackObservation = playbackObservation
+        observedAt = playbackObservation.observedAt; expiresAt = observedAt
+        theme = nil; rich = nil // No invented field/window expiry or private fallback.
+    }
+    private enum CodingKeys: String, CodingKey { case observedAt, expiresAt, theme, rich }
+    private init(decodedObservedAt: Date, decodedExpiresAt: Date,
+        theme: DJConnectSessionMoodTheme?, rich: DJConnectPassiveActivityContent?) {
+        observedAt = decodedObservedAt; expiresAt = decodedExpiresAt
+        self.theme = theme; self.rich = rich; playbackObservation = nil
+    }
+    public init(from decoder: any Decoder) throws {
+        let probe = try decoder.container(keyedBy: ObservationKey.self)
+        let keys = Set(probe.allKeys.map(\.stringValue))
+        if keys.contains("playback_state") || keys.contains("observed_at_ms") {
+            self.init(playbackObservation: try DJConnectSessionPlaybackObservation(from: decoder))
+            return
+        }
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(decodedObservedAt: try c.decode(Date.self, forKey: .observedAt),
+            decodedExpiresAt: try c.decode(Date.self, forKey: .expiresAt),
+            theme: try c.decodeIfPresent(DJConnectSessionMoodTheme.self, forKey: .theme),
+            rich: try c.decodeIfPresent(DJConnectPassiveActivityContent.self, forKey: .rich))
+    }
+    public func encode(to encoder: any Encoder) throws {
+        if let playbackObservation { try playbackObservation.encode(to: encoder); return }
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(observedAt, forKey: .observedAt); try c.encode(expiresAt, forKey: .expiresAt)
+        try c.encodeIfPresent(theme, forKey: .theme); try c.encodeIfPresent(rich, forKey: .rich)
+    }
+    public static func privateCacheFallbackSuppressed(in defaults: UserDefaults) -> Bool {
+        defaults.bool(forKey: statusPrivacyLatchKey)
+    }
+    public static func suppressPrivateCacheFallback(in defaults: UserDefaults) {
+        defaults.set(true, forKey: statusPrivacyLatchKey)
+    }
+
+    /// A field downgrade cannot extend the original aggregate observation or
+    /// expiry. Internal local-v2 data assembly; never original permission.
+    init(preserving original: Self, replacingRich rich: DJConnectPassiveActivityContent) {
+        observedAt = original.observedAt; expiresAt = original.expiresAt
+        theme = original.playbackObservation == nil ? original.theme : nil
+        self.rich = original.playbackObservation == nil ? rich : nil
+        playbackObservation = original.playbackObservation
+    }
+
+    public static func observe(runtimeState: String?, authorized: Bool, isDemo: Bool,
+                               confirmedMood: String? = nil, at now: Date) -> Self? {
+        guard runtimeState == "active", authorized, !isDemo else { return nil }
+        // Deliberately independent of playback: pause/wait retains the Session.
+        return Self(observedAt: now, theme: confirmedMood.map { DJConnectSessionMoodTheme(sessionMood: $0) })
+    }
+
+    public func renderingTheme(at now: Date) -> DJConnectSessionMoodTheme {
+        isCurrent(at: now) ? (theme ?? .brand) : .brand
+    }
+
+    /// A separately confirmed Session palette outranks an older rich-content
+    /// cache. Neither source extends the other's original lifetime.
+    public static func widgetTheme(confirmedSession: Self?, passiveMood: String?,
+                                   fallback: DJConnectSessionMoodTheme, at now: Date) -> DJConnectSessionMoodTheme {
+        if confirmedSession?.playbackObservation != nil { return .brand }
+        if let confirmedSession, confirmedSession.isCurrent(at: now), let theme = confirmedSession.theme { return theme }
+        return passiveMood.map { DJConnectSessionMoodTheme(sessionMood: $0) } ?? fallback
+    }
+
+    public static func needsWidgetReload(current: Self?, previous: Self?, lastReloadAt: Date?, at now: Date) -> Bool {
+        if current?.playbackObservation != previous?.playbackObservation { return true }
+        if (current == nil) != (previous == nil) || current?.theme != previous?.theme { return true }
+        guard current != nil else { return false }
+        guard let lastReloadAt else { return true }
+        // Reload cadence is independent of fresh observations written to cache.
+        return now.timeIntervalSince(lastReloadAt) >= 60
+    }
+
+    public func isCurrent(at now: Date) -> Bool {
+        observedAt <= now && expiresAt > now && expiresAt > observedAt
+            && expiresAt.timeIntervalSince(observedAt) <= Self.maximumLifetime
+    }
+
+    /// Rich fields may expire earlier than the independently observed Session.
+    /// Removing them preserves its original observation, never a sliding lease.
+    public func neutral(at now: Date) -> Self? {
+        if playbackObservation != nil { return self }
+        let value = Self(observedAt: observedAt, theme: theme)
+        return value.isCurrent(at: now) ? value : nil
+    }
+
+    public static func load(from defaults: UserDefaults, at now: Date = Date()) -> Self? {
+        guard let data = defaults.data(forKey: storageKey),
+              let snapshot = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
+        if snapshot.playbackObservation != nil { return snapshot } // Accepted stale OS observation DATA only.
+        guard !privateCacheFallbackSuppressed(in: defaults), snapshot.isCurrent(at: now) else { return nil }
+        return snapshot
+    }
+
+    @discardableResult
+    public static func replace(_ snapshot: Self?, in defaults: UserDefaults) throws -> Bool {
+        try replace(snapshot, in: defaults, now: { Date() }, uptime: { ProcessInfo.processInfo.systemUptime })
+    }
+    @discardableResult
+    static func replace(_ snapshot: Self?, in defaults: UserDefaults,
+                        now: () -> Date, uptime: () -> TimeInterval) throws -> Bool {
+        guard snapshot?.playbackObservation == nil, !privateCacheFallbackSuppressed(in: defaults) else {
+            throw DJConnectError.invalidResponse // DATA/legacy work cannot replace the owned status projection.
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let encoded = try snapshot.map { try encoder.encode($0) }
+        var changed = defaults.data(forKey: storageKey) != encoded
+        // Only retired transient rendering caches; never chat/history/settings.
+        for key in [DJConnectNowPlayingWidgetSnapshot.storageKey, DJConnectQueueWidgetSnapshot.storageKey,
+                    DJConnectTrackInsightWidgetSnapshot.storageKey, DJConnectAskDJWidgetSnapshot.storageKey,
+                    DJConnectPlaylistsWidgetSnapshot.storageKey] {
+            if defaults.object(forKey: key) != nil { changed = true; defaults.removeObject(forKey: key) }
+        }
+        if changed {
+            if let encoded, let snapshot {
+                let invocationDate = now(), invocationUptime = uptime()
+                guard !Task.isCancelled, snapshot.isCurrent(at: invocationDate) else { throw DJConnectError.invalidResponse }
+                if let rich = snapshot.rich {
+                    guard rich.isCurrent(at: invocationDate, uptime: invocationUptime),
+                          rich.contribution == nil || rich.currentContribution(at: invocationDate, uptime: invocationUptime) != nil,
+                          rich.nowPlaying == nil || rich.currentPlayback(at: invocationDate, uptime: invocationUptime) != nil else { throw DJConnectError.invalidResponse }
+                }
+                defaults.set(encoded, forKey: storageKey)
+            }
+            else { defaults.removeObject(forKey: storageKey) }
+        }
+        return changed
+    }
+}
+
+#if os(iOS) && canImport(ActivityKit)
+@available(iOS 16.1, *)
+public struct DJConnectSessionLiveActivityAttributes: ActivityAttributes, Sendable {
+    public typealias ContentState = DJConnectSessionSurfaceSnapshot
+    // Random local runtime identity, never a Profile/session credential or text.
+    public let presentationID: String
+    public init(presentationID: String) { self.presentationID = presentationID }
+}
+#endif
+
+
+/// Device-private presentation bookkeeping, never the App Group projection.
+/// Keeping the random ID stable lets ActivityKit dismissal survive app restart.
+public enum DJConnectSessionSurfacePresentation {
+    /// Presentation identity only; foreground owner/session authorization must
+    /// be checked independently before any command is sent.
+    public static func matches(_ presentationID: String, sessionID: String, in defaults: UserDefaults) -> Bool {
+        UUID(uuidString: presentationID) != nil && !sessionID.isEmpty &&
+            defaults.string(forKey: "DJConnectSessionSurface.localBinding") == sessionID &&
+            defaults.string(forKey: "DJConnectSessionSurface.localPresentation") == presentationID
+    }
+    // Separate request/build and exact-instance dismissal markers distinguish
+    // OS retirement from a user action. No content or authorization is migrated.
+    public static let requestedKey = "DJConnectSessionSurface.requested.v2"
+    private static let requestedBuildKey = "DJConnectSessionSurface.requestedBuild.v2"
+    private static let requestedActivityKey = "DJConnectSessionSurface.requestedActivity.v3"
+    private static let dismissedKey = "DJConnectSessionSurface.dismissed.v3"
+    /// Exact local presentation bookkeeping only, never server authorization.
+    /// UI must additionally obtain the token from the current native Activity.
+    public static func ownsPushToken(presentationID: String, activityID: String, in defaults: UserDefaults) -> Bool {
+        defaults.string(forKey: "DJConnectSessionSurface.localPresentation") == presentationID &&
+            defaults.string(forKey: requestedKey) == presentationID &&
+            defaults.string(forKey: requestedActivityKey) == activityID &&
+            defaults.string(forKey: dismissedKey) != presentationID
+    }
+    public static func canRequest(_ presentationID: String, build: String, in defaults: UserDefaults) -> Bool {
+        guard defaults.string(forKey: dismissedKey) != presentationID else { return false }
+        return defaults.string(forKey: requestedKey) != presentationID || defaults.string(forKey: requestedBuildKey) != build
+    }
+    public static func requested(_ presentationID: String, build: String, activityID: String? = nil, in defaults: UserDefaults) {
+        defaults.set(presentationID, forKey: requestedKey)
+        defaults.set(build, forKey: requestedBuildKey)
+        defaults.set(activityID, forKey: requestedActivityKey)
+    }
+    public static func userDismissed(_ presentationID: String, activityID: String? = nil, in defaults: UserDefaults) {
+        guard defaults.string(forKey: requestedKey) == presentationID,
+              activityID == nil || defaults.string(forKey: requestedActivityKey) == activityID else { return }
+        defaults.set(presentationID, forKey: dismissedKey)
+    }
+    public static func applicationEnded(_ presentationID: String, wasDismissed: Bool, activityID: String? = nil, in defaults: UserDefaults) {
+        if wasDismissed { userDismissed(presentationID, activityID: activityID, in: defaults) }
+        guard activityID == nil || defaults.string(forKey: requestedActivityKey) == activityID else { return }
+        guard !wasDismissed, defaults.string(forKey: requestedKey) == presentationID else { return }
+        defaults.removeObject(forKey: requestedKey)
+        defaults.removeObject(forKey: requestedBuildKey)
+        defaults.removeObject(forKey: requestedActivityKey)
+    }
+    public static func identity(for sessionID: String, in deviceDefaults: UserDefaults) -> String {
+        let bindingKey = "DJConnectSessionSurface.localBinding"
+        let identityKey = "DJConnectSessionSurface.localPresentation"
+        if deviceDefaults.string(forKey: bindingKey) == sessionID,
+           let existing = deviceDefaults.string(forKey: identityKey), UUID(uuidString: existing) != nil { return existing }
+        let identity = UUID().uuidString
+        deviceDefaults.set(sessionID, forKey: bindingKey)
+        deviceDefaults.set(identity, forKey: identityKey)
+        return identity
+    }
+    public static func end(in deviceDefaults: UserDefaults) {
+        deviceDefaults.removeObject(forKey: "DJConnectSessionSurface.localBinding")
+        deviceDefaults.removeObject(forKey: "DJConnectSessionSurface.localPresentation")
+    }
+}
+
+/// Registered only by the owning app process. The extension never receives
+/// paired credentials or permission to turn passive snapshots into commands.
+@MainActor public enum DJConnectSessionPlaybackIntentBridge {
+    public static var nextTrack: (@MainActor (String) async -> Bool)?
+}
+
+/// Installation-local delivery plumbing only, separate from ordinary app APNs.
+/// This pending token is not server registration and grants no content authority.
+public struct DJConnectWidgetPushToken: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectWidgetPushToken.pending.v1"
+    public let token: Data
+    public let extensionBundleID: String
+    public let widgetKinds: [String]
+    public let observedAt: Date
+    public let signedEnvironment: DJConnectPushEnvironment?
+
+    public init?(token: Data, extensionBundleID: String, widgetKinds: [String],
+                 at now: Date = Date(), signedEnvironment: DJConnectPushEnvironment? = nil) {
+        guard !token.isEmpty, token.count <= 4096,
+              ["dev.djconnect.mac.track-insight-widget", "dev.djconnect.ios.track-insight-widget"].contains(extensionBundleID),
+              widgetKinds.contains(DJConnectSessionSurfaceSnapshot.widgetKind) else { return nil }
+        self.token = token; self.extensionBundleID = extensionBundleID
+        self.widgetKinds = [DJConnectSessionSurfaceSnapshot.widgetKind]; observedAt = now
+        self.signedEnvironment = signedEnvironment
+    }
+    public func environment(matching currentToken: Data, extensionBundleID: String) -> DJConnectPushEnvironment? {
+        guard token == currentToken, self.extensionBundleID == extensionBundleID else { return nil }
+        return signedEnvironment
+    }
+    public static func replace(_ value: Self?, in defaults: UserDefaults) throws {
+        if let value { defaults.set(try JSONEncoder().encode(value), forKey: storageKey) }
+        else { defaults.removeObject(forKey: storageKey) }
+    }
+    public static func load(from defaults: UserDefaults) -> Self? {
+        guard let data = defaults.data(forKey: storageKey), data.count <= 8192,
+              let value = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
+        return Self(token: value.token, extensionBundleID: value.extensionBundleID,
+                    widgetKinds: value.widgetKinds, at: value.observedAt, signedEnvironment: value.signedEnvironment)
+    }
+}
+
+/// ActivityKit delivery token for an already admitted local presentation.
+/// Separate from widget/app tokens. Pending plumbing grants no server authority.
+public struct DJConnectActivityPushToken: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectActivityPushToken.pending.v1"
+    public let token: Data
+    public let activityID: String
+    public let presentationID: String
+    public let observedAt: Date
+    public init?(token: Data, activityID: String, presentationID: String, at now: Date = Date()) {
+        guard !token.isEmpty, token.count <= 4096,
+              !activityID.isEmpty, activityID.utf8.count <= 256,
+              !presentationID.isEmpty, presentationID.utf8.count <= 256 else { return nil }
+        self.token = token; self.activityID = activityID; self.presentationID = presentationID; observedAt = now
+    }
+    public static func replace(_ value: Self?, in defaults: UserDefaults) throws {
+        if let value { defaults.set(try JSONEncoder().encode(value), forKey: storageKey) }
+        else { defaults.removeObject(forKey: storageKey) }
+    }
+    @discardableResult
+    public static func recordIfCurrent(_ value: Self, in defaults: UserDefaults) throws -> Bool {
+        // An old Activity's asynchronous token stream may still yield after its
+        // replacement starts. It must neither overwrite that target nor revive
+        // an ended/dismissed presentation. This is local custody, not a grant.
+        guard DJConnectSessionSurfacePresentation.ownsPushToken(
+            presentationID: value.presentationID, activityID: value.activityID, in: defaults) else { return false }
+        try replace(value, in: defaults)
+        return true
+    }
+    public static func load(from defaults: UserDefaults) -> Self? {
+        guard let data = defaults.data(forKey: storageKey), data.count <= 8192,
+              let value = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
+        return Self(token: value.token, activityID: value.activityID, presentationID: value.presentationID, at: value.observedAt)
+    }
+    public static func withdraw(activityID: String, in defaults: UserDefaults) {
+        guard load(from: defaults)?.activityID == activityID else { return }
+        defaults.removeObject(forKey: storageKey)
+    }
+}

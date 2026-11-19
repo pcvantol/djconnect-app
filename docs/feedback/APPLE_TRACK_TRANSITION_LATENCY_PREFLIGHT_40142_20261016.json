@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "status": "PRODUCER_LATENCY_DIAGNOSED_HANDOFF_SENT_AWAIT_FIX",
+  "apple_build": "40142",
+  "user_report": "About11seconds after natural track change before Session art/title/progress update; not independently timed by Apple.",
+  "verified_producer": {
+    "container": "homeassistant",
+    "file": "/config/custom_components/djconnect/playback_observation.py",
+    "host_file": "/Users/pcvantol/docker/homeassistant/config/custom_components/djconnect/playback_observation.py",
+    "sha256": "63ccc706edf892c670d3ddf80652fde63a15188e384372d4aaea768aac194d60",
+    "equal_to_current_core_source": true,
+    "spotify_observation_seconds": 15,
+    "progress_clock_seconds": 1,
+    "semantics": "Recurring15s observer obtains Spotify playback then publishes Session projection. One-second progress callback only advances existing item, clamps at duration, then removes its clock. async_get_active returns current stored Runtime without new provider observation."
+  },
+  "apple_readback": {
+    "installed_selective_source": "/private/tmp/djc-neon-brand-40108-source",
+    "foreground_discovery_seconds": 10,
+    "ordinary_playback_snapshot_refresh_seconds": 5,
+    "http_broadcast_recovery_seconds": 2,
+    "rendering": "NativeSessionMomentsView uses session.broadcast.playback for art, title and duration. Ordinary playback progress is used only under matching Session media identity.",
+    "inference": "The confirmed producer15s cadence can explain an11s natural-transition delay; no causal end-to-end timestamp trace yet. Faster repaint/polling cannot create a provider-confirmed Session identity."
+  },
+  "handoff": {
+    "authorized_by_user": "Ja, geef door voor herstel",
+    "sent": true,
+    "thread_id": "01a120e2-b557-76c3-8568-129dbce2f2d2",
+    "thread_title": "Pak VibeCast shared renderer op",
+    "scope": "Separate bounded playback-transition latency repair, not silent expansion of a reviewed Settings/Speech candidate. No additional publication/deploy authority.",
+    "proposed_work": "Existing observer owner: bounded track-boundary verification/events while retaining provider limits, locks, owner/command generation fences, pause/seek/skip/repeat/reload/stop and backoff; publish confirmed art/title/item/position atomically before enrichment.",
+    "requested_acceptance": "Regression tests around15s poll and natural boundary; measure provider observation -> Core projection/Broadcast -> physical iPhone separately."
+  },
+  "preserved": "No Apple source mutation/build/install, no HA/Core code/config/deploy, no playback command, no synthetic Session identity, no credentials extracted. Read-only container inventory/file reads and bounded local iPhone log copy.",
+  "next_step": "Wait for delivered exact Core fix pin, then physical natural track-transition timing on iPhone. Do not claim latency fixed from this diagnostic receipt.",
+  "publication": "Local receipt commit only; no push, PR or merge."
+}

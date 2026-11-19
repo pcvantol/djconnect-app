@@ -1,0 +1,117 @@
+{
+  "$comment": "PRIVATE JOINT-REVIEW PROPOSAL; not canonical accepted API/Core profile or rights. Type only exists under Tools/qualification. Not present in shipping ActivityConfiguration/registration. Integer values use explicit Unix milliseconds; no Date, C0, uptime or arrival lifetime.",
+  "$id": "urn:djconnect:proposal:remote-session-activity-content-state:1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "expires_at_unix_ms": {
+      "maximum": 9007199254740991,
+      "minimum": 2,
+      "type": "integer"
+    },
+    "observed_at_unix_ms": {
+      "maximum": 9007199254620991,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "phase": {
+      "enum": [
+        "active",
+        "ended"
+      ]
+    },
+    "playback": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "album": {
+              "type": "string",
+              "x-maximum-utf8-bytes": 256
+            },
+            "artist": {
+              "minLength": 1,
+              "type": "string",
+              "x-maximum-utf8-bytes": 256
+            },
+            "playback_state": {
+              "enum": [
+                "playing",
+                "paused"
+              ]
+            },
+            "source_label": {
+              "minLength": 1,
+              "type": "string",
+              "x-maximum-utf8-bytes": 128
+            },
+            "track": {
+              "minLength": 1,
+              "type": "string",
+              "x-maximum-utf8-bytes": 256
+            }
+          },
+          "required": [
+            "track",
+            "artist",
+            "album",
+            "playback_state",
+            "source_label"
+          ],
+          "type": "object",
+          "x-text-policy": "Reject U+0000..U+001F and U+007F; never truncate. Schema byte constraints require owning parser, not JSON Schema character length."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "presentation_generation": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "type": "string"
+    },
+    "presentation_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "type": "string"
+    },
+    "sequence": {
+      "maximum": 9007199254740991,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "theme": {
+      "enum": [
+        "brand",
+        "chill",
+        "groove",
+        "energy",
+        "party",
+        null
+      ]
+    }
+  },
+  "required": [
+    "contract_version",
+    "presentation_id",
+    "presentation_generation",
+    "sequence",
+    "observed_at_unix_ms",
+    "expires_at_unix_ms",
+    "phase",
+    "theme",
+    "playback"
+  ],
+  "type": "object",
+  "x-cross-field-rules": [
+    "observed_at_unix_ms < expires_at_unix_ms <= observed_at_unix_ms+120000",
+    "ended requires theme=null and playback=null",
+    "presentation_id and generation must match exact native remote attributes",
+    "whole APNs JSON <=4096 UTF8 bytes; no truncation",
+    "No display/lifetime/locked-display/external-content consent follows from valid shape",
+    "Remote first-party/status/playback rights and lifetime/rendering acceptance remain UNACCEPTED",
+    "Native Decodable cannot prove lexical duplicate history; API must reject duplicate/unsafe JSON before its own emission"
+  ]
+}

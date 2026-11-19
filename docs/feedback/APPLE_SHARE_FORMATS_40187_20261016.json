@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-16",
+  "build": "40187",
+  "scope": "Remove Landscape format completely from Track Insight sharing",
+  "implementation": [
+    "Remove linkPreview case from TrackInsightShareFormat so picker exposes only Story and Square.",
+    "Remove landscape export dimensions, preview/layout branches and unused localization entries in all5 languages.",
+    "Static and animated media retain Story1080x1920 and Square1080x1080.",
+    "Update existing canonical format test to expect only Story and Square."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "strict_deep_signature": "PASS",
+    "manifest": "452 hashes PASS",
+    "focused_swift_test": "trackInsightShareFormatsExposeLocalizedTitlesAndCanonicalSizes PASS on qualified selective source",
+    "reference_search": "No linkPreview or trackInsight.share.landscape references left in Sources/Tests",
+    "installed": "iPhone/iPad40187 confirmed",
+    "physical_sheet_screenshot": "NOT_RUN; installed/menu correctness supported by shared enum test and build, no screenshot claim."
+  },
+  "evidence": {
+    "manifest": "build/recovery/share40187-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/share40187-remove-landscape-20261016.patch",
+    "build": "/private/tmp/djc-ios-40187-share-formats-build.log",
+    "test": "/private/tmp/djc-share-formats-40187-test.log"
+  },
+  "preservation": [
+    "No share/export/publish action sent; no playback/profile/settings changes.",
+    "Prior source/recovery/evidence retained.",
+    "No timer restart or Core message."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}

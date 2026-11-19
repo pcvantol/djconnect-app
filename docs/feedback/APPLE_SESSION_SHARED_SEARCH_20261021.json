@@ -1,0 +1,22 @@
+{
+  "base_commit": "9f93f70",
+  "change": "Active Flow and Forecast now use AskDJSearchBar, the exact shared component used by logs, queue and playlists. Both remain present without search-menu activation. Clear resets query while retaining visible bar and field focus. Existing Flow result navigation reused; Forecast arrows/Return navigate matching section IDs in shared Session scroll host. Removed obsolete inline clear component and separate Flow results controls.",
+  "validation": {
+    "mac_DJConnectUI_compile": "PASS (33.05s)",
+    "native_no_nested_scroll_host": "1 PASS, 0 failures, 0 skips",
+    "diff_check": "PASS"
+  },
+  "limits": [
+    "No device installation or physical search/keyboard acceptance performed."
+  ],
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-shared-search-20261021/build.log",
+      "sha256": "f68fd4311facd8c6ad003373222e9af4640ce2a57ff44cfcd60eb2157036f7bc"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-shared-search-20261021/layout-test.log",
+      "sha256": "24793a2e7bdd9a870d278fdbb3766ba203c15a12606e9b912c58a537e1eaef9e"
+    }
+  ]
+}

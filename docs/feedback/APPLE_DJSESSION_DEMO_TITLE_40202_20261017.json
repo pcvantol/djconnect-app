@@ -1,0 +1,13 @@
+{
+  "build": "40202",
+  "scope": "Mac DJ-session navigation title appends (demo) only in demo mode",
+  "checks": [
+    "macOS build PASS",
+    "452 source hashes PASS",
+    "Mac40202 installed version/signature/executable verification PASS",
+    "diff check PASS"
+  ],
+  "ios": "Existing empty session navigation title retained; physical iPhone/iPad remain40201",
+  "visual": "NOT_RUN; bounded one-line conditional title change",
+  "preservation": "Timer paused; no Core messages or publication; previous app backed up."
+}

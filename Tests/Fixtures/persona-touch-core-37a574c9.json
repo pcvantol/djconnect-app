@@ -1,0 +1,447 @@
+{
+  "qualification": "PASS_ISOLATED_REAL_HA_PAIRED_TLS_HTTP_STORE_SQLITE",
+  "pairing": "ordinary_device_token_minted_persisted",
+  "transport_receipts": [
+    {
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a15334-4c20-7000-938e-c789ab6cb84d",
+        "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+        "operation": "session/persona/reaction",
+        "payload": {
+          "contract_version": 1,
+          "session": {
+            "session_id": "session-592736c19a984d13825af1622ad896f0",
+            "generation": "ebf352198a1647658027eb84cf4c7b20",
+            "revision": 0
+          },
+          "kind": "playful",
+          "language": "en",
+          "processor": "local_on_device"
+        }
+      },
+      "status": 200,
+      "body": {
+        "success": true,
+        "persona_reaction": {
+          "schema_version": 1,
+          "reaction_id": "01a15334-4c20-7000-938e-c789ab6cb84d",
+          "session": {
+            "session_id": "session-592736c19a984d13825af1622ad896f0",
+            "generation": "ebf352198a1647658027eb84cf4c7b20",
+            "revision": 0
+          },
+          "text": "That tap deserves a tiny flourish: let’s make a small celebration of it.",
+          "locale": "en",
+          "kind": "playful",
+          "persona": "festival_dj",
+          "mood": "party",
+          "persona_revision": 0,
+          "mood_revision": 0,
+          "expires_at": "2026-10-19T08:08:48.722053+00:00",
+          "content_basis": "core_owned_curated_reaction_v1",
+          "history_publication": false,
+          "cache_policy": "private,no-store",
+          "speech": {
+            "schema_version": 1,
+            "reference": {
+              "reaction_id": "01a15334-4c20-7000-938e-c789ab6cb84d",
+              "session_id": "session-592736c19a984d13825af1622ad896f0"
+            },
+            "source_id": "01a15334-4c20-7000-938e-c789ab6cb84d",
+            "source_kind": "core_owned_persona_reaction",
+            "text_revision": "7d4215f5d3b3e1ffcc13bb86",
+            "presentation_revision": "7d4215f5d3b3e1ffcc13bb86",
+            "persona": "festival_dj",
+            "persona_revision": 0,
+            "mood": "party",
+            "mood_revision": 0,
+            "locale": "en",
+            "segments": [
+              {
+                "ordinal": 1,
+                "speaker_role": "dj",
+                "text": "That tap deserves a tiny flourish: let’s make a small celebration of it."
+              }
+            ],
+            "state": "available",
+            "manual_allowed": true,
+            "processors": [
+              "local_on_device",
+              "ha_configured"
+            ],
+            "autoplay_eligible": false,
+            "settings_contract_version": 3,
+            "settings_revision": [
+              1,
+              [
+                "session-592736c19a984d13825af1622ad896f0",
+                "ebf352198a1647658027eb84cf4c7b20",
+                0
+              ]
+            ],
+            "expires_at": "2026-10-19T08:08:48.722053+00:00",
+            "cache_policy": "private,no-store",
+            "processor": "local_on_device",
+            "audio_state": "renderer_pending",
+            "effective_voice": null
+          }
+        },
+        "delivery": {
+          "local": "renderer_pending",
+          "ha_speaker": "not_requested",
+          "audible": "not_proven"
+        },
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a15334-4c20-7000-938e-c789ab6cb84d",
+          "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+          "phase": "confirmed",
+          "expires_at_ms": 1792397598720,
+          "result_available": true,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": true
+      }
+    },
+    {
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a15334-4c20-7000-938e-c789ab6cb84d",
+        "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+        "operation": "session/persona/reaction",
+        "payload": {
+          "contract_version": 1,
+          "session": {
+            "session_id": "session-592736c19a984d13825af1622ad896f0",
+            "generation": "ebf352198a1647658027eb84cf4c7b20",
+            "revision": 0
+          },
+          "kind": "playful",
+          "language": "en",
+          "processor": "local_on_device"
+        }
+      },
+      "status": 200,
+      "body": {
+        "success": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a15334-4c20-7000-938e-c789ab6cb84d",
+          "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+          "phase": "confirmed",
+          "expires_at_ms": 1792397598720,
+          "result_available": false,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": false
+      }
+    },
+    {
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a15334-4c24-7000-a480-b0a5e7250714",
+        "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+        "operation": "session/persona/reaction",
+        "payload": {
+          "contract_version": 1,
+          "session": {
+            "session_id": "session-592736c19a984d13825af1622ad896f0",
+            "generation": "ebf352198a1647658027eb84cf4c7b20",
+            "revision": 0
+          },
+          "kind": "playful",
+          "language": "en",
+          "processor": "local_on_device"
+        }
+      },
+      "status": 409,
+      "body": {
+        "success": false,
+        "error": "persona_reaction_busy",
+        "retry_after_seconds": 30,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a15334-4c24-7000-a480-b0a5e7250714",
+          "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+          "phase": "unknown",
+          "expires_at_ms": 1792397598724,
+          "result_available": true,
+          "response_status": 409,
+          "error": "persona_reaction_busy"
+        },
+        "result_available": true
+      }
+    },
+    {
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a15334-4c27-7000-8426-d8a11b7c3d80",
+        "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+        "operation": "session/persona/reaction/cancel",
+        "payload": {
+          "contract_version": 1,
+          "session_id": "session-592736c19a984d13825af1622ad896f0",
+          "reaction_id": "01a15334-4c20-7000-938e-c789ab6cb84d",
+          "reason": "completed"
+        }
+      },
+      "status": 200,
+      "body": {
+        "success": true,
+        "persona_reaction_cancelled": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a15334-4c27-7000-8426-d8a11b7c3d80",
+          "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+          "phase": "confirmed",
+          "expires_at_ms": 1792397598727,
+          "result_available": true,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": true
+      }
+    },
+    {
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a15334-4c28-7000-8bd0-896e85364e01",
+        "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+        "operation": "session/persona/reaction",
+        "payload": {
+          "contract_version": 1,
+          "session": {
+            "session_id": "session-592736c19a984d13825af1622ad896f0",
+            "generation": "ebf352198a1647658027eb84cf4c7b20",
+            "revision": 0
+          },
+          "kind": "playful",
+          "language": "en",
+          "processor": "ha_configured"
+        }
+      },
+      "status": 429,
+      "body": {
+        "success": false,
+        "error": "persona_reaction_cooldown",
+        "retry_after_seconds": 10,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a15334-4c28-7000-8bd0-896e85364e01",
+          "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+          "phase": "unknown",
+          "expires_at_ms": 1792397598728,
+          "result_available": true,
+          "response_status": 429,
+          "error": "persona_reaction_cooldown"
+        },
+        "result_available": true
+      }
+    },
+    {
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a15334-4c2a-7000-8845-c938cb718d9c",
+        "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+        "operation": "session/persona/reaction",
+        "payload": {
+          "contract_version": 1,
+          "session": {
+            "session_id": "session-592736c19a984d13825af1622ad896f0",
+            "generation": "ebf352198a1647658027eb84cf4c7b20",
+            "revision": 0
+          },
+          "kind": "playful",
+          "language": "en",
+          "processor": "ha_configured"
+        }
+      },
+      "status": 200,
+      "body": {
+        "success": true,
+        "persona_reaction": {
+          "schema_version": 1,
+          "reaction_id": "01a15334-4c2a-7000-8845-c938cb718d9c",
+          "session": {
+            "session_id": "session-592736c19a984d13825af1622ad896f0",
+            "generation": "ebf352198a1647658027eb84cf4c7b20",
+            "revision": 0
+          },
+          "text": "That tap deserves a tiny flourish: imaginary confetti is perfectly allowed.",
+          "locale": "en",
+          "kind": "playful",
+          "persona": "festival_dj",
+          "mood": "party",
+          "persona_revision": 0,
+          "mood_revision": 0,
+          "expires_at": "2026-10-19T08:08:48.731899+00:00",
+          "content_basis": "core_owned_curated_reaction_v1",
+          "history_publication": false,
+          "cache_policy": "private,no-store",
+          "speech": {
+            "schema_version": 1,
+            "reference": {
+              "reaction_id": "01a15334-4c2a-7000-8845-c938cb718d9c",
+              "session_id": "session-592736c19a984d13825af1622ad896f0"
+            },
+            "source_id": "01a15334-4c2a-7000-8845-c938cb718d9c",
+            "source_kind": "core_owned_persona_reaction",
+            "text_revision": "7035c987ead0f1e18cf630af",
+            "presentation_revision": "7035c987ead0f1e18cf630af",
+            "persona": "festival_dj",
+            "persona_revision": 0,
+            "mood": "party",
+            "mood_revision": 0,
+            "locale": "en",
+            "segments": [
+              {
+                "ordinal": 1,
+                "speaker_role": "dj",
+                "text": "That tap deserves a tiny flourish: imaginary confetti is perfectly allowed."
+              }
+            ],
+            "state": "available",
+            "manual_allowed": true,
+            "processors": [
+              "local_on_device",
+              "ha_configured"
+            ],
+            "autoplay_eligible": false,
+            "settings_contract_version": 3,
+            "settings_revision": [
+              1,
+              [
+                "session-592736c19a984d13825af1622ad896f0",
+                "ebf352198a1647658027eb84cf4c7b20",
+                0
+              ]
+            ],
+            "expires_at": "2026-10-19T08:08:48.731899+00:00",
+            "cache_policy": "private,no-store",
+            "audio_state": "ready",
+            "effective_voice": {
+              "processor": "ha_configured",
+              "engine": "tts.own_piper_fixture",
+              "pipeline_id": "own-speech-pipeline",
+              "provider": "tts",
+              "voice_id": "fixture-en",
+              "voice_name": "Fixture inventory voice",
+              "voice_selection": "configured",
+              "locale": "en",
+              "gender": null,
+              "processing_scope": "qualified_local",
+              "configuration_revision": "dc534763236de191d2f65146",
+              "provider_version": "1",
+              "voice_version": "1"
+            },
+            "mood_prosody": {
+              "version": 1,
+              "available": false,
+              "moods": [],
+              "mood": "party",
+              "state": "unavailable",
+              "reason": "provider_prosody_not_qualified"
+            },
+            "audio_reference": {
+              "asset_id": "BHuH-gh4-HUKFglSFsSxuwPO3XsMosnF",
+              "path": "/api/djconnect/v1/speech/audio",
+              "method": "POST"
+            }
+          }
+        },
+        "delivery": {
+          "local": "ready",
+          "ha_speaker": "not_requested",
+          "audible": "not_proven"
+        },
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a15334-4c2a-7000-8845-c938cb718d9c",
+          "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+          "phase": "confirmed",
+          "expires_at_ms": 1792397598730,
+          "result_available": true,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": true
+      }
+    },
+    {
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a15334-4c31-7000-aa57-02623246fae2",
+        "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+        "operation": "session/persona/reaction/cancel",
+        "payload": {
+          "contract_version": 1,
+          "session_id": "session-592736c19a984d13825af1622ad896f0",
+          "reaction_id": "01a15334-4c2a-7000-8845-c938cb718d9c",
+          "reason": "completed"
+        }
+      },
+      "status": 200,
+      "body": {
+        "success": true,
+        "persona_reaction_cancelled": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a15334-4c31-7000-aa57-02623246fae2",
+          "operation_epoch": "25a8f0057c17861b88cce938f9f69ed7",
+          "phase": "confirmed",
+          "expires_at_ms": 1792397598737,
+          "result_available": true,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": true
+      }
+    }
+  ],
+  "synthesis_count": 1,
+  "audio": {
+    "bytes": 11244,
+    "sha256": "276d37845e9a5dcdce87726fe0610b54fbb773aea8ef43fab9e088a98e03b19f",
+    "cancelled_read_status": 404
+  },
+  "proactive_publications": 0,
+  "flow_revision_unchanged": true,
+  "provider_boundary": "Real HA Wyoming entity/TCP; external waveform fixture, not voice or sound acceptance",
+  "rate_time": "modelled eleven-second advance",
+  "model_calls": 0,
+  "native": "NOT_RUN",
+  "audible": "NOT_RUN",
+  "installed": "NOT_RUN",
+  "qualification_receipt_sha256": "0b87a764005d9d8a72f9107d404d185691d071f42c1000e49bca6e7c0ff16032"
+}

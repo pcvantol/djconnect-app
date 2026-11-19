@@ -1,0 +1,16 @@
+{
+  "build": "40199",
+  "scope": "Discovery track/album/artist type labels white in cards and detail",
+  "changes": "Exactly2 foregroundStyle changes from accent to white.",
+  "checks": [
+    "iOS build PASS",
+    "macOS build PASS",
+    "452 source hashes PASS",
+    "iPhone/iPad/Mac40199 installed/readback",
+    "Mac strict signature and candidate/installed executable equal",
+    "git diff check PASS"
+  ],
+  "visual": "NOT_RUN; bounded foreground-only styling",
+  "publication": "Local commit only; no push/PR/merge",
+  "preservation": "Timer paused; no Core messages; unrelated projects retained."
+}

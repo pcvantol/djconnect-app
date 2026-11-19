@@ -1,0 +1,619 @@
+import Foundation
+
+public struct DJConnectSessionHistoryUpgradeRequired: Error, Equatable, Sendable {
+    public init() {}
+}
+
+/// Temporary owner projections from Core's versioned history contract.
+/// These models grant no local archival storage or playback authority.
+public struct DJConnectHistoryRevision: Codable, Equatable, Sendable {
+    public let value: String
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if let text = try? c.decode(String.self) { value = text }
+        else { value = String(try c.decode(Int.self)) }
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer(); try c.encode(value)
+    }
+}
+
+public struct DJConnectSessionEntryReference: Codable, Hashable, Sendable {
+    public var sessionID: String
+    public var entryID: String
+    public init(sessionID: String, entryID: String) { self.sessionID = sessionID; self.entryID = entryID }
+    enum CodingKeys: String, CodingKey { case sessionID = "session_id", entryID = "entry_id" }
+}
+
+public struct DJConnectConversationContext: Codable, Equatable, Sendable {
+    public var sessionID: String?
+    public var threadID: String? = nil
+    public var selectedEntry: DJConnectSessionEntryReference?
+    public var selectedMoment: DJConnectSelectedMomentReference?
+    public init(sessionID: String?, selectedEntry: DJConnectSessionEntryReference? = nil,
+                selectedMoment: DJConnectSelectedMomentReference? = nil, threadID: String? = nil) {
+        self.threadID = threadID
+        self.sessionID = sessionID; self.selectedEntry = selectedEntry; self.selectedMoment = selectedMoment
+    }
+    enum CodingKeys: String, CodingKey { case threadID = "thread_id", sessionID = "session_id", selectedEntry = "selected_entry", selectedMoment = "selected_moment" }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        threadID = try c.decodeIfPresent(String.self, forKey: .threadID)
+        sessionID = try c.decodeIfPresent(String.self, forKey: .sessionID)
+        selectedEntry = try c.decodeIfPresent(DJConnectSessionEntryReference.self, forKey: .selectedEntry)
+        selectedMoment = try c.decodeIfPresent(DJConnectSelectedMomentReference.self, forKey: .selectedMoment)
+        guard selectedEntry == nil || selectedMoment == nil else {
+            throw DecodingError.dataCorruptedError(forKey: .selectedMoment, in: c, debugDescription: "Ambiguous contribution selection")
+        }
+    }
+    public func encode(to encoder: Encoder) throws {
+        guard selectedEntry == nil || selectedMoment == nil else {
+            throw EncodingError.invalidValue(self, .init(codingPath: encoder.codingPath, debugDescription: "Ambiguous contribution selection"))
+        }
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if let sessionID { try c.encode(sessionID, forKey: .sessionID) }
+        else { try c.encodeNil(forKey: .sessionID) }
+        try c.encodeIfPresent(threadID, forKey: .threadID)
+        try c.encodeIfPresent(selectedEntry, forKey: .selectedEntry)
+        try c.encodeIfPresent(selectedMoment, forKey: .selectedMoment)
+    }
+}
+
+/// Only the original selected identity enters Ask DJ; never copied content or a URI.
+public struct DJConnectSelectedMomentReference: Codable, Equatable, Sendable {
+    public var sessionID: String
+    public var momentID: String
+    public init(sessionID: String, momentID: String) { self.sessionID = sessionID; self.momentID = momentID }
+    enum CodingKeys: String, CodingKey { case sessionID = "session_id", momentID = "moment_id" }
+}
+
+/// The connected server advertises this existing informational operation.
+/// It is not a research result, public-source admission or playback grant.
+public struct DJConnectContributionExploration: Decodable, Sendable {
+    let version: Int
+    let operation: String
+    let context: [String]
+    let genericQuestions: [String: String]
+    let attributeRequired: Bool
+    let effect: String
+    let subjectAuthority: String
+    let unqualifiedContext: String
+    let clientGestureOwner: String
+    let maximumAgentCalls: Int
+    enum CodingKeys: String, CodingKey {
+        case version, operation, context, effect
+        case genericQuestions = "generic_questions", attributeRequired = "attribute_required"
+        case subjectAuthority = "subject_authority", unqualifiedContext = "unqualified_context"
+        case clientGestureOwner = "client_gesture_owner", maximumAgentCalls = "maximum_agent_calls"
+    }
+    public var isSupported: Bool {
+        version == 1 && operation == "ask_dj/message" && Set(context) == ["selected_entry", "selected_moment"] &&
+        context.count == 2 && !attributeRequired && effect == "informational" &&
+        subjectAuthority == "qualified_selected_public_context" && unqualifiedContext == "existing_source_unavailable_response" &&
+        clientGestureOwner == "client" && maximumAgentCalls == 3
+    }
+    public func question(language: String) -> String? {
+        guard isSupported, let value = genericQuestions[DJConnectLocalization.normalizedLanguageCode(language)],
+              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, value.count <= 4000 else { return nil }
+        return value
+    }
+}
+
+public struct DJConnectSessionOpenAction: Codable, Equatable, Sendable {
+    public let kind: String
+    public let sessionID: String
+    public let entryID: String
+    public let navigationOnly: Bool
+    public init(reference: DJConnectSessionEntryReference) {
+        kind = "open_session"; sessionID = reference.sessionID; entryID = reference.entryID; navigationOnly = true
+    }
+    enum CodingKeys: String, CodingKey {
+        case kind, sessionID = "session_id", entryID = "entry_id", navigationOnly = "navigation_only"
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try c.decode(String.self, forKey: .kind)
+        sessionID = try c.decode(String.self, forKey: .sessionID)
+        entryID = try c.decode(String.self, forKey: .entryID)
+        navigationOnly = try c.decode(Bool.self, forKey: .navigationOnly)
+        guard kind == "open_session", navigationOnly, !sessionID.isEmpty, !entryID.isEmpty else {
+            throw DecodingError.dataCorruptedError(forKey: .kind, in: c, debugDescription: "Invalid navigation action")
+        }
+    }
+    public var reference: DJConnectSessionEntryReference { .init(sessionID: sessionID, entryID: entryID) }
+}
+
+public struct DJConnectSavedSession: Codable, Equatable, Sendable, Identifiable {
+    public let sessionID: String
+    public let lifecycleStatus: String
+    public let createdAt: String
+    public let startedAt: String
+    public let endedAt: String
+    public let interruptedAt: String
+    public let revision: DJConnectHistoryRevision
+    public let readOnly: Bool
+    public let historyCoverage: String
+    public let summary: DJConnectSessionHistorySummary?
+    public var id: String { sessionID }
+    public var isContractValid: Bool {
+        !sessionID.isEmpty && !revision.value.isEmpty && DJConnectHistoryEntry.date(createdAt) != nil &&
+        ["OPENING", "ACTIVE", "ENDED", "INTERRUPTED"].contains(lifecycleStatus) &&
+        readOnly == ["ENDED", "INTERRUPTED"].contains(lifecycleStatus)
+    }
+    enum CodingKeys: String, CodingKey {
+        case sessionID = "session_id", lifecycleStatus = "lifecycle_status", createdAt = "created_at"
+        case startedAt = "started_at", endedAt = "ended_at", interruptedAt = "interrupted_at"
+        case revision, summary, readOnly = "read_only", historyCoverage = "history_coverage"
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        sessionID = try c.decode(String.self, forKey: .sessionID)
+        lifecycleStatus = try c.decode(String.self, forKey: .lifecycleStatus)
+        createdAt = try c.decode(String.self, forKey: .createdAt)
+        startedAt = try c.decode(String.self, forKey: .startedAt)
+        endedAt = try c.decode(String.self, forKey: .endedAt)
+        interruptedAt = try c.decode(String.self, forKey: .interruptedAt)
+        revision = try c.decode(DJConnectHistoryRevision.self, forKey: .revision)
+        readOnly = try c.decode(Bool.self, forKey: .readOnly)
+        historyCoverage = try c.decode(String.self, forKey: .historyCoverage)
+        // An unsupported/malformed optional summary must not hide an otherwise valid Session.
+        if let candidate = try? c.decode(DJConnectSessionHistorySummary.self, forKey: .summary),
+           candidate.isCoherent(headerRevision: try c.superDecoder(forKey: .revision), readOnly: readOnly) {
+            summary = candidate
+        } else { summary = nil }
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(sessionID, forKey: .sessionID); try c.encode(lifecycleStatus, forKey: .lifecycleStatus)
+        try c.encode(createdAt, forKey: .createdAt); try c.encode(startedAt, forKey: .startedAt)
+        try c.encode(endedAt, forKey: .endedAt); try c.encode(interruptedAt, forKey: .interruptedAt)
+        try c.encode(readOnly, forKey: .readOnly); try c.encode(historyCoverage, forKey: .historyCoverage)
+        if let summary {
+            try summary.encodeHeaderRevision(to: c.superEncoder(forKey: .revision))
+            try c.encode(summary, forKey: .summary)
+        } else { try c.encode(revision, forKey: .revision) }
+    }
+}
+
+public struct DJConnectHistoryPlayback: Codable, Equatable, Sendable {
+    public let title: String?
+    public let artist: String?
+    public let album: String?
+    public let provider: String?
+    public let sourceURL: String?
+    public let coverage: String
+    enum CodingKeys: String, CodingKey { case title, artist, album, provider, coverage; case sourceURL = "source_url" }
+}
+
+public struct DJConnectHistoryHighlight: Codable, Equatable, Sendable {
+    public let startUTF16: Int
+    public let lengthUTF16: Int
+    public init(startUTF16: Int, lengthUTF16: Int) { self.startUTF16 = startUTF16; self.lengthUTF16 = lengthUTF16 }
+    enum CodingKeys: String, CodingKey { case startUTF16 = "start_utf16", lengthUTF16 = "length_utf16" }
+    public func safeRange(in text: String) -> NSRange? {
+        let count = (text as NSString).length
+        guard startUTF16 >= 0, lengthUTF16 > 0, startUTF16 <= count,
+              lengthUTF16 <= count - startUTF16 else { return nil }
+        let range = NSRange(location: startUTF16, length: lengthUTF16)
+        guard Range(range, in: text) != nil,
+              (text as NSString).rangeOfComposedCharacterSequences(for: range) == range else { return nil }
+        return range
+    }
+}
+
+public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable {
+    public enum Kind: String, Codable, Sendable {
+        case playbackObserved = "playback_observed", djMoment = "dj_moment"
+        case djPublication = "dj_publication", djSilence = "dj_silence"
+        case conversationUser = "conversation_user", conversationDJ = "conversation_dj"
+    }
+    public let entryID: String
+    public let sessionID: String
+    public let order: Int
+    public let kind: Kind
+    public let occurredAt: String
+    public let retainedUntil: String
+    public var text: String?
+    public var playback: DJConnectHistoryPlayback?
+    public var turnID: String?
+    public var clientMessageID: String?
+    public var originMessageID: String?
+    public var role: String?
+    public var inputType: String?
+    public var context: DJConnectConversationContext?
+    public var momentID: String?
+    public var momentType: String?
+    public var persona: String?
+    public var summary: String?
+    public var archiveBasis: String?
+    public var sourceAttribution: [String: String]?
+    public var sources: [[String: String]]?
+    public var contentState: String?
+    public var unavailableReason: String?
+    public var speechAvailable: Bool?
+    public var historicalViewOnly: Bool?
+    public var currentDisplayAllowed: Bool?
+    public var requiresSpotifyAttribution: Bool?
+    public var openAction: DJConnectSessionOpenAction?
+    private var optionalSessionSpeech: DJConnectOptionalSessionSpeech? = nil
+    /// Owner-only, response-lifetime data; encoding this entry drops the grant.
+    public var sessionSpeech: DJConnectSessionSpeech? { optionalSessionSpeech?.value }
+    private var optionalSessionMedia: DJConnectOptionalSessionMedia? = nil
+    public var sessionMedia: DJConnectSessionMedia? {
+        get { optionalSessionMedia?.value }
+        set { optionalSessionMedia = newValue.map { DJConnectOptionalSessionMedia(value: $0) } }
+    }
+    public var highlights: [DJConnectHistoryHighlight]?
+    public var id: String { entryID }
+    public var reference: DJConnectSessionEntryReference { .init(sessionID: sessionID, entryID: entryID) }
+    public var isPublicationReceipt: Bool { kind == .djPublication || kind == .djSilence }
+    public var isContractValid: Bool {
+        guard historicalViewOnly == true, currentDisplayAllowed == false,
+              !entryID.isEmpty, !sessionID.isEmpty, order > 0,
+              Self.date(occurredAt) != nil, Self.date(retainedUntil) != nil else { return false }
+        if let openAction, openAction.reference != reference { return false }
+        switch kind {
+        case .playbackObserved:
+            guard playback?.coverage == "observed_playing_not_full_listen" else { return false }
+            if playback?.provider == "Spotify" {
+                guard requiresSpotifyAttribution == true, let raw = playback?.sourceURL,
+                      let url = URL(string: raw), url.scheme == "https", url.host == "open.spotify.com",
+                      url.user == nil, url.password == nil else { return false }
+            }
+            return true
+        case .djMoment:
+            // These are Core-qualified records of an accepted publication.
+            // Recognizing a history basis grants no live, shared or speech authority.
+            return ["cc0_normalized_fields_v1", "runtime_authored_direction_v1", "runtime_accepted_settings_v1",
+                    "owner_metadata_narration_v1", "public_artist_narration_v1"]
+                .contains(archiveBasis ?? "") && text?.isEmpty == false
+        case .conversationUser, .conversationDJ:
+            return turnID?.isEmpty == false && originMessageID?.isEmpty == false && clientMessageID?.isEmpty == false &&
+                ["text", "voice", "setting_feedback"].contains(inputType ?? "") && context?.sessionID == sessionID &&
+                role == (kind == .conversationUser ? "user" : "assistant")
+        case .djPublication, .djSilence:
+            guard momentID?.isEmpty == false, text == nil, speechAvailable == false,
+                  playback == nil, sourceAttribution?.isEmpty != false, sources?.isEmpty != false,
+                  sessionSpeech == nil, sessionMedia == nil else { return false }
+            return kind == .djSilence
+                ? contentState == "silence" && momentType == "silence"
+                : contentState == "unavailable" && unavailableReason?.isEmpty == false
+        }
+    }
+    public func isContractValid(historyContractVersion: Int) -> Bool {
+        isContractValid && (archiveBasis != "runtime_accepted_settings_v1" || historyContractVersion == 2)
+    }
+    public func matchesWatchRecording(_ recording: String) -> Bool {
+        guard DJConnectCurrentInsightSubject.isRecordingURI(recording),
+              kind == .playbackObserved, isRetained(),
+              playback?.provider == "Spotify" else { return false }
+        let trackID = recording.dropFirst("spotify:track:".count)
+        return playback?.sourceURL == "https://open.spotify.com/track/" + trackID
+    }
+
+    public func isRetained(at date: Date = Date()) -> Bool {
+        guard !entryID.isEmpty, !sessionID.isEmpty, order > 0,
+              Self.date(occurredAt) != nil, let deadline = Self.date(retainedUntil) else { return false }
+        return deadline > date
+    }
+    public static func date(_ text: String) -> Date? {
+        SessionHistoryDateParser.shared.date(text)
+    }
+    enum CodingKeys: String, CodingKey {
+        case optionalSessionSpeech = "session_speech"
+        case optionalSessionMedia = "session_media"
+        case historicalViewOnly = "historical_view_only", currentDisplayAllowed = "current_display_allowed"
+        case entryID = "entry_id", sessionID = "session_id", order, kind, occurredAt = "occurred_at", retainedUntil = "retained_until"
+        case text, playback, turnID = "turn_id", clientMessageID = "client_message_id", originMessageID = "origin_message_id"
+        case role, inputType = "input_type", context, momentID = "moment_id", momentType = "moment_type", persona, summary
+        case archiveBasis = "archive_basis", sourceAttribution = "source_attribution"
+        case sources, contentState = "content_state", unavailableReason = "unavailable_reason", speechAvailable = "speech_available"
+        case requiresSpotifyAttribution = "requires_spotify_attribution", openAction = "open_action", highlights
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(entryID, forKey: .entryID)
+        try c.encode(sessionID, forKey: .sessionID)
+        try c.encode(order, forKey: .order)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(occurredAt, forKey: .occurredAt)
+        try c.encode(retainedUntil, forKey: .retainedUntil)
+        try c.encodeIfPresent(text, forKey: .text)
+        try c.encodeIfPresent(playback, forKey: .playback)
+        try c.encodeIfPresent(turnID, forKey: .turnID)
+        try c.encodeIfPresent(clientMessageID, forKey: .clientMessageID)
+        try c.encodeIfPresent(originMessageID, forKey: .originMessageID)
+        try c.encodeIfPresent(role, forKey: .role)
+        try c.encodeIfPresent(inputType, forKey: .inputType)
+        try c.encodeIfPresent(context, forKey: .context)
+        try c.encodeIfPresent(momentID, forKey: .momentID)
+        try c.encodeIfPresent(momentType, forKey: .momentType)
+        try c.encodeIfPresent(persona, forKey: .persona)
+        try c.encodeIfPresent(summary, forKey: .summary)
+        try c.encodeIfPresent(archiveBasis, forKey: .archiveBasis)
+        try c.encodeIfPresent(sourceAttribution, forKey: .sourceAttribution)
+        try c.encodeIfPresent(sources, forKey: .sources)
+        try c.encodeIfPresent(contentState, forKey: .contentState)
+        try c.encodeIfPresent(unavailableReason, forKey: .unavailableReason)
+        try c.encodeIfPresent(speechAvailable, forKey: .speechAvailable)
+        try c.encodeIfPresent(historicalViewOnly, forKey: .historicalViewOnly)
+        try c.encodeIfPresent(currentDisplayAllowed, forKey: .currentDisplayAllowed)
+        try c.encodeIfPresent(requiresSpotifyAttribution, forKey: .requiresSpotifyAttribution)
+        try c.encodeIfPresent(openAction, forKey: .openAction)
+        try c.encodeIfPresent(optionalSessionMedia, forKey: .optionalSessionMedia)
+        try c.encodeIfPresent(highlights, forKey: .highlights)
+    }
+
+}
+
+public struct DJConnectSessionHistoryPage: Decodable, Equatable, Sendable {
+    public let success: Bool
+    public let schemaVersion: Int
+    public let historyContractVersion: Int?
+    public let sessions: [DJConnectSavedSession]
+    public let revision: DJConnectHistoryRevision
+    public let nextCursor: String?
+    public let retentionDays: Int
+    enum CodingKeys: String, CodingKey { case success, sessions, revision; case historyContractVersion = "history_contract_version", schemaVersion = "schema_version", nextCursor = "next_cursor", retentionDays = "retention_days" }
+}
+
+public struct DJConnectSessionTimelinePage: Decodable, Equatable, Sendable {
+    public let success: Bool
+    public let schemaVersion: Int
+    public let historyContractVersion: Int?
+    public let session: DJConnectSavedSession
+    public let entries: [DJConnectHistoryEntry]
+    public let revision: DJConnectHistoryRevision
+    public let nextCursor: String?
+    public let window: String?
+    public let anchorEntryID: String?
+    public let windowLimit: Int?
+    public let scannedOrderMin: Int?
+    public let scannedOrderMax: Int?
+    public let scanComplete: Bool?
+    enum CodingKeys: String, CodingKey {
+        case success, session, entries, revision, window
+        case historyContractVersion = "history_contract_version"
+        case schemaVersion = "schema_version", nextCursor = "next_cursor", anchorEntryID = "anchor_entry_id"
+        case windowLimit = "window_limit", scannedOrderMin = "scanned_order_min", scannedOrderMax = "scanned_order_max", scanComplete = "scan_complete"
+    }
+}
+
+public enum DJConnectHistoryWindow: String, Sendable { case tail, anchor }
+
+public struct DJConnectSessionSearchPage: Decodable, Equatable, Sendable {
+    public let success: Bool
+    public let schemaVersion: Int
+    public let historyContractVersion: Int?
+    public let sessionID: String
+    public let query: String
+    public let revision: DJConnectHistoryRevision
+    public let matches: [DJConnectHistoryEntry]
+    public let returnedCount: Int
+    public let totalCount: Int?
+    public let complete: Bool
+    public let nextCursor: String?
+    public let normalization: String
+    public let highlightUnits: String
+    enum CodingKeys: String, CodingKey {
+        case success, query, revision, matches, complete, normalization
+        case historyContractVersion = "history_contract_version"
+        case schemaVersion = "schema_version", sessionID = "session_id", returnedCount = "returned_count"
+        case totalCount = "total_count", nextCursor = "next_cursor", highlightUnits = "highlight_units"
+    }
+}
+
+public struct DJConnectSessionOpenResponse: Decodable, Equatable, Sendable {
+    public let success: Bool
+    public let schemaVersion: Int
+    public let historyContractVersion: Int?
+    public let session: DJConnectSavedSession
+    public let entry: DJConnectHistoryEntry
+    public let readOnly: Bool
+    public let navigationOnly: Bool
+    enum CodingKeys: String, CodingKey {
+        case success, session, entry, schemaVersion = "schema_version", readOnly = "read_only", navigationOnly = "navigation_only"
+        case historyContractVersion = "history_contract_version"
+    }
+}
+
+public struct DJConnectConversationConfirmation: Decodable, Equatable, Sendable {
+    public let schemaVersion: Int
+    public let turnID: String
+    public let context: DJConnectConversationContext
+    public let entryIDs: [String]
+    public let inputType: String
+    enum CodingKeys: String, CodingKey { case schemaVersion = "schema_version", turnID = "turn_id", context, entryIDs = "entry_ids", inputType = "input_type" }
+}
+
+private struct DJConnectConversationMessageMetadata: Decodable {
+    struct SessionTurn: Decodable { let context: DJConnectConversationContext }
+    let id: String
+    let historicalMatches: [DJConnectHistoryEntry]?
+    let sessionTurn: SessionTurn?
+    enum CodingKeys: String, CodingKey {
+        case id, historicalMatches = "historical_matches", sessionTurn = "session_turn"
+    }
+    var context: DJConnectConversationContext { sessionTurn?.context ?? .init(sessionID: nil) }
+}
+
+public struct DJConnectSessionConversationResponse: Decodable, Sendable {
+    public let base: DJConnectAskDJMessageResponse
+    public let conversation: DJConnectConversationConfirmation
+    public let historicalMatches: [DJConnectHistoryEntry]
+    public let transcript: String?
+    public let ownerScope: String
+    public let messageContexts: [String: DJConnectConversationContext]
+    enum CodingKeys: String, CodingKey { case messages, userMessage = "user_message", assistantMessage = "assistant_message", conversation, historicalMatches = "historical_matches", transcript, recognizedText = "recognized_text", ownerScope = "owner_profile_id" }
+    public init(from decoder: Decoder) throws {
+        base = try DJConnectAskDJMessageResponse(from: decoder)
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        conversation = try c.decode(DJConnectConversationConfirmation.self, forKey: .conversation)
+        ownerScope = try c.decode(String.self, forKey: .ownerScope)
+        historicalMatches = try c.decodeIfPresent([DJConnectHistoryEntry].self, forKey: .historicalMatches) ?? []
+        transcript = try c.decodeIfPresent(String.self, forKey: .transcript) ?? c.decodeIfPresent(String.self, forKey: .recognizedText)
+        let messages = try c.decodeIfPresent([DJConnectConversationMessageMetadata].self, forKey: .messages) ?? []
+        let direct = try [c.decodeIfPresent(DJConnectConversationMessageMetadata.self, forKey: .userMessage),
+                          c.decodeIfPresent(DJConnectConversationMessageMetadata.self, forKey: .assistantMessage)].compactMap { $0 }
+        messageContexts = Dictionary((messages + direct).map { ($0.id, $0.context) }, uniquingKeysWith: { _, latest in latest })
+    }
+}
+
+public struct DJConnectProfileConversationHistory: Decodable, Sendable {
+    public let base: DJConnectAskDJHistoryResponse
+    public let historicalMatches: [String: [DJConnectHistoryEntry]]
+    public let ownerScope: String
+    /// Original server-owned message context, scoped to this response/owner.
+    /// Absence of session_turn in canonical history means standalone Profile.
+    public let messageContexts: [String: DJConnectConversationContext]
+    private enum CodingKeys: String, CodingKey { case messages, ownerScope = "owner_profile_id" }
+    public init(from decoder: Decoder) throws {
+        base = try DJConnectAskDJHistoryResponse(from: decoder)
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ownerScope = try c.decode(String.self, forKey: .ownerScope)
+        let messages = try c.decodeIfPresent([DJConnectConversationMessageMetadata].self, forKey: .messages) ?? []
+        historicalMatches = Dictionary(messages.map { ($0.id, $0.historicalMatches ?? []) }, uniquingKeysWith: { _, latest in latest })
+        messageContexts = Dictionary(messages.map { ($0.id, $0.context) },
+                                     uniquingKeysWith: { _, latest in latest })
+    }
+}
+
+public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
+    public let capabilities: [String: Bool]?
+    public let contractVersions: [String: Int]?
+    public let contributionExploration: DJConnectContributionExploration?
+    public var historyContractVersion: Int { contractVersions?["session_history_entries"] == 2 ? 2 : 1 }
+    public var summaryAvailable: Bool {
+        available && capabilities?["session_history_summary"] == true && contractVersions?["session_history_summary"] == 1
+    }
+    public var bulkDeletionAvailable: Bool {
+        available && capabilities?["session_history_bulk_delete"] == true && contractVersions?["session_history_bulk_delete"] == 1
+    }
+    public var deletionAvailable: Bool {
+        available && capabilities?["session_history_delete"] == true && contractVersions?["session_history_delete"] == 1
+    }
+    public var contentDeletionAvailable: Bool {
+        available && capabilities?["session_content_delete"] == true && contractVersions?["session_content_delete"] == 1
+    }
+    public var replyArtworkAvailable: Bool {
+        capabilities?["captured_reply_artwork"] == true && contractVersions?["captured_reply_artwork"] == 1
+    }
+    public var artworkAvailable: Bool {
+        capabilities?["session_artwork"] == true && contractVersions?["session_artwork"] == 1
+    }
+    public var momentInsightAvailable: Bool {
+        capabilities?["moment_track_insight_navigation_v1"] == true && contractVersions?["moment_track_insight_navigation_v1"] == 1
+    }
+    public var available: Bool {
+        capabilities?["session_conversation_history"] == true && contractVersions?["session_conversation_history"] == 1
+    }
+    public var searchAvailable: Bool {
+        available && capabilities?["session_flow_text_search"] == true && contractVersions?["session_flow_text_search"] == 1
+    }
+    enum CodingKeys: String, CodingKey {
+        case capabilities, contractVersions = "contract_versions", contributionExploration = "ask_dj_contextual_exploration"
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        capabilities = try c.decodeIfPresent([String: Bool].self, forKey: .capabilities)
+        contractVersions = try c.decodeIfPresent([String: Int].self, forKey: .contractVersions)
+        let candidate = try? c.decode(DJConnectContributionExploration.self, forKey: .contributionExploration)
+        contributionExploration = capabilities?["ask_dj_contextual_exploration"] == true &&
+            contractVersions?["ask_dj_contextual_exploration"] == 1 && candidate?.isSupported == true ? candidate : nil
+    }
+}
+
+public struct DJConnectSessionDeleteRequest: Codable, Sendable {
+    public let sessionID: String
+    public let expectedRevision: String
+    public let operationID: String
+    public init(sessionID: String, expectedRevision: String,
+                operationID: String = DJConnectOperationIdentity.uuidV7(milliseconds: Int(Date().timeIntervalSince1970 * 1000))) {
+        self.sessionID = sessionID; self.expectedRevision = expectedRevision; self.operationID = operationID
+    }
+    public var isValid: Bool {
+        !sessionID.isEmpty && sessionID.count <= 512 && !expectedRevision.isEmpty && historyDeletionOperationIsValid(operationID)
+    }
+}
+
+public struct DJConnectSessionDeleteResponse: Decodable, Sendable {
+    public let success: Bool
+    public let schemaVersion: Int
+    public let operationID: String
+    public let ownerProfileID: String
+    public let deletedSessionID: String
+    public let deleted: Bool
+    enum CodingKeys: String, CodingKey {
+        case success, deleted, schemaVersion = "schema_version", operationID = "operation_id"
+        case ownerProfileID = "owner_profile_id", deletedSessionID = "deleted_session_id"
+    }
+    public func admits(_ request: DJConnectSessionDeleteRequest, owner: String) -> Bool {
+        request.isValid && success && schemaVersion == 1 && deleted && !owner.isEmpty && ownerProfileID == owner
+            && operationID == request.operationID && deletedSessionID == request.sessionID
+    }
+}
+
+/// Reuses parsers and bounded immutable timestamp results, never retention decisions.
+private final class SessionHistoryDateParser: @unchecked Sendable {
+    static let shared = SessionHistoryDateParser()
+    private let lock = NSLock()
+    private let fractional = ISO8601DateFormatter()
+    private let whole = ISO8601DateFormatter()
+    private let dates = NSCache<NSString, NSDate>()
+    private init() {
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        dates.countLimit = 2048
+    }
+    func date(_ text: String) -> Date? {
+        lock.lock(); defer { lock.unlock() }
+        if let date = dates.object(forKey: text as NSString) { return date as Date }
+        guard let date = fractional.date(from: text) ?? whole.date(from: text) else { return nil }
+        if text.utf8.count <= 128 { dates.setObject(date as NSDate, forKey: text as NSString) }
+        return date
+    }
+}
+
+public struct DJConnectSessionDeleteSnapshot: Codable, Sendable {
+    public let success: Bool
+    public let schemaVersion: Int
+    public let ownerProfileID: String
+    public let snapshotID: String
+    public let targetCount: Int
+    public let createdAt: String
+    public let expiresAt: String
+    enum CodingKeys: String, CodingKey {
+        case success, schemaVersion = "schema_version", ownerProfileID = "owner_profile_id", snapshotID = "snapshot_id"
+        case targetCount = "target_count", createdAt = "created_at", expiresAt = "expires_at"
+    }
+    public func admits(owner: String, at now: Date = Date()) -> Bool {
+        guard success, schemaVersion == 1, !owner.isEmpty, ownerProfileID == owner,
+              !snapshotID.isEmpty, targetCount >= 0,
+              let created = DJConnectHistoryEntry.date(createdAt), let expires = DJConnectHistoryEntry.date(expiresAt) else { return false }
+        return created <= now.addingTimeInterval(30) && expires > now && expires > created && expires.timeIntervalSince(created) <= 300
+    }
+}
+
+public struct DJConnectSessionBulkDeleteResponse: Decodable, Sendable {
+    public let success: Bool
+    public let schemaVersion: Int
+    public let operationID: String
+    public let ownerProfileID: String
+    public let snapshotID: String
+    public let deleted: Bool
+    public let deletedSessionCount: Int
+    enum CodingKeys: String, CodingKey {
+        case success, deleted, schemaVersion = "schema_version", operationID = "operation_id"
+        case ownerProfileID = "owner_profile_id", snapshotID = "snapshot_id", deletedSessionCount = "deleted_session_count"
+    }
+    public func admits(snapshot: DJConnectSessionDeleteSnapshot, operationID: String, owner: String) -> Bool {
+        success && schemaVersion == 1 && deleted && !owner.isEmpty && ownerProfileID == owner
+            && snapshot.ownerProfileID == owner && self.operationID == operationID
+            && snapshotID == snapshot.snapshotID && snapshot.targetCount > 0 && deletedSessionCount == snapshot.targetCount
+    }
+}
+
+func historyDeletionOperationIsValid(_ operationID: String) -> Bool {
+    guard let uuid = UUID(uuidString: operationID) else { return false }
+    let characters = Array(uuid.uuidString)
+    return characters[14] == "7" && ["8", "9", "A", "B"].contains(String(characters[19]))
+}

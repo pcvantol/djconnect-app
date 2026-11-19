@@ -1,0 +1,20 @@
+{
+  "build": "40116",
+  "reused_implementation_commit": "840ba6982aa86b4707039fa07cb1ab042ae9b7e6",
+  "exact_selective_blocks": {
+    "struct AskDJInputBar: View {": "b863e673a873fec11f58cb4cfb5f0728aebcf49261cf1681ef498f1deedc32c7",
+    "private struct AskDJPromptTextView": "a2afc44d137167a75d09f773abe65f2aea49de073b917140b1051a4c01b3bb85"
+  },
+  "change": "Qualify and install existing AnyLayout focus expansion and native editor focus binding. Same native editor stays mounted, input minimum two lines on focus, controls in lower row, translucent shared surface. Full unfinished widget/Speech writer not installed.",
+  "signed_builds": "Mac and iOS/embeddedWatch PASS",
+  "installed_readback": "40116 on Mac mini, iPad and iPhone; strict Mac signature PASS.",
+  "physical_ipad": "PASS: collapsed/expanded input geometry differs, buttons below editor, native keyboard remains, bottom tabs hidden; actual draft typed -> background -> resume exact value preserved -> test draft removed and value empty; outside hero tap dismisses keyboard, collapses bar and restores tabs, visually inspected. No message sent; existing user draft would be preserved/skipped.",
+  "ipad_evidence": "/private/tmp/djc-ask-expand-40116-ipad.xcresult",
+  "ipad_images": "/private/tmp/djc-ask-expand-40116-ipad-images",
+  "physical_mac": "PASS in ordinary installed app temporary demo: focus -> input grows and controls lower row. Screenshot inspected. Demo stopped afterward. First geometry assertion sampled 0.18s animation and failed; explicit geometry-condition wait passed, no product change.",
+  "mac_evidence": "/private/tmp/djc-ask-expand-40116-mac2.xcresult",
+  "mac_image": "/private/tmp/djc-ask-expand-40116-mac2-images/D6F967F5-E2E1-408F-BF10-27ACC5F01902.png",
+  "limits": "iPhone UI not tested due earlier lock. Separate real LAN/WS transport acceptance remains open. Genuine Ask DJ stale/offline notice visible after resume; no send/connection recovery PASS inferred from layout.",
+  "cleanup": "One active writer, only current/main proven merged; no eligible stale branch/worktree; unrelated untracked project folders preserved. Internal free disk10GiB fresh snapshot.",
+  "delivery": "Local only; publication pause retained. Next app build40117+."
+}

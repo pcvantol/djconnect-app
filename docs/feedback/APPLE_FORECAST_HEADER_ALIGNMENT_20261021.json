@@ -1,0 +1,120 @@
+{
+  "recorded_at": "2026-10-21T07:35:28.042403+00:00",
+  "base": "0510045af9f845da146862493cc5c38cd98891eb",
+  "branch": "codex/apple-forecast-header-alignment",
+  "publication": "LOCAL_ONLY",
+  "production_change": "Forecast outer stack top padding16 removed; bottom padding16 retained; shared currentHeader unchanged",
+  "before": {
+    "completed_test_cases": 1,
+    "assertion_failures": 2,
+    "geometry": [
+      {
+        "difference": 16,
+        "flow_top": 0,
+        "forecast_top": 16,
+        "width": 500
+      },
+      {
+        "difference": 16,
+        "flow_top": 0,
+        "forecast_top": 16,
+        "width": 900
+      }
+    ]
+  },
+  "after": {
+    "completed_test_cases": 1,
+    "failures": 0,
+    "duration_seconds": 1.405,
+    "geometry": [
+      {
+        "difference": 0,
+        "flow_top": 0,
+        "forecast_top": 0,
+        "width": 500
+      },
+      {
+        "difference": 0,
+        "flow_top": 0,
+        "forecast_top": 0,
+        "width": 900
+      }
+    ],
+    "captures_inspected": [
+      "flow-500.png",
+      "flow-900.png",
+      "forecast-500.png",
+      "forecast-900.png"
+    ]
+  },
+  "coverage": "Actual SessionForecastPanel in offscreen AppKit NSHostingView/NSWindow with identical supplied80pt marker header vs plain ScrollView control; widths500/900pt, normal font, background scene and isolated unpaired AppModel; not full SessionTimelineScreen/currentHeader or physical app switching",
+  "limits": [
+    "No installed app changed; ordinary build40402 remains installed",
+    "No full-root/physical/VoiceOver/iOS runtime claim",
+    "Later local night stack preserved and excluded; no publication/merge/SDK/Core/HA deployment"
+  ],
+  "files": [
+    {
+      "path": "/Volumes/Shared Data/GitHub/djconnect-app/Sources/DJConnectUI/SessionForecastView.swift",
+      "sha256": "1b98368c394382099be501c9277975f505d19f59a77bdb884fb16558d0e3d200"
+    },
+    {
+      "path": "/Volumes/Shared Data/GitHub/djconnect-app/Tests/DJConnectCoreTests/ForecastHeaderAlignmentTests.swift",
+      "sha256": "4b7934751a0aa422cff331b0f26171927ec2a568c1bea122b2eac22ce3e7a862"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/before-forecast.swift",
+      "sha256": "2ebab4f71359c654cc8a80cab9b2a1f74426acce871c1d6598b029ee03f6376c"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/before.log",
+      "sha256": "a040ea20c3a5b66b46d5fd31cb67f95f612434b8800f355eb1d91997fbdbecc5"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/after.log",
+      "sha256": "8180f69bb4453a0348fbe8473f78c19de2311e340453e21c45f480fffc65c619"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/before/flow-500.png",
+      "sha256": "2da2e959c2a46aa9c86b35d970e95c218905197bc39fcbb24a026c0819e0b5c2"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/before/flow-900.png",
+      "sha256": "68a79fced63a20cc2144a86be96930c1b5a3b6e5ab4a9157d098c140821e70b1"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/before/forecast-500.png",
+      "sha256": "73284a60bfa5f25ca036cd4ebf550ca0ab5959a7723df5a512fc64cdf6ea61b3"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/before/forecast-900.png",
+      "sha256": "25d64497aff6ad062a98bf9d411195f1214ef2c4e72a2e642140dcfa2a18dbbf"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/before/geometry.json",
+      "sha256": "fa9e9704f322a314594b760c01f09084b2836e8ed9b06e3ff4081923cd165721"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/after/flow-500.png",
+      "sha256": "2da2e959c2a46aa9c86b35d970e95c218905197bc39fcbb24a026c0819e0b5c2"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/after/flow-900.png",
+      "sha256": "68a79fced63a20cc2144a86be96930c1b5a3b6e5ab4a9157d098c140821e70b1"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/after/forecast-500.png",
+      "sha256": "63d451ebc4e33c2cc3f242212eb31d48bd9897d18cf05f9a79feb9a5fe6d0f47"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/after/forecast-900.png",
+      "sha256": "9c6b863e27a078a1f4a5efeb929ae35e6f6aac6b62bf8a6c44149f65d86f2324"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-forecast-header-alignment-20261021/after/geometry.json",
+      "sha256": "491d60a5e769bfdf68c1e2cb377a20226d16aeb6ae3d4a70fcfc1a8c8b1db364"
+    }
+  ],
+  "negative_binary_preserved": false,
+  "scratch_path": "/private/tmp/djc-native-archive-20261021/mac-native"
+}

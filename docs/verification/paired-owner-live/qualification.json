@@ -1,0 +1,87 @@
+{
+  "assignment": "DJC-APPLE-SESSION-CONVERSATION-HISTORY-V1-20261008",
+  "base": "4291a7c53fc35a65a300423ea4b637eadbd13cca",
+  "preceding_head": "41cd51858039d81653a53b3a95231c47f36787e2",
+  "status": "LOCAL_NATIVE_AND_CONTRACT_PASS_DELIVERY_OPEN",
+  "core_final_main": "e0ee7e3ee7265599345ed6c37647623b2a03b27d",
+  "contract_sha256": "5ad835658950235555561f7003765994dfb1e7f29228fa2c2244376aa5f0a210",
+  "source_hashes": {
+    "Apps/DJConnectIOS/DJConnectIOSApp.swift": "c138ad4b451fc466aa82934a2252fb3bca843108e6e83d1da9db7aba92bba56f",
+    "Apps/DJConnectMac/DJConnectMacApp.swift": "faee52a249d1430482332b1167cf0ce23c92050ac951ccb3fc29be95c2b9e1e5",
+    "DJConnectApp.xcodeproj/project.pbxproj": "092fea206721a8edce2cecbb3ed7a00858097542f60e850397adb675e0f75f85",
+    "Sources/DJConnectCore/DJConnectClient.swift": "4c342463bb4b71886eaed39583c716f43c979648d77f801a31c22486c93b1cf2",
+    "Sources/DJConnectCore/DJConnectModels.swift": "1b02b41273cb8b197c22c6e3740bdf2370c59a104451deba56f807664b3f5524",
+    "Sources/DJConnectCore/DJConnectSessionBroadcastTransport.swift": "9a470f89e4bfd9220485853d366de66e41e18c447f186c8ef20abab897676c60",
+    "Sources/DJConnectUI/DJConnectAppModel.swift": "ce1f2131ef5b03b89c9afc24e17ecad9981987922115b2c3e21bcda0c2e15917",
+    "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift": "4403a5701b8999163f962a9107ff5166416d7615c14103f794e5c58b8848d543",
+    "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift": "b126b306a7caad45a83d1ce65b9fa45da9bdea6659d1719b364bd40f33907df4",
+    "Tests/DJConnectIOSUITests/DJConnectIOSUITests.swift": "0d41f8afc28e2b36ce8b0db8ad6f052c931bb0b7c7ec198b4fa41c842f41fbdd",
+    "Sources/DJConnectCore/DJConnectPairedOwnerLive.swift": "5cc7623b0751314d7f05aa97c3b87cb650de47d05e66216822cc57f3dd766891",
+    "Tests/Fixtures/paired-owner-live-capability-v1.json": "5ddecf5e8e43c112ba25418c7865e58a40b73431d0827d3824993bd3bf1d768d",
+    "Tools/paired_discovery_http_fixture.py": "10a984238373a49b6e05fec5f959201b721fbee957c2d5d2986f8e867648b246",
+    "Tools/paired_owner_native_server.py": "17155c3d7aa76796b5ae567860a6eb0b0191a165548e848d28eb265dfef63ebb"
+  },
+  "checks": [
+    {
+      "name": "djc-history-paired-full-current-tests.log",
+      "sha256": "b0a65c761e9c6f41f7af683fbf3fb1d118fed166a6cf3d76feadcb16b2a0ba20"
+    },
+    {
+      "name": "djc-history-paired-current-producer-tests-final.log",
+      "sha256": "8f9e77bec5986e148ba42c03cc9dbc3fc9504a161098b3de7c0348be534b6837"
+    },
+    {
+      "name": "djc-history-paired-ios-native-wire-attempt4.log",
+      "sha256": "5e7faf7e73e7b4faea2deb8a36d4fba2f8a71148b6e733b87d5132bde1e610b2"
+    },
+    {
+      "name": "djc-history-paired-ipad-native-attempt1.log",
+      "sha256": "524f8d4c26debdc840c4e5c136b84cfc5d41e29c95a5ef33e6f57403dc1796da"
+    },
+    {
+      "name": "djc-history-paired-mac-build.log",
+      "sha256": "4211421fbc9dc9294952de62b529327b9c8591347bb11f435534e826226409eb"
+    },
+    {
+      "name": "djc-history-paired-ios-build-final.log",
+      "sha256": "70ac3c561a52ca8ea21a1733ac0b3e28d8a1ebe36b0a626c34f81565b03390cf"
+    },
+    {
+      "name": "djc-history-paired-ws-e2e.log",
+      "sha256": "b2ee483cd645765426256b5c0d0be53f90d4207db09b6e448ecccdb054cebe01"
+    },
+    {
+      "name": "djc-history-paired-http-e2e.log",
+      "sha256": "1e815a189ba5e5c8fb567e27fcecd4fc65079380dcbda892300795a3cc089959"
+    },
+    {
+      "name": "djc-history-paired-fixture-security.log",
+      "sha256": "6ae050ba8f60bb7d8fb00361c7d6ea2274ec977f703a276c330d355e9e2a6868"
+    },
+    {
+      "name": "djc-history-paired-localizations.log",
+      "sha256": "a287053e4f8b7e5ac03898937f944136df5dedb183d9b9d8529107f0215cd6b8"
+    },
+    {
+      "name": "djc-history-current-qualified-host-check.md",
+      "sha256": "65ecf3ee21b63c67a0fc2bf25b7a45fda10355bbcbacae217643d430b36d48c1"
+    },
+    {
+      "name": "djc-history-paired-observer-producer-tests.log",
+      "sha256": "654c99b6a65c57408f6e8ace1caff324d7cf1f6ee550b9a548ea6096382bd325"
+    }
+  ],
+  "native_manifest_hashes": {
+    "iphone": "9fb88c0af0fcd7e6a7077128e6afa2194a109ab1b1dddec6930c8bc7f3cdab45",
+    "ipad": "5cf2a7cbc96f74ff82158ff5a7c63efea1d62669449110e29f80c782390e5f69",
+    "mac": "338fc7e19e446eab3a11abc4abe124415ed60ad16ff2e9ad93010b9b581f42e4"
+  },
+  "limitations": [
+    "Actual producer components; configured devices/music synthetic, not installed Home Assistant acceptance",
+    "Genuine physical iPhone voice owner-reported on unchanged40012/sourcec7a711b",
+    "Genuine Mac spoken proof unavailable; no recording or injected transcript",
+    "Native player tests prove route and Session/playback projection equality; no new physical speaker playback qualification",
+    "Protected publication/exact-main/separate Finalization remain OPEN"
+  ],
+  "resource_status": "Initial fresh host MATCH. Shared disk later fell below5GB and progression was held. Owner-authorized external temp relocation restored28GiB internal free; own source implementation and all native manifests verified byte-identical. No requalification of unchanged functionality inferred or required from the relocation notification."
+}

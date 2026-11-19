@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "parent_sha": "ea2d58534e0d026c0c3707f4a9332f97e4e6cf2c",
+  "production_changed": false,
+  "qualified": {
+    "passed_tests": 1,
+    "failed_tests": 0,
+    "skipped_tests": 0,
+    "runtime_warnings": 0,
+    "renders_inspected": 4
+  },
+  "synthetic_resolve_posts": 1,
+  "synthetic_approval_posts": 1,
+  "native_button_taps_qualified": false,
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Tests/DJConnectCoreTests/DisplayConsentSessionTests.swift",
+      "sha256": "4b93f837390ddf7f15181f833e1480aae12f07032bd979885a3cdf93baddb4ce"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectAppModel.swift",
+      "sha256": "75a0d8bddcdc3fc5b3a1da9cbfb5de4980e71b6534f0ad0a5192c5ccdd3b601e"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectRootView.swift",
+      "sha256": "e80924cf291d6e6963cd844f26a081b82eb168437838856a502185ca0ccbd1be"
+    },
+    {
+      "path": "/private/tmp/djc-consent-inflight-lifecycle-20261021/previous-scheme.xcscheme",
+      "sha256": "2498fb0961f7879d7210ad87da157a202efa9d547dcd8424d7f7ce03ca37b9c0"
+    },
+    {
+      "path": "/private/tmp/djc-consent-inflight-lifecycle-20261021/final.log",
+      "sha256": "51245447018fbf8d9b4d1da491e269912752e289b91c735c253d311f716e61eb"
+    },
+    {
+      "path": "/private/tmp/djc-consent-inflight-lifecycle-20261021/final-summary.json",
+      "sha256": "9a216c788a1bcbcda15dd943ac4910cd1076ce95364a9496829ddf4b3ca4e32e"
+    },
+    {
+      "path": "/private/tmp/djc-consent-inflight-lifecycle-20261021/observations/inflight-01-approving.png",
+      "sha256": "88b3c6c3049d624e91cddb9b11274461d7cdda2c54e9b38744488541d47f6831"
+    },
+    {
+      "path": "/private/tmp/djc-consent-inflight-lifecycle-20261021/observations/inflight-02-removed.png",
+      "sha256": "e6a7038d229787ee015fbfa55129cf14901aef8db5562dcd786ba02ae34b9f08"
+    },
+    {
+      "path": "/private/tmp/djc-consent-inflight-lifecycle-20261021/observations/inflight-03-remounted-before-ack.png",
+      "sha256": "18b55e15327de76516b783e6160760bae009e93466974e1f83a0ae9feda16ce1"
+    },
+    {
+      "path": "/private/tmp/djc-consent-inflight-lifecycle-20261021/observations/inflight-04-late-ack-ignored.png",
+      "sha256": "18b55e15327de76516b783e6160760bae009e93466974e1f83a0ae9feda16ce1"
+    },
+    {
+      "path": "/private/tmp/djc-consent-inflight-lifecycle-20261021/observations/native-consent-inflight.json",
+      "sha256": "9cedda3bba22d7fd13327e2fa7d750428bdcced54f456d4a8d6771ea7a8b98c1"
+    }
+  ]
+}

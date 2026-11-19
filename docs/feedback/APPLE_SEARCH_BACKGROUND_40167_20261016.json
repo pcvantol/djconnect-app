@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-16",
+  "build": "40167",
+  "scope": "DJ Session search background on iPhone/iPad/macOS",
+  "implementation": [
+    "Removed the extra ultraThinMaterial background from the Session searchBar wrapper.",
+    "Shared AskDJSearchBar now sits directly on sessionBackground, matching Ask DJ presentation. Search controls, focus, navigation and keyboard behavior unchanged."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "signed_mac_build": "PASS",
+    "strict_deep_codesign": "iOS candidate and installed Mac PASS",
+    "source_manifest": "452 hashes PASS",
+    "diff_check": "PASS",
+    "installed": "iPhone40167, iPad40167, Mac mini40167 verified",
+    "native_probes": "iPhone and iPad screenshot probes PASS"
+  },
+  "evidence": {
+    "manifest": "build/recovery/apple40167-selective-source-manifest-20261016.json",
+    "ios_build": "/private/tmp/djc-ios-40167-search-background-build.log",
+    "mac_build": "/private/tmp/djc-mac-40167-search-background-build.log",
+    "iphone_screenshot_actually_viewed": "/private/tmp/djc-iphone-40167-search-background-attachments/A5515FF8-36EB-4084-BEF2-850C04FF2C4C.png",
+    "ipad_screenshot_actually_viewed": "/private/tmp/djc-ipad-40167-search-background-attachments/37A30A3C-C99B-4FCE-92BF-C200883B5C14.png",
+    "visual": "Search open and keyboard focused: no grey material strip; page gradient continues behind search and toolbar.",
+    "mac_executable_sha256": "f36dd155abe463f043550e8728036ca9fc63ca8eabf2a699e9a6b3e4d14ddb8d",
+    "mac_backup": "build/recovery/mac40167-search-background-20261016/DJConnect-before40167.app"
+  },
+  "mac_install_note": "First installed copy strict check rejected copied Finder metadata. Removed only FinderInfo/ResourceFork metadata from the new app copy; strict deep verification then passed. Original signed candidate executable equals installed executable. Prior app retained untouched.",
+  "limits": [
+    "Mac installed/build/signature verified; no physical Mac UI search acceptance because console owner root. No Mac UI XCTest/auth retry.",
+    "MacBook and Watch not updated in this change.",
+    "Probe opened/closed empty search only; no playback command or message sent."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

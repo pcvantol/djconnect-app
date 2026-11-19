@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "build": "40131",
+  "branch": "codex/apple-dj-presence-v1",
+  "source_parent": "a6f2917",
+  "scope": [
+    "Track Insight Mood and connection popover stability and positioning",
+    "Direct stable More popover and native dismissal before VibeCast dialog",
+    "Frosted blue/purple Ask DJ composer without lens refraction",
+    "White Session source links"
+  ],
+  "implementation": {
+    "presentation": "Captured screen-owned intent outside replaceable toolbar; geometry of tapped toolbar button captured in global coordinates and converted into popover attachment rect; arrowEdge top. Existing session/epoch/scene cancellation retained. Standalone visual Mood remains ephemeral without backend writes.",
+    "more": "No nested Menu. Two direct actions remain visible while polling. VibeCast root sheet starts only after native viewDidDisappear; captured scope is revalidated before action.",
+    "composer": "Replaces clear refractive glass with thickMaterial and blue/purple 45 percent overlay. Opaque tint under Reduce Transparency. Existing editor, focus, draft, microphone and send semantics retained.",
+    "links": "SessionEntryView and native MomentCard links use white foreground/tint; destinations and attribution unchanged."
+  },
+  "qualification": {
+    "writer_ui_compile": {
+      "result": "PASS",
+      "log": "/private/tmp/djc-40131-anchor-ui-build.log",
+      "seconds": 18.63
+    },
+    "signed_selective_ios_watch_build": {
+      "result": "PASS",
+      "log": "/private/tmp/djc-ios-40131-final-build.log"
+    },
+    "manifest": "build/recovery/iphone40131-selective-source-manifest-20261016.json",
+    "file_count": 452,
+    "all_manifest_hashes_verified": true,
+    "strict_deep_codesign": "PASS",
+    "candidate_executable_sha256": "9c2d6621f529feffefd27bb676974470f9855eb7817392ce46942d63d16dd1af"
+  },
+  "installation": {
+    "device": "Peter-iPhone17Pro",
+    "bundle_id": "dev.djconnect.ios",
+    "version": "4.0.0",
+    "build": "40131",
+    "in_place": true,
+    "install": "/private/tmp/djc-iphone-40131-install.json",
+    "fresh_readback": "/private/tmp/djc-iphone-40131-readback.json",
+    "other_devices_not_updated": true,
+    "full_writer_not_installed": true
+  },
+  "physical_tests": [
+    {
+      "result": "PASS",
+      "xcresult": "/private/tmp/djc-iphone-40131-track-menus-20261016.xcresult",
+      "seconds": 36.077,
+      "checks": [
+        "Track Insight connection menu open for 8 seconds over active animated hero, then native outside dismissal",
+        "Track Insight Mood menu open for 8 seconds over active animated hero, then native outside dismissal"
+      ],
+      "screenshots_actually_viewed": [
+        "/private/tmp/djc-iphone-40131-track-menus-attachments/F8E675F5-8739-4AC1-B338-813153DFBE8B.png",
+        "/private/tmp/djc-iphone-40131-track-menus-attachments/58FB4A6C-28A0-4DA3-93F5-87A7F86B598D.png"
+      ],
+      "visual_result": "Both popovers below toolbar, upper arrows aligned with their respective tapped buttons; hero and waveform continued to change."
+    },
+    {
+      "result": "PASS",
+      "xcresult": "/private/tmp/djc-iphone-40131-more-composer-20261016.xcresult",
+      "seconds": 23.422,
+      "checks": [
+        "One More tap exposes VibeCast and Refresh directly, both still present after 8 seconds",
+        "VibeCast dialog opens after popover dismissal; cancel via Niet nu without code or sharing",
+        "Session right-edge scroll and composer visual readback"
+      ],
+      "screenshots_actually_viewed": [
+        "/private/tmp/djc-iphone-40131-more-composer-attachments/C25735A6-CC0D-4F9F-94D8-BD04165311C2.png",
+        "/private/tmp/djc-iphone-40131-more-composer-attachments/98F35152-052D-484C-AF94-58CF174A13CC.png",
+        "/private/tmp/djc-iphone-40131-more-composer-attachments/0F7279B8-ABD2-43B9-84B7-B7F2FD80F8E8.png"
+      ],
+      "visual_result": "More arrow under ellipsis. Composer blue/purple frosted, placeholder readable, no legible magnified card text through its background; white Spotify source links visible."
+    }
+  ],
+  "earlier_attempts": [
+    {
+      "build": "40128",
+      "xcresult": "/private/tmp/djc-iphone-40128-track-menu-repro-20261016.xcresult",
+      "result": "Baseline readback only; menus remained on empty Track Insight, not reproduction of active animated case."
+    },
+    {
+      "build": "40129",
+      "xcresult": "/private/tmp/djc-iphone-40129-stable-menus-20261016.xcresult",
+      "result": "FAIL before menu test, initial Track Insight tab selection did not settle."
+    },
+    {
+      "build": "40129",
+      "xcresult": "/private/tmp/djc-iphone-40129-stable-menus-settled-20261016.xcresult",
+      "result": "Connection remained open 8s; Mood absent after 8s. Source host alone insufficient for acceptance; no proven internal cause. User also reported composer too dark; superseded."
+    },
+    {
+      "build": "40130",
+      "result": "Signed build only, never installed; superseded by button-anchor candidate."
+    }
+  ],
+  "limits": [
+    "Bounded installed menu checks do not prove every intermittent presentation race resolved.",
+    "No new playback/send/share/Profile/mood changes; no provider, LAN, WS, APNs or FPS acceptance claimed.",
+    "MusicBrainz-specific link label not visually qualified; shared source renderer physically confirmed with Spotify.",
+    "Other toolbar screens and Mac/iPad/Watch not physically requalified by these iPhone tests."
+  ],
+  "probe_restored": true,
+  "publication": "Local source commit only. No push, PR, merge or Core deployment."
+}

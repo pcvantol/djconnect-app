@@ -1,0 +1,14 @@
+{
+  "source_commit": "b8dac7d719d3124bc0c89444f3173e06030b7d9f",
+  "selective_source": "/private/tmp/djc-neon-brand-40108-source; only exact VibeCastSessionStartDialog block added to qualified snapshot, SHA256 0abe3653b5f4f32138319ab1def2510406c2667de0e5e832cccbb035c5868ae9",
+  "change": "iOS content permanently in ScrollView with basedOnSize bounce, interactive keyboard dismissal, center alignment when content fits and620pt ideal height. Native sheet retained; code fields/form identity unchanged. macOS keeps original dialogContent presentation.",
+  "builds": "Signed iOS/embeddedWatch40117 PASS; signed Mac40117 PASS. Initial sandbox build unable to access services; stopped and rerun with required host access.",
+  "installed": "Actual iPad40117 readback; Mac mini/iPhone remain40116. Do not assume40117 installed elsewhere. Next build40118+.",
+  "input_acceptance": "Final native test PASS: six roomy visible fields, sequential1..6 auto advance preserved, native ScrollView present, keyboard popup dismissed by free padding tap, Niet nu closes sheet, ordinary launch restores Speelt Nu tab. Isolated review_demo/presentation flag, approve disabled; no handoff or real pairing mutation.",
+  "test_result": "/private/tmp/djc-vibecast-scroll-40117-input-final.xcresult",
+  "image": "/private/tmp/djc-vibecast-scroll-40117-input-final-images/17A58843-B576-452A-8A92-8DEA14CE9AFC.png",
+  "visual": "Final actual filled-code image viewed. Current floating numeric keyboard image also viewed at /private/tmp/djc-vibecast-scroll-40117-ipad4-images/DBA9578E-E6DE-4ED8-9550-1C4BC5AA57AD.png.",
+  "limits": "Docked/full-width keyboard clipping acceptance remains OPEN. Actual device switched to native floating numeric popup; geometry comparisons to docked keyboard invalid. Earlier attempts: ScrollView AX identifier overridden by root dialog; swipe over field activated popup; key queries saw duplicate/hidden native keys. These failed tests retained, not performance/product PASS. No global keyboard preferences changed.",
+  "cleanup": "One active Apple worktree, only main/current merged; no eligible stale ref. Untracked project folders/source/results preserved. Current internal df5.5GiB. No Instruments capture or shared-service mutation.",
+  "next": "Qualify docked keyboard and long content/scroll without changing device preferences; preserve keyboard-mode distinction. Do not repeatedly retry broad wrong-keyboard geometry probes. LAN requires actual source-preserving ingress; widgets/Track Insight remain producer-dependent."
+}

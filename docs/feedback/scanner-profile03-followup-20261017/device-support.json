@@ -1,0 +1,9 @@
+{
+  "device_model" : "iPhone",
+  "isSupported" : true,
+  "keys_generated" : false,
+  "os_version" : "27.0.1",
+  "receipts_collected" : false,
+  "runner_bundle_id" : "dev.djconnect.ios.physicalprobe.xctrunner",
+  "scope" : "physical device service support from XCTest runner; not DJConnect app identity or enrollment"
+}

@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-16",
+  "build": "40180",
+  "scope": "Raise iPhone floating Ask DJ bar to match visible bottom tab margin",
+  "implementation": [
+    "Increase unfocused iPhone composer bottom spacing from8pt to21pt in DJ Session and Ask DJ.",
+    "Retain8pt input-focus spacing and iPad/macOS defaults.",
+    "Increase scroll-content clearance by the same amount. Native tab controller unchanged."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "codesign": "strict deep PASS",
+    "manifest": "452 hashes PASS",
+    "installed": "iPhone40180 confirmed",
+    "native_demo_probe": "PASS; screenshot actually viewed",
+    "visual": "Composer bottom770pt; native tab top791pt:21pt gap. Visible tab bottom about853pt in874pt window:21pt bottom gap. Composer input moved727 to714pt, a13pt rise.",
+    "other_screen": "Ask DJ uses same source spacing policy, not separately photographed",
+    "keyboard": "Focus branch retains8pt; not separately physically tested"
+  },
+  "evidence": {
+    "manifest": "build/recovery/composer40180-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/composer40180-spacing-20261016.patch",
+    "xcresult": "/private/tmp/djc-iphone-40180-spacing-20261016.xcresult",
+    "screenshot": "/private/tmp/djc-iphone-40180-spacing-attachments/F727673F-4F99-42C7-A5A3-049DD8D025D9.png"
+  },
+  "earlier_attempts": [
+    "40178/40179 native tab-frame derived spacing probes passed but screenshot showed no visible rise; replaced with directly measured21pt spacing.",
+    "First40180 compilation failed after a script reused a path variable and overwrote the selective rootview. Reconstructed exact40177 file from preserved40142 backup plus recorded patches, verified original SHA, then applied bounded current diff. All452 final source hashes verified. No failed build installed."
+  ],
+  "preservation": [
+    "Only isolated review_demo UI fixture used; no real playback/settings/messages changed.",
+    "Probe restored and app relaunched with ordinary arguments.",
+    "iPad/Mac installations unchanged; recovery and evidence retained."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}

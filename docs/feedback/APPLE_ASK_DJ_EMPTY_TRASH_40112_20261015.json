@@ -1,0 +1,19 @@
+{
+  "build": "40112",
+  "source_commit": "3bc3d28b3666c20c900a3390432623cb81c4a86c",
+  "change": "Mac and iOS Ask DJ toolbar conditionally includes clear-history button only when model.askDJMessages is nonempty. Existing confirmation and in-progress disabling retained. No model/backend changes.",
+  "signed_builds": "Mac and iOS/Watch PASS",
+  "installed": "40112 Mac mini and real iPad, selective qualified snapshot",
+  "physical_visual": "PASS on both: actual empty Ask DJ screens show search, connection and refresh without trash. Mac temporary demo stopped afterward. No messages sent or deleted.",
+  "limits": "iPad test name says Nonempty but actual captured screen was empty; no physical nonempty-state claim. Existing nonempty branch retained by source inspection.",
+  "evidence": [
+    "/private/tmp/djc-ask-trash-40112-mac.xcresult",
+    "/private/tmp/djc-ask-trash-40112-ipad.xcresult"
+  ],
+  "screenshots": [
+    "/private/tmp/djc-ask-trash-40112-mac-images/A8DC6884-9FEE-4CB9-8523-85F0355CDE3A.png",
+    "/private/tmp/djc-ask-trash-40112-ipad-images/427ACF5E-B63F-4406-8850-039E2B7506DE.png"
+  ],
+  "cleanup": "One active writer; only current and main proven merged. No eligible stale branch/worktree. Unrelated project folders preserved.",
+  "delivery": "Local only; publication pause maintained. Next build40113+."
+}

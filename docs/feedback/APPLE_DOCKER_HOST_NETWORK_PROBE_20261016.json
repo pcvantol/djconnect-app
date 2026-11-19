@@ -1,0 +1,263 @@
+{
+  "before": {
+    "time": "2026-10-16T00:01:51.674995+00:00",
+    "settings_sha256": "0316f5717e5c55746785b39df1cbf11f12113208d73971fa588aab079be4a969",
+    "host_network_ui": "VISUALLY_DISABLED_NO_CHANGES",
+    "containers": [
+      {
+        "name": "djc-apple-presence-resume-20261014-portfix",
+        "id": "d927f18550f6681d9f2247a8c87f66156a96a8825636e600d34406b6cde63260",
+        "image": "sha256:1b64d38f38d922bf9d59336451fd6453e1d614f934456af4ee3d2a51061be3a4",
+        "running": true,
+        "restart_policy": {
+          "Name": "no",
+          "MaximumRetryCount": 0
+        },
+        "network": "bridge",
+        "ports": {
+          "18213/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "18213"
+            }
+          ],
+          "18214/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "18214"
+            }
+          ]
+        },
+        "mount_destinations": [
+          "/lab",
+          "/producer",
+          "/tools"
+        ]
+      },
+      {
+        "name": "homeassistant",
+        "id": "c3496318277ee23700bab419fd3b487996822387686c81e8a64980e0cb7a9b68",
+        "image": "sha256:1b64d38f38d922bf9d59336451fd6453e1d614f934456af4ee3d2a51061be3a4",
+        "running": true,
+        "restart_policy": {
+          "Name": "always",
+          "MaximumRetryCount": 0
+        },
+        "network": "homeassistant_ha_net",
+        "ports": {
+          "8123/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "8123"
+            },
+            {
+              "HostIp": "::",
+              "HostPort": "8123"
+            }
+          ]
+        },
+        "mount_destinations": [
+          "/config"
+        ]
+      },
+      {
+        "name": "music-assistant-server",
+        "id": "49e290e872fe023501253cb60f7e29795eba429c6e34d4078fbdf4049568f32e",
+        "image": "sha256:e5dbb44e9dc92ff95dd2b15a9176b238f4e0969aed89850bf428b3d424640ca3",
+        "running": true,
+        "restart_policy": {
+          "Name": "always",
+          "MaximumRetryCount": 0
+        },
+        "network": "homeassistant_ha_net",
+        "ports": {
+          "8095/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "8095"
+            },
+            {
+              "HostIp": "::",
+              "HostPort": "8095"
+            }
+          ]
+        },
+        "mount_destinations": [
+          "/data"
+        ]
+      },
+      {
+        "name": "wyoming-piper",
+        "id": "40f34876db06590e0ca521c4333f714acab166e7814198b7040050b81b96085a",
+        "image": "sha256:c874e4a04657ae3381332ee5d0c8c70a310dae6722892840f530ac0890b44eb3",
+        "running": true,
+        "restart_policy": {
+          "Name": "always",
+          "MaximumRetryCount": 0
+        },
+        "network": "homeassistant_ha_net",
+        "ports": {
+          "10200/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "10200"
+            },
+            {
+              "HostIp": "::",
+              "HostPort": "10200"
+            }
+          ]
+        },
+        "mount_destinations": []
+      },
+      {
+        "name": "wyoming-whisper",
+        "id": "963da7157e42f26f5fc23a2b19b46094447ea56b139aae891f3b1c0833eebb77",
+        "image": "sha256:966e1b0967f398b81fa2273a96b2b940004fa1b77754f9ffda6b5689a58dd158",
+        "running": true,
+        "restart_policy": {
+          "Name": "always",
+          "MaximumRetryCount": 0
+        },
+        "network": "homeassistant_ha_net",
+        "ports": {
+          "10300/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "10300"
+            },
+            {
+              "HostIp": "::",
+              "HostPort": "10300"
+            }
+          ]
+        },
+        "mount_destinations": []
+      }
+    ],
+    "resource_window": "awaiting fresh existing Core writer readback; no engine restart"
+  },
+  "after": {
+    "time": "2026-10-16T00:06:02.124906+00:00",
+    "host_networking_enabled": false,
+    "containers": [
+      {
+        "name": "djc-apple-presence-resume-20261014-portfix",
+        "same_id": true,
+        "same_image": true,
+        "same_restart_policy": true,
+        "same_network": true,
+        "running": true
+      },
+      {
+        "name": "homeassistant",
+        "same_id": true,
+        "same_image": true,
+        "same_restart_policy": true,
+        "same_network": true,
+        "running": true
+      },
+      {
+        "name": "music-assistant-server",
+        "same_id": true,
+        "same_image": true,
+        "same_restart_policy": true,
+        "same_network": true,
+        "running": true
+      },
+      {
+        "name": "wyoming-piper",
+        "same_id": true,
+        "same_image": true,
+        "same_restart_policy": true,
+        "same_network": true,
+        "running": true
+      },
+      {
+        "name": "wyoming-whisper",
+        "same_id": true,
+        "same_image": true,
+        "same_restart_policy": true,
+        "same_network": true,
+        "running": true
+      }
+    ],
+    "setting_keys_changed": [
+      "HostNetworkingEnabled"
+    ],
+    "temporary_probe_absent": true,
+    "pi_observed_raw_peer": "127.0.0.1"
+  },
+  "mac_probe": {
+    "raw_peer": "127.0.0.1",
+    "interfaces": [
+      {
+        "name": "lo",
+        "address": "127.0.0.1",
+        "mask": "255.0.0.0"
+      },
+      {
+        "name": "eth0",
+        "address": "192.168.65.3",
+        "mask": "255.255.255.0"
+      },
+      {
+        "name": "services1",
+        "address": "192.168.65.6",
+        "mask": "255.255.255.255"
+      },
+      {
+        "name": "br-3c6b9c1e51d9",
+        "address": "172.19.0.1",
+        "mask": "255.255.0.0"
+      },
+      {
+        "name": "docker0",
+        "address": "172.17.0.1",
+        "mask": "255.255.0.0"
+      },
+      {
+        "name": "br-1cf7ebf048b2",
+        "address": "172.18.0.1",
+        "mask": "255.255.0.0"
+      }
+    ]
+  },
+  "pi_probe": {
+    "raw_peer": "127.0.0.1",
+    "interfaces": [
+      {
+        "name": "lo",
+        "address": "127.0.0.1",
+        "mask": "255.0.0.0"
+      },
+      {
+        "name": "eth0",
+        "address": "192.168.65.3",
+        "mask": "255.255.255.0"
+      },
+      {
+        "name": "services1",
+        "address": "192.168.65.6",
+        "mask": "255.255.255.255"
+      },
+      {
+        "name": "br-3c6b9c1e51d9",
+        "address": "172.19.0.1",
+        "mask": "255.255.0.0"
+      },
+      {
+        "name": "docker0",
+        "address": "172.17.0.1",
+        "mask": "255.255.0.0"
+      },
+      {
+        "name": "br-1cf7ebf048b2",
+        "address": "172.18.0.1",
+        "mask": "255.255.0.0"
+      }
+    ]
+  },
+  "result": "NEGATIVE_SOURCE_PRESERVATION: actual Pi LAN appears127.0.0.1 even in enabled Desktop host mode; no qualification fabricated. Original setting restored via official UI; exact original containers preserved.",
+  "limits": "Raw-peer result from isolated probe, not actual HA paired localWS or native iPad network transition. HA frontend200 only; no audio/provider/APNsdelivery PASS."
+}

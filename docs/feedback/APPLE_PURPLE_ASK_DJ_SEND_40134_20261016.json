@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "source_parent": "3f3b47f",
+  "request": "Make Ask DJ send button solid purple instead of blue/purple gradient.",
+  "change": "Optional primaryFill on existing DJConnectButtonStyle, supplied only by AskDJInputBar send button with existing djConnectButtonPurple. Existing shared primary gradient remains the default. Send, pending, disabled, pressed, focus, editor and voice behavior unchanged.",
+  "build": "40134",
+  "manifest": "build/recovery/iphone40134-selective-source-manifest-20261016.json",
+  "baseline_files_verified": 452,
+  "signed_ios_watch_build": "PASS",
+  "build_log": "/private/tmp/djc-ios-40134-purple-send-build.log",
+  "strict_deep_codesign": "PASS",
+  "candidate_executable_sha256": "51af93c7f6507c6c4a8061a485c8ccd1e485832c4390102153dd0b763b00d759",
+  "installed_device": "Peter-iPhone17Pro",
+  "installed_version": "4.0.0/40134",
+  "install": "/private/tmp/djc-iphone-40134-install.json",
+  "fresh_readback": "/private/tmp/djc-iphone-40134-readback.json",
+  "physical_test": {
+    "result": "PASS",
+    "seconds": 7.932,
+    "xcresult": "/private/tmp/djc-iphone-40134-purple-send-20261016.xcresult",
+    "screenshot_actually_viewed": "/private/tmp/djc-iphone-40134-purple-send-attachments/3724BD2C-6E63-4B59-89C3-2FB46418E686.png",
+    "observation": "Send button visibly uniform purple with no blue gradient. Ordinary empty composer, disabled state with existing40percent opacity."
+  },
+  "limits": "Enabled/sending/pressed states not physically exercised. No draft entry, send, playback or provider action. No unit tests for reversible scoped color-only change. Other devices not installed.",
+  "native_probe_restored": true,
+  "publication": "Local commit only; no push, PR, merge or Core changes."
+}

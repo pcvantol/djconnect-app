@@ -1,0 +1,42 @@
+{
+  "status": "PRODUCER_ARTWORK_GAP_IDENTIFIED_AND_AUTHORIZED_CORE_HANDOFF_SENT; repair and physical acceptance pending",
+  "apple_source_head": "c5098bce3d1ebf0601bf700fd1a41081dc8a40af",
+  "reported_device": "iPhone, explicitly confirmed by user",
+  "symptom": "Discover: Meer zoals je eerdere keuzes; By a Monster\u2019s Hand / Volbeat has a fixed placeholder while artist cards above contain images",
+  "evidence": [
+    "User screenshot inspected in conversation; no inference of download failure versus absent URL from placeholder alone",
+    "HA-dev persisted compact Music DNA contains the exact reported recommendation_plays item, with no image_url, artwork/_artwork or album_uri",
+    "Within that same owner memory the exact track uri occurs only in recommendation_plays, with no current exact listening-profile artwork reference to reuse",
+    "Apple optional image decoder and view show a placeholder when imageURL is absent or loading fails",
+    "Core recommendation recording only reuses existing qualified exact-owner listening artwork; Discover projection removes raw image_url and grants an image only from valid private reference+guard"
+  ],
+  "scope_limits": [
+    "Current iPhone wire payload, image HTTP status and app version not captured; persisted HA-dev data/source diagnosis is not full physical/network acceptance",
+    "Mac app diagnostic could not authenticate because its persisted token was absent; no repair/re-pair/credential injection attempted",
+    "Byte comparison concerns files on disk, not proof of a newly imported runtime version",
+    "No arbitrary/local artwork lookup, provider request, borrowed current-playback image, source-right relaxation or fabricated cover"
+  ],
+  "core_readback": {
+    "working_head": "417e68b470c971bebd6cc48aeeccfaae181d817b",
+    "HA_dev_files_equal_repository": true,
+    "sha256": {
+      "music_dna.py": "2fdb38693e1de8876aaf5ba16e5ddd62feb888133377a60922f8d9457de77bfe",
+      "music_discovery.py": "c29433a74e0eb4a6cf216db1a6b057e0a24d67e13f57db74a0972c4b1ac39535",
+      "discovery_artwork.py": "042253c840f5d5032b2cfd97cd3b90d77075d343f86b39851072ae9a176cf585"
+    }
+  },
+  "handoff": {
+    "human_authorization": "Ja, geef door voor herstel",
+    "thread_id": "01a120e2-b557-76c3-8568-129dbce2f2d2",
+    "sent": true,
+    "requested": "Bounded producer repair for exact track/album-owner artwork and legacy accepted-record hydration; canonical contract/docs first if changed; source/expiry/privacy limits preserved; no new publication/deploy authority",
+    "acceptance_remaining": "Concrete qualified Core pin/receipt, fresh private feed artwork, then iPhone rendering of the reported card"
+  },
+  "effects": "Apple docs-only local receipt; no app/Core code/config changes, install, playback, send of a DJ command, automation change, push/PR/merge or cleanup",
+  "storage": {
+    "df_internal": "13GiB",
+    "df_EP_DATA": "29GiB",
+    "note": "Fresh snapshot; no cleanup by this task or own storage gain claimed"
+  },
+  "safety": "Sole writer/current branch preserved; untracked DJConnectApp 2/3.xcodeproj kept; only current/main refs previously merged, none deleted"
+}

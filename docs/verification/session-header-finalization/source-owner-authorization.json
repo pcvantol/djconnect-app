@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "kind": "trusted_delivery_owner_authorization",
+  "repository": "pcvantol/djconnect-app",
+  "branch": "main",
+  "pr_number": 101,
+  "candidate_sha": "c5af1f07c8440a6e6f90b0a186d04aaea07f0dd4",
+  "classification": "HIGH_RISK",
+  "owner": "pcvantol",
+  "github_actor": "pcvantol",
+  "workflow_run_id": "38210333937",
+  "timestamp": "2026-10-12T05:58:54.100Z",
+  "result": "PASS"
+}

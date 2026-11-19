@@ -1,0 +1,1552 @@
+{
+  "producer_sha": "ee05c9422cd7a7a08bbe769925248632fa651961",
+  "classification": "PRODUCER_GENERATED_SYNTHETIC_RECEIPT",
+  "runtime": {
+    "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+    "room": "",
+    "selected_mood": "groove",
+    "music_backend": "spotify_direct",
+    "runtime_state": "active",
+    "started_at": "2026-10-08T11:03:40.654407+00:00",
+    "planner": {
+      "planner_state": "ready",
+      "planning_horizon_minutes": 15,
+      "created_at": "2026-10-08T11:03:40.654195+00:00",
+      "last_replan_at": "2026-10-08T11:03:40.654720+00:00",
+      "current_goal": "",
+      "configuration": {
+        "minimum_time_between_moments_seconds": 60.0,
+        "maximum_track_context_per_track": 1,
+        "allow_consecutive_silence": true,
+        "recommendation_preference": "balanced",
+        "exploration_preference": "balanced",
+        "energy_preference": "balanced",
+        "interaction_profile": "balanced"
+      },
+      "pending_events": [],
+      "output": {
+        "session_flow": {
+          "flow_id": "flow-session-67bb08b71fee41f69cc2c5c2f445b94d",
+          "flow_revision": 1,
+          "planning_horizon_minutes": 15,
+          "created_at": "2026-10-08T11:03:40.654720+00:00",
+          "items": [
+            {
+              "item_id": "now-current-track",
+              "item_type": "current_track",
+              "position": "now",
+              "label": "Current Track"
+            },
+            {
+              "item_id": "next-planning-horizon",
+              "item_type": "planning_horizon",
+              "position": "next",
+              "label": "Planning Horizon"
+            },
+            {
+              "item_id": "next-maintain-direction",
+              "item_type": "maintain_direction",
+              "position": "next",
+              "label": "Maintain Direction"
+            },
+            {
+              "item_id": "later-future-direction",
+              "item_type": "future_direction",
+              "position": "later",
+              "label": "Future Direction"
+            },
+            {
+              "item_id": "later-future-placeholder",
+              "item_type": "future_placeholder",
+              "position": "later",
+              "label": "Future Placeholder"
+            },
+            {
+              "item_id": "moment-moment-a91f877122dc4e3a98f21ac61bc3d272",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "soul",
+              "moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+              "moment_type": "genre"
+            }
+          ]
+        }
+      }
+    },
+    "broadcast": {
+      "session": {
+        "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+        "runtime_state": "active",
+        "selected_mood": "groove",
+        "locale": "nl"
+      },
+      "playback": {
+        "state": "playing",
+        "item_id": "8d7f459852f91b95e811e2e5",
+        "title": "Current",
+        "artist": "Artist",
+        "album": "Album",
+        "artwork_url": "/api/djconnect/v1/image_proxy/test-cover",
+        "updated_at": "2026-10-08T11:03:40.654499+00:00",
+        "duration_ms": 240000,
+        "position_ms": 0
+      },
+      "planner": {
+        "planning_state": "ready",
+        "planning_horizon_minutes": 15,
+        "current_direction": "maintaining_energy",
+        "session_direction": {
+          "direction": "maintaining_energy",
+          "initialized_at": "2026-10-08T11:03:40.654195+00:00",
+          "updated_at": "2026-10-08T11:03:40.654195+00:00",
+          "start_strategy": "manual"
+        }
+      },
+      "session_flow": {
+        "flow_id": "flow-session-67bb08b71fee41f69cc2c5c2f445b94d",
+        "flow_revision": 1,
+        "planning_horizon_minutes": 15,
+        "created_at": "2026-10-08T11:03:40.654720+00:00",
+        "items": [
+          {
+            "item_id": "now-current-track",
+            "item_type": "current_track",
+            "position": "now",
+            "label": "Current Track"
+          },
+          {
+            "item_id": "next-planning-horizon",
+            "item_type": "planning_horizon",
+            "position": "next",
+            "label": "Planning Horizon"
+          },
+          {
+            "item_id": "next-maintain-direction",
+            "item_type": "maintain_direction",
+            "position": "next",
+            "label": "Maintain Direction"
+          },
+          {
+            "item_id": "later-future-direction",
+            "item_type": "future_direction",
+            "position": "later",
+            "label": "Future Direction"
+          },
+          {
+            "item_id": "later-future-placeholder",
+            "item_type": "future_placeholder",
+            "position": "later",
+            "label": "Future Placeholder"
+          },
+          {
+            "item_id": "moment-moment-a91f877122dc4e3a98f21ac61bc3d272",
+            "item_type": "dj_moment",
+            "position": "next",
+            "label": "soul",
+            "moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+            "moment_type": "genre"
+          }
+        ]
+      },
+      "audience": {
+        "signal_totals": {},
+        "recent_activity": []
+      },
+      "dj_moments": [
+        {
+          "moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+          "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+          "created_at": "2026-10-08T11:03:40.654685+00:00",
+          "type": "genre",
+          "knowledge_intent": {
+            "type": "genre_story",
+            "goal": "Explain relevant genre context."
+          },
+          "presentation_intent": {
+            "source_session_mood": "groove",
+            "dj_persona": "home_dj",
+            "tone_of_voice": "warm and conversational",
+            "energy_level": "groove",
+            "delivery_style": "short contextual music story",
+            "voice_style": "persona-guided",
+            "visual_theme": "music-context",
+            "importance": "normal",
+            "maximum_duration_seconds": 45,
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "visibility": "session_shared"
+          },
+          "title": "soul",
+          "summary": "Genre: soul",
+          "content": "De genrecontext bij Current van Artist is soul.",
+          "artwork": null,
+          "actions": [
+            {
+              "action_type": "explore_genre",
+              "label": "Explore Genre",
+              "icon_hint": "music.note.list",
+              "priority": 1,
+              "required_capability": "music_context",
+              "payload": {}
+            },
+            {
+              "action_type": "ask_dj",
+              "label": "Vraag de dj",
+              "icon_hint": "sparkles",
+              "priority": 1,
+              "required_capability": "ask_dj",
+              "payload": {
+                "title": "Current",
+                "artist": "Artist",
+                "album": "Album"
+              }
+            },
+            {
+              "action_type": "tell_me_more",
+              "label": "Vertel me meer",
+              "icon_hint": "info",
+              "priority": 2,
+              "required_capability": "ask_dj",
+              "payload": {
+                "title": "Current",
+                "artist": "Artist",
+                "album": "Album"
+              }
+            }
+          ],
+          "visibility": "session_shared",
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "importance": "normal",
+          "source_references": [
+            "track_insight"
+          ],
+          "generation_metadata": {
+            "provider": "track_insight",
+            "track_title": "Current",
+            "artist": "Artist",
+            "album": "Album",
+            "genre": "soul",
+            "recommendation": "",
+            "validated": "true"
+          },
+          "playback_item_id": "8d7f459852f91b95e811e2e5"
+        }
+      ],
+      "presentations": [
+        {
+          "presentation_id": "presentation-moment-a91f877122dc4e3a98f21ac61bc3d272",
+          "source_moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+          "source_moment_type": "genre",
+          "visibility": "session_shared",
+          "speech": {
+            "mode": "primary_only",
+            "segments": [
+              {
+                "ordinal": 1,
+                "speaker_role": "dj",
+                "text": "De genrecontext bij Current van Artist is soul."
+              }
+            ]
+          }
+        }
+      ],
+      "broadcast": {
+        "started_at": "2026-10-08T11:03:40.654195+00:00",
+        "snapshot_watermark": 8
+      }
+    }
+  },
+  "snapshot": {
+    "session": {
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "runtime_state": "active",
+      "selected_mood": "groove",
+      "locale": "nl"
+    },
+    "playback": {
+      "state": "playing",
+      "item_id": "8d7f459852f91b95e811e2e5",
+      "title": "Current",
+      "artist": "Artist",
+      "album": "Album",
+      "artwork_url": "/api/djconnect/v1/image_proxy/test-cover",
+      "updated_at": "2026-10-08T11:03:40.654499+00:00",
+      "duration_ms": 240000,
+      "position_ms": 0
+    },
+    "planner": {
+      "planning_state": "ready",
+      "planning_horizon_minutes": 15,
+      "current_direction": "maintaining_energy",
+      "session_direction": {
+        "direction": "maintaining_energy",
+        "initialized_at": "2026-10-08T11:03:40.654195+00:00",
+        "updated_at": "2026-10-08T11:03:40.654195+00:00",
+        "start_strategy": "manual"
+      }
+    },
+    "session_flow": {
+      "flow_id": "flow-session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "flow_revision": 1,
+      "planning_horizon_minutes": 15,
+      "created_at": "2026-10-08T11:03:40.654720+00:00",
+      "items": [
+        {
+          "item_id": "now-current-track",
+          "item_type": "current_track",
+          "position": "now",
+          "label": "Current Track"
+        },
+        {
+          "item_id": "next-planning-horizon",
+          "item_type": "planning_horizon",
+          "position": "next",
+          "label": "Planning Horizon"
+        },
+        {
+          "item_id": "next-maintain-direction",
+          "item_type": "maintain_direction",
+          "position": "next",
+          "label": "Maintain Direction"
+        },
+        {
+          "item_id": "later-future-direction",
+          "item_type": "future_direction",
+          "position": "later",
+          "label": "Future Direction"
+        },
+        {
+          "item_id": "later-future-placeholder",
+          "item_type": "future_placeholder",
+          "position": "later",
+          "label": "Future Placeholder"
+        },
+        {
+          "item_id": "moment-moment-a91f877122dc4e3a98f21ac61bc3d272",
+          "item_type": "dj_moment",
+          "position": "next",
+          "label": "soul",
+          "moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+          "moment_type": "genre"
+        }
+      ]
+    },
+    "audience": {
+      "signal_totals": {},
+      "recent_activity": []
+    },
+    "dj_moments": [
+      {
+        "moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+        "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+        "created_at": "2026-10-08T11:03:40.654685+00:00",
+        "type": "genre",
+        "knowledge_intent": {
+          "type": "genre_story",
+          "goal": "Explain relevant genre context."
+        },
+        "presentation_intent": {
+          "source_session_mood": "groove",
+          "dj_persona": "home_dj",
+          "tone_of_voice": "warm and conversational",
+          "energy_level": "groove",
+          "delivery_style": "short contextual music story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 45,
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "visibility": "session_shared"
+        },
+        "title": "soul",
+        "summary": "Genre: soul",
+        "content": "De genrecontext bij Current van Artist is soul.",
+        "artwork": null,
+        "actions": [
+          {
+            "action_type": "explore_genre",
+            "label": "Explore Genre",
+            "icon_hint": "music.note.list",
+            "priority": 1,
+            "required_capability": "music_context",
+            "payload": {}
+          },
+          {
+            "action_type": "ask_dj",
+            "label": "Vraag de dj",
+            "icon_hint": "sparkles",
+            "priority": 1,
+            "required_capability": "ask_dj",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          },
+          {
+            "action_type": "tell_me_more",
+            "label": "Vertel me meer",
+            "icon_hint": "info",
+            "priority": 2,
+            "required_capability": "ask_dj",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          }
+        ],
+        "visibility": "session_shared",
+        "delivery_channels": [
+          "broadcast",
+          "owner",
+          "shared"
+        ],
+        "importance": "normal",
+        "source_references": [
+          "track_insight"
+        ],
+        "generation_metadata": {
+          "provider": "track_insight",
+          "track_title": "Current",
+          "artist": "Artist",
+          "album": "Album",
+          "genre": "soul",
+          "recommendation": "",
+          "validated": "true"
+        },
+        "playback_item_id": "8d7f459852f91b95e811e2e5"
+      }
+    ],
+    "presentations": [
+      {
+        "presentation_id": "presentation-moment-a91f877122dc4e3a98f21ac61bc3d272",
+        "source_moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+        "source_moment_type": "genre",
+        "visibility": "session_shared",
+        "speech": {
+          "mode": "primary_only",
+          "segments": [
+            {
+              "ordinal": 1,
+              "speaker_role": "dj",
+              "text": "De genrecontext bij Current van Artist is soul."
+            }
+          ]
+        }
+      }
+    ],
+    "broadcast": {
+      "started_at": "2026-10-08T11:03:40.654195+00:00",
+      "snapshot_watermark": 8
+    }
+  },
+  "events": [
+    {
+      "event_type": "playback_changed",
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "delivery_sequence": 9,
+      "payload": {
+        "playback": {
+          "state": "playing",
+          "item_id": "8d7f459852f91b95e811e2e5",
+          "title": "Current",
+          "artist": "Artist",
+          "album": "Album",
+          "artwork_url": "/api/djconnect/v1/image_proxy/test-cover",
+          "updated_at": "2026-10-08T11:03:40.654840+00:00",
+          "duration_ms": 240000,
+          "position_ms": 30000
+        }
+      }
+    },
+    {
+      "event_type": "planner_updated",
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "delivery_sequence": 10,
+      "payload": {
+        "planner": {
+          "planning_state": "ready",
+          "planning_horizon_minutes": 15,
+          "current_direction": "maintaining_energy",
+          "session_direction": {
+            "direction": "maintaining_energy",
+            "initialized_at": "2026-10-08T11:03:40.654195+00:00",
+            "updated_at": "2026-10-08T11:03:40.654195+00:00",
+            "start_strategy": "manual"
+          }
+        }
+      }
+    },
+    {
+      "event_type": "session_flow_updated",
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "delivery_sequence": 11,
+      "payload": {
+        "session_flow": {
+          "flow_id": "flow-session-67bb08b71fee41f69cc2c5c2f445b94d",
+          "flow_revision": 2,
+          "planning_horizon_minutes": 15,
+          "created_at": "2026-10-08T11:03:40.654965+00:00",
+          "items": [
+            {
+              "item_id": "now-current-track",
+              "item_type": "current_track",
+              "position": "now",
+              "label": "Current Track"
+            },
+            {
+              "item_id": "next-planning-horizon",
+              "item_type": "planning_horizon",
+              "position": "next",
+              "label": "Planning Horizon"
+            },
+            {
+              "item_id": "next-maintain-direction",
+              "item_type": "maintain_direction",
+              "position": "next",
+              "label": "Maintain Direction"
+            },
+            {
+              "item_id": "later-future-direction",
+              "item_type": "future_direction",
+              "position": "later",
+              "label": "Future Direction"
+            },
+            {
+              "item_id": "later-future-placeholder",
+              "item_type": "future_placeholder",
+              "position": "later",
+              "label": "Future Placeholder"
+            },
+            {
+              "item_id": "moment-moment-a91f877122dc4e3a98f21ac61bc3d272",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "soul",
+              "moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+              "moment_type": "genre"
+            },
+            {
+              "item_id": "moment-moment-82c98952e1504061b5c528454e529291",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "Current — Artist",
+              "moment_id": "moment-82c98952e1504061b5c528454e529291",
+              "moment_type": "track"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "event_type": "dj_moment_published",
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "delivery_sequence": 12,
+      "payload": {
+        "dj_moment": {
+          "moment_id": "moment-82c98952e1504061b5c528454e529291",
+          "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+          "created_at": "2026-10-08T11:03:40.654937+00:00",
+          "type": "track",
+          "knowledge_intent": {
+            "type": "track_context",
+            "goal": "Add one distinct, source-backed perspective on the current track."
+          },
+          "presentation_intent": {
+            "source_session_mood": "groove",
+            "dj_persona": "home_dj",
+            "tone_of_voice": "warm and conversational",
+            "energy_level": "groove",
+            "delivery_style": "short contextual music story",
+            "voice_style": "persona-guided",
+            "visual_theme": "music-context",
+            "importance": "normal",
+            "maximum_duration_seconds": 25,
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "visibility": "session_shared"
+          },
+          "title": "Current — Artist",
+          "summary": "A measured bass line anchors the song.",
+          "content": "The bass and percussion leave space for the melody.",
+          "artwork": null,
+          "actions": [
+            {
+              "action_type": "ask_dj",
+              "label": "Vraag de dj",
+              "icon_hint": "sparkles",
+              "priority": 1,
+              "required_capability": "ask_dj",
+              "payload": {
+                "title": "Current",
+                "artist": "Artist",
+                "album": "Album"
+              }
+            },
+            {
+              "action_type": "tell_me_more",
+              "label": "Vertel me meer",
+              "icon_hint": "info",
+              "priority": 2,
+              "required_capability": "ask_dj",
+              "payload": {
+                "title": "Current",
+                "artist": "Artist",
+                "album": "Album"
+              }
+            },
+            {
+              "action_type": "show_artist",
+              "label": "Toon artiest",
+              "icon_hint": "person",
+              "priority": 3,
+              "required_capability": "music_context",
+              "payload": {
+                "title": "Current",
+                "artist": "Artist",
+                "album": "Album"
+              }
+            },
+            {
+              "action_type": "show_album",
+              "label": "Toon album",
+              "icon_hint": "rectangle.stack",
+              "priority": 4,
+              "required_capability": "music_context",
+              "payload": {
+                "title": "Current",
+                "artist": "Artist",
+                "album": "Album"
+              }
+            },
+            {
+              "action_type": "show_track",
+              "label": "Toon nummer",
+              "icon_hint": "music.note",
+              "priority": 5,
+              "required_capability": "music_context",
+              "payload": {
+                "title": "Current",
+                "artist": "Artist",
+                "album": "Album"
+              }
+            }
+          ],
+          "visibility": "session_shared",
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "importance": "normal",
+          "source_references": [
+            "track_insight"
+          ],
+          "generation_metadata": {
+            "provider": "track_insight",
+            "track_title": "Current",
+            "artist": "Artist",
+            "album": "Album",
+            "genre": "soul",
+            "recommendation": "",
+            "validated": "true"
+          },
+          "playback_item_id": "8d7f459852f91b95e811e2e5"
+        }
+      }
+    },
+    {
+      "event_type": "presentation_published",
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "delivery_sequence": 13,
+      "payload": {
+        "presentation": {
+          "presentation_id": "presentation-moment-82c98952e1504061b5c528454e529291",
+          "source_moment_id": "moment-82c98952e1504061b5c528454e529291",
+          "source_moment_type": "track",
+          "visibility": "session_shared",
+          "speech": {
+            "mode": "primary_only",
+            "segments": [
+              {
+                "ordinal": 1,
+                "speaker_role": "dj",
+                "text": "The bass and percussion leave space for the melody."
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "updated_snapshot": {
+    "session": {
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "runtime_state": "active",
+      "selected_mood": "groove",
+      "locale": "nl"
+    },
+    "playback": {
+      "state": "playing",
+      "item_id": "8d7f459852f91b95e811e2e5",
+      "title": "Current",
+      "artist": "Artist",
+      "album": "Album",
+      "artwork_url": "/api/djconnect/v1/image_proxy/test-cover",
+      "updated_at": "2026-10-08T11:03:40.654840+00:00",
+      "duration_ms": 240000,
+      "position_ms": 30000
+    },
+    "planner": {
+      "planning_state": "ready",
+      "planning_horizon_minutes": 15,
+      "current_direction": "maintaining_energy",
+      "session_direction": {
+        "direction": "maintaining_energy",
+        "initialized_at": "2026-10-08T11:03:40.654195+00:00",
+        "updated_at": "2026-10-08T11:03:40.654195+00:00",
+        "start_strategy": "manual"
+      }
+    },
+    "session_flow": {
+      "flow_id": "flow-session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "flow_revision": 2,
+      "planning_horizon_minutes": 15,
+      "created_at": "2026-10-08T11:03:40.654965+00:00",
+      "items": [
+        {
+          "item_id": "now-current-track",
+          "item_type": "current_track",
+          "position": "now",
+          "label": "Current Track"
+        },
+        {
+          "item_id": "next-planning-horizon",
+          "item_type": "planning_horizon",
+          "position": "next",
+          "label": "Planning Horizon"
+        },
+        {
+          "item_id": "next-maintain-direction",
+          "item_type": "maintain_direction",
+          "position": "next",
+          "label": "Maintain Direction"
+        },
+        {
+          "item_id": "later-future-direction",
+          "item_type": "future_direction",
+          "position": "later",
+          "label": "Future Direction"
+        },
+        {
+          "item_id": "later-future-placeholder",
+          "item_type": "future_placeholder",
+          "position": "later",
+          "label": "Future Placeholder"
+        },
+        {
+          "item_id": "moment-moment-a91f877122dc4e3a98f21ac61bc3d272",
+          "item_type": "dj_moment",
+          "position": "next",
+          "label": "soul",
+          "moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+          "moment_type": "genre"
+        },
+        {
+          "item_id": "moment-moment-82c98952e1504061b5c528454e529291",
+          "item_type": "dj_moment",
+          "position": "next",
+          "label": "Current — Artist",
+          "moment_id": "moment-82c98952e1504061b5c528454e529291",
+          "moment_type": "track"
+        }
+      ]
+    },
+    "audience": {
+      "signal_totals": {},
+      "recent_activity": []
+    },
+    "dj_moments": [
+      {
+        "moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+        "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+        "created_at": "2026-10-08T11:03:40.654685+00:00",
+        "type": "genre",
+        "knowledge_intent": {
+          "type": "genre_story",
+          "goal": "Explain relevant genre context."
+        },
+        "presentation_intent": {
+          "source_session_mood": "groove",
+          "dj_persona": "home_dj",
+          "tone_of_voice": "warm and conversational",
+          "energy_level": "groove",
+          "delivery_style": "short contextual music story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 45,
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "visibility": "session_shared"
+        },
+        "title": "soul",
+        "summary": "Genre: soul",
+        "content": "De genrecontext bij Current van Artist is soul.",
+        "artwork": null,
+        "actions": [
+          {
+            "action_type": "explore_genre",
+            "label": "Explore Genre",
+            "icon_hint": "music.note.list",
+            "priority": 1,
+            "required_capability": "music_context",
+            "payload": {}
+          },
+          {
+            "action_type": "ask_dj",
+            "label": "Vraag de dj",
+            "icon_hint": "sparkles",
+            "priority": 1,
+            "required_capability": "ask_dj",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          },
+          {
+            "action_type": "tell_me_more",
+            "label": "Vertel me meer",
+            "icon_hint": "info",
+            "priority": 2,
+            "required_capability": "ask_dj",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          }
+        ],
+        "visibility": "session_shared",
+        "delivery_channels": [
+          "broadcast",
+          "owner",
+          "shared"
+        ],
+        "importance": "normal",
+        "source_references": [
+          "track_insight"
+        ],
+        "generation_metadata": {
+          "provider": "track_insight",
+          "track_title": "Current",
+          "artist": "Artist",
+          "album": "Album",
+          "genre": "soul",
+          "recommendation": "",
+          "validated": "true"
+        },
+        "playback_item_id": "8d7f459852f91b95e811e2e5"
+      },
+      {
+        "moment_id": "moment-82c98952e1504061b5c528454e529291",
+        "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+        "created_at": "2026-10-08T11:03:40.654937+00:00",
+        "type": "track",
+        "knowledge_intent": {
+          "type": "track_context",
+          "goal": "Add one distinct, source-backed perspective on the current track."
+        },
+        "presentation_intent": {
+          "source_session_mood": "groove",
+          "dj_persona": "home_dj",
+          "tone_of_voice": "warm and conversational",
+          "energy_level": "groove",
+          "delivery_style": "short contextual music story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 25,
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "visibility": "session_shared"
+        },
+        "title": "Current — Artist",
+        "summary": "A measured bass line anchors the song.",
+        "content": "The bass and percussion leave space for the melody.",
+        "artwork": null,
+        "actions": [
+          {
+            "action_type": "ask_dj",
+            "label": "Vraag de dj",
+            "icon_hint": "sparkles",
+            "priority": 1,
+            "required_capability": "ask_dj",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          },
+          {
+            "action_type": "tell_me_more",
+            "label": "Vertel me meer",
+            "icon_hint": "info",
+            "priority": 2,
+            "required_capability": "ask_dj",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          },
+          {
+            "action_type": "show_artist",
+            "label": "Toon artiest",
+            "icon_hint": "person",
+            "priority": 3,
+            "required_capability": "music_context",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          },
+          {
+            "action_type": "show_album",
+            "label": "Toon album",
+            "icon_hint": "rectangle.stack",
+            "priority": 4,
+            "required_capability": "music_context",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          },
+          {
+            "action_type": "show_track",
+            "label": "Toon nummer",
+            "icon_hint": "music.note",
+            "priority": 5,
+            "required_capability": "music_context",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          }
+        ],
+        "visibility": "session_shared",
+        "delivery_channels": [
+          "broadcast",
+          "owner",
+          "shared"
+        ],
+        "importance": "normal",
+        "source_references": [
+          "track_insight"
+        ],
+        "generation_metadata": {
+          "provider": "track_insight",
+          "track_title": "Current",
+          "artist": "Artist",
+          "album": "Album",
+          "genre": "soul",
+          "recommendation": "",
+          "validated": "true"
+        },
+        "playback_item_id": "8d7f459852f91b95e811e2e5"
+      }
+    ],
+    "presentations": [
+      {
+        "presentation_id": "presentation-moment-a91f877122dc4e3a98f21ac61bc3d272",
+        "source_moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+        "source_moment_type": "genre",
+        "visibility": "session_shared",
+        "speech": {
+          "mode": "primary_only",
+          "segments": [
+            {
+              "ordinal": 1,
+              "speaker_role": "dj",
+              "text": "De genrecontext bij Current van Artist is soul."
+            }
+          ]
+        }
+      },
+      {
+        "presentation_id": "presentation-moment-82c98952e1504061b5c528454e529291",
+        "source_moment_id": "moment-82c98952e1504061b5c528454e529291",
+        "source_moment_type": "track",
+        "visibility": "session_shared",
+        "speech": {
+          "mode": "primary_only",
+          "segments": [
+            {
+              "ordinal": 1,
+              "speaker_role": "dj",
+              "text": "The bass and percussion leave space for the melody."
+            }
+          ]
+        }
+      }
+    ],
+    "broadcast": {
+      "started_at": "2026-10-08T11:03:40.654195+00:00",
+      "snapshot_watermark": 13
+    }
+  },
+  "track_change_events": [
+    {
+      "event_type": "playback_changed",
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "delivery_sequence": 14,
+      "payload": {
+        "playback": {
+          "state": "playing",
+          "item_id": "1aa96530cfb5c517937c5735",
+          "title": "Next",
+          "artist": "Another Artist",
+          "album": "Next Album",
+          "updated_at": "2026-10-08T11:03:40.655051+00:00",
+          "duration_ms": 240000,
+          "position_ms": 0
+        }
+      }
+    },
+    {
+      "event_type": "planner_updated",
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "delivery_sequence": 15,
+      "payload": {
+        "planner": {
+          "planning_state": "ready",
+          "planning_horizon_minutes": 15,
+          "current_direction": "maintaining_energy",
+          "session_direction": {
+            "direction": "maintaining_energy",
+            "initialized_at": "2026-10-08T11:03:40.654195+00:00",
+            "updated_at": "2026-10-08T11:03:40.654195+00:00",
+            "start_strategy": "manual"
+          }
+        }
+      }
+    },
+    {
+      "event_type": "session_flow_updated",
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "delivery_sequence": 16,
+      "payload": {
+        "session_flow": {
+          "flow_id": "flow-session-67bb08b71fee41f69cc2c5c2f445b94d",
+          "flow_revision": 3,
+          "planning_horizon_minutes": 15,
+          "created_at": "2026-10-08T11:03:40.655337+00:00",
+          "items": [
+            {
+              "item_id": "now-current-track",
+              "item_type": "current_track",
+              "position": "now",
+              "label": "Current Track"
+            },
+            {
+              "item_id": "next-planning-horizon",
+              "item_type": "planning_horizon",
+              "position": "next",
+              "label": "Planning Horizon"
+            },
+            {
+              "item_id": "next-maintain-direction",
+              "item_type": "maintain_direction",
+              "position": "next",
+              "label": "Maintain Direction"
+            },
+            {
+              "item_id": "later-future-direction",
+              "item_type": "future_direction",
+              "position": "later",
+              "label": "Future Direction"
+            },
+            {
+              "item_id": "later-future-placeholder",
+              "item_type": "future_placeholder",
+              "position": "later",
+              "label": "Future Placeholder"
+            },
+            {
+              "item_id": "moment-moment-a91f877122dc4e3a98f21ac61bc3d272",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "soul",
+              "moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+              "moment_type": "genre"
+            },
+            {
+              "item_id": "moment-moment-82c98952e1504061b5c528454e529291",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "Current — Artist",
+              "moment_id": "moment-82c98952e1504061b5c528454e529291",
+              "moment_type": "track"
+            },
+            {
+              "item_id": "moment-moment-705afcd5299140f9af4f7a4e656b8dff",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "Stilte",
+              "moment_id": "moment-705afcd5299140f9af4f7a4e656b8dff",
+              "moment_type": "silence"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "event_type": "presentation_published",
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "delivery_sequence": 17,
+      "payload": {
+        "presentation": {
+          "presentation_id": "presentation-moment-705afcd5299140f9af4f7a4e656b8dff",
+          "source_moment_id": "moment-705afcd5299140f9af4f7a4e656b8dff",
+          "source_moment_type": "silence",
+          "visibility": "session_shared"
+        }
+      }
+    }
+  ],
+  "track_change_snapshot": {
+    "session": {
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "runtime_state": "active",
+      "selected_mood": "groove",
+      "locale": "nl"
+    },
+    "playback": {
+      "state": "playing",
+      "item_id": "1aa96530cfb5c517937c5735",
+      "title": "Next",
+      "artist": "Another Artist",
+      "album": "Next Album",
+      "updated_at": "2026-10-08T11:03:40.655051+00:00",
+      "duration_ms": 240000,
+      "position_ms": 0
+    },
+    "planner": {
+      "planning_state": "ready",
+      "planning_horizon_minutes": 15,
+      "current_direction": "maintaining_energy",
+      "session_direction": {
+        "direction": "maintaining_energy",
+        "initialized_at": "2026-10-08T11:03:40.654195+00:00",
+        "updated_at": "2026-10-08T11:03:40.654195+00:00",
+        "start_strategy": "manual"
+      }
+    },
+    "session_flow": {
+      "flow_id": "flow-session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "flow_revision": 3,
+      "planning_horizon_minutes": 15,
+      "created_at": "2026-10-08T11:03:40.655337+00:00",
+      "items": [
+        {
+          "item_id": "now-current-track",
+          "item_type": "current_track",
+          "position": "now",
+          "label": "Current Track"
+        },
+        {
+          "item_id": "next-planning-horizon",
+          "item_type": "planning_horizon",
+          "position": "next",
+          "label": "Planning Horizon"
+        },
+        {
+          "item_id": "next-maintain-direction",
+          "item_type": "maintain_direction",
+          "position": "next",
+          "label": "Maintain Direction"
+        },
+        {
+          "item_id": "later-future-direction",
+          "item_type": "future_direction",
+          "position": "later",
+          "label": "Future Direction"
+        },
+        {
+          "item_id": "later-future-placeholder",
+          "item_type": "future_placeholder",
+          "position": "later",
+          "label": "Future Placeholder"
+        },
+        {
+          "item_id": "moment-moment-a91f877122dc4e3a98f21ac61bc3d272",
+          "item_type": "dj_moment",
+          "position": "next",
+          "label": "soul",
+          "moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+          "moment_type": "genre"
+        },
+        {
+          "item_id": "moment-moment-82c98952e1504061b5c528454e529291",
+          "item_type": "dj_moment",
+          "position": "next",
+          "label": "Current — Artist",
+          "moment_id": "moment-82c98952e1504061b5c528454e529291",
+          "moment_type": "track"
+        },
+        {
+          "item_id": "moment-moment-705afcd5299140f9af4f7a4e656b8dff",
+          "item_type": "dj_moment",
+          "position": "next",
+          "label": "Stilte",
+          "moment_id": "moment-705afcd5299140f9af4f7a4e656b8dff",
+          "moment_type": "silence"
+        }
+      ]
+    },
+    "audience": {
+      "signal_totals": {},
+      "recent_activity": []
+    },
+    "dj_moments": [
+      {
+        "moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+        "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+        "created_at": "2026-10-08T11:03:40.654685+00:00",
+        "type": "genre",
+        "knowledge_intent": {
+          "type": "genre_story",
+          "goal": "Explain relevant genre context."
+        },
+        "presentation_intent": {
+          "source_session_mood": "groove",
+          "dj_persona": "home_dj",
+          "tone_of_voice": "warm and conversational",
+          "energy_level": "groove",
+          "delivery_style": "short contextual music story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 45,
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "visibility": "session_shared"
+        },
+        "title": "soul",
+        "summary": "Genre: soul",
+        "content": "De genrecontext bij Current van Artist is soul.",
+        "artwork": null,
+        "actions": [
+          {
+            "action_type": "explore_genre",
+            "label": "Explore Genre",
+            "icon_hint": "music.note.list",
+            "priority": 1,
+            "required_capability": "music_context",
+            "payload": {}
+          },
+          {
+            "action_type": "ask_dj",
+            "label": "Vraag de dj",
+            "icon_hint": "sparkles",
+            "priority": 1,
+            "required_capability": "ask_dj",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          },
+          {
+            "action_type": "tell_me_more",
+            "label": "Vertel me meer",
+            "icon_hint": "info",
+            "priority": 2,
+            "required_capability": "ask_dj",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          }
+        ],
+        "visibility": "session_shared",
+        "delivery_channels": [
+          "broadcast",
+          "owner",
+          "shared"
+        ],
+        "importance": "normal",
+        "source_references": [
+          "track_insight"
+        ],
+        "generation_metadata": {
+          "provider": "track_insight",
+          "track_title": "Current",
+          "artist": "Artist",
+          "album": "Album",
+          "genre": "soul",
+          "recommendation": "",
+          "validated": "true"
+        },
+        "playback_item_id": "8d7f459852f91b95e811e2e5"
+      },
+      {
+        "moment_id": "moment-82c98952e1504061b5c528454e529291",
+        "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+        "created_at": "2026-10-08T11:03:40.654937+00:00",
+        "type": "track",
+        "knowledge_intent": {
+          "type": "track_context",
+          "goal": "Add one distinct, source-backed perspective on the current track."
+        },
+        "presentation_intent": {
+          "source_session_mood": "groove",
+          "dj_persona": "home_dj",
+          "tone_of_voice": "warm and conversational",
+          "energy_level": "groove",
+          "delivery_style": "short contextual music story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 25,
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "visibility": "session_shared"
+        },
+        "title": "Current — Artist",
+        "summary": "A measured bass line anchors the song.",
+        "content": "The bass and percussion leave space for the melody.",
+        "artwork": null,
+        "actions": [
+          {
+            "action_type": "ask_dj",
+            "label": "Vraag de dj",
+            "icon_hint": "sparkles",
+            "priority": 1,
+            "required_capability": "ask_dj",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          },
+          {
+            "action_type": "tell_me_more",
+            "label": "Vertel me meer",
+            "icon_hint": "info",
+            "priority": 2,
+            "required_capability": "ask_dj",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          },
+          {
+            "action_type": "show_artist",
+            "label": "Toon artiest",
+            "icon_hint": "person",
+            "priority": 3,
+            "required_capability": "music_context",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          },
+          {
+            "action_type": "show_album",
+            "label": "Toon album",
+            "icon_hint": "rectangle.stack",
+            "priority": 4,
+            "required_capability": "music_context",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          },
+          {
+            "action_type": "show_track",
+            "label": "Toon nummer",
+            "icon_hint": "music.note",
+            "priority": 5,
+            "required_capability": "music_context",
+            "payload": {
+              "title": "Current",
+              "artist": "Artist",
+              "album": "Album"
+            }
+          }
+        ],
+        "visibility": "session_shared",
+        "delivery_channels": [
+          "broadcast",
+          "owner",
+          "shared"
+        ],
+        "importance": "normal",
+        "source_references": [
+          "track_insight"
+        ],
+        "generation_metadata": {
+          "provider": "track_insight",
+          "track_title": "Current",
+          "artist": "Artist",
+          "album": "Album",
+          "genre": "soul",
+          "recommendation": "",
+          "validated": "true"
+        },
+        "playback_item_id": "8d7f459852f91b95e811e2e5"
+      },
+      {
+        "moment_id": "moment-705afcd5299140f9af4f7a4e656b8dff",
+        "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+        "created_at": "2026-10-08T11:03:40.655282+00:00",
+        "type": "silence",
+        "knowledge_intent": {
+          "type": "silence",
+          "goal": "Do not interrupt the music."
+        },
+        "presentation_intent": {
+          "source_session_mood": "groove",
+          "dj_persona": "home_dj",
+          "tone_of_voice": "warm and conversational",
+          "energy_level": "groove",
+          "delivery_style": "short contextual music story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 25,
+          "delivery_channels": [
+            "broadcast",
+            "owner",
+            "shared"
+          ],
+          "visibility": "session_shared"
+        },
+        "title": "Stilte",
+        "summary": "De dj kiest er bewust voor de muziek niet te onderbreken.",
+        "content": "",
+        "artwork": null,
+        "actions": [],
+        "visibility": "session_shared",
+        "delivery_channels": [
+          "broadcast",
+          "owner",
+          "shared"
+        ],
+        "importance": "normal",
+        "source_references": [],
+        "generation_metadata": {
+          "reason": "planned_silence",
+          "validated": "true"
+        },
+        "playback_item_id": "1aa96530cfb5c517937c5735"
+      }
+    ],
+    "presentations": [
+      {
+        "presentation_id": "presentation-moment-a91f877122dc4e3a98f21ac61bc3d272",
+        "source_moment_id": "moment-a91f877122dc4e3a98f21ac61bc3d272",
+        "source_moment_type": "genre",
+        "visibility": "session_shared",
+        "speech": {
+          "mode": "primary_only",
+          "segments": [
+            {
+              "ordinal": 1,
+              "speaker_role": "dj",
+              "text": "De genrecontext bij Current van Artist is soul."
+            }
+          ]
+        }
+      },
+      {
+        "presentation_id": "presentation-moment-82c98952e1504061b5c528454e529291",
+        "source_moment_id": "moment-82c98952e1504061b5c528454e529291",
+        "source_moment_type": "track",
+        "visibility": "session_shared",
+        "speech": {
+          "mode": "primary_only",
+          "segments": [
+            {
+              "ordinal": 1,
+              "speaker_role": "dj",
+              "text": "The bass and percussion leave space for the melody."
+            }
+          ]
+        }
+      },
+      {
+        "presentation_id": "presentation-moment-705afcd5299140f9af4f7a4e656b8dff",
+        "source_moment_id": "moment-705afcd5299140f9af4f7a4e656b8dff",
+        "source_moment_type": "silence",
+        "visibility": "session_shared"
+      }
+    ],
+    "broadcast": {
+      "started_at": "2026-10-08T11:03:40.654195+00:00",
+      "snapshot_watermark": 17
+    }
+  },
+  "end_events": [
+    {
+      "event_type": "runtime_ended",
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "delivery_sequence": 18,
+      "payload": {
+        "session": {
+          "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+          "runtime_state": "ended",
+          "selected_mood": "groove",
+          "locale": "nl"
+        }
+      }
+    },
+    {
+      "event_type": "broadcast_stopped",
+      "session_id": "session-67bb08b71fee41f69cc2c5c2f445b94d",
+      "delivery_sequence": 19,
+      "payload": {
+        "broadcast": {
+          "started_at": "2026-10-08T11:03:40.654195+00:00",
+          "snapshot_watermark": 17
+        }
+      }
+    }
+  ]
+}

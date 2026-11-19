@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "parent_sha": "dd67275572e3b7310324bd35f6ecd87f8034d169",
+  "production_changed": false,
+  "producer_pin": "ccbb839f4e544b3739c31202685d147207e4c289",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "inspected_qualified_renders": 8,
+  "component_width": 358,
+  "host_width": 390,
+  "detail_height_normal": 103.66666666666666,
+  "detail_height_accessibility5": 467,
+  "integrated_owner_admission": false,
+  "voiceover_qualified": false,
+  "owned_device": "B62B723C-74D1-499C-AFA4-1FB5FF33ECD3",
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/SessionHistorySummaryView.swift",
+      "sha256": "70feee069c9f619db48b58f0405ea8a8c8367b40fae07a87e74892770a712b18"
+    },
+    {
+      "path": "Tools/qualification/native-history-summary/NativeHistorySummaryTests.swift",
+      "sha256": "531aad5c4e5f55d94debb3126a31baab68d65d7a9d30c5133ce6f3b40f1a6a03"
+    },
+    {
+      "path": "Tools/qualification/native-history-summary/README.md",
+      "sha256": "a7a7b9f1e9f230f1fe390d0f37dda02cdb38b1823675fce1b39b781eeb4d9e4b"
+    },
+    {
+      "path": "Tools/qualification/vibecast-product/prepare_native_consent_tests.py",
+      "sha256": "701dbc2688794c104d93696f174f6a12565b572479acc6ce99fb2a7bb4a3fb2f"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-summary-provenance.json",
+      "sha256": "bdb896e4264dac78919664699eb5d70e1ee13da19edf186f02a47ab875d89ee5"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-summary-final-list.json",
+      "sha256": "613464a3f2f8994e82f87903416034cfc24dd28c13fe0db19e48b513debe68a0"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-summary-final-detail.json",
+      "sha256": "8312a77c92036504cc6de15a0028b7f33017137aaf779874fc687df661e0cf5b"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-summary-summary-states.json",
+      "sha256": "86a54f42ca7d24e17b31d037ba4363cd5141cc1ff5c478d8a145e594ce5b289f"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/final.log",
+      "sha256": "a07f3232322f4d14ed3383e734497f9640f30dc9b18e4f0e2e1dff2edbd2cd36"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/final-summary.json",
+      "sha256": "8068a9107ce038fc6ace09ff150a48918ee6206a85d25250002cc3f740d91757"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/initial-test-source.swift",
+      "sha256": "912ebf0a9ecbf3b459f388b6a0804d7318790b4ff54500a163ea66c7c6c7334c"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/qualified.log",
+      "sha256": "8ee40368cdb905043c8a8ea9db2c06b5fe833b1cf8c4900093e2b98014407fcc"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/qualified-summary.json",
+      "sha256": "98ab358a3232152c7a9947b253eb2f490458eaa52d6ce10c1d1de55f062ace6f"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/project.json",
+      "sha256": "9edd401e1ff8f07da06eb30018540d4709b80a3e808484c847b75a1a2a8da531"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/final.xcresult/Info.plist",
+      "sha256": "db2143c66a7f490d6f6551df42650528f0e6f2b71b3b0943d3d6fc0c2c8d6303"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/final.xcresult/database.sqlite3",
+      "sha256": "79c30a7490ad70163426ab8560d8636502ad9c4e2bed7bd1d6386e40fe5e91bb"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/qualified.xcresult/Info.plist",
+      "sha256": "23e4ca38259da8faecb616a15a261c884c52af5b9be376667b9936ae5ae43696"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/qualified.xcresult/database.sqlite3",
+      "sha256": "9090d000f538813f4bad8a47b2115a6965e48acd324d79ffd9d84b784857b5d2"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations/native-summary-layout.json",
+      "sha256": "aabd22028bb2d54e8c08627c6a259846eff92a8ec29250b7cce9518930814a48"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations/summary-01-compact.png",
+      "sha256": "857e95b1777e080c7c8d922c9289a21573892126960cca4cd33770bee2da686a"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations/summary-02-detail.png",
+      "sha256": "ed2d26ce430e2960dd8e8619de12290dd5ace3a55d6375ffdc253d59299e7b05"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations/summary-03-accessibility5.png",
+      "sha256": "17acb9bc461e00c00112435edff80be16ed92b2fff1a045576efd87531c3fddf"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations/summary-04-french-accessibility5.png",
+      "sha256": "d6567f3cc385d085c80c48926db81e8a6014bce90bd523f9896d8a7136a6d859"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations/summary-05-zero.png",
+      "sha256": "7b8fe30578b8cf1e8d319a0a9d48c263c9375a7be2aa787140df862a07c92761"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations/summary-06-partial.png",
+      "sha256": "94b8eae88620bf79764e84709179dd913addc395ba3844bc4800a9ac8c10dc11"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations/summary-07-withdrawn.png",
+      "sha256": "75d3cb1166c2ebbcf0c5356236bad2cc3682ece91f339acf404edc4ffe609bc6"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations/summary-08-unknown.png",
+      "sha256": "eac76f6327add32d3b1cc066c4fe3c2b09ae11add8f1ded821b3bcdea06010e9"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations-qualified/native-summary-layout.json",
+      "sha256": "00e4c2adb5505b77bfbecfc22eb3af58b4ecb51114a29cc5fd7af1a79df7135d"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations-qualified/summary-01-compact.png",
+      "sha256": "857e95b1777e080c7c8d922c9289a21573892126960cca4cd33770bee2da686a"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations-qualified/summary-02-detail.png",
+      "sha256": "ed2d26ce430e2960dd8e8619de12290dd5ace3a55d6375ffdc253d59299e7b05"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations-qualified/summary-03-accessibility5.png",
+      "sha256": "52a8c3ed92f4edcf5301060f5bd74abf9ee97be1547bafc896b871433cf59671"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations-qualified/summary-04-french-accessibility5.png",
+      "sha256": "6b79bc18c5b925a5012f4c0c98d2bb5415d0c3dca3ef46e47fc99e8e49f15b1c"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations-qualified/summary-05-zero.png",
+      "sha256": "7b8fe30578b8cf1e8d319a0a9d48c263c9375a7be2aa787140df862a07c92761"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations-qualified/summary-06-partial.png",
+      "sha256": "94b8eae88620bf79764e84709179dd913addc395ba3844bc4800a9ac8c10dc11"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations-qualified/summary-07-withdrawn.png",
+      "sha256": "75d3cb1166c2ebbcf0c5356236bad2cc3682ece91f339acf404edc4ffe609bc6"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/observations-qualified/summary-08-unknown.png",
+      "sha256": "eac76f6327add32d3b1cc066c4fe3c2b09ae11add8f1ded821b3bcdea06010e9"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/derived/Build/Products/Debug-iphonesimulator/DJConnectUI.framework/DJConnectUI",
+      "sha256": "a5eba0e2db1c1a4182d64788b3197544c3214ab710e670d446700f4ae5d85e49"
+    },
+    {
+      "path": "/private/tmp/djc-native-summary-20261021/derived/Build/Products/Debug-iphonesimulator/NativeSummaryTests.xctest/NativeSummaryTests",
+      "sha256": "d70c462c58b017367c5aaca82a71a6766246a1851c8ed77eb1619a5455c8d0dc"
+    }
+  ]
+}

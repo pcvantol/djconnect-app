@@ -1,0 +1,19 @@
+{
+  "status": "SOURCE_CRASH_PROMPT_GLASS_CARD; iOS/macOS compile PASS; not installed",
+  "source_parent": "bef4b5f7f27ead665cfb90ba6b061667fc7d8786",
+  "change": "Crash warning, explanation, version, Open GitHub issue and Not now wrapped together in one padded djSessionFrostedSurface; existing brand banner remains above",
+  "accessibility_identifier": "crash-report-content-card",
+  "validation": {
+    "macOS": "DJConnectUI compile PASS13.53s",
+    "iOS": "DJConnectUI arm64 iOS26 target compile PASS13.98s",
+    "logs": [
+      "/private/tmp/djc-crash-prompt-glass-mac-20261016.log",
+      "/private/tmp/djc-crash-prompt-glass-ios-20261016.log"
+    ],
+    "diff_check": "PASS",
+    "new_tests": "None for this reversible container styling change"
+  },
+  "preserved": "Existing warning logic, disclosure, version, manual GitHub opening and dismissal actions unchanged; no issue opened or logs shared",
+  "evidence_boundaries": "Source/compile only; no app installation or native physical visual acceptance",
+  "effects": "Only local Apple source/receipt commit; no push/PR/merge, backend, provider, automation or cleanup"
+}

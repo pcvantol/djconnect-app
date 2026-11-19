@@ -1,0 +1,21 @@
+{
+  "source_pr": "https://github.com/pcvantol/djconnect-app/pull/113",
+  "reviewed_candidate": "0386dc89788b8ce35fa579c9761c1e8eda7d7cf0",
+  "source_main": "803d77c665701fc9fe3d3d5cc8ee0752597343a1",
+  "tree": "0ff7976d529517295f56df281721c305e64f8522",
+  "tree_equality": "PASS",
+  "remote_ref_matches_fetch": "PASS",
+  "installed_source_inputs": 276,
+  "input_mismatches": [],
+  "ci_run": 39109183076,
+  "owner_authorization": "NORMAL_RISK / NOT_REQUIRED; official exact-candidate status success",
+  "protected_merge": "PASS; no admin/bypass",
+  "post_merge_evidence": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+  "source_main_ci_run": 39109669813,
+  "source_main_ci": "PASS",
+  "source_main_coverage": "PASS exact main and independent ZIP digest",
+  "formal_run": 39110224530,
+  "durable_asset_sha256": "02961137011a5b6730b8d1f615ac3f88fec3f941b7ceb04454a26516e08d59fa",
+  "durable_canonical_integrity": "12340bffd6b45c7aaa24d2124cf656e69892d15997da1b45240c3f576764dc9d",
+  "required_formal_checks": "12/12 PASS"
+}

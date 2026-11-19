@@ -1,0 +1,40 @@
+{
+  "classification": "SYNTHETIC_PUBLIC_NATIVE_DATA_ONLY_NOT_GENUINE_KEY_PROOF_PARENT_OR_SDK_ADMISSION",
+  "producer_sha": "03323cdb2d515bb873dda964c03d875d654be17d",
+  "original": {
+    "version": "djc-host-app-wake-native/1",
+    "core_purpose_id": "fixture-original-display",
+    "operation_id": "11111111-1111-4111-8111-111111111111",
+    "generation": "fixture-original-generation",
+    "revision": 1,
+    "token_role": "host_app_wake",
+    "target": {
+      "host_bundle_id": "example.fixture.host",
+      "installation_id": "fixture-native-install"
+    },
+    "platform": "ipados",
+    "apns_environment": "sandbox",
+    "native_key_id_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+    "native_token_sha256": "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd",
+    "original_wake_issued_at_ms": 1800000000000,
+    "original_wake_expires_at_ms": 1800003600000,
+    "original_display_expires_at_ms": 1800007200000,
+    "paired_subject_binding_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "owner_binding": "2222222222222222222222222222222222222222222222222222222222222222",
+    "device_binding": "3333333333333333333333333333333333333333333333333333333333333333",
+    "source_binding": "4444444444444444444444444444444444444444444444444444444444444444",
+    "selected_ha_origin_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "identity_policy_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+    "deployment_policy_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+  },
+  "challenge": {
+    "challenge_id": "22222222-2222-4222-8222-222222222222",
+    "nonce_b64url": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "captured_at_ms": 1800000000000,
+    "expires_at_ms": 1800000030000
+  },
+  "native_proof_kind": "app_attest_attestation",
+  "canonical_transcript_utf8": "{\"challenge\":{\"captured_at_ms\":1800000000000,\"challenge_id\":\"22222222-2222-4222-8222-222222222222\",\"expires_at_ms\":1800000030000,\"nonce_b64url\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"},\"original\":{\"apns_environment\":\"sandbox\",\"core_purpose_id\":\"fixture-original-display\",\"deployment_policy_sha256\":\"7777777777777777777777777777777777777777777777777777777777777777\",\"device_binding\":\"3333333333333333333333333333333333333333333333333333333333333333\",\"generation\":\"fixture-original-generation\",\"identity_policy_sha256\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"native_key_id_b64\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=\",\"native_token_sha256\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\",\"operation_id\":\"11111111-1111-4111-8111-111111111111\",\"original_display_expires_at_ms\":1800007200000,\"original_wake_expires_at_ms\":1800003600000,\"original_wake_issued_at_ms\":1800000000000,\"owner_binding\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"paired_subject_binding_sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"platform\":\"ipados\",\"revision\":1,\"selected_ha_origin_sha256\":\"5555555555555555555555555555555555555555555555555555555555555555\",\"source_binding\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"target\":{\"host_bundle_id\":\"example.fixture.host\",\"installation_id\":\"fixture-native-install\"},\"token_role\":\"host_app_wake\",\"version\":\"djc-host-app-wake-native/1\"}}",
+  "client_data_sha256": "c0ad2efea348cbe2c0e88be04148ccd0d9d5ed459b15a62dba2c74ec59ed12f3",
+  "native_token_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+}

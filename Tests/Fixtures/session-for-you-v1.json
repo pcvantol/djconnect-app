@@ -1,0 +1,349 @@
+{
+  "session": {
+    "session_id": "session-752e76ca04824a02a6d640ada7eb6465",
+    "owner_profile_id": "profile-a",
+    "room": "",
+    "selected_mood": "groove",
+    "dj_persona": "home_dj",
+    "persona_revision": 0,
+    "locale": "nl",
+    "music_backend": "source-spotify",
+    "runtime_state": "active",
+    "created_at": "2026-11-05T16:13:04.035497+00:00",
+    "started_at": "2026-11-05T16:13:04.036084+00:00",
+    "session_start_strategy": "manual",
+    "initial_session_mood": "groove",
+    "mood_revision": 0,
+    "selected_presence": "balanced",
+    "presence_revision": 0,
+    "interaction_profile": "balanced",
+    "session_direction": {
+      "direction": "maintaining_energy",
+      "initialized_at": "2026-11-05T16:13:04.035497+00:00",
+      "updated_at": "2026-11-05T16:13:04.035497+00:00",
+      "start_strategy": "manual"
+    },
+    "discover_personalization_available": false,
+    "performance_memory": {
+      "source_flow_id": "flow-session-752e76ca04824a02a6d640ada7eb6465",
+      "recent_moment_ids": [],
+      "recent_moment_types": [],
+      "recent_artists": [],
+      "recent_albums": [],
+      "recent_genres": [],
+      "recent_recommendations": [],
+      "recent_session_directions": [],
+      "recent_silence_count": 0
+    },
+    "planner": {
+      "planner_state": "ready",
+      "planning_horizon_minutes": 15,
+      "created_at": "2026-11-05T16:13:04.035497+00:00",
+      "last_replan_at": "",
+      "current_goal": "",
+      "configuration": {
+        "minimum_time_between_moments_seconds": 60.0,
+        "maximum_track_context_per_track": 1,
+        "allow_consecutive_silence": true,
+        "recommendation_preference": "balanced",
+        "exploration_preference": "balanced",
+        "energy_preference": "balanced",
+        "interaction_profile": "balanced"
+      },
+      "pending_events": [],
+      "output": {
+        "session_flow": {
+          "flow_id": "flow-session-752e76ca04824a02a6d640ada7eb6465",
+          "flow_revision": 0,
+          "planning_horizon_minutes": 15,
+          "created_at": "2026-11-05T16:13:04.035497+00:00",
+          "items": [
+            {
+              "item_id": "now-current-track",
+              "item_type": "current_track",
+              "position": "now",
+              "label": "Current Track"
+            },
+            {
+              "item_id": "next-planning-horizon",
+              "item_type": "planning_horizon",
+              "position": "next",
+              "label": "Planning Horizon"
+            },
+            {
+              "item_id": "next-maintain-direction",
+              "item_type": "maintain_direction",
+              "position": "next",
+              "label": "Maintain Direction"
+            },
+            {
+              "item_id": "later-future-direction",
+              "item_type": "future_direction",
+              "position": "later",
+              "label": "Future Direction"
+            },
+            {
+              "item_id": "later-future-placeholder",
+              "item_type": "future_placeholder",
+              "position": "later",
+              "label": "Future Placeholder"
+            }
+          ]
+        }
+      }
+    },
+    "broadcast": {
+      "session": {
+        "session_id": "session-752e76ca04824a02a6d640ada7eb6465",
+        "runtime_state": "active",
+        "selected_mood": "groove",
+        "mood_revision": 0,
+        "selected_presence": "balanced",
+        "presence_revision": 0,
+        "dj_persona": "home_dj",
+        "persona_revision": 0,
+        "locale": "nl"
+      },
+      "playback": {
+        "state": "idle"
+      },
+      "planner": {
+        "planning_state": "ready",
+        "planning_horizon_minutes": 15,
+        "current_direction": "maintaining_energy",
+        "session_direction": {
+          "direction": "maintaining_energy",
+          "initialized_at": "2026-11-05T16:13:04.035497+00:00",
+          "updated_at": "2026-11-05T16:13:04.035497+00:00",
+          "start_strategy": "manual"
+        }
+      },
+      "session_flow": {
+        "flow_id": "flow-session-752e76ca04824a02a6d640ada7eb6465",
+        "flow_revision": 0,
+        "planning_horizon_minutes": 15,
+        "created_at": "2026-11-05T16:13:04.035497+00:00",
+        "items": [
+          {
+            "item_id": "now-current-track",
+            "item_type": "current_track",
+            "position": "now",
+            "label": "Current Track"
+          },
+          {
+            "item_id": "next-planning-horizon",
+            "item_type": "planning_horizon",
+            "position": "next",
+            "label": "Planning Horizon"
+          },
+          {
+            "item_id": "next-maintain-direction",
+            "item_type": "maintain_direction",
+            "position": "next",
+            "label": "Maintain Direction"
+          },
+          {
+            "item_id": "later-future-direction",
+            "item_type": "future_direction",
+            "position": "later",
+            "label": "Future Direction"
+          },
+          {
+            "item_id": "later-future-placeholder",
+            "item_type": "future_placeholder",
+            "position": "later",
+            "label": "Future Placeholder"
+          }
+        ]
+      },
+      "audience": {
+        "signal_totals": {},
+        "recent_activity": []
+      },
+      "dj_moments": [],
+      "presentations": [],
+      "broadcast": {
+        "started_at": "2026-11-05T16:13:04.035497+00:00",
+        "snapshot_watermark": 2
+      },
+      "native_delivery": {
+        "schema_version": 1,
+        "session_id": "session-752e76ca04824a02a6d640ada7eb6465",
+        "current_moment_id": null,
+        "current_silence_moment_id": null,
+        "active_flow_moment_ids": [],
+        "admissions": [],
+        "revocation_scope": "session",
+        "revision": "55b8e81448dcf17d62c7bcc0"
+      },
+      "passive_surface": {
+        "version": 1,
+        "session_id": "session-752e76ca04824a02a6d640ada7eb6465",
+        "delivery_sequence": 2,
+        "invalidation_only": true
+      },
+      "session_speech": {
+        "schema_version": 1,
+        "moments": []
+      },
+      "session_forecast": {
+        "contract_version": 1,
+        "session_id": "session-752e76ca04824a02a6d640ada7eb6465",
+        "revision": 0,
+        "state": "empty",
+        "nominal_window_seconds": 900,
+        "supported_window_seconds": 0,
+        "summary": "",
+        "sections": [],
+        "imagery": [],
+        "current_anchor": null
+      }
+    }
+  },
+  "for_you": {
+    "schema_version": 1,
+    "offer_id": "choices-54310f72d2be490892c8a6df739251df",
+    "state": "available",
+    "intro": "I've picked three mixes with your taste in mind. Which shall we play?",
+    "intro_source": "runtime_acknowledgement",
+    "options": [
+      {
+        "option_id": "600327aa2dea19ee5d0fab377635b470",
+        "genre": "neo soul",
+        "label": "neo soul",
+        "action_id": "600327aa2dea19ee5d0fab377635b470",
+        "visual_recipe": {
+          "schema_version": 1,
+          "revision": 1,
+          "variation_id": "304b491d3934f3848591204e1a1310f14ca31f934f7f20fdd87acde89092e03a",
+          "genre": "neo soul",
+          "mood": "groove",
+          "persona": "home_dj",
+          "artistic_direction": "layered_dunes",
+          "illustrative_not_audio_analysis": true
+        }
+      },
+      {
+        "option_id": "2572c1e991d2191cf1064f3831910dd7",
+        "genre": "r&b",
+        "label": "r&b",
+        "action_id": "2572c1e991d2191cf1064f3831910dd7",
+        "visual_recipe": {
+          "schema_version": 1,
+          "revision": 1,
+          "variation_id": "749a616f9cf3dbfe5c1feede1fbdef1038ba7fc2cdbf21e74ff535c68a6e9746",
+          "genre": "r&b",
+          "mood": "groove",
+          "persona": "home_dj",
+          "artistic_direction": "misty_valley",
+          "illustrative_not_audio_analysis": true
+        }
+      },
+      {
+        "option_id": "22bffc6f4c6bc7715a60c6ce6fbd7f4e",
+        "genre": "indie rock",
+        "label": "indie rock",
+        "action_id": "22bffc6f4c6bc7715a60c6ce6fbd7f4e",
+        "visual_recipe": {
+          "schema_version": 1,
+          "revision": 1,
+          "variation_id": "4f565090fdcb4e5738b2f4f4a729929923973770f55218e6d7c86e0ee01e2bc1",
+          "genre": "indie rock",
+          "mood": "groove",
+          "persona": "home_dj",
+          "artistic_direction": "mountain_horizon",
+          "illustrative_not_audio_analysis": true
+        }
+      }
+    ],
+    "result_set": {
+      "schema_version": 1,
+      "result_set_id": "choices-54310f72d2be490892c8a6df739251df",
+      "expires_in": 59.998825788497925,
+      "items": [
+        {
+          "kind": "track_mix",
+          "title": "neo soul",
+          "label": "neo soul",
+          "button_label": "neo soul",
+          "uri": "spotify:track:d99e75eba015b972ea1a6c",
+          "uris": [
+            "spotify:track:d99e75eba015b972ea1a6c",
+            "spotify:track:e9f444c528d0bf4f3fca92",
+            "spotify:track:cd61e7c107faad876fba5c"
+          ],
+          "subtitle": "3 Spotify tracks",
+          "backend": "source-spotify",
+          "genre": "neo soul",
+          "genre_basis": "music_dna",
+          "selection_source": "spotify_genre_search",
+          "fit_basis": "catalog_genre_query",
+          "fit_qualified": false,
+          "queue_effect": "start_context_now",
+          "result_set_id": "choices-54310f72d2be490892c8a6df739251df",
+          "action_id": "600327aa2dea19ee5d0fab377635b470"
+        },
+        {
+          "kind": "track_mix",
+          "title": "r&b",
+          "label": "r&b",
+          "button_label": "r&b",
+          "uri": "spotify:track:86980d8e019cc0a3842470",
+          "uris": [
+            "spotify:track:86980d8e019cc0a3842470",
+            "spotify:track:966cd869d2411b812cab3b",
+            "spotify:track:96a249e60d1e16ad0c024e"
+          ],
+          "subtitle": "3 Spotify tracks",
+          "backend": "source-spotify",
+          "genre": "r&b",
+          "genre_basis": "music_dna",
+          "selection_source": "spotify_genre_search",
+          "fit_basis": "catalog_genre_query",
+          "fit_qualified": false,
+          "queue_effect": "start_context_now",
+          "result_set_id": "choices-54310f72d2be490892c8a6df739251df",
+          "action_id": "2572c1e991d2191cf1064f3831910dd7"
+        },
+        {
+          "kind": "track_mix",
+          "title": "indie rock",
+          "label": "indie rock",
+          "button_label": "indie rock",
+          "uri": "spotify:track:7000c10a9769bfb383dcea",
+          "uris": [
+            "spotify:track:7000c10a9769bfb383dcea",
+            "spotify:track:6abef8ca721534737530de",
+            "spotify:track:df9e4f804bd182d22b4b85"
+          ],
+          "subtitle": "3 Spotify tracks",
+          "backend": "source-spotify",
+          "genre": "indie rock",
+          "genre_basis": "music_dna",
+          "selection_source": "spotify_genre_search",
+          "fit_basis": "catalog_genre_query",
+          "fit_qualified": false,
+          "queue_effect": "start_context_now",
+          "result_set_id": "choices-54310f72d2be490892c8a6df739251df",
+          "action_id": "22bffc6f4c6bc7715a60c6ce6fbd7f4e"
+        }
+      ]
+    },
+    "conversation_context": {
+      "session_id": "session-752e76ca04824a02a6d640ada7eb6465",
+      "thread_id": "for-you-session-752e76ca04824a02a6d640ada7eb6465"
+    },
+    "automatic_playback": false,
+    "queue_effect": "replace_on_explicit_selection",
+    "reason": null,
+    "title": "Voor jou",
+    "session_id": "session-752e76ca04824a02a6d640ada7eb6465",
+    "visible": true,
+    "actions_available": true,
+    "expires_in": 59.998825788497925,
+    "refresh_request": {
+      "prompt": "Verras me met een mix voor deze sessie",
+      "automatic": false
+    }
+  }
+}

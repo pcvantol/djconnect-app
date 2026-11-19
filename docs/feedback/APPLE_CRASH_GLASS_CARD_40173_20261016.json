@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-16",
+  "build": "40173",
+  "scope": "Crash prompt information and actions in one glass card below DJConnect banner",
+  "root_cause": "Writer already had the scoped card, but qualified selective source still had the earlier ungrouped layout.",
+  "implementation": [
+    "Adopted exactly the existing writer CrashReportPromptView block into selective source; no other writer-only changes copied.",
+    "Warning, explanation, version, GitHub button and Niet nu grouped in padded djSessionFrostedSurface with crash-report-content-card identifier.",
+    "DJConnect banner remains a separate card above. Crash state, diagnostics/redaction, URLs and submit actions unchanged."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "signed_mac_build": "PASS",
+    "strict_deep_codesign": "iOS candidate and installed Mac PASS",
+    "manifest": "452 hashes PASS",
+    "writer_crash_block_identity": "PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPhone/iPad/Mac mini40173 PASS",
+    "mac_executable_sha256": "c7a48f45f5a99efcaa128da548929225636175d53ff831b1b29c21d360eeb35c"
+  },
+  "evidence": {
+    "manifest": "build/recovery/apple40173-selective-source-manifest-20261016.json",
+    "ios_build": "/private/tmp/djc-ios-40173-crash-glass-build.log",
+    "mac_build": "/private/tmp/djc-mac-40173-crash-glass-build.log",
+    "iphone_apps": "/private/tmp/djc-iphone-40173-apps.json",
+    "ipad_apps": "/private/tmp/djc-ipad-40173-apps.json",
+    "mac_backup": "build/recovery/DJConnect-before40173.app"
+  },
+  "limits": [
+    "No crash induced, state flag injected, logs shared or issue opened; no new physical screenshot of crash prompt.",
+    "MacBook and Watch not installed in this change."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

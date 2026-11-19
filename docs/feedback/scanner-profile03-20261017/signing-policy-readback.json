@@ -1,0 +1,24 @@
+{
+  "signed_entitlements": {
+    "application-identifier": "ZEML4LPXH4.dev.djconnect.ios",
+    "com.apple.developer.team-identifier": "ZEML4LPXH4",
+    "com.apple.developer.devicecheck.appattest-environment": null,
+    "get-task-allow": true
+  },
+  "profile_entitlements": {
+    "application-identifier": "ZEML4LPXH4.dev.djconnect.ios",
+    "com.apple.developer.team-identifier": "ZEML4LPXH4",
+    "com.apple.developer.devicecheck.appattest-environment": null,
+    "get-task-allow": true
+  },
+  "profile_expiry": "2027-09-23T11:27:31",
+  "profile_prefixes": [
+    "ZEML4LPXH4"
+  ],
+  "profile_platform": [
+    "iOS",
+    "xrOS",
+    "visionOS"
+  ],
+  "profile_device_count": 4
+}

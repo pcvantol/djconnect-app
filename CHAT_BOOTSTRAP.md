@@ -1,0 +1,59 @@
+# Deprecated
+
+Read `BOOTSTRAP_CODEX_SESSION.md`.
+
+For the current Apple release-runner and dual-Mac deployment assumptions, read
+`docs/RELEASE.md`. This deprecated pointer does not define a separate release
+contract. Public release notes target the organization website only after checking
+its repository ID and the publication token's push permission.
+
+Current installation qualification: `Tools/qualification/install_ordinary_macos.py`
+validates ordinary bundle identity, signatures, executable modes and framework
+symlinks. It also retires verified old widget-extension processes after atomic
+replacement; PID birth and recovery-image guards prevent signalling a replacement
+or unrelated process. CI runs its preservation and process-identity regressions.
+Current local work/evidence and
+remaining release gates: `docs/feedback/APPLE_INTEGRAL_EXECUTION_20261017.md`.
+
+CI also runs the isolated VibeCast binding/binary-input package. These tests use
+injected SDK closures only; they neither arm the separate hosted diagnostic nor
+generate keys/captures. See `Tools/qualification/vibecast-native/API_BINARY_INTAKE.md`
+for the separate app/profile and joint API experiment gates.
+
+The firmware analysis pins all three CodeQL actions to 4.39.3
+(`33d7b85da1a04171e211befe2c739303b9a4c066`). The earlier PR180 qualification
+for 4.39.0 remains in `docs/feedback/APPLE_CODEQL_180_SOURCE_RECEIPT_20261024.json`.
+
+TDE observe diagnostics: Source #243 preserves original CLI stdout/stderr/exits and
+BLOCKED decisions, and publishes supplemental public Runtime diagnostics only as
+`NOT_QUALIFIED`. Observe success is not a successful TDE assessment. Original
+source qualification and remaining analyzer gates are recorded in
+`docs/feedback/APPLE_TDE_OBSERVE_DIAGNOSTICS_243_SOURCE_FINALIZATION_20261030.md`.
+
+Parallel validation Source #245 is delivered at protected0590166 with identical
+reviewed tree408a3931. Own original main/formal and independent source closure
+are recorded in `docs/feedback/APPLE_PARALLEL_VALIDATION_245_SOURCE_FINALIZATION_20261031.md`.
+This separate documentary Final still requires its own delivery/qualification.
+General performance, actual shared WebSocket correctness, separate TDE budgets,
+selected-context92abb integration and clean simulator readiness remain open.
+
+TDE Swift analyzer servicing: the Observe workflow pins the published runtime
+1.1.2 after certified TDE source #164 / main `3ca0041`. It retains the standard
+profile, unmodified policy thresholds and non-blocking Observe mode. A completed
+analysis may produce a genuine policy FAIL; green workflow status is separate.
+See `docs/feedback/APPLE_TDE_1_1_2_ADOPTION_20261101.md`.
+
+Latest installed Apple Release (2026-11-06): version 4.0.0, build 40493, on
+iPhone, iPad, Watch, MacBook and Mac mini; source #322/main502a9255. Native
+installation receipts are separate from physical pairing/audio acceptance.
+Manual, provider-free Help regressions use
+`Tools/qualification/contextual-help/run_native_help.py`; do not add the slow
+native suite or paid/provider Golden execution to ordinary per-PR CI.
+
+Earlier Apple release candidate: version 4.0.0, build 40478.
+Includes Voor jou (#318), Music announcement V1 (#319) and regression recovery
+(#317), integrated on main 569007101524f242f6605ca8b669e56047cb825d.
+The cumulative UI/demo/diagnostics changes require ordinary PR qualification,
+merge and fresh Release artifacts from clean main before device installation.
+Recent local Debug build success is not a physical-device, APNs or Core #1439
+pairing/binding acceptance receipt. See CHANGELOG.md and docs/RELEASE.md.

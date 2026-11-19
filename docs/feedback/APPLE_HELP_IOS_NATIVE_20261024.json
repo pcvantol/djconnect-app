@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "source_main": "5015bba447f86bb1a598c016e213cdbf4e955297",
+  "run_checkout": "095163fc4e84417ddd00e040638a5f5e408867a0 (documentary-only; compiled inputs unchanged)",
+  "scope": "isolated iOS production Help components; no AppModel/HA/commands/provider/device effects",
+  "environment": "iPhone17Pro simulator/iOS27.0; unsigned disposable NativeHelpUIHost",
+  "interaction": {
+    "parent_exit": 0,
+    "elapsed_s": 130.0686628750409,
+    "test_functions": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "covers": [
+      "both AskDJ and activeSession native Help entry/popover/dismiss",
+      "exact3selected suggestions andselectedtextforwarding",
+      "stable3rows afterdismiss"
+    ]
+  },
+  "lifecycle_locales": {
+    "parent_exit": 0,
+    "elapsed_s": 194.00843220797833,
+    "test_functions": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "covers": [
+      "20variants:5locales x2surfaces x2textsize/colorscheme",
+      "originaltrackexpiry andownerwithdrawal revokeopenreference",
+      "endedSession andunqualifiedshippingcatalogue show nocommandexamples"
+    ]
+  },
+  "original_evidence": {
+    "interaction-receipt.json": {
+      "sha256": "174020c3b2d2eed3cb9c48b45ce4ff27f1274c1faa0aa65164ba27d9b4a8d592",
+      "bytes": 993,
+      "original": "/private/tmp/apple-help-ios-qualification-20261024/interaction-receipt.json"
+    },
+    "summary.json": {
+      "sha256": "f18975e867a8df49d1dec2fe2b0631d553e4829c4af79d8210f4c3455fb4ff37",
+      "bytes": 1036,
+      "original": "/private/tmp/apple-help-ios-qualification-20261024/summary.json"
+    },
+    "lifecycle-locales-receipt.json": {
+      "sha256": "4ac1b7ae73b6e96a3454b45f7083d53cd37698413da9ea8d75bf241fe35144f3",
+      "bytes": 1076,
+      "original": "/private/tmp/apple-help-ios-qualification-20261024/lifecycle-locales-receipt.json"
+    },
+    "lifecycle-locales-summary.json": {
+      "sha256": "762803152c1a937055f3146f9f7691f206cec1a705ebe89b30b79cf1085df90f",
+      "bytes": 1035,
+      "original": "/private/tmp/apple-help-ios-qualification-20261024/lifecycle-locales-summary.json"
+    }
+  },
+  "screenshots": {
+    "count": 22,
+    "location": "/private/tmp/apple-help-ios-qualification-20261024",
+    "observed": "normal Dutch popover readable withclosebutton; large-text reference scroll viewport. This is not physical VoiceOver acceptance."
+  },
+  "cleanup": "only owned disposable simulator removed after shutdown; bothxcresults/all22screenshots preserved; otherdevices/simulators untouched",
+  "remaining": [
+    "shippingCorecatalogue qualifiedfalse/70pending; syntheticexamples confer no commandqualification",
+    "actual pairedtypedhelp/commands andproductioncontextmodel integration",
+    "iPad/Mac interactive/physicalVoiceOver andinstalledacceptance",
+    "originalMacUIprestartfailure remainsFAILED; iOSPASS doesnot relabelit"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-17",
+  "build": "40208",
+  "scope": "Restore implemented Session artist/album/track artwork into installed selective build",
+  "root_cause": "Qualified selective build retained initial SessionMedia DTO but omitted artwork transport, renderer, adapters and project registration. Writer source already implemented increments26eb8e2/44bdb94; those were not present in delivered build.",
+  "restoration": [
+    "Exact bounded original artwork increment applied to selective source, preserving all later UX edits.",
+    "Authenticated ephemeral image loader, Moment card/retained-entry rendering, explicit older-entry refresh and original expiry handling restored.",
+    "Two new source files registered in selective Xcode project; writer project now explicitly registers SessionMedia DTO, artwork transport and renderer.",
+    "Existing Core fixtures,12 artwork/history tests,5-language refresh/failure copy restored; no Speech/provider/widgets adoption."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "mac_build": "PASS",
+    "media_tests": "11PASS /private/tmp/djc-artwork40208-tests.log",
+    "history_refresh_test": "PASS /private/tmp/djc-artwork40208-history-tests.log",
+    "manifest": "456 hashes PASS; extra Sources/Apps files0",
+    "installed": "iPhone/iPad/Mac40208 verified; strict iOS/Mac signatures and Mac executable matching checked",
+    "native_iphone": "BLOCKED device locked; own waiting test cancelled",
+    "native_ipad": "Attempt1 failed test-runner local network permission. Attempt2 actually launched app; screenshot shows app local-network permission dialog. No native positive pixel/expiry PASS, imageReads0.",
+    "live_backend": "NOT_VERIFIED; actual session_media grant/provider images still require backend delivery and device permission."
+  },
+  "evidence": {
+    "manifest": "build/recovery/artwork40208-selective-source-manifest-20261017.json",
+    "restoration_patch": "build/recovery/artwork40208-selective-restoration-20261017.patch",
+    "writer_project_patch": "build/recovery/artwork40208-writer-project-registration-20261017.patch",
+    "ipad_xcresult": "/private/tmp/djc-ipad-40208-artwork-native-20261017.xcresult",
+    "permission_screenshot": "/private/tmp/djc-ipad-40208-artwork-native-attachments/C7573D00-392B-4E4A-893B-8DFD39131927.png",
+    "mac_backup": "build/recovery/DJConnect-before40208.app"
+  },
+  "pending": "User asked to unlock iPhone and manually accept iPad local-network prompt; no approval assumed. No Core message sent.",
+  "preservation": "Ordinary app restored after synthetic native attempt. Timer paused; previous builds/evidence and unrelated projects retained.",
+  "publication": "Local commit only; no push/PR/merge"
+}

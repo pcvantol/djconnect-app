@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "source_repository": "pcvantol/djconnect-esp32",
+  "source_revision": "c49d49186951ed3a4eaf3cc50778e48e04cbbef9",
+  "source_path": "assets/brand-v2/headset-purple-navy-magenta.png",
+  "source_pr": "https://github.com/pcvantol/djconnect-esp32/pull/69",
+  "source_sha256": "f69eb72b882f08c0dacbd3efa7e83165a56a01763aaa18e48557c03b65e11322",
+  "consumer_path": "Apps/Shared/AppIconAdaptive.icon/Assets/headphone.png",
+  "derivation": "Exact imported transparent PNG; no image generation, redraw, pixel recolour or baked tile. Native Icon Composer scale 0.64 and system appearance rendering.",
+  "owner_request": "2026-10-21: simpler headphone app icon and OS-controlled light/dark/tinted backgrounds"
+}

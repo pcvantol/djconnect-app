@@ -1,0 +1,21 @@
+{
+  "producer_main": "fe8c66a120a44faaeb49432729359e6a2055194e",
+  "expected_api_handlers_sha256": "93265188508bf0736801a7a02ad49a3d25fc590b12ea3e93c5f8d85c52114ffe",
+  "pre_install_api_handlers_sha256": "d461a1a6c818f7d5e1d38b2041cb1da9b847715b5d03ad54a3ddfcd05c87a8bc",
+  "pre_install_matches_new_source": false,
+  "stage": "PHYSICAL_IPAD_40098_HTTP500_RECOVERY_PASS",
+  "physical_client_build": "40098",
+  "post_install_api_handlers_sha256": "93265188508bf0736801a7a02ad49a3d25fc590b12ea3e93c5f8d85c52114ffe",
+  "post_install_matches_new_source": true,
+  "native_flows": [
+    "now-playing",
+    "queue",
+    "playlists",
+    "track-insight"
+  ],
+  "native_result": "/private/tmp/djc-http500-physical-fe8",
+  "new_client_http500": 0,
+  "server_profile_trace_after_restart": 0,
+  "server_debug_http200_results": 76,
+  "limits": "Observed four real ordinary app read flows and actual content; not all flows/WS/background/audio/hardware acceptance. No physical missing-art rotation claim."
+}

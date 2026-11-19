@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "classification": "SYNTHETIC_CLOSED_REQUEST_INTENTIONS_ONLY_NO_PERMISSION_NATIVE_OR_PROVIDER_GO",
+  "vectors": [
+    {
+      "id": "exact-authorize",
+      "kind": "authorize",
+      "raw_utf8": "{\"client_type\":\"ios\",\"contract_version\":1,\"device_id\":\"djconnect-ios-ABCDEF012345\",\"enabled\":true,\"locked_display\":true,\"operation_id\":\"4cf66d62-d59f-4093-9e39-4c101ee0351b\",\"os_snapshot_cache\":true,\"session_id\":\"session-original\",\"surface\":\"live_activity\"}",
+      "expected": "ACCEPT_INTENTION_ONLY",
+      "canonical_sha256": "f90039975c0674c0b99b81ff0bb7e02cfcb7c653c90cbc44fcb5ccd91ad0ad14"
+    },
+    {
+      "id": "exact-read",
+      "kind": "read",
+      "raw_utf8": "{\"contract_version\":1,\"purpose_id\":\"63506d46-eeaf-409c-8d82-e6d01cc9e2fb\"}",
+      "expected": "ACCEPT_INTENTION_ONLY",
+      "canonical_sha256": "981a6cb078156eadf452c6f56734fbb2a23e03f1d474fb0673f4995cf29467fd"
+    },
+    {
+      "id": "exact-asset",
+      "kind": "asset",
+      "raw_utf8": "{\"asset_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"contract_version\":1,\"frame_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"purpose_id\":\"63506d46-eeaf-409c-8d82-e6d01cc9e2fb\"}",
+      "expected": "ACCEPT_INTENTION_ONLY",
+      "canonical_sha256": "e6b62973621f98b398808c8ca7f33fd576e60796a51db7284ff062586e332819"
+    },
+    {
+      "id": "exact-status",
+      "kind": "status",
+      "raw_utf8": "{\"client_type\":\"ios\",\"contract_version\":1,\"device_id\":\"djconnect-ios-ABCDEF012345\",\"operation_id\":\"4cf66d62-d59f-4093-9e39-4c101ee0351b\",\"session_id\":\"session-original\",\"surface\":\"live_activity\"}",
+      "expected": "ACCEPT_INTENTION_ONLY",
+      "canonical_sha256": "320c6110c2aea022cfa4108d16ab2989a9186e650b14e03d2a5ad5fd9c9aa03b"
+    },
+    {
+      "id": "exact-withdraw",
+      "kind": "withdraw",
+      "raw_utf8": "{\"client_type\":\"ios\",\"contract_version\":1,\"device_id\":\"djconnect-ios-ABCDEF012345\",\"operation_id\":\"4cf66d62-d59f-4093-9e39-4c101ee0351b\",\"session_id\":\"session-original\",\"surface\":\"live_activity\"}",
+      "expected": "ACCEPT_INTENTION_ONLY",
+      "canonical_sha256": "320c6110c2aea022cfa4108d16ab2989a9186e650b14e03d2a5ad5fd9c9aa03b"
+    },
+    {
+      "id": "duplicate-contract",
+      "kind": "authorize",
+      "raw_utf8": "{\"contract_version\":1,\"client_type\":\"ios\",\"contract_version\":1,\"device_id\":\"djconnect-ios-ABCDEF012345\",\"enabled\":true,\"locked_display\":true,\"operation_id\":\"4cf66d62-d59f-4093-9e39-4c101ee0351b\",\"os_snapshot_cache\":true,\"session_id\":\"session-original\",\"surface\":\"live_activity\"}",
+      "expected": "REJECT_INVALID_REQUEST"
+    },
+    {
+      "id": "bool-version",
+      "kind": "authorize",
+      "raw_utf8": "{\"client_type\":\"ios\",\"contract_version\":true,\"device_id\":\"djconnect-ios-ABCDEF012345\",\"enabled\":true,\"locked_display\":true,\"operation_id\":\"4cf66d62-d59f-4093-9e39-4c101ee0351b\",\"os_snapshot_cache\":true,\"session_id\":\"session-original\",\"surface\":\"live_activity\"}",
+      "expected": "REJECT_INVALID_REQUEST"
+    },
+    {
+      "id": "old-context-grant",
+      "kind": "authorize",
+      "raw_utf8": "{\"client_type\":\"ios\",\"context_handle\":\"old-widget-capture\",\"contract_version\":1,\"device_id\":\"djconnect-ios-ABCDEF012345\",\"enabled\":true,\"locked_display\":true,\"operation_id\":\"4cf66d62-d59f-4093-9e39-4c101ee0351b\",\"os_snapshot_cache\":true,\"session_id\":\"session-original\",\"surface\":\"live_activity\"}",
+      "expected": "REJECT_INVALID_REQUEST"
+    },
+    {
+      "id": "wrong-platform",
+      "kind": "authorize",
+      "raw_utf8": "{\"client_type\":\"macos\",\"contract_version\":1,\"device_id\":\"djconnect-macos-ABCDEF012345\",\"enabled\":true,\"locked_display\":true,\"operation_id\":\"4cf66d62-d59f-4093-9e39-4c101ee0351b\",\"os_snapshot_cache\":true,\"session_id\":\"session-original\",\"surface\":\"live_activity\"}",
+      "expected": "REJECT_INVALID_REQUEST"
+    },
+    {
+      "id": "uuid7",
+      "kind": "authorize",
+      "raw_utf8": "{\"client_type\":\"ios\",\"contract_version\":1,\"device_id\":\"djconnect-ios-ABCDEF012345\",\"enabled\":true,\"locked_display\":true,\"operation_id\":\"00000000-0000-7000-8000-000000000001\",\"os_snapshot_cache\":true,\"session_id\":\"session-original\",\"surface\":\"live_activity\"}",
+      "expected": "REJECT_INVALID_REQUEST"
+    },
+    {
+      "id": "asset-as-read",
+      "kind": "read",
+      "raw_utf8": "{\"asset_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"contract_version\":1,\"purpose_id\":\"63506d46-eeaf-409c-8d82-e6d01cc9e2fb\"}",
+      "expected": "REJECT_INVALID_REQUEST"
+    },
+    {
+      "id": "unsafe-version",
+      "kind": "read",
+      "raw_utf8": "{\"contract_version\":9007199254740992,\"purpose_id\":\"63506d46-eeaf-409c-8d82-e6d01cc9e2fb\"}",
+      "expected": "REJECT_INVALID_REQUEST"
+    },
+    {
+      "id": "unknown-operation",
+      "kind": "register",
+      "raw_utf8": "{\"client_type\":\"ios\",\"contract_version\":1,\"device_id\":\"djconnect-ios-ABCDEF012345\",\"enabled\":true,\"locked_display\":true,\"operation_id\":\"4cf66d62-d59f-4093-9e39-4c101ee0351b\",\"os_snapshot_cache\":true,\"session_id\":\"session-original\",\"surface\":\"live_activity\"}",
+      "expected": "REJECT_INVALID_REQUEST"
+    }
+  ]
+}

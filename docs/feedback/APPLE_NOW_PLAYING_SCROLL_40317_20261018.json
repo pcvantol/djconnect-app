@@ -1,0 +1,646 @@
+{
+  "scope": "SIMULATOR_DEBUG_DEMO_FALLBACK_ONLY_NO_PHYSICAL_ACCEPTANCE",
+  "build": "40317",
+  "owner_source_transfer_consent": "Direct user Ja approving current source and new Now Playing scroll test to MacBook",
+  "source_files": 273,
+  "final_source_manifest_sha256": "d16ebef76abfff45ca570821c5e52bdb581fe7396a864d1858e8f5f02e2f26d9",
+  "ui_test_sha256": "c006086fc18808c7ae4016e91909bdb366ca9cce4d8e14be37bc280fb847b9f2",
+  "cases": {
+    "now-playing-verified": {
+      "scroll_verification": {
+        "original_y": 572.0,
+        "moved_y": 197.33333333333337,
+        "glass": true
+      },
+      "scope": "SIMULATOR_DEBUG_VINYL_NO_REAL_COVER_NO_FPS_OR_LEAK_ACCEPTANCE",
+      "phases": {
+        "idle": {
+          "samples": 10,
+          "measured_seconds": 9.121976167,
+          "cpu_percent_mean": 12.167715078211112,
+          "cpu_percent_max": 12.86727353308075,
+          "rss_mib_min": 411.578125,
+          "rss_mib_max": 411.65625
+        },
+        "scroll": {
+          "samples": 31,
+          "measured_seconds": 30.395899666999995,
+          "cpu_percent_mean": 23.293370912308834,
+          "cpu_percent_max": 27.595456349767353,
+          "rss_mib_min": 411.6875,
+          "rss_mib_max": 411.765625
+        },
+        "recovery": {
+          "samples": 10,
+          "measured_seconds": 9.107116833000006,
+          "cpu_percent_mean": 11.092306101120704,
+          "cpu_percent_max": 12.869365757889353,
+          "rss_mib_min": 411.6875,
+          "rss_mib_max": 411.75
+        }
+      },
+      "xctest_metrics": [
+        {
+          "name": "Memory Peak Physical (ios)",
+          "unit": "kB",
+          "values": [
+            60590.576,
+            60574.192,
+            60590.576
+          ],
+          "mean": 60585.11466666667
+        },
+        {
+          "name": "Clock Monotonic Time",
+          "unit": "s",
+          "values": [
+            7.72531963,
+            7.738026596,
+            7.774248784
+          ],
+          "mean": 7.745865003333334
+        },
+        {
+          "name": "CPU Instructions Retired (ios)",
+          "unit": "kI",
+          "values": [
+            14788493.143,
+            15198239.848,
+            15042013.136
+          ],
+          "mean": 15009582.042333333
+        },
+        {
+          "name": "Absolute Memory Physical (ios)",
+          "unit": "kB",
+          "values": [
+            60508.656,
+            60508.656,
+            60525.04
+          ],
+          "mean": 60514.117333333335
+        },
+        {
+          "name": "CPU Cycles (ios)",
+          "unit": "kC",
+          "values": [
+            6979223.293,
+            7226339.333,
+            7195026.387
+          ],
+          "mean": 7133529.671
+        },
+        {
+          "name": "Memory Physical (ios)",
+          "unit": "kB",
+          "values": [
+            16.384,
+            0,
+            16.384
+          ],
+          "mean": 10.922666666666666
+        },
+        {
+          "name": "CPU Time (ios)",
+          "unit": "s",
+          "values": [
+            1.7394713300000002,
+            1.830756354,
+            1.8298932220000002
+          ],
+          "mean": 1.8000403020000002
+        }
+      ],
+      "cpu_profile": {
+        "samples": 15073,
+        "threads_ms": [
+          [
+            "Main Thread (0x5626f1) (DJConnect, pid: 65289)",
+            13542.0
+          ],
+          [
+            "com.apple.UIKit.inProcessAnimationManager (0x5627c8) (DJConnect, pid: 65289)",
+            348.0
+          ],
+          [
+            "DJConnect (0x56271f) (DJConnect, pid: 65289)",
+            313.0
+          ],
+          [
+            "DJConnect (0x562720) (DJConnect, pid: 65289)",
+            264.0
+          ],
+          [
+            "DJConnect (0x562726) (DJConnect, pid: 65289)",
+            210.0
+          ],
+          [
+            "DJConnect (0x562724) (DJConnect, pid: 65289)",
+            205.0
+          ],
+          [
+            "DJConnect (0x562721) (DJConnect, pid: 65289)",
+            91.0
+          ],
+          [
+            "DJConnect (0x56271d) (DJConnect, pid: 65289)",
+            34.0
+          ],
+          [
+            "DJConnect (0x562702) (DJConnect, pid: 65289)",
+            26.0
+          ],
+          [
+            "DJConnect (0x562710) (DJConnect, pid: 65289)",
+            25.0
+          ],
+          [
+            "DJConnect (0x562722) (DJConnect, pid: 65289)",
+            12.0
+          ],
+          [
+            "DJConnect (0x56271e) (DJConnect, pid: 65289)",
+            2.0
+          ]
+        ],
+        "leaf_binaries_ms": [
+          [
+            "AttributeGraph",
+            2115.0
+          ],
+          [
+            "libswiftCore.dylib",
+            1658.0
+          ],
+          [
+            "SwiftUICore",
+            1485.0
+          ],
+          [
+            "libsystem_kernel.dylib",
+            1222.0
+          ],
+          [
+            "libobjc.A.dylib",
+            1075.0
+          ],
+          [
+            "CoreFoundation",
+            1065.0
+          ],
+          [
+            "UIKitCore",
+            981.0
+          ],
+          [
+            "QuartzCore",
+            704.0
+          ],
+          [
+            "libsystem_pthread.dylib",
+            652.0
+          ],
+          [
+            "libobjcMsgSend.dylib",
+            484.0
+          ],
+          [
+            "libsystem_platform.dylib",
+            448.0
+          ],
+          [
+            "libsystem_malloc.dylib",
+            426.0
+          ],
+          [
+            "SwiftUI",
+            397.0
+          ],
+          [
+            "dyld_sim",
+            267.0
+          ],
+          [
+            "Foundation",
+            226.0
+          ]
+        ],
+        "inclusive_app_frames_ms": [
+          [
+            "static DJConnectIOSApp.$main()",
+            13519.0
+          ],
+          [
+            "__debug_main_executable_dylib_entry_point",
+            13519.0
+          ],
+          [
+            "closure #1 in TimelineView<>.init(_:content:)",
+            336.0
+          ],
+          [
+            "closure #1 in NativeSessionMomentsView.body.getter",
+            155.0
+          ],
+          [
+            "Optional.flatMap<A, B>(_:)",
+            139.0
+          ],
+          [
+            "NativeSessionMomentsView.currentMoment(at:)",
+            110.0
+          ],
+          [
+            "closure #1 in closure #1 in closure #3 in SessionTimelineScreen.body.getter",
+            98.0
+          ],
+          [
+            "DJConnectBroadcastState.admitted(_:authority:at:current:spotifyAttributionAvailable:)",
+            97.0
+          ],
+          [
+            "DJConnectBroadcastState.nativeCurrentMoment(at:spotifyAttributionAvailable:)",
+            97.0
+          ],
+          [
+            "nativeDeadline(_:)",
+            95.0
+          ],
+          [
+            "thunk for @callee_guaranteed (@guaranteed String) -> (@out Date?)",
+            95.0
+          ],
+          [
+            "partial apply for thunk for @callee_guaranteed (@guaranteed String) -> (@out Date?)",
+            95.0
+          ],
+          [
+            "ScrollView.init(_:content:)",
+            73.0
+          ],
+          [
+            "closure #1 in closure #1 in closure #1 in AlbumArtworkPlaceholder.body.getter",
+            71.0
+          ],
+          [
+            "DJSessionGlassGroup.init(content:)",
+            70.0
+          ],
+          [
+            "closure #1 in closure #1 in closure #1 in closure #3 in SessionTimelineScreen.body.getter",
+            70.0
+          ],
+          [
+            "closure #1 in closure #1 in closure #1 in closure #1 in closure #3 in SessionTimelineScreen.body.getter",
+            69.0
+          ],
+          [
+            "closure #1 in closure #1 in closure #1 in closure #1 in closure #1 in closure #3 in SessionTimelineScreen.body.getter",
+            67.0
+          ],
+          [
+            "Layout.callAsFunction<A>(_:)",
+            54.0
+          ],
+          [
+            "closure #1 in Layout.callAsFunction<A>(_:)",
+            53.0
+          ]
+        ]
+      },
+      "markers": {
+        "READY": 1792286210.667941,
+        "IDLE_BEGIN": 1792286235.672632,
+        "SCROLL_BEGIN": 1792286245.680829,
+        "SCROLL_END": 1792286277.257664
+      },
+      "artifacts_sha256": {
+        "-summary.json": "6847f8ddd78da717d0b9bec5983cf575f524d355d1f61749b6e5accc4f9163fd",
+        "-metrics.json": "4542acbcd2d085f1959c0f8c0f9ec515548ccbfc1d46e9ac7652d23f4b6eba22",
+        "-test.log": "b118a62d12eb7ac05d3ce46831df41f50bb40cb8ddd106752569ad7eb26283a5"
+      }
+    },
+    "now-playing-opaque": {
+      "scroll_verification": {
+        "original_y": 572.0,
+        "moved_y": 197.33333333333337,
+        "glass": false
+      },
+      "scope": "SIMULATOR_DEBUG_VINYL_NO_REAL_COVER_NO_FPS_OR_LEAK_ACCEPTANCE",
+      "phases": {
+        "idle": {
+          "samples": 10,
+          "measured_seconds": 9.113831208000008,
+          "cpu_percent_mean": 9.546555459816323,
+          "cpu_percent_max": 10.90218334338889,
+          "rss_mib_min": 408.703125,
+          "rss_mib_max": 408.703125
+        },
+        "scroll": {
+          "samples": 30,
+          "measured_seconds": 29.370619625000018,
+          "cpu_percent_mean": 21.384535527839077,
+          "cpu_percent_max": 25.732692011966012,
+          "rss_mib_min": 408.703125,
+          "rss_mib_max": 408.90625
+        },
+        "recovery": {
+          "samples": 9,
+          "measured_seconds": 8.10982441600001,
+          "cpu_percent_mean": 9.86502054510303,
+          "cpu_percent_max": 10.841696764416081,
+          "rss_mib_min": 408.859375,
+          "rss_mib_max": 408.921875
+        }
+      },
+      "xctest_metrics": [
+        {
+          "name": "Memory Peak Physical (ios)",
+          "unit": "kB",
+          "values": [
+            57887.216,
+            57887.216,
+            57887.216
+          ],
+          "mean": 57887.216
+        },
+        {
+          "name": "Clock Monotonic Time",
+          "unit": "s",
+          "values": [
+            7.037977713,
+            7.003774406000001,
+            7.033815311000001
+          ],
+          "mean": 7.025189143333334
+        },
+        {
+          "name": "CPU Instructions Retired (ios)",
+          "unit": "kI",
+          "values": [
+            12366980.638,
+            12379535.933,
+            12347405.024
+          ],
+          "mean": 12364640.531666666
+        },
+        {
+          "name": "Absolute Memory Physical (ios)",
+          "unit": "kB",
+          "values": [
+            57838.064,
+            57788.912,
+            57838.064
+          ],
+          "mean": 57821.68
+        },
+        {
+          "name": "CPU Cycles (ios)",
+          "unit": "kC",
+          "values": [
+            5263003.768,
+            5297760.065,
+            5245102.176
+          ],
+          "mean": 5268622.0030000005
+        },
+        {
+          "name": "Memory Physical (ios)",
+          "unit": "kB",
+          "values": [
+            0,
+            -49.152,
+            49.152
+          ],
+          "mean": 0.0
+        },
+        {
+          "name": "CPU Time (ios)",
+          "unit": "s",
+          "values": [
+            1.495721697,
+            1.5695881580000002,
+            1.488796797
+          ],
+          "mean": 1.5180355506666667
+        }
+      ],
+      "cpu_profile": {
+        "samples": 10968,
+        "threads_ms": [
+          [
+            "Main Thread (0x5636f0) (DJConnect, pid: 65546)",
+            10070.0
+          ],
+          [
+            "DJConnect (0x563701) (DJConnect, pid: 65546)",
+            279.0
+          ],
+          [
+            "DJConnect (0x563700) (DJConnect, pid: 65546)",
+            228.0
+          ],
+          [
+            "DJConnect (0x56372c) (DJConnect, pid: 65546)",
+            193.0
+          ],
+          [
+            "DJConnect (0x563734) (DJConnect, pid: 65546)",
+            44.0
+          ],
+          [
+            "DJConnect (0x563735) (DJConnect, pid: 65546)",
+            44.0
+          ],
+          [
+            "DJConnect (0x563f6d) (DJConnect, pid: 65546)",
+            31.0
+          ],
+          [
+            "DJConnect (0x5636ff) (DJConnect, pid: 65546)",
+            25.0
+          ],
+          [
+            "DJConnect (0x5636fe) (DJConnect, pid: 65546)",
+            20.0
+          ],
+          [
+            "com.apple.UIKit.inProcessAnimationManager (0x5637a6) (DJConnect, pid: 65546)",
+            16.0
+          ],
+          [
+            "DJConnect (0x563731) (DJConnect, pid: 65546)",
+            16.0
+          ],
+          [
+            "DJConnect (0x563702) (DJConnect, pid: 65546)",
+            1.0
+          ]
+        ],
+        "leaf_binaries_ms": [
+          [
+            "AttributeGraph",
+            1256.0
+          ],
+          [
+            "libswiftCore.dylib",
+            1139.0
+          ],
+          [
+            "SwiftUICore",
+            1109.0
+          ],
+          [
+            "libobjc.A.dylib",
+            989.0
+          ],
+          [
+            "libsystem_kernel.dylib",
+            908.0
+          ],
+          [
+            "CoreFoundation",
+            846.0
+          ],
+          [
+            "UIKitCore",
+            713.0
+          ],
+          [
+            "libsystem_pthread.dylib",
+            487.0
+          ],
+          [
+            "QuartzCore",
+            449.0
+          ],
+          [
+            "libobjcMsgSend.dylib",
+            370.0
+          ],
+          [
+            "SwiftUI",
+            335.0
+          ],
+          [
+            "libsystem_platform.dylib",
+            326.0
+          ],
+          [
+            "libsystem_malloc.dylib",
+            308.0
+          ],
+          [
+            "dyld_sim",
+            200.0
+          ],
+          [
+            "Foundation",
+            157.0
+          ]
+        ],
+        "inclusive_app_frames_ms": [
+          [
+            "static DJConnectIOSApp.$main()",
+            10040.0
+          ],
+          [
+            "__debug_main_executable_dylib_entry_point",
+            10040.0
+          ],
+          [
+            "closure #1 in TimelineView<>.init(_:content:)",
+            333.0
+          ],
+          [
+            "Optional.flatMap<A, B>(_:)",
+            165.0
+          ],
+          [
+            "closure #1 in NativeSessionMomentsView.body.getter",
+            153.0
+          ],
+          [
+            "NativeSessionMomentsView.currentMoment(at:)",
+            115.0
+          ],
+          [
+            "closure #1 in closure #1 in closure #3 in SessionTimelineScreen.body.getter",
+            113.0
+          ],
+          [
+            "DJConnectBroadcastState.nativeCurrentMoment(at:spotifyAttributionAvailable:)",
+            99.0
+          ],
+          [
+            "nativeDeadline(_:)",
+            96.0
+          ],
+          [
+            "thunk for @callee_guaranteed (@guaranteed String) -> (@out Date?)",
+            96.0
+          ],
+          [
+            "partial apply for thunk for @callee_guaranteed (@guaranteed String) -> (@out Date?)",
+            96.0
+          ],
+          [
+            "DJConnectBroadcastState.admitted(_:authority:at:current:spotifyAttributionAvailable:)",
+            96.0
+          ],
+          [
+            "ScrollView.init(_:content:)",
+            89.0
+          ],
+          [
+            "closure #1 in closure #1 in closure #1 in closure #3 in SessionTimelineScreen.body.getter",
+            86.0
+          ],
+          [
+            "DJSessionGlassGroup.init(content:)",
+            85.0
+          ],
+          [
+            "closure #1 in closure #1 in closure #1 in closure #1 in closure #3 in SessionTimelineScreen.body.getter",
+            84.0
+          ],
+          [
+            "closure #1 in closure #1 in closure #1 in closure #1 in closure #1 in closure #3 in SessionTimelineScreen.body.getter",
+            83.0
+          ],
+          [
+            "SessionTimelineScreen.startMetadata.getter",
+            70.0
+          ],
+          [
+            "closure #4 in SessionTimelineScreen.startMetadata.getter",
+            68.0
+          ],
+          [
+            "partial apply for closure #4 in SessionTimelineScreen.startMetadata.getter",
+            68.0
+          ]
+        ]
+      },
+      "markers": {
+        "READY": 1792286315.65153,
+        "IDLE_BEGIN": 1792286340.65517,
+        "SCROLL_BEGIN": 1792286350.6573482,
+        "SCROLL_END": 1792286380.2407
+      },
+      "artifacts_sha256": {
+        "-summary.json": "c219a818597a9cfbb33ed03b03dda246a1fe454ffb46a7975c47c9780171dee7",
+        "-metrics.json": "3e8832ee9ffd42d444b4557769149cb035d15d1550b591a338e5dc6cef99a457",
+        "-test.log": "a14ff3af0cd71c0a567168a1fee28a5bd99e852db1c698bc2749032e0bce5177"
+      }
+    }
+  },
+  "limits": [
+    "No real artwork/cache workload or long Session",
+    "No measured FPS, physical GPU, heap/leak or energy acceptance",
+    "SwiftUI standard template failed unsupported Hitches; separate SwiftUI instrument produced no SwiftUI data",
+    "Early central-gesture runs retained as unverified interaction measurements, excluded from comparison",
+    "One sequential glass-on/off pair; no statistical performance acceptance",
+    "No physical app installation or publication"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "status": "VOICE_PULLDOWN_SOURCE_COMPILES; installedMac40118 unchanged",
+  "changes": [
+    "Concrete voice list becomes native menu-style Picker above autoplay",
+    "Unavailable prior voice remains an explicit disabled selected entry; no silent default replacement",
+    "Selection keeps existing scope/epoch and local-only guards; no provider request on selection"
+  ],
+  "validation": {
+    "mac_library": "PASS9.72s",
+    "ios_simulator_library": "PASS8.78s",
+    "localization": "1169 keys PASS",
+    "diff_check": "PASS",
+    "logs": [
+      "/private/tmp/djc-voice-pulldown-mac-build-20261016.log",
+      "/private/tmp/djc-voice-pulldown-ios-build-20261016.log"
+    ]
+  },
+  "user_gender_presentation_requirement": "Man/Vrouw as two compact buttons matching Mood glass style and selected mark; concrete voice remains pulldown. Hide gender when current provider lacks qualified metadata. Recorded design requirement, not implemented/installed gender selection in this change.",
+  "producer_gate": "Incoming c91cf4e gender candidate is explicitly unpublished/unmerged; no new candidate contract admission inferred. Existing installed autoplay-only menu remains gender-free.",
+  "effects": "Source/local commit only. No new install, synthesis/audio, HA change, push/PR/merge, timer resume or cross-thread reply.",
+  "cleanup": "Single existing worktree, main/current only merged refs; no locks or eligible deletions; unrelated untracked Xcode projects preserved."
+}

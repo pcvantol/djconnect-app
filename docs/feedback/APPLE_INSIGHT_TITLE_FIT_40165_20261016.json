@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-16",
+  "build": "40165",
+  "scope": "Track Insight hero title fitting",
+  "implementation": [
+    "ViewThatFits selects single-line intrinsic title sizes100%,90%,80% according to available width.",
+    "If none fit, title wraps to two centered lines at90%, shrinking no lower than80%.",
+    "Rounded bold styling retained; artist/album typography and backend title unchanged."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "source_manifest": "452 file hashes PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPhone40165 PASS",
+    "launch": "PASS"
+  },
+  "evidence": {
+    "manifest": "build/recovery/iphone40165-selective-source-manifest-20261016.json",
+    "build": "/private/tmp/djc-ios-40165-title-fit-build.log",
+    "install": "/private/tmp/djc-iphone-40165-install.json",
+    "apps": "/private/tmp/djc-iphone-40165-apps.json"
+  },
+  "limits": [
+    "No physical screenshot or full title-width matrix captured for this presentation-only change.",
+    "Exceptionally long titles may still exceed two lines at the minimum readable size.",
+    "Other devices not installed."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

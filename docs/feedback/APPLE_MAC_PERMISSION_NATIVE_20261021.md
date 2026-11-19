@@ -1,0 +1,11 @@
+# Native Mac permission-row presentation — 21 October 2026
+
+Successor to `7730ffb01bb699a91e22a648a2f0965feceed33a`. Tests only; the actual shared production PermissionStatusRow was previously native-qualified on iOS and compiled for macOS. This independent opt-in AppKit component probe now qualifies bounded native Mac rendering.
+
+`permissionRowsRenderInNativeMacHost()` with `DJCONNECT_MAC_PERMISSION_DIR` completed1PASS/0fail in0.769s after an incremental native Swift build37.94s. All3 NSHostingView bitmap captures were inspected: Dutch unknown at320points uses the vertical title/status layout, the same row at720points uses horizontal layout, and German restricted at320points fits horizontally. Full title/status/detail remain visible without ellipses. Actual recorded host/fitting heights are93,72,72points. This is normal Mac font sizing; no Mac Dynamic Type scaling claim is made.
+
+The test initializes only its own NSApplication test host and offscreen borderless windows, then closes those windows. It uses the actual component, existing localized keys and explicit status enums. It uses no AppModel, HTTP, OS permission query/request, ordinary installed app, CoreSimulator, physical/AX/VoiceOver or system-settings operation. Other green tests were not executed. No source behavior correction was needed.
+
+Evidence: `/private/tmp/djc-mac-permission-20261021/{final.log,observations/}`. The test resides in the separate PermissionRowNativeTests.swift file and is opt-in; ordinary runs skip it unless the environment is supplied. It uses the existing private `/private/tmp/djc-native-archive-20261021/mac-native` scratch with `swift test --build-system native --skip-update --filter permissionRowsRenderInNativeMacHost`. No job remains and no cleanup was needed. Disk preflight996Mi; no simulator boot occurred.
+
+`git diff --check` passes. This is bounded native component bitmap/layout evidence, not full Settings/root navigation, spoken accessibility, physical user input, actual permission grants, arbitrary resizing or installed/server acceptance. No push, PR, outbound report, deployment, provider/SDK action or recovery bundle occurred. Earlier incomplete consent/archive/AX qualifications remain unchanged.

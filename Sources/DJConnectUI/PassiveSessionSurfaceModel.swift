@@ -1,0 +1,498 @@
+import Combine
+import Foundation
+import ImageIO
+import DJConnectCore
+
+/// Foreground-only, RAM-only grant owner. It never derives rights from a Moment,
+/// private owner response, previous cache, app launch, or a Watch request.
+@MainActor public final class PassiveSessionSurfaceModel: ObservableObject {
+    public enum Phase: String { case idle, loading, ready, unavailable }
+    public struct Services {
+        public var available: () async throws -> Bool
+        public var authorize: (String, DJConnectPassiveSurface, Bool) async throws -> DJConnectPassiveSurfaceResponse?
+        public var read: (String, DJConnectPassiveSurface, String) async throws -> DJConnectPassiveSurfaceResponse
+        public var image: (DJConnectPassiveSession.Artwork, DJConnectPassiveSurfaceResponse) async throws -> Data
+        public var negotiate: (() async throws -> Int?)?
+        public var authorizeVersioned: ((String, DJConnectPassiveSurface, Bool, Int) async throws -> DJConnectPassiveSurfaceResponse?)?
+        public var readVersioned: ((String, DJConnectPassiveSurface, String, Int) async throws -> DJConnectPassiveSurfaceResponse)?
+        public init(available: @escaping () async throws -> Bool,
+                    authorize: @escaping (String, DJConnectPassiveSurface, Bool) async throws -> DJConnectPassiveSurfaceResponse?,
+                    read: @escaping (String, DJConnectPassiveSurface, String) async throws -> DJConnectPassiveSurfaceResponse,
+                    image: @escaping (DJConnectPassiveSession.Artwork, DJConnectPassiveSurfaceResponse) async throws -> Data,
+                    negotiate: (() async throws -> Int?)? = nil,
+                    authorizeVersioned: ((String, DJConnectPassiveSurface, Bool, Int) async throws -> DJConnectPassiveSurfaceResponse?)? = nil,
+                    readVersioned: ((String, DJConnectPassiveSurface, String, Int) async throws -> DJConnectPassiveSurfaceResponse)? = nil) {
+            self.negotiate = negotiate; self.authorizeVersioned = authorizeVersioned; self.readVersioned = readVersioned
+            self.available = available; self.authorize = authorize; self.read = read; self.image = image
+        }
+    }
+    @Published public private(set) var available = false
+    @Published public private(set) var phases: [DJConnectPassiveSurface: Phase] = [:]
+    @Published public private(set) var caches: [DJConnectPassiveSurface: DJConnectPassiveSurfaceCache] = [:]
+    public var onChange: (() -> Void)?
+    /// Lifecycle diagnostics contain no source text, identities or grant IDs.
+    public var onDiagnostic: ((String) -> Void)?
+    public private(set) var renderingRevision = UUID()
+    private func notify() { renderingRevision = UUID(); onChange?() }
+    private var projectionVersion = 1
+    private var owner: String?
+    private var sessionID: String?
+    private var settingsRevision: Int?
+    private var settingsGeneration: String?
+    private var active = false
+    private var epoch = UUID()
+    private struct Grant {
+        let id: String
+        let binding: String
+        let generation: String
+        let projectionVersion: Int
+        init(_ response: DJConnectPassiveSurfaceResponse) {
+            projectionVersion = response.passive_session.schema_version
+            id = response.grant_id; binding = response.passive_session.binding_id; generation = response.passive_session.generation
+        }
+    }
+    private var grants: [DJConnectPassiveSurface: Grant] = [:]
+    // RAM-only original native capture; never reconstructed from an OS cache.
+    private var nativeCaptures: [DJConnectPassiveSurface: DJConnectNativeSurfaceClockCapture] = [:]
+    private var tasks: [DJConnectPassiveSurface: Task<Void, Never>] = [:]
+    private var versions: [DJConnectPassiveSurface: UUID] = [:]
+    private var lastRead: [DJConnectPassiveSurface: Date] = [:]
+    private var invalidatedPlayback: [DJConnectPassiveSurface: DJConnectPassiveSession] = [:]
+    public var awaitingPlaybackChange: Bool { !invalidatedPlayback.isEmpty }
+    private var discovering = false
+    private var expiryTask: Task<Void, Never>?
+    private var invalidationTask: Task<Void, Never>?
+    private var pendingInvalidations: Set<DJConnectPassiveSurface> = []
+    private var lastInvalidationSequence = -1
+    private var automaticAttempts: Set<DJConnectPassiveSurface> = []
+    private var retainedWidgetRequested = false
+    private var lastDiagnosticConfiguration: Set<DJConnectPassiveSurface>?
+    public init() {}
+    public func enabled(_ surface: DJConnectPassiveSurface) -> Bool { grants[surface] != nil }
+    public func busy(_ surface: DJConnectPassiveSurface) -> Bool { tasks[surface] != nil }
+    public var retainedWidgetEnabled: Bool { retainedWidgetRequested || grants[.widget]?.projectionVersion == 4 }
+
+    func setRetainedWidgetEnabled(_ enabled: Bool, services: Services) async {
+        let captured = epoch
+        guard active, !busy(.widget), enabled != retainedWidgetEnabled else { return }
+        let restoreOrdinaryWidget = !enabled && automaticAttempts.contains(.widget)
+        if !enabled { retainedWidgetRequested = false }
+        await setEnabled(enabled, surface: .widget, services: services, retainedLatest: enabled)
+        if enabled, epoch == captured, grants[.widget]?.projectionVersion == 4 {
+            retainedWidgetRequested = true
+        }
+        if restoreOrdinaryWidget, active, epoch == captured, phases[.widget] == .idle {
+            await setEnabled(true, surface: .widget, services: services)
+        }
+    }
+
+    /// Typed receiving input from the actual original foreground read only.
+    /// No cache/DTO constructor can create this C0, and it is not a successor
+    /// rich/background permission. Missing rate/restore qualification stays so.
+    func originalForegroundCapture(surface: DJConnectPassiveSurface, matching cache: DJConnectPassiveSurfaceCache) -> DJConnectNativeSurfaceClockCapture? {
+        guard grants[surface] != nil, caches[surface] == cache, cache.isCurrent(at: Date()),
+              let capture = nativeCaptures[surface], capture.wall == cache.receivedAt,
+              capture.uptime == cache.receivedUptime else { return nil }
+        return capture
+    }
+
+    public func bind(owner nextOwner: String?, sessionID nextSession: String?, foreground: Bool,
+                     settingsRevision nextRevision: Int? = nil, settingsGeneration nextGeneration: String? = nil) {
+        let subjectChanged = owner != nextOwner || sessionID != nextSession
+        let changed = subjectChanged || settingsRevision != nextRevision || settingsGeneration != nextGeneration
+        if subjectChanged { retainedWidgetRequested = false }
+        if changed || active != foreground {
+            epoch = UUID(); discovering = false
+            if foreground { lastRead = [:] }
+            tasks.values.forEach { $0.cancel() }; tasks = [:]
+            invalidationTask?.cancel(); invalidationTask = nil
+            pendingInvalidations = []
+        }
+        owner = nextOwner; sessionID = nextSession
+        settingsRevision = nextRevision; settingsGeneration = nextGeneration
+        active = foreground && owner != nil && sessionID != nil
+        if changed {
+            onDiagnostic?("reset reason=owner_or_session_changed")
+            lastDiagnosticConfiguration = nil
+            automaticAttempts = []
+            available = false; grants = [:]; caches = [:]; nativeCaptures = [:]; versions = [:]; lastRead = [:]; phases = [:]; lastInvalidationSequence = -1
+            invalidatedPlayback = [:]
+            expiryTask?.cancel(); notify()
+        }
+    }
+    /// OS configuration and a freshly confirmed active Session replace the old
+    /// extra pop-out. One authorization attempt per owner/Session/OS choice;
+    /// uncertain writes and server revocation never become a retry loop.
+    public func reconcileAutomatic(surfaces: Set<DJConnectPassiveSurface>, services: Services) async {
+        guard active else { return }
+        let captured = epoch
+        if lastDiagnosticConfiguration != surfaces {
+            lastDiagnosticConfiguration = surfaces
+            onDiagnostic?("configuration widget=\(surfaces.contains(.widget)) live_activity=\(surfaces.contains(.liveActivity))")
+        }
+        if !available { await discover(services) }
+        guard active, captured == epoch, available else { return }
+        for surface in DJConnectPassiveSurface.allCases {
+            guard active, captured == epoch else { return }
+            if !surfaces.contains(surface) {
+                automaticAttempts.remove(surface)
+                if surface == .widget { retainedWidgetRequested = false }
+                if enabled(surface) || busy(surface) {
+                    tasks[surface]?.cancel(); tasks[surface] = nil
+                    versions[surface] = UUID()
+                    await setEnabled(false, surface: surface, services: services)
+                }
+            } else if !enabled(surface), !busy(surface), !automaticAttempts.contains(surface) {
+                automaticAttempts.insert(surface)
+                await setEnabled(true, surface: surface, services: services,
+                                 retainedLatest: surface == .widget && retainedWidgetRequested)
+            }
+        }
+    }
+    public func suspend() {
+        guard active || !tasks.isEmpty || discovering else { return }
+        active = false; epoch = UUID(); discovering = false
+        tasks.values.forEach { $0.cancel() }; tasks = [:]
+        invalidationTask?.cancel(); invalidationTask = nil
+        pendingInvalidations = []
+        // Already permitted OS snapshots keep only their original short deadlines.
+    }
+    /// History suspension is separate from passive consent. On foreground,
+    /// withdraw rendered bytes until the original grant is authoritatively read.
+    public func pauseForRevalidation() {
+        let changed = active || !caches.isEmpty
+        suspend()
+        caches = [:]; nativeCaptures = [:]; expiryTask?.cancel()
+        if changed { onDiagnostic?("cache_removed reason=profile_settings_revalidation"); notify() }
+    }
+    public func discover(_ services: Services) async {
+        guard active, !discovering else { return }
+        let captured = epoch; discovering = true
+        defer { if captured == epoch { discovering = false } }
+        do {
+            let negotiated: Int?
+            if let negotiate = services.negotiate { negotiated = try await negotiate() }
+            else { negotiated = nil }
+            let supported: Bool
+            if services.negotiate != nil { supported = negotiated == 1 || negotiated == 3 }
+            else { supported = try await services.available() }
+            guard captured == epoch, active else { return }
+            projectionVersion = negotiated ?? 1
+            available = supported
+            if !supported { grants = [:]; caches = [:]; nativeCaptures = [:]; notify() }
+        } catch { if captured == epoch { available = false } }
+    }
+    /// Performs one requested state change. Callers fence automatic attempts;
+    /// uncertain writes are never replayed here.
+    public func setEnabled(_ enabled: Bool, surface: DJConnectPassiveSurface, services: Services,
+                           retainedLatest: Bool = false) async {
+        guard active, (!enabled || available), !busy(surface), let sessionID else { return }
+        guard !retainedLatest || (enabled && surface == .widget) else { return }
+        let selectedProjection = retainedLatest ? 4 : (!enabled ? grants[surface]?.projectionVersion ?? projectionVersion : projectionVersion)
+        let captured = epoch, version = UUID(); versions[surface] = version
+        // Local revocation is immediate even when the server is unreachable.
+        if !enabled || (retainedLatest && grants[surface] != nil) {
+            grants[surface] = nil; caches[surface] = nil; nativeCaptures[surface] = nil; invalidatedPlayback[surface] = nil; notify()
+        }
+        phases[surface] = .loading
+        onDiagnostic?("authorize surface=\(surface.rawValue) enabled=\(enabled)")
+        let originalClock = DJConnectNativeSurfaceClockCapture.capture()
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { finish(surface, captured: captured, version: version, services: services) }
+            do {
+                guard current(captured, version, surface), !Task.isCancelled else { return }
+                let result: DJConnectPassiveSurfaceResponse?
+                if let authorize = services.authorizeVersioned {
+                    result = try await authorize(sessionID, surface, enabled, selectedProjection)
+                } else {
+                    guard selectedProjection == 1 else { throw DJConnectError.invalidResponse }
+                    result = try await services.authorize(sessionID, surface, enabled)
+                }
+                guard current(captured, version, surface), !Task.isCancelled else { return }
+                if enabled {
+                    // The DTO enforces locked display for Live Activities only.
+                    // A home-screen widget grant is independently valid without it.
+                    guard let result, result.validates(sessionID: sessionID, surface: surface, projectionVersion: selectedProjection) else { throw DJConnectError.invalidResponse }
+                    grants[surface] = Grant(result)
+                    invalidatedPlayback[surface] = nil
+                    try await accept(result, surface: surface, captured: captured, version: version, originalClock: originalClock, services: services)
+                } else { phases[surface] = .idle }
+            } catch {
+                guard current(captured, version, surface) else { return }
+                if retainedLatest { retainedWidgetRequested = false }
+                onDiagnostic?("authorize_failed surface=\(surface.rawValue) reason=\(Self.diagnosticCode(error))")
+                grants[surface] = nil; caches[surface] = nil; nativeCaptures[surface] = nil; phases[surface] = .unavailable; notify()
+            }
+        }
+        tasks[surface] = task
+        await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+    }
+    /// The owner Broadcast hint grants no content. Coalesce it into pure reads,
+    /// at most one batch per two seconds; never authorize or publish from a hint.
+    public func invalidate(sequence: Int, services: Services) {
+        guard active, !grants.isEmpty, sequence > lastInvalidationSequence else { return }
+        lastInvalidationSequence = sequence
+        pendingInvalidations.formUnion(grants.keys)
+        scheduleInvalidationRead(services)
+    }
+    /// Join the already scheduled hint batch and its existing reads. Internal
+    /// test synchronization only: no refresh, authorization or new task starts.
+    func waitForPendingInvalidationRead() async {
+        await invalidationTask?.value
+        let reads = Array(tasks.values)
+        for read in reads { await read.value }
+    }
+    private func scheduleInvalidationRead(_ services: Services) {
+        guard active, !pendingInvalidations.isEmpty else { return }
+        guard invalidationTask == nil else { return }
+        let captured = epoch
+        let delay = max(0.25, 2 - Date().timeIntervalSince(lastRead.values.max() ?? .distantPast))
+        invalidationTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard let self, !Task.isCancelled, captured == epoch, active else { return }
+            invalidationTask = nil
+            let selected = pendingInvalidations
+            pendingInvalidations = []
+            refresh(services, force: true, surfaces: selected)
+        }
+    }
+    /// Called by the existing foreground coordinator, not a new polling loop.
+    /// Withdraw the old track before an explicit skip can send the app to the
+    /// background. Existing grants remain; cancelled image/read work cannot
+    /// restore the old card. This performs no background request or renewal.
+    public func invalidatePlaybackForCommand() {
+        for (surface, cache) in caches {
+            invalidatedPlayback[surface] = cache.projection
+        }
+        tasks.values.forEach { $0.cancel() }; tasks = [:]
+        invalidationTask?.cancel(); invalidationTask = nil; pendingInvalidations = []
+        for surface in grants.keys {
+            versions[surface] = UUID()
+            lastRead[surface] = Date()
+        }
+        caches = [:]; nativeCaptures = [:]; expiryTask?.cancel(); notify()
+    }
+    public func refreshAndWait(_ services: Services) async {
+        refresh(services, force: true)
+        let reads = Array(tasks.values)
+        await withTaskCancellationHandler {
+            for read in reads { await read.value }
+        } onCancel: {
+            for read in reads { read.cancel() }
+        }
+    }
+    public func refresh(_ services: Services, force: Bool = false) {
+        refresh(services, force: force, surfaces: Set(grants.keys))
+    }
+    private func refresh(_ services: Services, force: Bool, surfaces: Set<DJConnectPassiveSurface>) {
+        guard active, let sessionID else { return }
+        for (surface, grant) in grants where surfaces.contains(surface) {
+            if busy(surface) {
+                if force { pendingInvalidations.insert(surface) }
+                continue
+            }
+            guard force || lastRead[surface].map({ Date().timeIntervalSince($0) >= 15 }) != false else { continue }
+            pendingInvalidations.remove(surface)
+            let captured = epoch, version = versions[surface] ?? UUID(); versions[surface] = version
+            lastRead[surface] = Date()
+            let originalClock = DJConnectNativeSurfaceClockCapture.capture()
+            tasks[surface] = Task { @MainActor [weak self] in
+                guard let self else { return }
+                defer { finish(surface, captured: captured, version: version, services: services) }
+                do {
+                    guard current(captured, version, surface), !Task.isCancelled else { return }
+                    let result: DJConnectPassiveSurfaceResponse
+                    if let read = services.readVersioned {
+                        result = try await read(sessionID, surface, grant.id, grant.projectionVersion)
+                    } else {
+                        guard grant.projectionVersion == 1 else { throw DJConnectError.invalidResponse }
+                        result = try await services.read(sessionID, surface, grant.id)
+                    }
+                    guard current(captured, version, surface), !Task.isCancelled else { return }
+                    guard result.passive_session.binding_id == grant.binding,
+                          result.passive_session.generation == grant.generation else {
+                        onDiagnostic?("validation_failed stage=read_binding")
+                        throw DJConnectError.invalidResponse
+                    }
+                    try await accept(result, surface: surface, captured: captured, version: version, originalClock: originalClock, services: services)
+                } catch {
+                    guard current(captured, version, surface) else { return }
+                    onDiagnostic?("read_failed surface=\(surface.rawValue) withdraws=\(Self.withdraws(error)) reason=\(Self.diagnosticCode(error))")
+                    if Self.withdraws(error) {
+                        if surface == .widget { retainedWidgetRequested = false }
+                        grants[surface] = nil; caches[surface] = nil; nativeCaptures[surface] = nil; phases[surface] = .unavailable; notify()
+                    }
+                    // A network failure is not a fresh observation. Original
+                    // cache/field/uptime deadlines still expire independently.
+                }
+            }
+        }
+    }
+    private func finish(_ surface: DJConnectPassiveSurface, captured: UUID, version: UUID, services: Services) {
+        guard epoch == captured, versions[surface] == version else { return }
+        tasks[surface] = nil
+        if grants[surface] == nil { pendingInvalidations.remove(surface) }
+        // Retain a publication hint that arrived during metadata/image IO. It
+        // schedules only a pure read of the existing grant, with the same rate
+        // bound and owner epoch; never a replayed authorization or new lease.
+        if active, pendingInvalidations.contains(surface) { scheduleInvalidationRead(services) }
+    }
+    private func current(_ captured: UUID, _ version: UUID, _ surface: DJConnectPassiveSurface) -> Bool {
+        active && epoch == captured && versions[surface] == version
+    }
+    private static func diagnosticCode(_ error: Error) -> String {
+        guard let value = error as? DJConnectError else {
+            if error is CancellationError { return "cancelled" }
+            if let url = error as? URLError { return "network_\(url.code.rawValue)" }
+            return "other"
+        }
+        switch value {
+        case .invalidResponse: return "invalid_response"
+        case .decodingFailed: return "decoding_failed"
+        case .routeMissing: return "route_missing"
+        case .authStale, .missingToken, .profile: return "authority_withdrawn"
+        case .server(let code, _): return "http_\(code)"
+        default: return "client_error"
+        }
+    }
+
+    private static func withdraws(_ error: Error) -> Bool {
+        guard let e = error as? DJConnectError else { return !(error is URLError) && !(error is CancellationError) }
+        if e.invalidatesSessionAuthority { return true }
+        switch e {
+        case .invalidResponse, .routeMissing, .decodingFailed: return true
+        case .server(let status, _): return status < 500
+        default: return false
+        }
+    }
+    private func accept(_ result: DJConnectPassiveSurfaceResponse, surface: DJConnectPassiveSurface,
+                        captured: UUID, version: UUID, originalClock: DJConnectNativeSurfaceClockCapture, services: Services) async throws {
+        let p = result.passive_session, now = Date()
+        guard current(captured, version, surface), !Task.isCancelled, let sessionID,
+              result.validates(sessionID: sessionID, surface: surface, projectionVersion: grants[surface]?.projectionVersion ?? 1), grants[surface]?.id == result.grant_id,
+              let asOf = DJConnectHistoryEntry.date(p.as_of), abs(asOf.timeIntervalSince(now)) <= 30 else {
+            onDiagnostic?("validation_failed stage=response_scope_or_clock")
+            throw DJConnectError.invalidResponse
+        }
+        if let previous = caches[surface]?.projection ?? invalidatedPlayback[surface] {
+            guard p.binding_id == previous.binding_id, p.generation == previous.generation,
+                  p.delivery_sequence >= previous.delivery_sequence,
+                  asOf >= (DJConnectHistoryEntry.date(previous.as_of) ?? .distantFuture) else { return }
+            if p.delivery_sequence == previous.delivery_sequence {
+                guard p.hasSameOriginalObservation(as: previous, at: now) else {
+                    onDiagnostic?("validation_failed stage=same_sequence_changed_observation")
+                    throw DJConnectError.invalidResponse
+                }
+            }
+        }
+        if let previous = invalidatedPlayback[surface]?.now_playing, let next = p.now_playing,
+           previous.item_id == next.item_id, previous.subject_uri == next.subject_uri,
+           previous.observed_at == next.observed_at {
+            // A successful command may precede the backend observation. An
+            // unchanged old observation must not repopulate the OS card.
+            return
+        }
+        guard p.isCurrent(at: now) else { caches[surface] = nil; nativeCaptures[surface] = nil; phases[surface] = .ready; notify(); return }
+        invalidatedPlayback[surface] = nil
+        let previous = caches[surface]
+        // Publish text/metadata first; optional image IO cannot block the whole surface.
+        let originalCache: DJConnectPassiveSurfaceCache
+        if let previous, p.hasSameOriginalObservation(as: previous.projection, at: now) {
+            originalCache = try previous.staging(pixels: previous.removingExpiredFields(at: now).pixels, at: now)
+        } else {
+            originalCache = try DJConnectPassiveSurfaceCache(projection: p.removingExpiredFields(at: now),
+                at: originalClock.wall, uptime: originalClock.uptime)
+            nativeCaptures[surface] = originalClock
+        }
+        guard current(captured, version, surface), !Task.isCancelled, grants[surface]?.id == result.grant_id else { return }
+        caches[surface] = originalCache
+        if previous == nil {
+            onDiagnostic?("cache_ready surface=\(surface.rawValue) playback=\(p.currentPlayback(at: now) != nil) contribution=\(p.currentContribution(at: now) != nil) artwork=\(p.artwork.count)")
+        }
+        phases[surface] = .ready; notify(); scheduleExpiry()
+        var pixels: [String: Data] = [:]
+        for a in p.artwork where p.currentArtwork(slot: a.slot, at: Date()) != nil {
+            guard current(captured, version, surface), !Task.isCancelled,
+                  grants[surface]?.id == result.grant_id, originalCache.isCurrent(at: Date()) else { return }
+            if previous?.projection.currentArtwork(slot: a.slot, at: Date()) == a, let existing = previous?.pixels[a.slot] {
+                pixels[a.slot] = existing
+            } else {
+                do {
+                    let data = try await services.image(a, result)
+                    guard current(captured, version, surface), !Task.isCancelled,
+                          grants[surface]?.id == result.grant_id, originalCache.isCurrent(at: Date()) else { return }
+                    guard Self.validPixels(data) else { continue }
+                    pixels[a.slot] = data
+                } catch {
+                    if (error as? DJConnectError)?.invalidatesSessionAuthority == true { throw error }
+                    // Missing/expired/unavailable cover never borrows another slot.
+                }
+            }
+        }
+        let publishedAt = Date()
+        guard current(captured, version, surface), !Task.isCancelled,
+              grants[surface]?.id == result.grant_id, originalCache.isCurrent(at: publishedAt) else { return }
+        let valid = pixels.filter { p.currentArtwork(slot: $0.key, at: publishedAt) != nil }
+        let completed = try originalCache.staging(pixels: valid, at: publishedAt)
+        guard current(captured, version, surface), !Task.isCancelled, grants[surface]?.id == result.grant_id else { return }
+        caches[surface] = completed
+        notify(); scheduleExpiry()
+    }
+    static func cachePNG(for image: CGImage) throws -> Data {
+        func encode(_ image: CGImage) throws -> Data {
+            let bytes = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(bytes, "public.png" as CFString, 1, nil) else {
+                throw DJConnectError.invalidResponse
+            }
+            CGImageDestinationAddImage(destination, image, nil)
+            guard CGImageDestinationFinalize(destination) else { throw DJConnectError.invalidResponse }
+            return bytes as Data
+        }
+
+        let original = try encode(image)
+        let limit = DJConnectPassiveSurfaceCache.maximumImageBytes
+        if original.count <= limit { return original }
+
+        // 240 × 240 at four 8-bit channels leaves room for PNG overhead.
+        let scale = min(1, 240.0 / Double(max(image.width, image.height)))
+        let width = max(1, Int(Double(image.width) * scale))
+        let height = max(1, Int(Double(image.height) * scale))
+        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                                      bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw DJConnectError.invalidResponse
+        }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let thumbnail = context.makeImage() else { throw DJConnectError.invalidResponse }
+        let reduced = try encode(thumbnail)
+        guard reduced.count <= limit else { throw DJConnectError.invalidResponse }
+        return reduced
+    }
+
+    private static func validPixels(_ data: Data) -> Bool {
+        guard data.count <= DJConnectPassiveSurfaceCache.maximumImageBytes,
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              CGImageSourceGetCount(source) == 1, CGImageSourceGetType(source) as String? == "public.png",
+              CGImageSourceGetStatus(source) == .statusComplete,
+              let values = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = values[kCGImagePropertyPixelWidth] as? Int, let height = values[kCGImagePropertyPixelHeight] as? Int else { return false }
+        return width > 0 && height > 0 && width <= 512 && height <= 512
+    }
+    private func scheduleExpiry() {
+        expiryTask?.cancel()
+        let now = Date()
+        guard let deadline = caches.values.flatMap({ $0.projection.deadlines }).filter({ $0 > now }).min() else { return }
+        expiryTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(max(0, deadline.timeIntervalSinceNow)))
+            guard let self, !Task.isCancelled else { return }
+            let now = Date()
+            for (surface, cache) in caches where !cache.isCurrent(at: now) {
+                onDiagnostic?("cache_removed surface=\(surface.rawValue) reason=original_deadline_expired")
+            }
+            caches = caches.compactMapValues { $0.isCurrent(at: now) ? $0.removingExpiredFields(at: now) : nil }
+            notify(); scheduleExpiry()
+        }
+    }
+}

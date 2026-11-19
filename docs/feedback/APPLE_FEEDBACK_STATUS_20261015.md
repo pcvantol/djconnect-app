@@ -1,0 +1,1415 @@
+# Apple feedback: current disposition — 2026-10-15
+
+This is the current view of the owner's complete feedback list and Apple lane #87.
+It supersedes the intermediate counts and candidate pins in
+[the chronological worklist](APPLE_FEEDBACK_20261014.md). A source correction is
+not an installed fix. The owner subsequently authorized installation on iPad, iPhone, MacBook and Mac mini.
+The initial installation checkpoint was build40060 on all four devices. See the
+latest checkpoint below for current device versions. Installation is not acceptance
+of every reported bug. Source publication/CI/merge and speculative re-pair remain
+outside the current authorization.
+
+Sole writer: `build/apple-40017-recovery/source`, branch
+`codex/apple-dj-presence-v1`, starting HEAD `3c89327`. Original root WIP and the
+extra untracked Xcode projects are preserved. The disposable `/private/tmp`
+checkout is byte-copied build input, not another source writer.
+
+## Latest checkpoint: Hybrid / About, build40064
+
+Owner explicitly requested the transportslice, accurate About connection details,
+and a Details → About action in every non-green connection popover.
+
+- Source: automatic paired Hybrid actions, original-operation recovery, separate
+  Broadcast cursor recovery, readonly automatic transport settings and About
+  route/transport/origin reporting. See HYBRID_TRANSPORT_APPLE_ADOPTION_V1.md.
+- Five-language localization validation:1134 keys PASS; diff whitespace PASS.
+- Native unsigned and Apple Development signed Mac/iOS builds40064 PASS.
+- Mac mini ordinary app40064 installed and launched PID46894. Strict/deep
+  signature, exact installed-file hashes, entitlement and preference preservation
+  PASS; receipt /private/tmp/djc-hybrid-mac-install3.json. Normal quit was blocked
+  by crash/setup sheets; optional crash sheet was dismissed with Niet nu, then
+  the app's own App afsluiten button completed normal termination. No force kill,
+  token restore or re-pair. It remains unpaired and shows the required setup sheet.
+- Physical iPad40064 installed and launched via devicectl. Screenshot
+  /private/tmp/djc-hybrid-ipad-40064.png shows the real active Session behind the
+  existing possible-crash sheet, with an external-route globe. This is installed
+  observation, not end-to-end proof of Details navigation or network transitions.
+- MacBook last verified40062; normal replacement was blocked by setup UI earlier.
+  iPhone last verified40060, currently unavailable in a fresh device inventory.
+- Final software regression:572 tests PASS in31.028s, including route-origin
+  selection and clearing on background. Log: /private/tmp/djc-hybrid-final-tests.log.
+  Native action/network-transition acceptance remains OPEN; the injected wire
+  tests cannot qualify physical TLS, LAN-to-external switching or energy use.
+
+The current Mac pairing401 issue and iPad crash overlay are not reported as fixed
+by this transport/About candidate. No APNs testpush is claimed.
+
+## Per-report disposition
+
+| Owner report | Local correction / verified scope | Still required |
+| --- | --- | --- |
+| Output change delayed / two selected speakers | Exact pending/confirmed selection, obsolete-response fencing, immediate device readback | Real output-device acceptance |
+| Selected speaker says Actief | Current volume replaces the redundant word | Native/device acceptance |
+| Inconsistent About/Legal/Privacy gaps | Current source uses24-point outer section spacing and shared glass surfaces | Side-by-side acceptance on installed candidate |
+| Context speech balloon does not open Ask DJ on Mac | Native context/navigation route preserved and covered by source tests | Installed click-through |
+| Discover Play now does nothing | Await actual action outcome; retain sheet and visible failure on refusal | Actual playback/provider acceptance |
+| Missing Music DNA artist/track art | Safe relative URLs and exact same-Profile/URI/kind authorized Discovery references; numeric Unix expiry fixed | Producer must actually supply an eligible reference; no name inference |
+| Discover sections need own glass card | Separate Rediscover / Artists to explore section surfaces | Native acceptance |
+| Discover thumbnails disappear | Original image lease, bounded GET renewal and resume/generation fencing | Real asset/source acceptance |
+| Ask DJ speaker choices disappear | Current response RAM overlay survives reduced history, numeric timestamp decoding, frozen action identity and inherited original lifetime | Actual server choices and device acceptance |
+| Internal command appears in conversation | Never use the technical command as user-visible fallback text | Installed acceptance |
+| Ask DJ artwork briefly appears then disappears | Current response retains original image/action rights in RAM; expiry/scope withdrawal still removes it | Valid server grants and actual image acceptance |
+| DJ-session DJMoment artwork absent | Existing explicit subject-bound consumer design; no borrowed playback/Discover artwork | Core early schema, assets, real transport fixtures/checksums and exact pin remain missing |
+| Track Insight data absent | Explicit Moment→detail uses exact subject A; qualified CC0 credit and source shown separately; unknown measurements stay unknown | Qualified musical analysis/measurements from Core and joint acceptance |
+| Subtle hero animation | Shared subtle motion with Reduce Motion / inactive-scene handling | Native accessibility/visual acceptance |
+| Mood labels/icons/track need white | White unselected labels, glyphs, markers and rail | Installed visual acceptance |
+| Now Playing uses wrong background / Mac does not follow artwork | Actual image palette on both platforms; no Mood blend; neutral missing-art state | Physical album changes incl. brown/cream cover |
+| Presence UX should match Mood | Shared compact five-step control; no Confirmed row or explanatory footer; accessible adjustable value retained | Native interaction/accessibility acceptance |
+| Connection status is ambiguous | One14-state label/icon/colour mapping; no second health dot | Native/device state acceptance |
+| Connection indicator placement / requested pages | Trailing on DJ-session, Now Playing, Track Insight, Discover, Ask DJ, Music DNA, Queue and Playlists; omitted from Earlier Sessions | Native page/toolbar acceptance |
+| Saved Sessions refresh errors | Keep confirmed readonly rows on transient failure; superseded/cancelled read does not create false error; authority refusal still clears | Real history endpoint acceptance |
+| Session progress lags after seeking | Shared exact-track pending position, then confirmed server position | Actual seek and cross-screen acceptance |
+| Presenter / other modes only show observed playback | No fabricated DJMoments. Authorized one-shot projection had2Moments,2presentations,10admissions, but no current Moment/grant | Core planner/publication causality and actual contribution frequency remain unproven |
+| Cross-device Session only appears after refresh | Bounded foreground discovery via existing10-second coordinator, independent of known session/playback | Real Mac/iPhone/iPad start/end/successor acceptance; owner confirmed sharing after matching Profiles |
+| Splash lower image outdated | Reuses DJ-session welcome hero | Installed acceptance |
+| Strange Mac mini Sessieverloop and detail popups | Removed alternate legacy layout; normal Session screen plus honest history recovery | Limited isolated native proof exists; ordinary40060 layout acceptance still separate |
+| Pi VibeCast code fails | Approval never automatically replayed; exact Session acknowledgment; distinct unavailable-code/unconfirmed outcome | Current receiver code and actual handoff/Pi render |
+| Push Action needed | Distinguish missing issuer configuration, OS/APNs, transport and explicit registration; safe details and retry; receive/tap coalescing fixed | Authoritative trusted issuer configuration/deployment and real APNs delivery |
+| Music DNA fails after off/on | Exact409context refusal withdraws old data and retries boundedly; unknown state does not claim opt-out | Core must determine rejecting context predicate; no reset/re-pair bypass |
+| Current artist text/voice fails | Final exact Core private-response fixture adopted; older history revisions no longer reject current private reply as revision0 | Installed final Core and actual microphone/reply acceptance |
+
+## Lane #87 continuation
+
+Current lane comments were reread without posting or sending a message. The Core
+queue remains separately owned; do not duplicate its writer or substitute Apple
+for its Hybrid/artwork work.
+
+- Moment→Track Insight producer: Core #1166, exactmain
+  `7698961ec4fc7f93d1afa155aa73416a35604ac3`;
+  `Tests/Fixtures/moment-insight-core-producer.json` SHA256
+  `9be892d55c8aaee4871e54ac68ed04945fb0676ce5472e2091a83ee66b2151a8`.
+  Navigation is inert until click, capability/version gated, exact immutable
+  reference, no current-playback substitution. Detail is RAM/view scoped, no
+  widget/history/share storage, and original publication/source deadline cannot
+  be extended by retry. A valid successor, end, background, forbidden/expired
+  source, changed media identity and unavailable runtime are separate tests.
+- Frozen search/refinement/selection actions inherit their original result-set
+  deadline even when selection omits result_set. Repeat cannot extend it;
+  revoked/expired grants cannot be restored by subsequent response or scope change.
+- Current-artist producer: Core #1168 exactmain
+  `eeb1c7e763f72ee346ec8eabb52e1c7d87d39433`, fixture SHA256
+  `6fac84203cc3ce18c380895a5e59dcbcf93dc038034bc9f4be8f5c5ca8e14536`.
+  Final additive private_ephemeral metadata does not require the earlier optional
+  history_persisted=false marker. Ordinary history version/owner/epoch checks remain.
+- Session/Moment artwork assignment
+  `DJC-APPLE-SESSION-MOMENT-ARTWORK-V1-20261014` remains selected/queued pending
+  the explicit early Core inputs listed in
+  [the adoption design](SESSION_MOMENT_ARTWORK_ADOPTION.md). No DTO is invented.
+
+## New native findings and evidence
+
+A separately identified temporary Mac app used only synthetic loopback owner
+projections and the exact sanitized Core detail fixture. Native AX and screenshot
+confirmed: zero detail requests before click; one after click; A stays A while B
+plays; Close returns to the same Session; zero playback mutations. This is
+`SYNTHETIC_NATIVE_RENDERER_PROOF`, not real Core/provider/microphone/installed proof.
+Files: `/private/tmp/djc-insight-native-{before,detail,after-B,return}.txt`,
+`/private/tmp/djc-insight-native-detail.png`,
+`/private/tmp/djc-insight-native-receipt.json`. That app and its local fixture
+were stopped; the ordinary DJConnect process was not replaced or restarted.
+
+The native screenshot exposed Core summary/full_text strings containing serialized
+language dictionaries. Apple does not evaluate or extract prose from that debug
+representation. For the existing qualified_credit_and_interpretation_v1 contract,
+verified_context is rendered only with measured_audio=false plus valid HTTPS CC0
+source attribution; normal prose interpretation stays separate. A technical-only
+explicit detail without this qualified fallback is refused. Energy/danceability/
+intensity remain absent; no local analysis was created. The final updated native
+screenshot is recorded below after verification.
+
+Music DNA409 source tracing reaches capture_refresh_guard.valid() checks before
+and after profile/provider awaits. Relevant predicates cover exact record/manager,
+consent/generation, Profile/backend/account/runtime identity, paired entry/provider
+registration, privacy and authority. Existing installed diagnostics identify the
+error code but not which predicate failed. This read-only source trace does not
+establish a production root cause or justify disabling those checks.
+
+## Build40060 verification and requested device installation
+
+Owner explicitly expanded the earlier installation pause to the four named
+devices. No CI run, push, protected merge, HA/Pi update, pairing change or other
+installation was performed. Existing Mac app bundles were retained as backups;
+no UserDefaults, app container, token or Profile was reset.
+
+- Full Swift suite:550 tests PASS32.835s,
+  `/private/tmp/djc-40060-final-tests.log`.
+- Signed iOS generic/physical-device build: BUILD SUCCEEDED,
+  `/private/tmp/djc-40060-ios-signed.log`.
+- Signed macOS build-for-testing: TEST BUILD SUCCEEDED,
+  `/private/tmp/djc-40060-mac-signed.log`. Native XCTest execution is not claimed.
+- Localization:1123keys/five languages PASS; git diff --check PASS.
+- Exact iOS executable SHA256:
+  `33295c7c7b34707b6e24eb4d4d4dec7f12c0479beabc7f6150c41ed7f1c32dd9`.
+- Exact Mac executable SHA256:
+  `1a22cebb7b1e877595880f3c136b1fcaa4a1ecffdb841de10b53282a9af1c839`.
+
+| Device | Fresh pre-install read | Installed readback | Launch |
+| --- | --- | --- | --- |
+| Peter-iPadPro |40021|4.0.0/40060|devicectl success|
+| Peter-iPhone17Pro |40059|4.0.0/40060|devicectl success|
+| MacBook mbpro-peter |40059|4.0.0/40060 + exact Mac SHA|new ordinary process confirmed|
+| Mac mini macmini-m6 |40058|4.0.0/40060 + exact Mac SHA|new ordinary process confirmed|
+
+The fresh pre-install reads supersede older assumed installed-version statements.
+Build40060 avoids reusing40059 already found on the iPhone and MacBook. Device
+receipts are `/private/tmp/djc-{ipad,iphone}-40060-{install,after-app,launch}.json`;
+Mac mini receipt `/private/tmp/djc-macmini-40060-install-receipt.json`; MacBook
+receipt `/private/tmp/djc-macbook-40060-install-receipt.json` is on the MacBook.
+
+The late missing-optional-live-capability regression was first reproduced with a
+delayed capability reply after a successful authenticated HTTP detail. Production
+paired transport now keeps that HTTP snapshot and its original expiry, instead
+of clearing it solely because an optional WebSocket route is absent. Explicit
+legacy/test auth without HTTP recovery retains its unavailable-state behavior.
+Actual HTTP401/Profile refusal still withdraws private owner state.
+
+Final native40060 confirmation used the same isolated bundle/loopback fixture.
+AX checked exactly one status button on each of the eight requested live pages
+and zero on Earlier Sessions. The popover shows Verbonden · lokaal and no
+contradictory Gekoppeld/dot. Credit detail AX shows the exact verified context,
+MusicBrainz · CC0-1.0 and no serialized dictionary. Screenshots were inspected.
+Receipts: /private/tmp/djc-40060-native-page-receipt.json,
+/private/tmp/djc-40060-native-{connection-popover,credit-detail}.{txt,png}.
+All157 current Sources/Tests/Apps files match the build input byte-for-byte;
+hashes are in /private/tmp/djc-40060-source-manifest.json. The temporary app and
+fixture were stopped. These native fixture results are not live provider or
+whole-list end-user acceptance.
+
+## Follow-up: Track Insight refresh at the far right
+
+Owner screenshot requested refresh after the connection indicator. The iOS/iPadOS
+trailing group now orders optional share, connection, refresh. macOS keeps share
+in navigation and orders connection, refresh at the trailing edge. Explicit
+Moment detail keeps its own retry at that edge without another connection icon.
+Unsigned iOS and Mac compile checks passed with local build number40061:
+/private/tmp/djc-refresh-right-{ios,mac}.log. No additional installation was made;
+the four installed apps remain40060. This presentation-only edit did not rerun
+the full550-test suite; that result above belongs to the40060 source checkpoint.
+
+Ask DJ follow-up: the same far-right refresh rule now orders trash, connection,
+refresh on iOS/iPadOS and macOS, while search remains at the navigation edge.
+The existing refresh action/disabled/accessibility behavior is reused by both
+platforms. Both unsigned builds pass in /private/tmp/djc-askdj-refresh-right-{ios,mac}.log.
+No further installation; this joins the pending40061 presentation changes.
+
+Legal page follow-up: Juridisch and OSS are now independent glass cards using
+shared24-point section spacing and padding. Both section dividers are disabled;
+the localized legal text is unchanged. Both unsigned builds pass in
+/private/tmp/djc-legal-cards-{ios,mac}.log. Pending40061 presentation change only;
+no new installation or full regression rerun for this layout-only edit.
+
+Splash follow-up: the icon, DJConnect wordmark and slogan now share the standard
+glass-card surface. The old opaque branding gradient and dark multiply overlays
+are removed, while the existing layout, hero and startup timing stay intact.
+The shared surface supplies its normal border and Reduce Transparency fallback.
+Both unsigned builds pass in /private/tmp/djc-splash-glass-{ios,mac}.log.
+Pending40061 presentation change only; no further installation.
+
+Discover clipping follow-up: restored the horizontal ScrollView's normal clip
+and explicitly clipped each padded section to the shared rounded card shape
+before applying its glass/border. Covers and text cannot paint outside the card;
+the same fix covers Rediscover and Artists to explore. Both unsigned builds pass
+in /private/tmp/djc-discover-clipping-{ios,mac}.log. Pending40061 presentation
+change only; no further installation or full regression rerun for this layout edit.
+
+## Track Insight automatic analysis on screen entry
+
+Opening ordinary Track Insight now requests the playing track through the
+existing service, without force_refresh or another navigation request. If status
+arrives after opening, the visible screen starts once playback is available.
+Existing matching analysis is reused, concurrent loading is guarded, and view
+redraws do not trigger another request. No playback/paused state starts no work;
+a failure remains visible with manual retry, without an automatic retry loop.
+The explicit Moment detail is excluded and remains pinned to its own subject.
+Automatic completion is fenced to the original playback/context/language/owner
+epoch and foreground lifetime. Late/cancelled results cannot populate current
+analysis, history or widgets after that context is gone.
+
+Seven new source scenarios cover playing/current reuse/in-flight overlap,
+paused/empty/failure and track change/background/cancellation. Full Swift suite:
+552 tests PASS29.740s in /private/tmp/djc-insight-auto-open-full-tests.log.
+Both unsigned builds PASS in /private/tmp/djc-insight-auto-open-{ios,mac}.log;
+1123 localization keys/five languages PASS; git diff --check PASS. This joins the
+pending40061 changes and has not been installed on the four40060 devices.
+
+## Mood marker vertical jump follow-up
+
+The earlier horizontal-offset animation did not stabilize its parent popover.
+Mood changes inserted a progress row while awaiting confirmation and removed it
+afterwards, changing the anchored popover height. The status row now retains
+its layout space when idle (hidden visually and from accessibility); progress,
+errors and unavailable status share that slot. The header SF Symbol also has a
+fixed 24-point box so different symbol heights cannot shift the slider below.
+Marker travel remains the existing horizontal-only offset animation with Reduce
+Motion support. No backend selection or confirmation behavior changed.
+Unsigned Mac and iOS builds PASS: /private/tmp/djc-mood-stable-{mac,ios}.log.
+Localization validation PASS (1123 keys); git diff --check PASS. Source/layout
+validation only: actual popover motion on installed hardware is not yet verified.
+Pending40061; these changes have not been installed over40060.
+
+## Track Insight mood toolbar and standalone color choice
+
+Ordinary Track Insight now offers the shared mood popover before connection
+status and refresh in the iOS/iPadOS and Mac toolbar. With an active Session it
+uses ActiveSessionMoodToolbar and its existing confirmed backend operation.
+Without a Session, a view-local visual choice drives the hero, metric palette
+and share preview. This ephemeral choice does not write a Profile, create a
+Session, alter analysis inputs or reuse the old Ask DJ preference. Pinned Moment
+details do not offer this selector. Refresh remains at the trailing edge.
+Unsigned Mac/iOS builds PASS: /private/tmp/djc-insight-mood-{mac,ios}.log.
+Full Swift regression suite: 552 tests PASS in 29.506s,
+/private/tmp/djc-insight-mood-tests.log. Localization validation PASS (1123 keys);
+git diff --check PASS. Pending40061, not installed; physical UI acceptance open.
+
+## Remove Track Insight private rendering label
+
+Removed the entire TrackInsightPrivacyFooter (lock icon, localized text and
+its layout space) from ordinary and pinned Track Insight. This is a presentation
+removal; missing qualified analysis remains an open diagnosis, not resolved by
+removing the footer. Pending40061; not installed. Validation recorded below.
+Unsigned Mac/iOS builds PASS: /private/tmp/djc-insight-footer-{mac,ios}.log.
+git diff --check PASS; no full regression rerun for this label-only removal.
+
+## iPad floating Ask DJ composer
+
+Removed the phone-only restriction from the iOS floating composer in both
+active DJ Session and Ask DJ. The existing rounded material input now overlays
+the bottom of the scroll surface on iPad too, with horizontal/bottom spacing
+and a centered content-width limit (1000 points on Session). Measured composer
+height still reserves scroll space and lifts the scroll-to-top control. Search
+hides the composer, archived Sessions remain without an active composer, and
+Mac retains its existing docked layout. Pending40061, not installed; physical
+iPad portrait/landscape/keyboard acceptance remains open.
+Unsigned iOS/Mac builds PASS: /private/tmp/djc-ipad-floating-{ios,mac}.log.
+git diff --check PASS; no full regression rerun for this layout-only change.
+
+## More page glass navigation cards
+
+Replaced the single opaque gradient list and row separators with individual
+24-point rounded shared glass surfaces. Rows have 44-point purple icon badges,
+semibold white wrapping titles and a visible chevron; Feedback uses the same
+component. An adaptive grid (280-point minimum, 12-point gaps, 1000-point content
+limit) gives phone-width single-column rows and multiple columns on larger
+iPad windows. Existing destinations and feedback sheet actions are preserved.
+The shared surface supplies native glass/material and Reduce Transparency
+behavior. Unsigned iOS/Mac builds PASS in /private/tmp/djc-more-glass-{ios,mac}.log.
+Localization validation PASS (1123 keys); git diff --check PASS. Layout-only
+change, no full regression rerun. Pending40061; no installation or physical
+visual acceptance claimed.
+
+## iPad Session title and clear recovery action
+
+The DJ Session navigation title is now empty on both iPhone and iPad; Mac
+retains its title. Session-history unavailable and timeline-error panels now
+show an explicit arrow.clockwise + Refresh page button using the primary
+white-on-gradient style, avoiding the nested secondary live-glass background.
+The unavailable message no longer ends in a vague Try again instruction; Dutch
+now reads De sessiegeschiedenis is tijdelijk niet beschikbaar. All five
+localizations include the explicit action label (Ververs pagina in Dutch).
+Recovery operations and authority checks remain unchanged; backend history
+unavailability itself is not declared solved by this presentation change.
+Unsigned iOS/Mac builds PASS: /private/tmp/djc-ipad-session-refresh-{ios,mac}.log.
+Localization validation PASS (1124 keys); git diff --check PASS. Pending40061,
+not installed; physical iPad readability acceptance remains open.
+
+## iPad HTTP500 diagnosis — actual device and running HA
+
+Read only the iPad app diagnostic file (500 retained lines). It contains414
+HTTP500 failures on POST /api/djconnect/v1/command, including manual refresh and
+ongoing status polls. No extra API requests were made. The physical HAOS host
+log was checked first but had no matching traceback; the local homeassistant
+container supplied13 repeated matching tracebacks in its bounded recent tail.
+Device authentication succeeds before the fault. Installed api_handlers.py:802
+calls _debug_playback_request; line2214 calls music_backend_metadata(None,runtime).
+That reaches use_cases.py:642/610 and profile_backend.py:242, which raises
+ProfileStorageValidationError(profile_connection_unavailable) with no HA storage
+context. Debug logging therefore raises before normal command dispatch. This
+does not establish a bad persisted Profile mapping. Five other debug helper
+metadata calls in the installed file also pass None and require Core review.
+Running source was copied read-only and SHA256-bound in the redacted receipt:
+/private/tmp/djc-ipad-http500-diagnosis-20261015.json. Raw logs remain temporary
+local diagnostics, are not committed, and have not been sent externally.
+Now Playing command/status cause is confirmed; the retained iPad log has no
+direct Track Insight endpoint failure, so its independent cause stays open.
+No re-pair, profile mutation, backend source edit, log-level change, deployment
+or restart. User permits iPad takeover today, but CUA failed initialization
+twice; no UI-control or native acceptance claimed. Core writer handoff awaits
+explicit messaging authorization. This diagnosis does not fix the running HA.
+
+## Remove New contributions button from DJ Session
+
+Removed the composer banner button and its unused new-entry tracking state
+from SessionTimelineScreen. Both floating iPhone/iPad and docked Mac composers
+now contain only AskDJInputBar. Timeline delivery, existing scroll-to-current
+button and reading/search position handling are unchanged. Pending40061, not
+installed. This is a layout-only removal; no full regression rerun.
+Unsigned iOS/Mac builds PASS: /private/tmp/djc-remove-new-contributions-{ios,mac}.log.
+git diff --check PASS.
+
+## Premium Mac launch layout
+
+Mac launch now uses a centered desktop composition at window widths >=880: a
+400-point shared glass icon/wordmark/slogan banner and version/loading column
+beside the 340-point Session hero on the shared blue/purple launch canvas.
+Narrow Mac windows retain the compact vertical layout used on iPhone/iPad.
+Startup bounds and transition behavior remain unchanged. Unsigned Mac/iOS
+builds PASS in /private/tmp/djc-mac-premium-launch-{mac,ios}.log. Actual native
+wide-Mac screenshot captured and visually inspected: banner, text, artwork and
+status fit cleanly. Isolated ad-hoc demo bundle dev.djconnect.mac.launchproof,
+not the installed personal app; probe stopped afterwards. Receipt:
+/private/tmp/djc-mac-premium-launch-receipt.json. Pending40061; no installation.
+
+## Apple transport queue readback and Pi10 initial diagnosis
+
+Fresh Apple #87 readback (222 comments) confirms selected dependent workpackage
+DJC-APPLE-HYBRID-TRANSPORT-ADOPTION-V1-20261013, comment6149955349. Follow the
+current bugs/corrective work using the same writer and route coordinator. The
+latest producer comment6185756317 is still an EARLY local/unpublished pin
+2c3734d0d336d64a125eeb35dfe7fade69e28126, not final consumer admission.
+Required consumer work: automatic trusted-local WS for Broadcast/supported
+actions; appropriate local HTTP fallback; external HTTPS/HTTP recovery away
+from home; automatic qualified LAN return. Remove normal-use WebSocket toggle
+and migrate old overrides. Validate endpoint/installation TLS identity before
+token release (foreign Wi-Fi is not home LAN). One demultiplexed receive loop,
+request/connection IDs, bounded pending/cancellation/late-response cleanup.
+Use original UUIDv7 operation_id and boot operation_epoch across routes,
+status reconciliation for uncertain sends, immutable 300-second lifetime and
+compact receipts; never blindly replay potentially executed mutations. New
+paired action audience paired_owner_actions and /api/djconnect/v1/actions/paired;
+Broadcast remains subscribe/recover-only, no /websocket/session issuer.
+Bounded liveness/lease/recovery distinguishes quiet playback from dead sockets
+and withdrawal from transport failure; coalesce probes and measure load/latency.
+Same DTO/authority/revision/source-expiry fences on HTTP and events; preserve
+Session, selected subject, draft, choices and scroll without resurrecting data.
+Qualify all feature categories and real Mac/iPhone/iPad LAN-cellular-LAN, foreign
+Wi-Fi, foreground, lease/restart and configuration-recovery transitions. Pin
+final Core schema/fixtures/artifact and compatibility before adoption; follow
+normal reviews/protected delivery/Finalization and existing installation gates.
+Lane links:
+https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6149955349
+https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6185756317
+No transport source adoption was started by this readback.
+
+Pi10 fresh read-only diagnosis: SSH alias djconnect-pi10 resolves to
+rbpi5-djconnect. Ordinary djconnect-client/api services active; actual
+djconnect-wall-kiosk and djconnect-wall-x11vnc both inactive/dead/MainPID0.
+Touch-app screenshot and actual DISPLAY=:0 root screenshot are both black.
+Prior Pi thread confirms the receiver had been started temporarily, with the
+ordinary touch client returning after reboot. No inference that a reboot was
+observed; only present service/screen state is proven. Request to reopen the
+existing kiosk services for E2E is pending; no service changes, update, pairing
+or reboot performed. Screenshots retained temporarily, not committed.
+
+## Authorized Pi receiver activation, HA-dev alignment and waiting-page preview
+
+Owner approved reopening the existing Pi10 kiosk, then explicitly requested the
+Mac mini HA-dev URL. Stopped only ordinary touch/watchdog/touch-VNC and started
+the existing wall-kiosk/wall-x11vnc. Changed only RECEIVER_URL in the Pi startup
+script to the Apple app's configured HTTPS HA-dev origin, retaining backup
+/usr/local/bin/djconnect-wall-kiosk.before-ha-dev-20261015-101634. Receiver and
+VNC restarted and actual Pi screen now shows waiting state and a fresh code.
+The public HTTPS tunnel was read-only verified to target local127.0.0.1:8123,
+while the old Pi origin was physical HA192.168.1.13. No pairing was changed.
+
+Owner separately requested a djconnect branch and only HTML publication to
+HA-dev. Isolated Core worktree:/private/tmp/djc-vibecast-waiting/source, branch
+codex/vibecast-waiting-glass-v1, source723ba0438b6b999bd4eed6f3a1dba923b3c78b76
+on main9efd1977; documentary readback74fe5078. Existing Core Hybrid writer/WIP
+was preserved. Shared sources generate branded glass idle page with three
+localized instructions, the VibeCast monitor/Wi-Fi icon and code.11 tests PASS;
+only vibecast.html changed in HA-dev,156 other integration files hash-equal,
+no HA restart. Actual physical Pi waiting-page screenshot visually inspected.
+Owning report: docs/verification/VIBECAST_WAITING_GLASS_HA_DEV_20261015.md in
+that isolated Core worktree. No push/merge or production HA publication.
+
+Owner requests actual iPad-to-Pi Session/Mood/Presence E2E and permits Spotify
+playback on the Mac mini built-in speaker. A separately signed standalone UI
+test helper was built and installed; it references the existing DJConnect
+bundle without compiling/installing/resetting the main app. Runner launched
+but failed enabling automation mode (60-second timeout); CUA also fails startup.
+No iPad UI action, Session handoff, Mood/Presence mutation or Spotify/output
+command has therefore been tested; those cases remain OPEN, not fixture PASS.
+Read-only installed renderer inspection shows album-art tones override the mood
+palette while artwork is present; actual live mood transition is NOT_RUN.
+
+Accumulated Apple40061 local regression suite552 PASS29.595s in
+/private/tmp/djc-40061-consolidated-tests.log. No new Apple installation.
+
+## Hybrid detailed Apple handoff reconciled
+
+Read the newer Core→Apple handoff6186713492, which supersedes the coarse early
+checkpoint details but still explicitly lacks a final qualified producer pin.
+Prepared HYBRID_TRANSPORT_APPLE_ADOPTION_V1.md with current-source gaps, bounded
+implementation order and separate Core/Swift/native/installed/joint acceptance.
+Existing route/replay/context fixes are preserved; no legacy toggle activation,
+new paired-action Swift implementation or mutable Core schema adoption yet.
+The setting/legacy issuer will be retired as part of actual automatic adoption,
+not represented as already implemented. No external ACK/comment was posted.
+
+## Integral Apple push repair: verified local build40061, live delivery open
+
+Fresh read-only installed Mac mini diagnosis found push_registered=false and
+last_push_error=trusted_issuer_not_configured. Its installed bundle lacked
+DJConnectTrustedPairingIssuerBaseURL. Both native app Info.plists and project.yml
+now ship the canonical public https://api.djconnect.dev issuer already documented
+by Core/API; no embedded credentials or backend contract changes were introduced.
+The relay public health check returned HTTP200; this is reachability only.
+
+Both delegates now retain early APNs token/error callbacks and compact recognized
+event metadata in a bounded RAM-only startup buffer. Cold discovery taps retain
+Discover routing instead of falling through to Ask DJ. Known Ask DJ events refresh
+canonical history and taps open Ask DJ; unknown events do not fetch private history.
+Notification prose is never cached or treated as authoritative personal content.
+
+Registration, bootstrap and retry continuations check current pairing, HA route,
+token/signature and owner-response epoch before applying status or reporting errors.
+Regression tests exposed an additional premature mutation inside the registration
+logging function; logging is now observational only, so obsolete replies cannot
+bypass the guards. Existing explicit server-confirmation/environment checks remain.
+
+Validation:558 Swift tests PASS29.621s, including six new configuration/startup/
+routing/late-response regressions. Localization1124keys/five languages PASS and
+git diff --check PASS. Final unsigned and existing-identity signed iOS/macOS builds
+both BUILD SUCCEEDED. Deep strict signature verification and packaged entitlements
+PASS:both carry development APNs entitlement and the canonical issuer URL.
+Evidence:/private/tmp/djc-push-integral-{tests,ios,mac,ios-signed,mac-signed}.log,
+/private/tmp/djc-push-integral-artifact-receipt.json. Unsandboxed codesign verified
+entitlements after the sandboxed inspector could not read the entitlement blob.
+
+iOS executable SHA256:283d7ed61bab6d6291aeaa3d3f8f6e25003d0913f6408f60cd42d4115fe11409.
+Mac executable SHA256:ff381b9f6e694f85483a7f8ccd5fdff4a0ffc23f735aeb16c0baf3d26f954649.
+No new app installation, authenticated issuer/registration request, test push,
+CI, push or merge performed. Existing ordinary apps remain40060. Actual server
+registration, APNs sandbox receipt in foreground/background/cold start, tap routing
+and production/TestFlight environment delivery remain OPEN; source and signing
+validation do not close those acceptance boundaries. Retained delivery/installation
+gates still apply after the earlier explicitly requested40060 installations.
+
+## Authorized40061 installation and real Pi session screenshots
+
+Owner explicitly lifted the installation/testpush pause. Build40061 installed and
+launched on iPad, MacBook and Mac mini with data/pairing retained; strict signature
+and exact-file verification PASS on both Macs, backups retained. Prior Mac build
+included XCTest-only absolute-read/mach-lookup exceptions;40061 removes only those,
+all other entitlements equal. Mac mini installer initially stopped before mutation
+because its process-name guard saw the separate launchscreen proof app. Replaced
+that check with exact installed executable path and completed safely; proof app
+was not terminated. iPhone installation failed CoreDevice4016 unavailable; not
+installed or claimed current.
+
+Actual Mac mini Session started through native app. Physical Pi code approved
+through native VibeCast UI; Pi changed to LIVE. Selected macmini-m6 via the real
+output picker; system audio readback identifies built-in Mac mini speaker as
+default output. Spotify playback/metadata reached Pi, with Editors album artwork
+and matching gold/brown palette. Physical screenshots:
+/private/tmp/djc-40061-screenshots/pi10-wachtscherm.png and
+/private/tmp/djc-40061-screenshots/pi10-actieve-sessie.png.
+This proves real Mac-to-Pi handoff/rendering, not iPad-origin handoff or Mood/
+Presence acceptance. The iPad autonomously discovered the Session but a retained
+possible-crash report sheet obscures its UI. Direct devicectl screenshot works;
+CUA still fails trusted Node startup. Asked owner to dismiss sheet for clean iPad
+capture; no fake/simulator/cropped replacement screenshot supplied.
+
+Live push40061:Mac APNs callbacks return tokens, but server registration has not
+completed; iPad reports permission_granted=false and does not start registration.
+No APNs delivery PASS. Source regression additionally reproduces a startup-owner
+response-epoch change discarding registration without resuming. Follow-up permits
+one foreground retry in current context only when identity/token/route remain
+unchanged, with no background retry or unbounded retry loop.560 tests PASS30.086s
+including recovery/background/bounded-repeat checks. One earlier parallel run had
+an unrelated timing failure in VibeCast successor-session refresh; final full
+rerun passed. Final log:/private/tmp/djc-push-owner-transition-tests-final.log.
+
+## Live push bootstrap succeeded; authentication boundary remains open
+
+Further installed evidence corrects the earlier bootstrap-only uncertainty:
+HA-dev logs11:45:46 show the native retry including bootstrap_proof_present=True;
+11:45:47.090 central install-token bootstrap succeeded, HTTP200, token received.
+The same window contains46 successful device-token equality checks for the Mac
+mini before the app reports auth stale HTTP401 at11:45:47 and invokes existing
+pairing-withdrawal behavior. HA service registration repeats immediately after
+central token persistence. Runtime reload/in-flight-request interaction is a
+candidate, not a proven root cause. No invalid bearer token was established.
+MacBook40062 also reached the native re-pairing-required presentation. No manual
+re-pair, Profile change, credential restoration, Core edit/deploy/restart or
+security-bypass retry was performed. Do not call registration or APNs receipt PASS.
+Redacted evidence:/private/tmp/djc-push-live-auth-boundary-20261015.json. Raw local
+window retained privately; no tokens copied to reports. Asked owner permission to
+send this bounded finding to the existing Core writer; not sent without approval.
+
+Shared bootstrap helper now accepts its caller's context validator. The iOS Watch
+proxy validates its own pairing/route/owner epoch instead of incorrectly depending
+on a simultaneous phone APNs request.560 tests PASS29.977s; signed iOS (including
+Watch proxy compile path) and macOS40063 BUILD SUCCEEDED, strict/deep signatures
+verified. No physical Watch push acceptance is claimed.
+
+Latest installed:Mac mini40063 and iPad40063 (opened, existing state retained);
+MacBook40062, because normal quit is blocked/cancelled during its changed setup
+presentation. Installer stops before bundle replacement; no force-quit fallback.
+iPhone remains previous40060, CoreDevice4016 unavailable.40063 signed artifacts
+and hashes:/private/tmp/djc-push-40063-artifacts.json. Installation backups retained.
+
+Physical requested screenshots delivered as local links:Pi idle and active with
+Editors track metadata/artwork; latest iPad actual active Session/playback and
+DJ contributions, but still obscured by the possible-crash sheet. No crop/mock
+replacement supplied. iPad auto-discovery and floating composer are visible behind
+the sheet. Owner can dismiss Niet nu for a clean screenshot; native screen capture
+works, UI automation does not. Screenshots:/private/tmp/djc-40061-screenshots/.
+Temporary unified log stream stopped. No testpush sent before confirmed registration.
+
+## Branding follow-up: build40065
+
+The crash prompt used a separate AboutBanner layout with the bare app-icon image.
+AboutBanner now delegates to the same DJConnectLaunchBanner used by the launch
+screen. Its shared icon has an inset glass tile, specular highlight and beveled
+outline; the recognizable brand artwork is retained. Other sheets and About
+inherit the same treatment. Native signed Mac and iOS build40065 PASS. This is
+appearance-only and does not claim to fix the separate crash-notice cause.
+
+Physical iPad build40065 installed and launched. Screenshot
+/private/tmp/djc-glass-brand-ipad-40065.png visually confirms the shared banner
+and inset beveled glass logo in the actual crash prompt, with readable title and
+subtitle. The prompt remains present; no upload or pairing change was performed.
+Mac build40065 is signed/build-verified, not installed in this follow-up.
+
+## Integral logo/modal audit: build40066
+
+Source inventory of every DJConnect logo reference found16 AboutBanner users:
+all route through the shared glass launch banner. The remaining bare logo in the
+demo album placeholder and three Watch locations (pairing, Welcome sheet, About)
+now use their shared glass-logo wrappers. The phone/tablet/Mac bare asset loader
+is private, so another screen cannot accidentally bypass its wrapper.
+
+Native signed Mac and iOS builds40066 PASS, including Watch compilation/signing.
+Logs: /private/tmp/djc-brand-audit-mac-final.log and
+/private/tmp/djc-brand-audit-ios-watch-final.log. Source audit and scope inventory:
+APPLE_BRANDING_SURFACE_AUDIT_20261015.md. No claim of physical Watch acceptance or
+opening every modal on hardware. This build is not installed in this follow-up;
+physical iPad remains on visually checked40065 and Mac mini on40064.
+
+## iPad floating Ask DJ width: build40067
+
+Owner requested25% narrower. Both Session and Ask DJ now use a shared iPad-only
+container-relative width of75% of their former capped available width, centered.
+Text size, microphone/send touch targets and height are unchanged. The calculation
+uses the actual container width for portrait/Split View; no screen-bound constant.
+Native signed iOS and Mac builds40067 PASS. Installed and launched on the physical
+iPad. Screenshot /private/tmp/djc-ipad-composer-75-40067.png visually confirms the
+Session composer is narrower and centered (visible behind the existing crash
+sheet). Typing/keyboard, rotation, Split View and the separate Ask DJ page were
+not physically exercised in this change. Mac/iPhone width behavior is unchanged.
+
+## Push false401/root-cause correction: build40068
+
+Reproduced Core push-persistence → runtime replacement → pairing_revoked → Apple
+syntheticHTTP401 → credential deletion. Both implicated installed HA-dev source
+functions match the investigated code. Detailed causal evidence and limitations:
+PUSH_BOOTSTRAP_RUNTIME_RELOAD_ROOT_CAUSE_20261015.md.
+
+Apple now withdraws private state immediately but independently validates the
+paired identity before deleting a credential. Temporary503, unqualified proxy401,
+changed token/configuration and background cancellation are covered. Push failures
+also clear old green registration confirmation.580 Swift tests PASS; signed Mac
+and iOS builds PASS. Ordinary Mac mini and physical iPad installed40068.
+
+OPEN: Core writer companion fix (messaging permission pending), MacBook/iPhone
+installation, and real APNs registration/delivery. Existing Mac mini was already
+unpaired; no token restoration, re-pair, Core source mutation or HA restart here.
+
+## Physical iPad WSS E2E request — preflight only
+
+Fresh route readback shows all three configured URLs use the public ngrok origin.
+The installed Hybrid implementation therefore uses external HTTPS for actions;
+local action WSS is not admitted for this hostname. Screenshot/log access works,
+but CUA initialization fails and one fresh physical XCTest attempt timed out
+while enabling automation. Actual all-screen/all-flow E2E remains NOT RUN.
+Matrix and exact evidence: IPAD_WEBSOCKET_E2E_20261015.md. Owner question for an
+existing trusted local HTTPS HA-dev address is pending. No TLS bypass, re-pair,
+server change or fake native PASS was introduced.
+
+
+## Ask DJ keyboard / glass selector slice — build40070
+
+Owner's newest refinement supersedes the intermediate Presence slider requests:
+Mood and Presence both use shared segmented glass choice buttons, selected purple
+and one selected label beneath. Mood uses four options; Presence five. Session
+Mood and standalone Track Insight share the same renderer. Removed the duplicate
+Presence pending/selected footer and spinner. Original capability-loading/error
+and conflict handling remain; backend confirmation is not replaced with a local
+success claim. The selected-contribution close button uses shared press feedback.
+
+Keyboard first attempt49f602e was reproduced failing in both simulator cases.
+76ab190 fixes native UIKit responder dismissal rather than relying on unbound
+SwiftUI FocusState. Both Session and Ask DJ outside taps now PASS in native
+isolated iPad simulator: keyboard closes, draft retained, inside tap does not
+close it, editing resumes. Exact final UI rerun:2 tests PASS, log
+/private/tmp/djc-askdj-glass-final.log, resultbundle same stem.xcresult.
+
+New glass mood test initially failed because the simulator could not launch the
+app. After restarting only the isolated simulator, test-without-building PASS:
+four accessible44pt choices, selected Feest confirmation and actual screenshot
+exported/visually inspected. /private/tmp/djc-mood-glass-retry.xcresult;
+/private/tmp/djc-mood-glass-retry-attachments/391D8CD1-B4DC-462C-9FED-C632A17E34F1.png.
+These are demo-native visual/input proofs, not live backend or physical-iPad
+interaction acceptance. No separate live Presence click/confirmation proof.
+
+Signed native Mac and iOS40070 builds PASS. Physical iPad install/launch PASS;
+actual post-launch screenshot shows real current Session and same glass composer,
+with the existing possible-crash prompt still covering it. No assertion that the
+agent dismissed or tapped that physical UI. Device automation remains unavailable.
+Buildinput source equals bounded UIcommit76ab190; source publication remains
+paused. Mac mini install receipt is recorded in the closure note. MacBook/iPhone
+have not been updated during this increment.
+
+Next selected independently actionable lane increment started by the same writer:
+DJC-APPLE-SESSION-MOMENT-ARTWORK-V1-20261014, Corepin5c7ecb79. cfebbde commits
+exact imported transport fixtures, shared decoder/admission boundary and5 passing
+tests. See APPLE_SESSION_ARTWORK_ADOPTION_20261015.md. Full loader/card/native and
+joint acceptance remainOPEN. Hybrid physical E2E remains explicitlyOPEN; this
+continuation does not silently qualify it. Speech/Persona remains after artwork.
+
+Final installed Mac mini readback: ordinary/Applications/DJConnect.app40070,
+PID94954, strict/deep signaturePASS, exact installed files, entitlements and
+preferences preserved. Receipt/private/tmp/djc-ux-40070-mac-install.json;
+backup in Application Support/DJConnect/InstallBackups/40070-askdj-glass-final-20261015.
+Normal quit was first blocked by crash/setup sheets; closed only “Niet nu” and
+then the app's own “App afsluiten”, without upload, credential edits or forced
+termination. The app remains unpaired as before. Physical iPad40070 install
+receipt/private/tmp/djc-ux-40070-ipad-install.log; launch and actual screenshot
+/private/tmp/djc-ux-40070-ipad-ready.png. Implementation/build/install delivered;
+physical interaction and live Presence confirmation remain unqualified.
+
+
+## DJ-session playback album art +50% — build40071
+
+Owner's requested size increase is isolated in38e9d40. Artwork maximum180→270pt;
+side-by-side column min(180,width*.25)→min(270,width*.375), so both capped and
+width-constrained layouts grow by exactly1.5. Phone stacked layout remains
+container-bounded; uncropped scaledToFit and glass wrapper are unchanged.
+Signed native iOS and Mac builds PASS. Physical iPad installation PASS
+(/private/tmp/djc-artsize-40071-ipad-install.log); Mac mini ordinary app40071
+installed and launched, strict/deep signature and exact files PASS, entitlements
+and preferences preserved (/private/tmp/djc-artsize-40071-mac-install.json).
+No new low-impact layout tests; physical visual interaction remains unqualified.
+MacBook/iPhone have not been updated during this increment. Source publication
+pause preserved; artwork adoption continues separately from this size adjustment.
+
+
+## Open Session menu stability — iOS build40072
+
+Owner reports flickering VibeCast/Refresh rows in the open iPhone ellipsis menu.
+894023f extracts a native SessionMoreMenu behind an equality boundary containing
+only Session/authority epoch, language, actual action availability and permissions.
+It observes neither AppModel nor playback/status/timing itself. Background
+isRefreshing no longer toggles Refresh availability: overlapping refresh is still
+coalesced by the existing refresh owner. Real pairing/Session/authority changes
+still invalidate the menu; this is not a frozen authorization snapshot.
+
+Native isolated iPad simulator test PASS: menu stays open across8one-second
+playback ticks, same label/frame/disabled demo permission and normal dismissal.
+Actual screenshot playback advances0:53→1:02 while the menu stays stable. Before
+and after images were exported and visually inspected. Exact result
+/private/tmp/djc-session-menu-stable.xcresult. Demo has only Refresh, so this is
+not two-row real VibeCast/handoff acceptance or physical iPhone proof.
+
+Signed native iOS40072 build PASS. Physical iPhone unavailable in fresh CoreDevice
+inventory; no installation there is claimed. Mac menu uses a different toolbar
+and is unchanged (Mac mini stays40071). iPad installation receipt follows below.
+No source push/CI dispatch, new pairing, backend or Core changes. The selected
+artwork loader/card continuation remains separate from this targeted menu fix.
+
+Follow-up exact compact iPhone simulator test also PASS:
+/private/tmp/djc-session-menu-iphone.xcresult and .log. Same8tick native-menu
+stability assertions; no physical iPhone or two-item live handoff proof.
+Physical iPad40072 install and ordinary launch PASS, receipts
+/private/tmp/djc-session-menu-40072-ipad-install.log and -launch.log. No physical
+tapping claim. All unrelated writer WIP preserved; bounded source is894023f.
+
+
+## GitHub link and complete toolbar clarification — build40073
+
+fbf7eae adds a native link to https://github.com/pcvantol/djconnect beneath
+Copyright in About→Notices, styled like the existing website link. Labels are
+proper GitHub/repository identifiers and require no translated prose. Native
+Mac and iOS signed builds40073 PASS; no backend/contract/dependency changes.
+
+Owner questioned the previous open-menu Demo screenshot showing only text
+Refresh. Extended the native iPad regression to assert all6pill controls present
+and hittable both before opening and after closing the menu: connection, Mood,
+Presence, end, search, ellipsis. It PASSES, with the8tick open-menu checks intact.
+Actual closed-toolbar screenshots exported and visually inspected. The full pill
+is visible; text Refresh is the native submenu's sole Demo action, not a toolbar
+replacement. Ordinary non-demo VibeCast row remains conditional on active Session.
+Exact proof/private/tmp/djc-session-full-toolbar.xcresult; closed screenshot
+/private/tmp/djc-session-full-toolbar-attachments/1D4939D9-DC71-4017-BE18-25599FEF3A40.png.
+No live VibeCast/physical touch acceptance inferred from this Demo screenshot.
+Physical iPad40073 installed; Mac mini installation receipt follows below.
+
+Mac mini40073 install/ordinary launch PASS: PID54436, strict/deep signature,
+exact files, preferences and entitlements preserved. Receipt
+/private/tmp/djc-github-40073-mac-install.json. Physical iPad40073 install/launch
+PASS with receipts/private/tmp/djc-github-40073-ipad-{install,launch}.log.
+
+## Latest owner refinement — direct split iPad toolbar, build40074
+
+0eb4936 separates iPad toolbar navigation (connection/search) into topBarLeading;
+Mood/Presence/VibeCast/end/refresh remain trailing, refresh at the far right.
+iPad has no custom ellipsis menu. VibeCast retains its existing non-demo active
+Session admission and existing sheet/action; no invented Demo handoff. iPhone
+keeps the stable native compact menu; Mac toolbar remains unchanged.
+Native iPad test PASSES in portrait and landscape: all6Demo controls directly
+visible/hittable, left/right coordinates and refresh order, no ellipsis. The
+first landscape screenshot was captured in the rotation transition and clipped;
+it is NOT accepted as final visual proof. A compositor-settled screenshot retry
+is recorded below. /private/tmp/djc-ipad-split-toolbar.xcresult.
+Native iPhone regression with all6buttons before/after and8open-menu playback
+ticks also PASS: /private/tmp/djc-iphone-menu-retained.xcresult. Live VibeCast is
+not present in Demo, so no live handoff acceptance is claimed.
+Signed native iOS40074 build PASS. Mac mini stays40073, with GitHub link;
+physical iPhone remains unavailable. Source publication pause preserved.
+
+Final iPad screenshot retry PASS: explicit orientation geometry and compositor
+settling, full-screen capture; /private/tmp/djc-ipad-toolbar-settled.xcresult.
+Actual landscape image is complete and was visually inspected:
+/private/tmp/djc-ipad-toolbar-settled-attachments/006E38AE-8C75-44DC-8037-5A09E8E25373.png.
+Both toolbar halves are visible, no custom ellipsis, refresh icon rightmost.
+This supersedes the clipped rotation-transition image. Test-only capture fix
+adds no product behavior. Physical iPad40074 installation PASS, receipt
+/private/tmp/djc-ipad-toolbar-40074-install.log; normal launch recorded in
+/private/tmp/djc-ipad-toolbar-40074-launch.log. No physical tapping proof or live
+VibeCast handoff inferred. Build includes the GitHub link from40073. Source
+publication remains paused and unrelated writer directories are preserved.
+
+
+## VibeCast native Feedback-sheet and six numeric cells — build40075
+
+Owner refinement supersedes the initial custom overlay/X proposal: use the
+central native root sheet presenter already used by Feedback, with the same
+canvas, content sizing/padding and standard `DJConnectNotNowLinkButton` below
+Start. No custom backdrop/card shell or full-screen cover remains. Title/action
+is “VibeCast sessie starten”; generic target-screen instructions replace Pi in
+all five languages. Hero reuses the native Track Insight glyph/card system with
+`tv.badge.wifi`. Six actual 64pt-high input cells replace the single text field;
+ASCII digits only, automatic advance, backspace into the previous empty cell,
+whole-code paste/autofill distribution, explicit Start (no auto-submit).
+
+The first nested Session presenter lost iPad native input focus during ongoing
+UI updates. Temporary non-personal native focus diagnostics confirmed touch and
+initial first-responder acquisition; subsequent cells were recreated. Moving
+presentation to the central root sheet fixed the reproduced failure without
+changing the shared tab controller or backend. Temporary diagnostics removed.
+Session/Profile/authority epoch changes dismiss the dialog. Demo presentation
+can be reached only through the DEBUG+uitesting flag and the real toolbar button;
+Demo/unpaired approval is disabled and confers no backend handoff authority.
+
+Native simulator proof PASS (one executed test, zero failures each):
+- `/private/tmp/djc-vibecast-six-final-ipad.xcresult`: actual native centered
+  iPad sheet, six inputs >=44x60pt, numeric keyboard, automatic advance, digits
+  retained across four seconds of playback updates, backspace/re-entry, standard
+  Not now below Start, backdrop blocking, explicit dismissal/return to Session.
+- `/private/tmp/djc-vibecast-six-final-iphone.xcresult`: same compact native flow.
+- Actual iPad images exported to `/private/tmp/djc-vibecast-six-final-ipad-images`;
+  `DD96D71B-0462-4E3E-8F8E-C2D2194AB869.png` visually inspected with all six filled
+  cells and native numeric-mode keyboard. iPadOS supplies its system numeric/
+  symbols layout; invalid characters are rejected by the input control. This is
+  a native simulator Demo screenshot, not a live approved VibeCast Session.
+- Five-language validation PASS1134keys; `git diff --check` PASS.
+- Signed iOS and macOS40075 builds PASS; logs
+  `/private/tmp/djc-vibecast-40075-{ios,mac}-ready.log`.
+
+No live claim, server call, re-pair, Profile/session change, source push, CI
+publication, or protected merge is inferred from these presentation tests.
+Physical installation receipts follow after actual installation verification.
+
+
+Build40075 installation readback (source e0cbed4):
+- Physical iPad install and ordinary launch PASS. CoreDevice app-only readback
+  confirms `dev.djconnect.ios`, version4.0.0, bundleVersion40075. Receipts:
+  `/private/tmp/djc-vibecast-40075-ipad-{install,launch,readback}.log` and
+  `/private/tmp/djc-vibecast-40075-ipad-readback.json`.
+- Mac mini ordinary `/Applications/DJConnect.app` install/launch PASS, PID74802.
+  Strict/deep signature, exact signed files, entitlements and preferences PASS;
+  existing pairing state retained, no re-pair. Receipt
+  `/private/tmp/djc-vibecast-40075-mac-install.json`, recoverable backup under
+  `~/Library/Application Support/DJConnect/InstallBackups/40075-vibecast-native-sheet-20261015`.
+- Physical input/tap/live approval is NOT inferred; six-cell editing proof is
+  from the native simulator tests above. MacBook/iPhone were not installed in
+  this bounded update. Publication pause and unrelated writer files preserved.
+
+
+## General DJ-session identity becomes a vinyl record — build40076
+
+Shared `DJConnectFeatureSymbols.djSession` uses the native scalable `opticaldisc`
+symbol across iPhone tab, iPad native tab, Mac sidebar, welcome eyebrow, Session
+status/user/refresh notices and quiet-session placeholder. The existing large
+native vinyl welcome artwork now has a spindle hole instead of center sparkles.
+Content-kind, Mood and unrelated feature symbols retain their existing meaning.
+No backend contract, Profile data, dependency or bitmap asset changes.
+
+Signed Mac/iOS builds40076 PASS, logs `/private/tmp/djc-vinyl-40076-{mac,ios}-build.log`.
+Existing native iPad portrait/landscape toolbar regression PASS (one test, zero
+failures): `/private/tmp/djc-vinyl-40076-ipad.xcresult`. Exported actual screenshot
+`/private/tmp/djc-vinyl-40076-images/01DB5E64-9EC3-4B27-AFB1-7A3FFF2DADDC.png`
+visually inspected: selected DJ-session tab renders the purple record icon and
+keeps the existing label and glass styling. This is simulator Demo UI, not live
+Session/physical interaction acceptance. `git diff --check` PASS. No new tests
+written for this bounded icon-only change. Source publication remains paused.
+
+
+Build40076 installed readback (source e5d931f): physical iPad install and ordinary
+launch PASS; app-only CoreDevice readback confirms bundleVersion40076. Receipts
+`/private/tmp/djc-vinyl-40076-ipad-{install,launch,readback}.log` and readback JSON.
+Mac mini `/Applications/DJConnect.app` build40076 ordinary launch PID87869, exact
+signed files, strict/deep signature, entitlements and preferences PASS; receipt
+`/private/tmp/djc-vinyl-40076-mac-install.json`. Existing pairing state preserved.
+No physical touch proof inferred; MacBook/iPhone installation not performed in
+this bounded update. Source publication pause preserved.
+
+
+## Output-device refresh spinner inside the button — build40077
+
+OutputSelectorView removes the separate leading purple ProgressView. Its existing
+refresh button conditionally displays a small white native ProgressView instead
+of arrow.clockwise while isLoadingOutputs is true, matching page toolbar behavior.
+The button retains its shared circular glass style, accessible label/identifier
+and existing disabled/loading admission. Existing loadOutputs owns the flag and
+clears it with defer; no playback/backend/action contract changes.
+Signed iOS/macOS40077 builds PASS, logs
+`/private/tmp/djc-output-refresh-40077-{ios,mac}-build.log`; diff check PASS.
+No new tests for this reversible icon/loading-placement-only refinement; no live
+output-device refresh or physical interaction proof inferred. Publication paused.
+
+
+Build40077 installed readback (source6f25fb7): physical iPad install/ordinary
+launch PASS; CoreDevice app-only readback confirms bundleVersion40077. Receipts
+`/private/tmp/djc-output-refresh-40077-ipad-{install,launch,readback}.log` and
+readback JSON. Mac mini ordinary app build40077 launch PID92726, strict/deep
+signature, exact files, preferences/entitlements preservation PASS; receipt
+`/private/tmp/djc-output-refresh-40077-mac-install.json`. No physical refresh
+interaction acceptance inferred. MacBook/iPhone not installed in this update.
+
+
+## Output switch keeps Now Playing interactive and confirms one transfer — build40078
+
+Code diagnosis: set_output scheduled the common runRefresh, setting isRefreshing;
+Mac/iOS Now Playing disabled hit testing for their entire content and playback
+controls also gated on that flag. Meanwhile selectOutput only changed the
+requested name, while visible rows depended on returned active flags. A single
+immediate devices read could still show the old backend speaker. A pre-selection
+status response could subsequently overwrite newer output confirmation.
+
+Fix: selection publishes its pending device ID synchronously. Only that row gets
+“Switching…” and a small local spinner; confirmed active/checkmark remains backend
+owned. Duplicate taps on that pending ID do not replay set_output; a different
+choice supersedes the old generation. Transfer performs one write and up to four
+confirmation reads (350/700/1400ms backoff), with a quiet status snapshot only
+when needed after a stale first read. Backend-authored structured action values
+are preserved, with one confirmation read rather than inferred names. set_output
+no longer schedules a page-wide busy refresh. Now Playing contents and playback
+controls remain interactive during reads while capability/auth/offline gates
+remain in place. Old status snapshots are generation-checked; cancellation is
+not treated as lost connectivity. Runtime clear invalidates pending receipts.
+Rejected/unconfirmed transfers clear pending state, keep the confirmed speaker
+and show an appropriate translated notice (five languages). Pending is never
+shown as a successful transfer. Output rows now expose selected accessibility
+traits for confirmed devices.
+
+Qualification:
+- 46 output/playback regression tests PASS, including delayed backend activation,
+  duplicate tap -> one transfer write, stale status, rejection, bounded unconfirmed
+  outcome, newer selection/fallback and structured action value retention.
+  `/private/tmp/djc-output-transfer-40078-tests-final.log`.
+- Native one-tap output selection/control availability PASS on iPad and iPhone
+  simulators with Demo data: `/private/tmp/djc-output-choice-ipad-final.xcresult`
+  and `/private/tmp/djc-output-choice-iphone-final.xcresult`. The test uses the
+  real shared output view, starts directly on Now Playing using the existing
+  presentation fixture, taps Kitchen once, then asserts confirmed selected state
+  and available playback/output controls. This does not qualify physical transfer.
+  An initial harness attempt failed to navigate from Session and is not PASS;
+  final tests assert that Now Playing is open before interacting with output.
+- Signed Mac/iOS40078 builds PASS, `/private/tmp/djc-output-transfer-40078-{mac,ios}-ready.log`.
+- Localization PASS1136keys; diff check PASS. No backend/transport contract changes,
+  live credentials/read requests, re-pair, source push or publication.
+- Physical speaker transfer remains NOT_RUN; installed Mac is already unpaired,
+  and simulator fixtures do not establish actual Spotify/speaker acceptance.
+
+
+Build40078 installed readback (source4f6739e): physical iPad install and ordinary
+launch PASS; CoreDevice app-only readback confirms bundleVersion40078. Receipts
+`/private/tmp/djc-output-transfer-40078-ipad-{install,launch,readback}.log` and
+readback JSON. Mac mini ordinary app build40078 launch PID16144, exact signed
+files, strict/deep signature and preferences/entitlements preservation PASS;
+receipt `/private/tmp/djc-output-transfer-40078-mac-install.json`, recoverable
+backup `~/Library/Application Support/DJConnect/InstallBackups/40078-output-transfer-20261015`.
+Normal installed launch may perform its ordinary app networking; no additional
+manual authenticated server diagnosis was issued. Physical speaker acceptance
+remains NOT_RUN; no actual transfer claim follows from installation. MacBook and
+physical iPhone were not installed in this bounded update. Source publication
+pause and unrelated writer directories remain preserved.
+
+
+## Whole-row selected output tint — build40079
+
+Selected output rows now tint the entire existing glass background with the
+shared purple accent (28%); pending rows use a lighter 10% tint with their existing
+spinner. The active border/checkmark remain supplemental. Shape/radius, text,
+volume, routing and backend confirmation behavior are unchanged. The background
+remains non-hit-testing. Signed iOS/macOS40079 builds PASS, logs
+`/private/tmp/djc-output-fill-40079-{ios,mac}-build.log`. Existing native iPad
+one-tap selection/control-availability test PASS (one executed test, zero failures),
+`/private/tmp/djc-output-fill-40079-ipad.xcresult`. Actual simulator Demo screenshot
+`/private/tmp/djc-output-fill-40079-images/2AAC490F-389F-45BB-9E0B-506CA6FCBA99.png`
+visually inspected: Kitchen has a distinct purple fill across the whole row while
+Living Room keeps the ordinary glass surface. No new test for this low-impact
+styling refinement. Diff check PASS; no source publication or physical transfer
+acceptance inferred.
+
+
+Build40079 installed readback (sourcefc5d0fc): iPad install/ordinary launch PASS;
+app-only CoreDevice readback confirms bundleVersion40079, receipts
+`/private/tmp/djc-output-fill-40079-ipad-{install,launch,readback}.log` and JSON.
+Mac mini ordinary app build40079 launch PID25312, signature/exact files and
+preferences/entitlements preservation PASS; receipt
+`/private/tmp/djc-output-fill-40079-mac-install.json`. No physical speaker transfer
+inferred; MacBook/iPhone not installed in this bounded style update. Source
+publication pause and unrelated writer directories preserved.
+
+
+## Alphabetic output-device list — build40080
+
+OutputSelectorView sorts its presentation copy by native localizedStandardCompare
+on the displayed device name, with stable device ID tie-breaking. Active/pending
+and cached/recently-seen devices participate in the same ordering; changing the
+active speaker does not promote its row. Backend/model collection order and
+command identities are unchanged. No new tests for this bounded presentation-only
+sort. Existing native iPad one-tap confirmed-selection/control-availability test
+PASS (one test, zero failures), `/private/tmp/djc-output-alphabetic-40080-ipad.xcresult`.
+Signed iOS/macOS40080 builds PASS, logs
+`/private/tmp/djc-output-alphabetic-40080-{ios,mac}-build.log`; diff check PASS.
+No source publication or additional physical speaker-transfer claim.
+
+
+Build40080 installed readback (sourcedabe77d): iPad install/ordinary launch PASS;
+CoreDevice app-only readback confirms bundleVersion40080, receipts
+`/private/tmp/djc-output-alphabetic-40080-ipad-{install,launch,readback}.log` and
+readback JSON. Mac mini ordinary app build40080 launch PID30467, signature/exact
+files and preferences/entitlements preservation PASS; receipt
+`/private/tmp/djc-output-alphabetic-40080-mac-install.json`. No physical speaker
+transfer inferred; MacBook/iPhone not installed in this bounded sort update.
+Source publication pause and unrelated writer directories preserved.
+
+
+## White Session More-menu icons — iOS build40081
+
+VibeCast and Refresh icons inside the native Session More Menu explicitly render
+white original-mode SF Symbols rather than inheriting the purple application
+template tint. Menu tint is white; action labels, disabled admission and native
+menu semantics are retained. This menu is iOS-only; Mac has direct actions.
+Existing iPhone menu stability test now uses the existing DEBUG presentation flag
+to include both actions in Demo, without backend handoff authority. PASS: one
+executed test, zero failures, eight playback ticks with stable menu geometry and
+complete toolbar before/after. `/private/tmp/djc-white-menu-40081-iphone.xcresult`.
+Actual native simulator screenshot visually inspected: both icons are white,
+including after playback ticks; Refresh text remains disabled in Demo as expected.
+`/private/tmp/djc-white-menu-40081-images/B87C2A45-52B1-44A4-9A34-E6E85791222A.png`.
+Signed iOS40081 build PASS: `/private/tmp/djc-white-menu-40081-ios-build.log`.
+Diff check PASS. No new test added, no backend contract or source publication.
+
+Fresh physical iPhone inventory on Mac mini and existing MacBook SSH connection
+both report paired/unavailable. No physical iPhone installation claimed; pending
+until connectivity returns. Ordinary Mac installation stays40080 because this
+menu change is iOS-only. iPad installation receipt follows after actual readback.
+
+
+Build40081 installed readback (source29982f0): physical iPad install and ordinary
+launch PASS; app-only CoreDevice readback confirms bundleVersion40081. Receipts
+`/private/tmp/djc-white-menu-40081-ipad-{install,launch,readback}.log` and readback
+JSON. Physical iPhone remains paired/unavailable on both Mac mini and MacBook;
+its installation is still pending, not PASS. Mac mini stays40080 (iOS-only change).
+No source publication or change to existing pairing/permissions.
+
+## Session widgets / Activity / Dynamic Island consolidation — 2026-10-15
+
+User asks one active-Session experience, artwork + current Moment, with
+track/artist/album on larger surfaces and updates on contribution arrival.
+Local consumer foundation consolidates neutral status/navigation and expiry,
+retires separate personal widget-cache publication, preserves configured kinds,
+and keys Activity lifetime to Session rather than playback. Full requested rich
+experience remains OPEN: purpose-specific passive display/cache/locked-display
+producer rights and background ActivityKit delivery are not yet qualified.
+
+The user explicitly approved transfer to existing Core task **Pak VibeCast shared
+renderer op**; concrete dependency and the two required Core doc amendments were
+sent successfully. No Core code was changed by this Apple writer. Handoff is not
+producer completion. Candidate40082 remains uninstalled pending the full consumer
+adoption. See APPLE_SESSION_SURFACE_CONSOLIDATION_20261015.md for exact boundaries.
+
+Final foundation validation:8focused tests PASS; signed iOS including Watch and
+macOS40082 builds PASS; ordinary-host deep/strict signature verification PASS.
+Core acknowledged the dependency and keeps it separate from active speech WIP.
+No installation or rich-surface/native/background acceptance claimed.
+
+## Ask DJ focus expands to two rows — 2026-10-15
+
+Shared AskDJInputBar now changes from an inline editor/action row to text above
+an action row when focused, for both general Ask DJ and the Session composer.
+The focused editor reserves two text lines; microphone and Send remain below
+inside the existing glass surface. Without focus the inline arrangement returns.
+The iPad75%-width constraint and selected-contribution context remain in place.
+
+AnyLayout retains the same native editor, draft and caret across arrangement
+changes. iOS follows actual UITextView editing callbacks through local view state;
+an unbound SwiftUI FocusState alone did not reflect native first-responder focus.
+No duplicate editor, new backend state, send semantics or chat persistence added.
+Reduce Motion suppresses the focus-transition animation.
+
+Native Demo-fixture iPhone regressions for Ask DJ and DJ-session PASS(2executed):
+focus expands geometry before typing, actions below editor, typing retains draft,
+inert outside-heading tap closes keyboard and restores inline layout, then focus
+can resume. Screenshot inspected:
+/private/tmp/djc-two-row-composer-40083-iphone-verified-images/B599B557-744B-40E7-9476-97AC2CF7FF49.png.
+Result: /private/tmp/djc-two-row-composer-40083-iphone-verified.xcresult.
+macOS compile/sign build40083 PASS:
+/private/tmp/djc-two-row-composer-40083-mac-final.log.
+
+Initial geometry failure exposed the missing native focus bridge and was fixed.
+A later test tapped a suggested question and intentionally replaced the draft;
+the final test targets an inert heading instead. Failed runs remain separate:
+/private/tmp/djc-two-row-composer-40083-iphone.xcresult and
+/private/tmp/djc-two-row-composer-40083-iphone-final.xcresult.
+No installation/publication: the writer still includes the separately uninstalled
+neutral widget foundation pending the qualified Core producer.
+Final iPad native Demo-fixture qualification PASS(2executed,0failures), same
+Ask DJ/Session geometry-focus/draft/dismissal regressions:
+/private/tmp/djc-two-row-composer-40083-ipad.xcresult.
+Screenshot inspected:
+/private/tmp/djc-two-row-composer-40083-ipad-images/87475FD7-C572-4942-ACB7-2FC8DD4C1029.png.
+Total4native fixture tests PASS across iPhone/iPad. These are simulator results,
+not installed physical-device acceptance. No source push or installation.
+
+## Ask DJ bar more translucent — 2026-10-15
+
+The shared composer background now uses65%of the ultra-thin material layer;
+compact editor white/blue/purple fills are halved. Only background layers change:
+text/buttons remain fully opaque, and OS Reduce Transparency retains the stronger
+material fallback. Applies to compact/expanded Session and general Ask DJ bars,
+including the Mac backdrop. Focus/height/draft behavior stays unchanged.
+
+Existing native Session focus/dismiss/draft regression PASS(1executed,0failures):
+/private/tmp/djc-translucent-composer-40084-iphone.xcresult.
+Native Demo-fixture screenshot visually inspected:
+/private/tmp/djc-translucent-composer-40084-images/B73CB92C-E5CB-4BEC-8A67-B8CE5951FFDF.png.
+macOS build40084 PASS: /private/tmp/djc-translucent-composer-40084-mac.log.
+No physical-device installation or source publication; pending widget foundation
+remains uninstalled as recorded above.
+
+Translucency visual refinement (supersedes the65%alpha prototype above): lowering
+material opacity exposed readable unblurred background paragraphs. Native clear
+Glass also retained too much source text/refraction. Both prototype screenshots
+are retained, but neither is the final design or an installed acceptance claim.
+The final floating bar uses lightly tinted native regular Glass, which transmits
+backdrop colors while blurring underlying words; the compact editor keeps the
+lighter fills. Reduce Transparency retains the original material fallback;
+nonfloating desktop material uses85% rather than the prototype65%.
+
+Final iPhone native regression PASS(1executed,0failures):
+/private/tmp/djc-translucent-frosted-40084-iphone.xcresult.
+Final visual QA PASS for the Demo-fixture expanded composer, clear entered text
+and softened underlying paragraph:
+/private/tmp/djc-translucent-frosted-40084-images/297EE35C-1ACE-488E-B66B-DFEF2B8E7B11.png.
+Final macOS compile build40084 PASS:
+/private/tmp/djc-translucent-frosted-40084-mac.log.
+No installation or publication.
+
+## Feedback heading uses standard Hero card — 2026-10-15
+
+FeedbackPromptView now places the shared gradient speech-bubble Hero glyph and
+centered localized “Feedback delen” title together in djConnectHeroCard(), using
+the existing24ptpadding,16ptspacing and common card shape/outline. Removed the
+separate one-off FeedbackPromptIcon. Body guidance and native sheet actions stay
+outside the Hero card. No backend, issue creation, upload or navigation change.
+
+Both platform compiles PASS:
+/private/tmp/djc-feedback-hero-40085-ios.log (iOS Simulator build),
+/private/tmp/djc-feedback-hero-40085-mac.log (macOS40085 build).
+No new tests for this presentation-only modifier reuse, no physical/visual
+acceptance claim, no installation or source publication.
+
+## Widgets / Live Activity / Island follow confirmed Session mood — 2026-10-15
+
+One shared closed renderer palette now supplies the exact Session UI color values
+and transient widget/Activity styling: Chill blue/purple, Groove turquoise/green,
+Energy yellow/cyan/green, Party pink/purple. Uses the already confirmed
+activeDJSession.selectedMood, not the separate Ask DJ UI slider or a pending
+selection. A palette token is added as optional bounded device UI state;
+date-only older snapshots still decode. No raw copy/Profile fields, new backend
+protocol, private content permission, Moment/artwork rights or push payload added.
+
+Widget and Lock Screen Activity gradients/glyphs, Island accents/keyline, and
+Watch's neutral-snapshot tint share the same Core palette values. Unknown,
+absent or expired Session state falls back to brand blue/purple. Watch still has
+no qualified Session producer in this change, so actual Watch Session color
+propagation is not claimed. System accent/monochrome modes remain OS-owned.
+
+A confirmed palette change requests widget reload without waiting for periodic
+freshness renewal. Fixed a related renewal bug: frequent cache observations
+could continually postpone the old expiry-based reload threshold. Reload timing
+now uses an independent last-request clock; no progress-tick reloads. These are
+reload requests, not an instant WidgetKit/background delivery guarantee.
+
+10focused tests PASS including four-mood cache roundtrip, expiry/unknown fallback,
+closed projection, immediate theme-change reload and bounded heartbeat cadence:
+/private/tmp/djc-session-mood-40086-tests.log.
+Signed iOS including Watch and macOS40086 builds PASS:
+/private/tmp/djc-session-mood-40086-ios.log,
+/private/tmp/djc-session-mood-40086-mac.log.
+No native widget visual/physical/background acceptance and no installation or
+publication. Rich surface producer dependency and its authorized handoff remain
+open as above; this adds presentation styling, not the missing rich contract.
+
+## Missing-artwork view simplified — 2026-10-15
+
+Replaced the Demo app-logo placeholder and nested square/glass backplates with
+one quiet, unframed vinyl silhouette, two subtle record grooves and a soft halo
+that merges into the existing player card. The same placeholder serves Demo and
+ordinary missing/loading/failed artwork. No synthetic album image or text added.
+
+The extra artwork glass frame is now applied only to a successfully loaded image
+via CachedArtworkImage's default-off usesAlbumGlassFrame presentation option.
+Other cached-image callers keep their existing presentation; image fetching,
+authorization, URL/state guards and decoder behavior are unchanged. Existing
+player controls and the outer player card remain unchanged.
+
+iOS Simulator and macOS40087 compiles PASS:
+/private/tmp/djc-empty-art-40087-ios.log,
+/private/tmp/djc-empty-art-40087-mac.log.
+Visually inspected the real native Now Playing Demo-fixture screen on the
+existing isolated iPhone simulator after explicit fixture launch:
+/private/tmp/djc-empty-art-40087-iphone.png.
+No nested artwork square, inner logo tile or app logo remains in that state.
+No new tests for this low-impact presentation change; no loaded-network artwork
+or physical-device acceptance claimed. No physical install or source publication.
+
+### Local vinyl rotation — 40088
+
+- Missing-artwork vinyl now rotates locally once per 12 seconds while playback is playing and the scene is active. The halo and shadow stay fixed. Pausing/backgrounding/Reduce Motion suspends the animation clock; resuming preserves the accumulated angle. No playback progress or backend state drives this decoration.
+- iOS Simulator and signed macOS builds PASS: `/private/tmp/djc-vinyl-spin-40088-ios.log`, `/private/tmp/djc-vinyl-spin-40088-mac.log`.
+- Native isolated Demo simulator frames visually confirm record/label rotation with stationary layout: `/private/tmp/djc-vinyl-spin-40088-a.png`, `/private/tmp/djc-vinyl-spin-40088-b.png`. Pause/background/Reduce Motion gating inspected in source; not separately exercised on hardware.
+- No physical device install or publication. Existing incomplete rich-session widget acceptance remains open.
+
+### Session widgets continuation — 40089
+
+- Followed up the existing explicitly authorized Core handoff. Core remains on its speech slice; no qualified passive-content producer delivery was found.
+- Prepared a pure, unconnected rich SwiftUI layout for small/medium/large widgets, Lock Screen Activity and expanded Island. DEBUG samples only, with synthetic contribution/metadata and artwork placeholder; no speculative wire decoder, persistence, network, token or production publisher changes.
+- Native ImageRenderer checks across all five mood palettes: `/private/tmp/djc-session-layout-40089-{small,medium,large,activity,island}.png`. Fixed premature contribution truncation found in the medium render. Native view renders are not installed widgets or live Activity/Island acceptance.
+- No new tests for presentation-only preparation. Final iOS Simulator and signed macOS builds PASS. Logs: `/private/tmp/djc-session-layout-40089-ios-final.log`, `/private/tmp/djc-session-layout-40089-mac-final.log`.
+- Full request remains OPEN: artwork/current Moment production adoption, background delivery, real native hosts and hardware acceptance await the Core producer. No physical install or publication.
+
+### Autonomous artwork continuation — 40090
+
+Same existing writer picked up the already admitted artwork consumer, without reordering Speech/Persona. Exact Core producer5c7ecb79/reconciled70c0a300. Implemented bounded authenticated temporary pixel loader, optional Broadcast/history integration and one scoped uncropped native card for current Moment/timeline rows. No pure read starts preparation. See APPLE_SESSION_ARTWORK_ADOPTION_20261015.md for full limits.
+
+- Nine focused tests PASS including late expiry; broad601-test regression PASS before that last additional test. Logs `/private/tmp/djc-artwork-40090-nine-tests.log`, `/private/tmp/djc-artwork-40090-regression.log`.
+- iOS/Watch compile and signed Mac build PASS. Final Mac log `/private/tmp/djc-artwork-40090-mac-final.log`.
+- Native **composed synthetic HTTP** iPhone/iPad pixel+expiry+text preservation tests PASS; final compact layout `/private/tmp/djc-artwork-40090-iphone-compact.xcresult`, `/private/tmp/djc-artwork-40090-ipad.xcresult`. Core's own synthetic PNGs imported from the pinned commit. This is not real HA/provider/WSS/hardware evidence.
+- Visually inspected ready/expired native screens. Earlier XCTest build error and two wrong-container assertions were corrected; failed artifacts retained. Full source no longer claims a JSON-only positive proof.
+- No installation/publication. Full artwork acceptance remains OPEN (explicit older-entry preparation, source/Profile/revision races, native accessibility/Mac/hardware). Next autonomous step is explicit bounded preparation on the existing contract; then broader qualification. Speech/Persona follows artwork, widgets still await separate passive grant.
+
+### Autonomous successor increment — explicit artwork refresh, 40091
+
+Continued from26eb8e2 without another start request. Exact paired prepare adapter plus capability-gated retained-row refresh, no automatic prepare from reads/expiry, per-target UI loading and epoch/entry fences. Denial clears only the still-matching image; full source text/order/pairing preserved.512px proportional decoding bounds display texture size without cropping. All five languages validated (1142keys).
+
+Full605 shared tests PASS (`/private/tmp/djc-artwork-40091-regression-verified.log`), including app/history-model explicit-action/403 withdrawal proof and actual paired preparation adapter/target bounds. Final Mac build PASS (`/private/tmp/djc-artwork-40091-mac-thumbnail.log`), final native composed-fixture iPhone pixel/expiry/text test PASS (`/private/tmp/djc-artwork-40091-iphone-verified.xcresult`). All11 changed Sources files match the isolated build. iPad rerun follows below.
+
+This advances the selected artwork consumer; it does not close real HA/provider/Mac/physical, older-entry native-button or full joint acceptance. No ordinary app install, push, PR, protected publication or source-pause change. Speech/Persona remains the approved successor after artwork. Rich passive widget/Activity content/background delivery remains dependent on a distinct Core contract.
+
+Final exact-build iPad native pixel/expiry/text retention rerun PASS:
+`/private/tmp/djc-artwork-40091-ipad-verified.xcresult`.
+
+### Speech successor — initial bounded adapter, 40092
+
+Same Apple writer continues the directly requested next lane step. Exact local/unpublished Core6b26158a fixture SHA2568c2fb025... verified. Added typed ephemeral speech/reference/provider-options and bounded private paired prepare/audio adapters, with minimal strict request bodies, exact accepted text/revision/deadline checks and actual WAV validation. No production UI caller or JSON/WAV opt-in enabled; player/Persona/autoplay/native audible qualification remains OPEN.
+
+Seven focused tests PASS; full612 shared tests and iOS/Watch + Mac builds PASS. Logs `/private/tmp/djc-speech-40092-{contract-tests,seven-tests,regression,ios,mac}.log`. Source pause and no-install boundary preserved.
+
+Reported original-descriptor processor-list mismatch to Core. Core confirms it and reports a local producer correction (permitted prepare attempts plus processor_qualification_required:true),107 owning tests; exact new pin/HA fixture/re-review still pending. Apple retains the old fixture and conservative check until actual replacement arrives. See APPLE_SESSION_SPEECH_ADOPTION_20261015.md.
+
+### Speech producer correction adopted — 40093
+
+Exact local candidate323a3db4/runtime27c22afd, fixture SHA25691458a38cd1c13ecbefdb482a6068b45e1168771cd92b8ca4ead16812e06bfed verified; all143 fixture source hashes match runtime Git/zero mismatches. Decodes processor_qualification_required and permits only explicitly advertised preparation attempts. First HA prepare now uses corrected accepted_reply; old6b descriptor does not gain HA permission. Initial advertisement cannot download audio; denied states contain no executable segments/processors/resource. Original text/revisions/voice/expiry checks preserved.
+
+Eight focused speech tests and full613 shared tests PASS. iOS/Watch and signed Mac builds PASS: `/private/tmp/djc-speech-40093-{tests,regression,ios,mac}.log`. No UI/audio opt-in or install. Final protected-main producer pin and native/audible player/Persona/autoplay acceptance remain OPEN. Existing widgets passive-contract dependency is unaffected. Full detail: APPLE_SESSION_SPEECH_ADOPTION_20261015.md.
+
+### Shared playback ownership and overnight continuation — 40094
+
+Continued under the same Apple writer. Existing response-player and demo speech
+now share ticket-based ownership. Stop before Task start, Stop across suspension,
+replacement, stale completion and original deadline expiry have focused coverage.
+Pairing loss, Profile authority withdrawal and session replacement/end clear both
+outputs. This does not activate the unpublished Core Speech adapter or close
+manual/new Speech/Persona/autoplay/audible acceptance.
+
+Human explicitly requested autonomous overnight lane continuation, a 15-minute
+heartbeat and periodic safe internal-disk cleanup. Thread heartbeat
+`apple-lane-nachtelijke-voortgang` created ACTIVE, every15minutes until
+2026-10-16T06:00:00Z (08:00 Europe/Amsterdam). Current free internal space17GiB.
+Reuse the existing writer; preserve active builds/source and necessary acceptance
+evidence. Do not replay previous cleanup plans without fresh process/file checks.
+
+Final40094 validation:619 shared tests PASS, six coordinator cases included;
+iOS/Watch and signed Mac builds PASS. All three changed code/test files match the
+build snapshot. Logs `/private/tmp/djc-speech-40094-{regression,ios,mac}.log`.
+No installation, source push, PR or publication performed.
+
+### Widget continuation after status query — 40095
+
+Fresh Core readback: same writer actively delivering Speech; passive contract
+still not received. Followed up the existing human-authorized widget handoff in
+that task, preserving current delivery. Concrete joint acceptance matrix saved:
+APPLE_SESSION_PASSIVE_ACCEPTANCE_20261015.md. Reusable current-source render tool
+added; all15 synthetic native Mac renders/bounds PASS, representative small-long,
+medium-RTL and large-long visually inspected. Output4.1MiB:
+/private/tmp/djc-session-layout-40095. Temporary compiler source/binary removed
+automatically. No app runtime change, no install, no background/hardware PASS.
+
+### Physical iPad missing-artwork correction — selective build40096
+
+User screenshot still showed the square music-note placeholder. Fresh CoreDevice
+readback confirmed physical iPad dev.djconnect.ios was still40081; the later
+08dbab1/fd0eb07 vinyl changes had not been installed. This was installation drift,
+not a newly discovered fallback-code branch.
+
+Built an isolated archive of exact installed source29982f0 with only the RootView
+code patches from08dbab1/fd0eb07. Compared every tracked file before regeneration:
+only Sources/DJConnectUI/DJConnectRootView.swift differs. Existing pending neutral
+widget foundation, new Speech and unrelated later changes are excluded. Generated
+the temporary Xcode project to include existing hybrid source files; signed iOS /
+Watch build40096 PASS. Installed and ordinary-launched on the authorized iPad;
+CoreDevice app-only readback confirms40096. Pairing/container not reset.
+
+Read-only physical native screenshot probe PASS; ordinary live app showed active
+session and genuine loaded artwork. Thus install/ordinary-runtime/artwork retention
+are physical proof; this is not new physical proof of missing-art rotation while
+playing. Do not label40096 as latest Apple-lane source or completed rich widgets.
+Exact base/selected patches/binary hash/evidence:
+APPLE_IPAD_VINYL_40096_20261015.json. Next install build number must exceed40096.
+
+### iPad runtime500, visible vinyl rotation and Settings glass — 40097/40098
+
+Fresh physical40096 Now Playing screenshot shows the new static vinyl and the
+real500 toast. The device log retains449 HTTP500-related lines; current failures
+are POST/api/djconnect/v1/command. A bounded actual homeassistant container tail
+contains five matching tracebacks: http.py2841 -> api_handlers.py832/2244 ->
+music_backend_metadata(None,runtime) -> use_cases642/610 -> profile_backend242 ->
+ProfileStorageValidationError(profile_connection_unavailable). Same six debug
+None-context calls remain in actual Core source. This confirms the prior diagnosis
+rather than a broken persisted Profile. Human explicitly authorized this concrete
+Core handoff; sent to the existing sole Core writer, who confirmed all six calls
+and is implementing a bounded logging-only hotfix. No Core edit, Profile reset,
+logging-level workaround or HA restart performed by Apple. Actual fix/install
+and real iPad command recovery remain OPEN until Core delivers.
+
+The placeholder was nearly rotationally symmetric. Added a subtle asymmetric
+groove reflection and a center-label mark so existing12second playback rotation
+is apparent. Two actual native Demo simulator frames40097 visually show different
+reflection/label angles with fixed parent frame/halo:
+/private/tmp/djc-vinyl-40097-{a,b}.png. Real500/no-playback keeps it stationary;
+no fake playing state or unconditional animation. Physical40097 install/readback
+then superseded by40098. No physical playing-animation PASS inferred.
+
+SettingsGlassSection previously used frosted VStack on Mac but plain Section on
+iOS, inside a grouped List. iOS now uses the same frosted card surface/radius with
+spaced ScrollView content, bounded readable width, header accessibility traits,
+44pt minimum rows and explicit native menu labels. All existing bindings, values,
+capability/disabled conditions, confirmation dialogs and actions preserved.
+No new backend model or behavior. Native iPhone and iPad Demo simulator screenshots
+visually reviewed: /private/tmp/djc-settings-40098-{iphone,ipad-sim}.png.
+
+Selective40098 snapshot is installed40081 base29982f0 plus the two existing
+vinyl-only code commits and the current RootView presentation patch. Pending
+widgets/Speech and unrelated source changes remain excluded from this install.
+Signed physical iOS/Watch, iOS simulator and Mac builds PASS. Physical app-only
+readback confirms40098. Native physical Settings navigation probe failed because
+XCTest computed hitpoint{-1,-1} for the More tab; not app/card visual acceptance.
+Stopped only that exact test's automatic600s CoreDevice diagnostics collection;
+retained failed result. Use -collect-test-diagnostics never on subsequent probes
+to avoid unneeded verbose failure data. No blanket process termination/deletion.
+Exact hashes/evidence: APPLE_IPAD_GLASS_VINYL_40098_20261015.json.
+Next installation build must exceed40098. Internal free space12GiB at last check;
+active builds, accepted screenshots and necessary failure evidence preserved.
+
+### Exact Core hotfix authorization forwarded
+
+Human explicitly answered “Ja, autoriseer deze exacte hotfix” for Core source
+94e531e4fde0b9fd58a19b85bf231f96ce3a132b: one hotfix PR, normal required checks,
+protected merge and existing internal artifactpublication; existing HA-dev install
+authorization retained. Forwarded exact question/answer to existing Core writer
+01a120e2-b557-76c3-8568-129dbce2f2d2. No claim of actual delivery/install yet.
+Prepared physical retest through existing djconnect://now-playing, /queue and
+/playlists deep links using CoreDevice --payload-url, so tests need not depend on
+the failed XCTest tab hitpoint. These are ordinary app flows, not new test-mode
+or pairing/credential changes. Revalidate only after exact HA-dev installreadback.
+
+### Actual iPad HTTP500 recovery — protected Core fe8c66a1
+
+Exact user94grant was carried out by the existing Core writer: PR1178 protected
+mergefe8c66a120a44faaeb49432729359e6a2055194e; qualified official artifact
+b6849b9f18bf479dcc410c2b612ff8234cebbac72b1b525a4e5d5ac2f2f5229d / formal
+697b23fb091555c027d2b16f26750aa940adc0730c593671ea5239bfd241d24c. Core reports
+164installedfiles/zero mismatches, backup/rollback, only api_handlers.py runtime
+replacement and HA-dev-only restart, preserved pairing/Profilefingerprints.
+Apple independently compared actual container api_handlers.py to protectedGit:
+SHA25693265188508bf0736801a7a02ad49a3d25fc590b12ea3e93c5f8d85c52114ffe MATCH;
+preinstall d461... was different.
+
+Real installed iPad40098 ordinary deep-link flows Now Playing, Queue, Playlists
+and Track Insight were captured with native read-only XCTest probes: all4exit0,
+all4screenshots visually inspected with actual content/no500. Now Playing has
+real loaded art/playing/progress; lists are populated. Track Insight shows real
+track plus explicit unavailable qualified music-analysis message, not invented
+analysis. No fixtures, pairing reset, token/Profile mutation or playback action.
+Fresh actual iPadlog since21:43:0newHTTP500. Actual container logs since restart
+19:41:18Z:0profile_connection_unavailable;76debugresultstatuses200. These counts
+are a bounded observed window, not a permanent guarantee or every-flow PASS.
+Native evidence /private/tmp/djc-http500-physical-fe8/{*xcresult,*-images,
+receipt.json,redacted-runtime-readback.json}. Exact redacted consumer receipt:
+APPLE_IPAD_HTTP500_FE8_20261015.json. Passed the bounded native result back to
+Core under the explicit user-authorized500handoff. Separate Core Finalization
+and unrelated Speech/widget qualification are not inferred.
+
+Physical Settings navigation retry after recovery still failed on inaccessible
+native More-tab hitpoint; recorded separately and did not enable verbose system
+diagnostics. This does not invalidate the4 ordinary deep-link flow screenshots
+and does not establish physical Settings visual acceptance.
+
+### Track Insight particle continuity — installed 40099
+
+Replaced absolute wall-clock multiplied by changing profile speed with a local
+monotonic, integrated motion clock. Rate changes retain travelled phase; inactive,
+background and Reduce Motion states freeze/resume. Particle wraps fade to zero at
+both sides of the seam. Fixed spark slots use fractional population opacity rather
+than integer-count pop-in. Decorative UI only; no durable intelligence or contract
+change. Five focused clock/seam/population tests PASS; signed iOS/Watch and Mac
+builds PASS. Physical iPad app install/readback confirms40099. Pending neutral
+widgets/Speech remain excluded through the selective40098 presentation baseline.
+
+Physical animation acceptance remains OPEN. Bounded native frame probes captured
+a feedback overlay, empty analysis start, and then Settings rather than an
+unobstructed loaded particle scene. Retained evidence, no fabricated smoothness or
+FPS claim. xctrace could not attach by process name or confirmed CoreDevice PID;
+no measured FPS/hitch result. Actual40099 Settings screenshot from the last failed
+animation probe WAS visually inspected and confirms glass cards/labels on physical
+iPad: /private/tmp/djc-particles-40099-ipad-loaded-images/
+1A354C85-C59F-4E19-8633-1187C519D32B.png. The enclosing test failed on wrong-screen
+assertions, not on the glass layout. Receipt:
+APPLE_TRACK_INSIGHT_PARTICLES_40099_20261015.json. Next install must exceed40099.

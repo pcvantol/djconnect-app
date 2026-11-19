@@ -1,0 +1,28 @@
+name: Verify Apple public release access
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  verify:
+    if: github.repository_id == '1264041589' && github.ref == 'refs/heads/main' && github.actor_id == '19624891'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check publisher access without publishing
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_RELEASES_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${GH_TOKEN:-}"
+          gh api repositories/1265963920 | jq -e '
+            select(
+              .id == 1265963920 and .visibility == "public" and .permissions.push == true and
+              (.full_name == "pcvantol/djconnect-app-releases" or
+               .full_name == "djconnect-music-dj/djconnect-app-releases")
+            )
+            | {repository: .full_name, publisher_has_write_access: .permissions.push}
+          '
