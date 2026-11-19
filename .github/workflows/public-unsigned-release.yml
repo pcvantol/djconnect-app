@@ -1,0 +1,375 @@
+name: Public unsigned release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example 3.2.0"
+        required: true
+
+concurrency:
+  group: public-unsigned-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  software-assurance-governance:
+    name: Software Assurance governance
+    permissions:
+      contents: read
+    uses: djconnect-music-dj/djconnect-shared-workflows/.github/workflows/software-assurance-governance-aabd.yml@4025a68add8ba98f1f2e0307d7f3998e45c0d9ef
+    with:
+      execution_profile: release
+      owner: ${{ github.repository }}
+
+  unsigned-release:
+    name: Publish unsigned builds to public releases repo
+    runs-on: [self-hosted, internal-release, qualification, apple, macmini-build]
+    timeout-minutes: 45
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version: $version" >&2
+            exit 64
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          echo "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer" >> "$GITHUB_ENV"
+          xcodebuild -version
+
+      - name: Validate Apple localizations
+        run: python3 scripts/validate_localizations.py
+
+      - name: Swift tests
+        run: swift test --parallel
+
+      - name: Build unsigned macOS app
+        run: |
+          set -euo pipefail
+          rm -rf .public-release
+          mkdir -p .public-release/artifacts
+          xcodebuild \
+            -project DJConnectApp.xcodeproj \
+            -scheme DJConnectMac \
+            -configuration Debug \
+            -destination platform=macOS \
+            -derivedDataPath .public-release/DerivedData/mac \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
+          ditto -c -k --keepParent \
+            ".public-release/DerivedData/mac/Build/Products/Debug/DJConnect.app" \
+            ".public-release/artifacts/DJConnect-macOS-${{ steps.version.outputs.version }}-unsigned.zip"
+
+      - name: Build unsigned iOS app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project DJConnectApp.xcodeproj \
+            -scheme DJConnectIOS \
+            -configuration Debug \
+            -destination generic/platform=iOS \
+            -derivedDataPath .public-release/DerivedData/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
+          ditto -c -k --keepParent \
+            ".public-release/DerivedData/ios/Build/Products/Debug-iphoneos/DJConnect.app" \
+            ".public-release/artifacts/DJConnect-iOS-${{ steps.version.outputs.version }}-unsigned.zip"
+
+      - name: Create checksums
+        run: |
+          set -euo pipefail
+          cd .public-release/artifacts
+          shasum -a 256 DJConnect-macOS-${{ steps.version.outputs.version }}-unsigned.zip > DJConnect-macOS-${{ steps.version.outputs.version }}-SHA256SUMS.txt
+          shasum -a 256 DJConnect-iOS-${{ steps.version.outputs.version }}-unsigned.zip > DJConnect-iOS-${{ steps.version.outputs.version }}-SHA256SUMS.txt
+          shasum -a 256 *.zip > SHA256SUMS.txt
+
+      - name: Extract public release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          mkdir -p .public-release/release-notes
+
+          extract_changelog_notes() {
+            local source_file="$1"
+            local target_file="$2"
+            if [[ -f "$source_file" ]]; then
+              awk -v version="$version" '
+                $0 ~ "^## " version "($| - )" { capture=1; next }
+                capture && /^## / { capture=0 }
+                capture { print }
+              ' "$source_file" > "$target_file"
+            fi
+          }
+
+          languages=(en nl de fr es)
+          en_base=".public-release/release-notes/base-en.md"
+          : > "$en_base"
+
+          if [[ -f "docs/release-notes/en/v${version}.md" ]]; then
+            cp "docs/release-notes/en/v${version}.md" "$en_base"
+          else
+            extract_changelog_notes "CHANGELOG.md" "$en_base"
+          fi
+          if [[ ! -s "$en_base" ]]; then
+            printf "DJConnect App %s\n" "$version" > "$en_base"
+          fi
+
+          for lang in "${languages[@]}"; do
+            base=".public-release/release-notes/base-${lang}.md"
+            if [[ "$lang" == "en" ]]; then
+              continue
+            fi
+            : > "$base"
+            if [[ -f "docs/release-notes/${lang}/v${version}.md" ]]; then
+              cp "docs/release-notes/${lang}/v${version}.md" "$base"
+            elif [[ "$lang" == "nl" ]]; then
+              extract_changelog_notes "CHANGELOG.nl.md" "$base"
+            fi
+            if [[ ! -s "$base" ]]; then
+              cp "$en_base" "$base"
+            fi
+          done
+
+          for platform in macOS iOS; do
+            for lang in "${languages[@]}"; do
+              notes=".public-release/release-notes-${platform}-${lang}.md"
+              base=".public-release/release-notes/base-${lang}.md"
+              {
+                cat "$base"
+                echo
+                echo "---"
+                echo
+                echo "Platform: ${platform}"
+                echo
+                case "$lang" in
+                  nl)
+                    echo "Niet-ondertekende CI-artifacts zijn bedoeld voor diagnostics en interne validatie."
+                    if [[ "$platform" == "macOS" ]]; then
+                      echo "Voor normale macOS-distributie heeft de genotariseerde Developer ID-build de voorkeur wanneer die is bijgevoegd."
+                    else
+                      echo "Niet-ondertekende iOS-binaries worden hier gepubliceerd voor diagnostics en interne validatie. Gebruik voor normale iOS-distributie TestFlight/App Store."
+                    fi
+                    ;;
+                  de)
+                    echo "Nicht signierte CI-Artefakte sind fur Diagnose und interne Validierung gedacht."
+                    if [[ "$platform" == "macOS" ]]; then
+                      echo "Fur die normale macOS-Verteilung ist der notarisierte Developer-ID-Build vorzuziehen, wenn er angehangt ist."
+                    else
+                      echo "Nicht signierte iOS-Binaries werden hier fur Diagnose und interne Validierung veroffentlicht. Fur normale iOS-Verteilung TestFlight/App Store verwenden."
+                    fi
+                    ;;
+                  fr)
+                    echo "Les artefacts CI non signes sont destines au diagnostic et a la validation interne."
+                    if [[ "$platform" == "macOS" ]]; then
+                      echo "Pour une distribution macOS normale, preferez le build Developer ID notarise lorsqu'il est joint."
+                    else
+                      echo "Les binaires iOS non signes sont publies ici pour le diagnostic et la validation interne. Pour une distribution iOS normale, utilisez TestFlight/App Store."
+                    fi
+                    ;;
+                  es)
+                    echo "Los artefactos CI sin firmar son para diagnostico y validacion interna."
+                    if [[ "$platform" == "macOS" ]]; then
+                      echo "Para la distribucion normal de macOS, prefiere la build Developer ID notarizada cuando este adjunta."
+                    else
+                      echo "Los binarios iOS sin firmar se publican aqui para diagnostico y validacion interna. Para distribucion normal de iOS, usa TestFlight/App Store."
+                    fi
+                    ;;
+                  *)
+                    echo "Unsigned CI artifacts are intended for diagnostics and internal validation."
+                    if [[ "$platform" == "macOS" ]]; then
+                      echo "For normal macOS distribution, prefer the notarized Developer ID build when attached."
+                    else
+                      echo "Unsigned iOS binaries are published here for diagnostics and internal validation. For normal iOS distribution, use TestFlight/App Store."
+                    fi
+                    ;;
+                esac
+              } > "$notes"
+            done
+            cp ".public-release/release-notes-${platform}-en.md" ".public-release/release-notes-${platform}.md"
+          done
+
+      - name: Verify website release-note publication access
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_RELEASE_NOTES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "Configure WEBSITE_RELEASE_NOTES_TOKEN with write access to the organization website repository." >&2
+            exit 1
+          fi
+          WEBSITE_REPO="$(gh api repositories/1265889311 --jq 'select(.id == 1265889311 and .visibility == "public" and .permissions.push == true) | .full_name')"
+          if [[ "$WEBSITE_REPO" != "djconnect-music-dj/djconnect-website" ]]; then
+            echo "Unexpected website repository or missing publication permission." >&2
+            exit 1
+          fi
+
+      - name: Publish to public releases repository
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_RELEASES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "Configure repository secret PUBLIC_RELEASES_TOKEN with write access to the public releases repository." >&2
+            exit 1
+          fi
+          PUBLIC_REPO="$(gh api repositories/1265963920 --jq 'select(.id == 1265963920 and .visibility == "public" and .permissions.push == true) | .full_name')"
+          case "$PUBLIC_REPO" in
+            pcvantol/djconnect-app-releases|djconnect-music-dj/djconnect-app-releases) ;;
+            *) echo "Unexpected release repository or missing publication permission." >&2; exit 1 ;;
+          esac
+          version="${{ steps.version.outputs.version }}"
+          mac_tag="macos/v${version}"
+          ios_tag="ios/v${version}"
+
+          if gh release view "$ios_tag" --repo "$PUBLIC_REPO" >/dev/null 2>&1; then
+            gh release edit "$ios_tag" \
+              --repo "$PUBLIC_REPO" \
+              --title "DJConnect iOS ${version}" \
+              --notes-file .public-release/release-notes-iOS.md \
+              --latest=false
+          else
+            gh release create "$ios_tag" \
+              --repo "$PUBLIC_REPO" \
+              --title "DJConnect iOS ${version}" \
+              --notes-file .public-release/release-notes-iOS.md \
+              --latest=false
+          fi
+          gh release upload "$ios_tag" \
+            .public-release/artifacts/DJConnect-iOS-${version}-unsigned.zip \
+            .public-release/artifacts/DJConnect-iOS-${version}-SHA256SUMS.txt \
+            --repo "$PUBLIC_REPO" \
+            --clobber
+
+          if gh release view "$mac_tag" --repo "$PUBLIC_REPO" >/dev/null 2>&1; then
+            gh release edit "$mac_tag" \
+              --repo "$PUBLIC_REPO" \
+              --title "DJConnect macOS ${version}" \
+              --notes-file .public-release/release-notes-macOS.md \
+              --latest
+          else
+            gh release create "$mac_tag" \
+              --repo "$PUBLIC_REPO" \
+              --title "DJConnect macOS ${version}" \
+              --notes-file .public-release/release-notes-macOS.md \
+              --latest
+          fi
+          gh release upload "$mac_tag" \
+            .public-release/artifacts/DJConnect-macOS-${version}-unsigned.zip \
+            .public-release/artifacts/DJConnect-macOS-${version}-SHA256SUMS.txt \
+            --repo "$PUBLIC_REPO" \
+            --clobber
+
+          for prefix in macos ios; do
+            keep_seen=0
+            gh release list --repo "$PUBLIC_REPO" --limit 100 --json tagName \
+              --jq ".[] | select(.tagName | startswith(\"${prefix}/v\")) | .tagName" \
+              | while IFS= read -r old_tag; do
+              if [[ "$keep_seen" -eq 0 ]]; then
+                keep_seen=1
+                continue
+              fi
+              gh release delete "$old_tag" --repo "$PUBLIC_REPO" --yes || true
+              git push "https://x-access-token:${GH_TOKEN}@github.com/${PUBLIC_REPO}.git" ":refs/tags/${old_tag}" || true
+            done
+          done
+
+      - name: Publish static release notes to djconnect.dev
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_RELEASE_NOTES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "Configure WEBSITE_RELEASE_NOTES_TOKEN with write access to the organization website repository." >&2
+            exit 1
+          fi
+          WEBSITE_REPO="$(gh api repositories/1265889311 --jq 'select(.id == 1265889311 and .visibility == "public" and .permissions.push == true) | .full_name')"
+          if [[ "$WEBSITE_REPO" != "djconnect-music-dj/djconnect-website" ]]; then
+            echo "Unexpected website repository or missing publication permission." >&2
+            exit 1
+          fi
+          version="${{ steps.version.outputs.version }}"
+          website_dir=".public-release/website"
+          rm -rf "$website_dir"
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${WEBSITE_REPO}.git" "$website_dir"
+          for platform in ios macos; do
+            case "$platform" in
+              ios)
+                platform_name="iOS"
+                title="DJConnect iOS ${version}"
+                ;;
+              macos)
+                platform_name="macOS"
+                title="DJConnect macOS ${version}"
+                ;;
+            esac
+            target_dir="${website_dir}/wwwroot/release-notes/${platform}"
+            mkdir -p "$target_dir"
+            for lang in en nl de fr es; do
+              localized_dir="${target_dir}/${lang}"
+              mkdir -p "$localized_dir"
+              source_notes=".public-release/release-notes-${platform_name}-${lang}.md"
+              cp "$source_notes" "${localized_dir}/v${version}.md"
+              RELEASE_VERSION="$version" \
+              RELEASE_PLATFORM="$platform" \
+              RELEASE_LANGUAGE="$lang" \
+              RELEASE_TITLE="$title" \
+              RELEASE_BODY_PATH="${localized_dir}/v${version}.md" \
+              RELEASE_JSON_PATH="${localized_dir}/v${version}.json" \
+                node -e 'const fs=require("fs"); const payload={version:process.env.RELEASE_VERSION, platform:process.env.RELEASE_PLATFORM, language:process.env.RELEASE_LANGUAGE, name:process.env.RELEASE_TITLE, body:fs.readFileSync(process.env.RELEASE_BODY_PATH, "utf8").trim()}; fs.writeFileSync(process.env.RELEASE_JSON_PATH, JSON.stringify(payload, null, 2) + "\n");'
+              cp "${localized_dir}/v${version}.md" "${localized_dir}/latest.md"
+              cp "${localized_dir}/v${version}.json" "${localized_dir}/latest.json"
+            done
+
+            cp "${target_dir}/en/v${version}.md" "${target_dir}/v${version}.md"
+            cp "${target_dir}/en/v${version}.json" "${target_dir}/v${version}.json"
+            cp "${target_dir}/en/v${version}.md" "${target_dir}/latest.md"
+            cp "${target_dir}/en/v${version}.json" "${target_dir}/latest.json"
+          done
+          cd "$website_dir"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wwwroot/release-notes
+          if git diff --cached --quiet; then
+            echo "Static release notes already up to date."
+          else
+            git commit -m "chore: publish app release notes ${version}"
+            git push origin main
+          fi
+
+      # Preserve prior workflow runs and their qualification evidence.
+      - name: Cleanup old workflow runs
+        if: ${{ false }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run list --repo "$GITHUB_REPOSITORY" --limit 200 --json databaseId \
+            --jq ".[].databaseId" \
+            | while IFS= read -r old_run_id; do
+              [[ -n "$old_run_id" ]] || continue
+              [[ "$old_run_id" != "$GITHUB_RUN_ID" ]] || continue
+              gh run delete "$old_run_id" --repo "$GITHUB_REPOSITORY" || true
+            done

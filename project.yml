@@ -1,0 +1,452 @@
+name: DJConnectApp
+options:
+  bundleIdPrefix: dev
+  deploymentTarget:
+    iOS: "26.0"
+    macOS: "26.0"
+    watchOS: "26.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    CURRENT_PROJECT_VERSION: "40478"
+    MARKETING_VERSION: "4.1.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+packages:
+  JOSESwift:
+    url: https://github.com/airsidemobile/JOSESwift.git
+    revision: c2664a902e75c0426a1d43132bd4babc6fd173d3
+targets:
+  DJConnectCoreIOS:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Sources/DJConnectCore
+      - path: Sources/DJConnectCore/Resources
+    dependencies:
+      - package: JOSESwift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.ios
+        PRODUCT_NAME: DJConnectCore
+        PRODUCT_MODULE_NAME: DJConnectCore
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectCoreMac:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Sources/DJConnectCore
+      - path: Sources/DJConnectCore/Resources
+    dependencies:
+      - package: JOSESwift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.mac
+        PRODUCT_NAME: DJConnectCore
+        PRODUCT_MODULE_NAME: DJConnectCore
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectCoreWatch:
+    type: framework.static
+    platform: watchOS
+    sources:
+      - path: Sources/DJConnectCore
+      - path: Sources/DJConnectCore/Resources
+    dependencies:
+      - package: JOSESwift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.watch
+        PRODUCT_NAME: DJConnectCore
+        PRODUCT_MODULE_NAME: DJConnectCore
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectUIIOS:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Sources/DJConnectUI
+    dependencies:
+      - target: DJConnectCoreIOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ui.ios
+        PRODUCT_NAME: DJConnectUI
+        PRODUCT_MODULE_NAME: DJConnectUI
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectUIMac:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Sources/DJConnectUI
+    dependencies:
+      - target: DJConnectCoreMac
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ui.mac
+        PRODUCT_NAME: DJConnectUI
+        PRODUCT_MODULE_NAME: DJConnectUI
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectIOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: Apps/DJConnectIOS
+      - path: Apps/Shared/SessionNextTrackIntent.swift
+      - path: Apps/Shared/Assets.xcassets
+      - path: Apps/Shared/AppIconIOSAdaptive.icon
+    dependencies:
+      - target: DJConnectCoreIOS
+      - target: DJConnectUIIOS
+      - target: DJConnectWatch
+        embed: true
+      - target: DJConnectTrackInsightWidgetsIOS
+        embed: true
+    info:
+      path: Apps/DJConnectIOS/Info.plist
+      properties:
+        DJConnectTrustedPairingIssuerBaseURL: https://api.djconnect.dev
+        CFBundleDisplayName: DJConnect
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.djconnect.ios
+            CFBundleURLSchemes:
+              - djconnect
+        LSApplicationCategoryType: public.app-category.music
+        NSCameraUsageDescription: DJConnect uses the camera only to scan QR codes for Home Assistant, Apple Watch pairing, or VibeCast TV linking.
+        UILaunchStoryboardName: LaunchScreen
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~iphone:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSLocalNetworkUsageDescription: DJConnect connects to Home Assistant on your local network.
+        NSMicrophoneUsageDescription: DJConnect records your voice for push-to-talk music requests to Home Assistant.
+        NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition for on-device Ask DJ transcription and wake phrase detection.
+        NSSupportsLiveActivities: true
+        UIRequiredDeviceCapabilities:
+          - wifi
+        NSBonjourServices:
+          - _home-assistant._tcp.
+          - _googlecast._tcp
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            "10.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "172.16.0.0/12":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "192.168.0.0/16":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "127.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fc00::/7":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fe80::/10":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "::1/128":
+              NSExceptionAllowsInsecureHTTPLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios
+        PRODUCT_NAME: DJConnect
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconIOSAdaptive
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectIOS/DJConnectIOS.entitlements
+  DJConnectMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: Apps/DJConnectMac
+      - path: Apps/Shared/Assets.xcassets
+      - path: Apps/Shared/AppIconAdaptive.icon
+    dependencies:
+      - target: DJConnectCoreMac
+      - target: DJConnectUIMac
+      - target: DJConnectTrackInsightWidgetsMac
+        embed: true
+    info:
+      path: Apps/DJConnectMac/Info.plist
+      properties:
+        DJConnectTrustedPairingIssuerBaseURL: https://api.djconnect.dev
+        CFBundleDisplayName: DJConnect
+        CFBundleIconFile: AppIconAdaptive
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.djconnect.mac
+            CFBundleURLSchemes:
+              - djconnect
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.music
+        NSLocalNetworkUsageDescription: DJConnect connects to Home Assistant on your local network.
+        NSMicrophoneUsageDescription: DJConnect records your voice for push-to-talk music requests to Home Assistant.
+        NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition for on-device Ask DJ transcription and wake phrase detection.
+        NSBonjourServices:
+          - _home-assistant._tcp.
+          - _googlecast._tcp
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            "10.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "172.16.0.0/12":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "192.168.0.0/16":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "127.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fc00::/7":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fe80::/10":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "::1/128":
+              NSExceptionAllowsInsecureHTTPLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac
+        PRODUCT_NAME: DJConnect
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconAdaptive
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectMac/DJConnectMac.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+  DJConnectWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: Apps/DJConnectWatch
+      - path: Sources/DJConnectUI/VibeScapeFamilies.swift
+      - path: Sources/DJConnectUI/VibeScapeScene.swift
+      - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
+      - path: Sources/DJConnectUI/AlbumArtworkPlaceholder.swift
+      - path: Sources/DJConnectUI/DJConnectGlassAppearance.swift
+      - path: Sources/DJConnectUI/DeviceSpeechSettingsView.swift
+      - path: Apps/Shared/Assets.xcassets
+      - path: Apps/Shared/AppIconWatchAdaptive.icon
+      - path: Sources/DJConnectCore/Resources
+    dependencies:
+      - target: DJConnectCoreWatch
+      - target: DJConnectWatchComplications
+        embed: true
+    info:
+      path: Apps/DJConnectWatch/Info.plist
+      properties:
+        CFBundleDisplayName: DJConnect
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: dev.djconnect.ios
+        WKSupportsLiveActivityLaunchAttributeTypes:
+          - DJConnectSessionLiveActivityAttributes
+        NSLocalNetworkUsageDescription: DJConnect connects to Home Assistant on your local network.
+        NSMicrophoneUsageDescription: DJConnect records your voice for push-to-talk music requests to Home Assistant.
+        NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition only for foreground wake phrase detection with Hey DJ.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            "10.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "172.16.0.0/12":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "192.168.0.0/16":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "127.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fc00::/7":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fe80::/10":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "::1/128":
+              NSExceptionAllowsInsecureHTTPLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.watch
+        PRODUCT_NAME: DJConnect
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconWatchAdaptive
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectWatch/DJConnectWatch.entitlements
+  DJConnectWatchComplications:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: Apps/DJConnectWatchComplications
+      - path: Sources/DJConnectCore/Resources
+      - path: Apps/Shared/Assets.xcassets
+    dependencies:
+      - target: DJConnectCoreWatch
+    info:
+      path: Apps/DJConnectWatchComplications/Info.plist
+      properties:
+        CFBundleDisplayName: DJConnect
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.watch.complications
+        PRODUCT_NAME: DJConnectComplications
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectWatchComplications/DJConnectWatchComplications.entitlements
+        SKIP_INSTALL: YES
+  DJConnectTrackInsightWidgetsIOS:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Apps/DJConnectTrackInsightWidgets
+      - path: Apps/Shared/SessionNextTrackIntent.swift
+      - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
+      - path: Sources/DJConnectUI/StatusOnlySurfaceView.swift
+      - path: Sources/DJConnectUI/SessionPlaybackObservationView.swift
+    dependencies:
+      - target: DJConnectCoreIOS
+    info:
+      path: Apps/DJConnectTrackInsightWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: DJConnect
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.track-insight-widget
+        PRODUCT_NAME: DJConnectWidget
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgets.entitlements
+        SKIP_INSTALL: YES
+  DJConnectTrackInsightWidgetsMac:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: Apps/DJConnectTrackInsightWidgets
+      - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
+      - path: Sources/DJConnectUI/StatusOnlySurfaceView.swift
+      - path: Sources/DJConnectUI/SessionPlaybackObservationView.swift
+    dependencies:
+      - target: DJConnectCoreMac
+    info:
+      path: Apps/DJConnectTrackInsightWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: DJConnect
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac.track-insight-widget
+        PRODUCT_NAME: DJConnectWidget
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgetsMac.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        SKIP_INSTALL: YES
+  DJConnectCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/DJConnectCoreTests
+      - path: Tests/Fixtures/surface-push-core-12675bc-http.json
+        buildPhase: resources
+      - path: Tests/Fixtures/status-only-wire-vectors.json
+        buildPhase: resources
+      - path: Tests/Fixtures/surface-push-v3-actual-ha-wire.json
+        buildPhase: resources
+      - path: Tests/Fixtures/surface-push-v3-actual-ha-original-clock-context.json
+        buildPhase: resources
+      - path: Tests/Fixtures/rendezvous-fixed-qa-api-3b43332.json
+        buildPhase: resources
+      - path: Tests/Fixtures/rendezvous-fixed-qa-wire-3b43332.json
+        buildPhase: resources
+      - path: Tests/Fixtures/native-status-once-data-test-schema-v1.sql
+        buildPhase: resources
+      - path: Tests/Fixtures/rich-surface-original-encoder-v1.json
+        buildPhase: resources
+      - path: Tests/Fixtures/host-wake-native-transcript-api-0d686be.json
+        buildPhase: resources
+      - path: Tests/Fixtures/host-wake-core-proxy-request-vectors.json
+        buildPhase: resources
+      - path: Tests/Fixtures/host-wake-core-proxy-reply-v5.json
+        buildPhase: resources
+      - path: Tests/Fixtures/direct-rich-request-core-r8.json
+        buildPhase: resources
+      - path: Tests/Fixtures/direct-rich-synthetic-responses.json
+        buildPhase: resources
+      - path: Tests/Fixtures/host-wake-native-sdk-input-api-03323cd.json
+        buildPhase: resources
+      - path: Tests/Fixtures/session-artwork-cover-core-5c7ecb79.png
+        buildPhase: resources
+    dependencies:
+      - target: DJConnectCoreMac
+      - target: DJConnectUIMac
+      - package: JOSESwift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.tests
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectIOSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/DJConnectIOSUITests
+    dependencies:
+      - target: DJConnectIOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectMacUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: Tests/DJConnectMacUITests
+    dependencies:
+      - target: DJConnectMac
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac.uitests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  DJConnectIOS:
+    build:
+      targets:
+        DJConnectIOS: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - DJConnectIOSUITests
+    profile:
+      config: Release
+    archive:
+      config: Release
+  DJConnectMac:
+    build:
+      targets:
+        DJConnectMac: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - DJConnectCoreTests
+        - DJConnectMacUITests
+    profile:
+      config: Release
+    archive:
+      config: Release
+  DJConnectWatch:
+    build:
+      targets:
+        DJConnectWatch: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    archive:
+      config: Release

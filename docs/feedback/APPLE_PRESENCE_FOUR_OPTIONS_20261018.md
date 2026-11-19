@@ -1,0 +1,15 @@
+# Presence: music only plus three spoken levels — 2026-10-18
+
+User request: remove Praatgraag/talkative as a selectable choice and calibrate the three remaining spoken levels server-side.
+
+Apple presentation now offers music_only, occasional, balanced, presenter in both welcome and active-session controls, preserving the shared mood appearance. The presenter microphone remains associated with presenter after removing the waveform option. Historical talkative payloads remain decodable and are not silently mapped to a different selection. Backend defaults and actual dosing remain Core-owned. UI fixture expectations now iterate four choices and derive the resulting revision count.
+
+The existing sole Core chat 01a120e2-b557-76c3-8568-129dbce2f2d2 received the explicit implementation request and acknowledged it. Requested scope includes SYNC_PROMPTS/design first, actual three-level dosing, music-only silence, migration of stored profile and live talkative settings, regression tests and a qualified consumer pin. A follow-up flags that active_session_presence v1 currently strictly requires the original five-value capability list; consumer acceptance of a new four-value list must follow the producer contract. No backend files were edited by Apple.
+
+Status: Apple source prepared; server calibration and migration are in progress in the existing Core chat. No new installed build or server-side calibration PASS is claimed here. Original five-value transport fixtures remain immutable historical evidence.
+
+Validation: 30 targeted Swift tests passed sequentially in 1.358 seconds, including four visible choices, glyph association and historical talkative decoding. Final source compiled from a clean tracked-file snapshot; existing untracked recovery copies were preserved. A parallel run exposed the existing scheduler timing tests' fixed-wait sensitivity; the supported sequential run passed. Logs: /private/tmp/djc-presence-four-tests-serial.log. git diff --check passed. Physical UI tests not run.
+
+Core design acknowledgement received during artwork follow-up: SYNC_PROMPTS plus DJ_PRESENCE_FOUR_LEVELS_V2.md define music_only/occasional/balanced/presenter; exact legacy talkative -> presenter. Discovery capability becomes version 2 with transport_contract_version 1; POST stays contract_version 1. Profile settings stays v3 with four allowed presence values. Planned server limits (minimum seconds / per track / rolling 600s) are 0/0/0, 180/1/2, 90/2/4, 45/4/8, preserving eligibility fences. Implementation and qualified fixture/source pin remain pending and NOT_INSTALLED; Apple must update capability negotiation against that pin before combined rollout.
+
+Subsequent combined installation: iPhone build40313 includes these source changes; native build/signature/install/readback passed. Launch was blocked because the phone was locked. MacBook remains40312; no new physical acceptance. See APPLE_ARTWORK_GESTURE_OVERLAY_40313_20261018.md. Server dosing remains separately qualified/installed by Core.

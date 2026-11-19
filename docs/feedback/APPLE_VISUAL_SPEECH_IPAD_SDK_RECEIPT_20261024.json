@@ -1,0 +1,77 @@
+{
+  "at": "2026-10-24T20:04:10.168566+00:00",
+  "run": {
+    "receipt": {
+      "base": "8e80316a41a48fd9e982267fd3c57a2dd01effd4",
+      "mode": "sdk-ipad",
+      "parent_exit": 0,
+      "started": "2026-10-24T19:13:20.312242+00:00",
+      "completed": "2026-10-24T19:15:50.618168+00:00",
+      "all_300_inputs_unchanged": true,
+      "command": [
+        "xcodebuild",
+        "-project",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-speech-ipad-r3/NativeVisualSpeechPermissionQualification.xcodeproj",
+        "-scheme",
+        "NativeVisualSpeechPermission",
+        "-destination",
+        "platform=iOS Simulator,id=2BA652A2-6FD8-481E-B1B9-EA3C918CF6F1",
+        "-derivedDataPath",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-speech-derived",
+        "-resultBundlePath",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/sdk-ipad-integrated-r1/result.xcresult",
+        "-jobs",
+        "1",
+        "-parallel-testing-enabled",
+        "NO",
+        "-collect-test-diagnostics",
+        "never",
+        "CODE_SIGNING_ALLOWED=NO",
+        "test"
+      ],
+      "scope": "exact integrated source; component/synthetic fixtures only, no real owner reaction/HTTP/audio/physical acceptance",
+      "summary_export_exit": 0
+    },
+    "receipt_sha256": "f6cf3b4e146b3a7784ed6602504f9772cdaf28a4e46d8f5dd0d188e600501dc4",
+    "log_sha256": "165b6f7ecf3f0258fa3883a274ffa7d9fe52db44aac8cedc04d1546fc9ed4846",
+    "summary": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0
+    },
+    "summary_sha256": "36e3b8379c15e2e60537aa4bc53ebae93aaea5f71fd8f3280634e6ef8e97308e"
+  },
+  "screenshots": [
+    {
+      "name": "real-visual-speech-authorization-no-capture_0_7555D65D-7165-460E-9F49-8DA4AC7D9417.png",
+      "path": "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/sdk-ipad-integrated-r1/attachments/304E5AB6-9593-488B-BBF0-29F448B14354.png",
+      "sha256": "a0df76a57484431417feee21b7bee6ebfa494191112be885fadecf62d6d14606"
+    }
+  ],
+  "helper_inputs": {
+    "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/NativeVisualSpeechPermissionHost.swift": "9671a419e5e9598623230d121f89ca3596093d0b3e6095f0014e925ea2eef5ed",
+    "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-speech-ipad-r3/NativeVisualSpeechPermissionTests.swift": "8d360d6696115bafb6ac32c7a09280b99bbe1ca83a75d8b9dfbdd7adb7f199ca"
+  },
+  "scope": "Actual unchanged production VibeScapeSpeechAuthorization default SDK callback on owned iPad; explicit denial monitor plus raw denied status1 asserted twice; MainActor assertion survived, microphone status unchanged unknown, no AppModel/capture/recognition/app HTTP/audio. Screenshot completed:1:2 personally viewed. Not full VibeScape button/turn/help/permissions flow or Mac/physical acceptance.",
+  "original_failed_attempt": {
+    "run": "visual-speech-ipad-r1",
+    "parent_exit": 65,
+    "receipt_sha256": "fd77c31ea59ee0396a9801fc96e5a978d173bc77314d5d302ca475533c3e4d69",
+    "reason": "Permission alert left visible while test queried only SpringBoard for2seconds; original movie frame inspected."
+  },
+  "original_automatic_allow_attempt": {
+    "run": "visual-speech-ipad-r2",
+    "parent_exit": 0,
+    "receipt_sha256": "e282a4ec1b8ca1c6e1a0824cea8eb1b0ab113294aff3035f98675d9c5d7cb379",
+    "scope_correction": {
+      "original": "visual-speech-ipad-r2",
+      "actual_parent_exit": 0,
+      "scope_correction": "Original log at4.83s shows default XCTest interruption handler tapping Sta toe. Callback executed twice without microphone capture/crash, but this is NOT denied authorization qualification. Original R1timeout and R2automatic-allow remain preserved. R3 uses a fresh test-only app identity, explicit deny-only monitor and denied raw status assertion; no permission reset."
+    },
+    "log_sha256": "d3f6bf508f34df7de19aeac5f771fb8de9427a0e62aced58a7d9b7c022b7b0e3",
+    "denial_qualified": false
+  },
+  "originals_retained": true
+}

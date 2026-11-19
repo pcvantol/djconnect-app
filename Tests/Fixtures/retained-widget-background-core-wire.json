@@ -1,0 +1,116 @@
+{
+  "fixture_only": true,
+  "external_api_calls": 0,
+  "source_pins": {
+    "custom_components/djconnect/surface_push_contract.py": "22e7d170ac4209c6a3ab0e487e5a3f607e3ac9b03277de15e4ae3fac2fb4d465",
+    "custom_components/djconnect/surface_push_events.py": "aa60028d072a2981a38a0d9c441ef8c01193c660cf64087696b6c12b96c7fefd",
+    "custom_components/djconnect/surface_push_http.py": "fdf1ff5fbb469223c3697992ca98a8598af9b3c10e002c19df06f73e6904df65",
+    "custom_components/djconnect/surface_push_registry.py": "63d93db31aecd272c64d279b00ee65cb3bf074547009f0354a9011984188d38c",
+    "custom_components/djconnect/surface_push_service.py": "9560abe71a9851fe00e5cea3d1c128174e4ccf556fb54fbd1585f75bda8beeda"
+  },
+  "examples": {
+    "authorized": {
+      "success": true,
+      "contract_version": 1,
+      "registration_id": "surface-dc247a92550612965bf38d845c2766d9",
+      "credential": "djcretained_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expires_at_ms": 1794040371229,
+      "projection_version": 4,
+      "cache_policy": "private,no-store"
+    },
+    "read": {
+      "success": true,
+      "contract_version": 1,
+      "registration": {
+        "registration_id": "surface-dc247a92550612965bf38d845c2766d9",
+        "generation": "084093cdee84b8f70f412aec0a887678",
+        "revision": 2,
+        "state": "registered",
+        "expires_at_ms": 1794040371229,
+        "token_role": "widget",
+        "platform": "ios",
+        "last_error": null,
+        "cache_policy": "private,no-store"
+      },
+      "passive_session": {
+        "schema_version": 4,
+        "surface": "widget",
+        "binding_id": "4ce0780f7faa502b485f94dbb32b2752",
+        "generation": "6d4622c99d356787df7f4279cda6cb31",
+        "session_id": "session-6b128eaf779d4c46b1c3c5815d0550b5",
+        "delivery_sequence": 109,
+        "as_of": "2026-11-07T08:23:53.522420+00:00",
+        "observed_at": "2026-11-07T08:23:53.457894+00:00",
+        "expires_at": "2026-11-07T08:25:53.457894+00:00",
+        "state": "active",
+        "playback_state": "playing",
+        "cache_policy": {
+          "scope": "current_surface_only",
+          "maximum_seconds": 120,
+          "renew_on_read": false,
+          "locked_display": false,
+          "os_pixel_erasure": "best_effort_when_learned"
+        },
+        "mood": {
+          "value": "energy",
+          "revision": 1
+        },
+        "presence": "balanced",
+        "persona": "home_dj",
+        "navigation": {
+          "kind": "open_session",
+          "session_id": "session-6b128eaf779d4c46b1c3c5815d0550b5"
+        },
+        "revision": "08d5a7cc16dbc40c3458f3d2f7b65ecd",
+        "latest_contribution": null,
+        "latest_contribution_status": {
+          "state": "unavailable",
+          "reason": "no_publication"
+        },
+        "contribution": null,
+        "now_playing": {
+          "item_id": "02e3d582594577327c335fc0",
+          "subject_uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+          "track": "Synthetic recording",
+          "artist": "Synthetic artist",
+          "album": "Synthetic edition",
+          "observed_at": "2026-11-07T08:23:53.456551+00:00",
+          "expires_at": "2026-11-07T08:25:53.456551+00:00",
+          "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA",
+          "attribution": {
+            "provider": "Spotify",
+            "mark": "spotify",
+            "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+          },
+          "usage_basis": "spotify_temporary_passive_metadata",
+          "progress": {
+            "schema_version": 1,
+            "position_ms": 10000,
+            "duration_ms": 300000,
+            "playback_state": "playing",
+            "observed_at": "2026-11-07T08:23:53.456551+00:00",
+            "expires_at": "2026-11-07T08:25:53.456551+00:00"
+          }
+        },
+        "artwork": [],
+        "contribution_status": {
+          "state": "unavailable",
+          "reason": "no_publication"
+        },
+        "now_playing_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "artwork_status": {
+          "state": "unavailable",
+          "reason": "not_prepared"
+        }
+      },
+      "cache_policy": "private,no-store"
+    },
+    "withdrawn": {
+      "success": false,
+      "error": "surface_read_withdrawn"
+    }
+  }
+}

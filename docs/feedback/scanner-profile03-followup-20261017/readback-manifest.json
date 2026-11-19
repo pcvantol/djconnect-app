@@ -1,0 +1,39 @@
+{
+  "api_commit": "48a025d6b6343dd3220aa06d9f7a63c4f76a37bd",
+  "profile": "0.3.0-draft",
+  "state": "NOT_FROZEN / NO_RUNTIME_GO",
+  "upstream_readback_sha256": {
+    "KEY_STATE_V1.md": "746b3dc8d41760c4febc5ddf82a66dcf4a27c73d20d369679bca01ae6e57f166",
+    "VERIFIER_REFERENCE_AUDIT_V1.md": "4f29ab66565fb25714c8f429e949423e1f2cf4286392854f6165e89c6c7d500c",
+    "WIRE_PROFILE_V1.md": "993488f612ee6ce2866d6ab0c4f8ac166e5071afde1825bddc9b2af31f62478c",
+    "assessing-fraud-risk.md": "1dace7339de7cb6591c3b56cb169f4ccd5f810040ed63ab2780af63b76621fed",
+    "attestation-object-validation-guide.md": "05abb762f7939144408a405c10fa4d719eba78b41fe44377fd5a641e3d0746c5",
+    "dcappattestservice-issupported.md": "2a1d8c4c8199758202214254356717a3e4a30b9e045f63cbe13f9adc416e85a0",
+    "establishing-your-app-s-integrity.md": "55a73d55f30c90745f0ec86e9bae29608fb4a17edf80332cbcd0d2d5ab18c8ce",
+    "jose-followup-result.json": "75d5826e001f4d9f084c31eee0eac7a0fe304a8bdd846d4663ef8e1d2c9956c2",
+    "preparing-to-use-the-app-attest-service.md": "c2af173d126cd9e890e30670a089dd9c077f14e84c441def428451eba08f1f6f",
+    "signing-current.json": "656a112c4447725b9747968088ee385d830096403310ba861992594a83686995",
+    "validating-apps-that-connect-to-your-server.md": "90f1dfefca16d52e39d328ea37d252327ce6693915820794c084c2661459754d",
+    "wire-request-schemas-v1.json": "12ca084d90b0ecaa6548e9c33009e74bed8400581ab12efeb82d99f7741fa071",
+    "wire-schema-cases-v1.json": "893840019adb610fe2cf0b5ca05ba365ad7ce07e8b0db3f1efaeb2ed73b58125"
+  },
+  "official_source_base": "https://developer.apple.com/documentation/devicecheck/",
+  "schema_cases": 89,
+  "native_app_attestation_assertion_fixtures_available": false,
+  "keys_generated": false,
+  "fraud_receipts_collected": false,
+  "new_signing_or_entitlement_blocker_demonstrated": false,
+  "runtime_changes": false,
+  "schema_staging_initial_failure": "Wrong helper directory; corrected exact scripts/docs layout passed",
+  "proof_scope": "Synthetic Mac/Node and Chromium crypto only; actual signed build public fields; official documentation/SDK review",
+  "local_sdk_header_sha256": "fa36743bdc09f3fc17d34a51ee26e09c7701108a86e0513214786966044c9493",
+  "retained_followup_harness_sha256": "c09ebf226de421d7d3a720040198a81555904dac8550a0ddbb1def25db8b34b7",
+  "current_api_validator_sha256": "eb294d15def7f308adbad47a49da2b25089a47c3c926c6be2d458a8887c568ac",
+  "physical_device_support": {
+    "isSupported": true,
+    "os": "27.0.1",
+    "scope": "XCTest runner device query only; not DJConnect identity/attestation",
+    "keys_generated": false
+  },
+  "retained_support_probe_sha256": "ca1c7e3edeead995562a28ee064368f96c45b1f09a6ddaf6b90fb8c45785d8b5"
+}

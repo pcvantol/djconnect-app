@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-18",
+  "status": "OPEN_PRODUCER_PROJECTION_REPRODUCED",
+  "trigger": "Owner plays a track from Discover then opens Queue",
+  "source": "Existing iPhone app diagnostic log copied read-only with CoreDevice; no app installation or backend mutation",
+  "log_sha256": "188a1bf17f3b6428f798903e3271d77034e1846d6ac7f2dbfb7d1153f3afef9b",
+  "observations": [
+    {
+      "local_time": "03:27:17",
+      "decoded_count": 10,
+      "normalized_count": 10,
+      "distinct_tracks": 1,
+      "distinct_row_ids": 10
+    },
+    {
+      "local_time": "03:27:28",
+      "decoded_count": 10,
+      "normalized_count": 10,
+      "distinct_tracks": 1,
+      "distinct_row_ids": 10
+    },
+    {
+      "local_time": "03:32:34",
+      "decoded_count": 10,
+      "normalized_count": 10,
+      "distinct_tracks": 1,
+      "distinct_row_ids": 10
+    }
+  ],
+  "conclusion": "Ten repeated records already exist in decoded HA response; client normalization does not expand one item. This does not prove the upstream Spotify response or actual player queue contains ten occurrences.",
+  "next": "Capture producer and upstream queue response/count/context around Discover play with existing Core writer; preserve legitimate repeated-track semantics",
+  "not_done": [
+    "No client content deduplication",
+    "No backend change",
+    "No claimed fix or runtime acceptance"
+  ]
+}

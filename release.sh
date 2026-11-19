@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERSION="${1:-}"
+DERIVED_DATA="$ROOT_DIR/.release/DerivedData"
+SKIP_TESTS=0
+SKIP_BUILDS=0
+SKIP_SOURCE_RELEASE=0
+SKIP_THIRDPARTY_UPDATE="${DJCONNECT_SKIP_THIRDPARTY_UPDATE:-0}"
+PUBLIC_MACOS=0
+CLEANUP=1
+KEEP_RELEASES=1
+KEEP_WORKFLOW_RUNS=1
+DRY_RUN=0
+
+usage() {
+  cat <<'USAGE'
+Usage: ./release.sh <version> [options]
+
+Options:
+  --skip-thirdparty-update
+                          Skip Swift package, Xcode package and Homebrew tool update preflight
+  --skip-tests            Skip swift test
+  --skip-builds           Skip unsigned iOS/macOS build validation
+  --skip-source-release   Do not create/push tag or private GitHub source release
+  --public-macos          Build, notarize and upload the public macOS binary
+  --cleanup               Run cleanup_old_releases.sh after release (default)
+  --no-cleanup            Skip release/tag/workflow cleanup
+  --keep <n>              Number of releases/tags to keep during cleanup (default: 1)
+  --keep-workflow-runs <n>
+                          Number of GitHub Actions workflow runs to keep during cleanup (default: 1)
+  --dry-run               Print release actions without creating GitHub releases
+
+Examples:
+  ./release.sh 3.1.15
+  ./release.sh 3.1.15 --public-macos --keep 1
+USAGE
+}
+
+shift_version() {
+  if [[ -z "$VERSION" || "$VERSION" == -* ]]; then
+    usage
+    exit 2
+  fi
+  shift || true
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --skip-thirdparty-update) SKIP_THIRDPARTY_UPDATE=1 ;;
+      --skip-tests) SKIP_TESTS=1 ;;
+      --skip-builds) SKIP_BUILDS=1 ;;
+      --skip-source-release) SKIP_SOURCE_RELEASE=1 ;;
+      --public-macos) PUBLIC_MACOS=1 ;;
+      --cleanup) CLEANUP=1 ;;
+      --no-cleanup) CLEANUP=0 ;;
+      --keep)
+        KEEP_RELEASES="${2:-}"
+        shift
+        ;;
+      --keep-workflow-runs)
+        KEEP_WORKFLOW_RUNS="${2:-}"
+        shift
+        ;;
+      --dry-run) DRY_RUN=1 ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "Unknown option: $1" >&2
+        usage
+        exit 2
+        ;;
+    esac
+    shift
+  done
+}
+
+run() {
+  echo "+ $*"
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    "$@"
+  fi
+}
+
+ensure_head_based_on_remote_main() {
+  run git fetch origin main
+  if [[ "$DRY_RUN" -ne 0 ]]; then
+    return
+  fi
+  if ! git merge-base --is-ancestor origin/main HEAD; then
+    echo "Current HEAD is not based on origin/main. Rebase or merge origin/main before releasing." >&2
+    exit 1
+  fi
+}
+
+write_changelog_release_notes() {
+  local version="$1"
+  local target_file="$2"
+  awk -v version="$version" '
+    $0 ~ "^## " version "($| - )" { capture=1; next }
+    capture && /^## / { capture=0 }
+    capture { print }
+  ' "$ROOT_DIR/CHANGELOG.md" > "$target_file"
+  if [[ ! -s "$target_file" ]]; then
+    printf "DJConnect App %s\n" "$version" > "$target_file"
+  fi
+}
+
+shift_version "$@"
+
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Version must look like 3.1.15" >&2
+  exit 2
+fi
+
+if [[ ! "$KEEP_RELEASES" =~ ^[0-9]+$ || "$KEEP_RELEASES" -lt 1 ]]; then
+  echo "--keep requires a positive number." >&2
+  exit 2
+fi
+
+if [[ ! "$KEEP_WORKFLOW_RUNS" =~ ^[0-9]+$ || "$KEEP_WORKFLOW_RUNS" -lt 1 ]]; then
+  echo "--keep-workflow-runs requires a positive number." >&2
+  exit 2
+fi
+
+cd "$ROOT_DIR"
+mkdir -p "$ROOT_DIR/.release"
+
+if [[ "$SKIP_THIRDPARTY_UPDATE" != "1" && "${DJCONNECT_THIRDPARTY_PREFLIGHT_DONE:-0}" != "1" ]]; then
+  bash "$ROOT_DIR/Tools/release/update_thirdparty.sh"
+  export DJCONNECT_THIRDPARTY_PREFLIGHT_DONE=1
+elif [[ "$SKIP_THIRDPARTY_UPDATE" == "1" ]]; then
+  echo "Skipping third-party update preflight."
+fi
+
+echo "DJConnect app release $VERSION"
+run git diff --check
+
+if [[ "$SKIP_TESTS" -eq 0 ]]; then
+  run swift test --no-parallel
+fi
+
+if [[ "$SKIP_BUILDS" -eq 0 ]]; then
+  run rm -rf "$DERIVED_DATA"
+  run xcodebuild \
+    -project DJConnectApp.xcodeproj \
+    -scheme DJConnectMac \
+    -configuration Debug \
+    -derivedDataPath "$DERIVED_DATA/mac" \
+    CODE_SIGNING_ALLOWED=NO \
+    clean build
+  run xcodebuild \
+    -project DJConnectApp.xcodeproj \
+    -scheme DJConnectIOS \
+    -configuration Debug \
+    -destination "generic/platform=iOS" \
+    -derivedDataPath "$DERIVED_DATA/ios" \
+    CODE_SIGNING_ALLOWED=NO \
+    clean build
+fi
+
+if [[ "$SKIP_SOURCE_RELEASE" -eq 0 ]]; then
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "Working tree is dirty. Commit changes before creating a release." >&2
+    exit 1
+  fi
+  ensure_head_based_on_remote_main
+  TAG="v$VERSION"
+  if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+    run git tag "$TAG"
+  fi
+  run git push origin HEAD:main
+  run git push origin "$TAG"
+  if gh release view "$TAG" --repo djconnect-music-dj/djconnect-app >/dev/null 2>&1; then
+    echo "GitHub release $TAG already exists in djconnect-music-dj/djconnect-app"
+  else
+    NOTES_FILE="$ROOT_DIR/.release/release-$VERSION-notes.md"
+    write_changelog_release_notes "$VERSION" "$NOTES_FILE"
+    run gh release create "$TAG" \
+      --repo djconnect-music-dj/djconnect-app \
+      --title "DJConnect App $VERSION" \
+      --notes-file "$NOTES_FILE"
+  fi
+fi
+
+if [[ "$PUBLIC_MACOS" -eq 1 ]]; then
+  run "$ROOT_DIR/Tools/release/release_macos_public.sh" --version "$VERSION"
+fi
+
+if [[ "$CLEANUP" -eq 1 ]]; then
+  run "$ROOT_DIR/cleanup_old_releases.sh" --keep "$KEEP_RELEASES" --keep-workflow-runs "$KEEP_WORKFLOW_RUNS" --execute
+fi
+
+echo "Release workflow completed for $VERSION"

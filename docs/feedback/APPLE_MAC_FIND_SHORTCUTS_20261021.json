@@ -1,0 +1,26 @@
+{
+  "base": "2583242",
+  "scope": "Add native Command-F open/focus route for Queue, Playlists, Saved Sessions and Ask DJ.",
+  "validation": {
+    "native_Mac_key_equivalent": "1 PASS; two successive events handled and dispatched",
+    "iOS_iPadOS_unsigned_compile": "PASS",
+    "diff_check": "PASS"
+  },
+  "limits": [
+    "Native test hosts the shared shortcut modifier, not all four ordinary application screens.",
+    "Per-screen search visibility and focus wiring reviewed in source; no physical keyboard or installed application acceptance.",
+    "Existing empty Queue/Playlist search availability guards retained."
+  ],
+  "installed": false,
+  "published": false,
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-mac-find-shortcuts-20261021/qualified-native-test.log",
+      "sha256": "9adb6e9809b11ad250a5ef9bea9a3b92106225892f296e8a52e0c3070256b303"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-mac-find-shortcuts-20261021/final-ios-build.log",
+      "sha256": "8d670ed3f11205059c1fc8775f5e81193a7aa3d6e79008f70785612c19250f65"
+    }
+  ]
+}

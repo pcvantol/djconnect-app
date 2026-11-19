@@ -1,0 +1,9 @@
+# Saved Sessions list row rendering
+
+The earlier Session contents received separate timeline optimizations. This change specifically covers the list of earlier Sessions. Existing native iOS/iPadOS List and Mac LazyVStack already virtualize it; retain those and the cursor-bound pagination footer.
+
+Extract each Session label into a value-only SavedSessionListRow and use EquatableView. Equality covers the complete server header (including revision/summary), app language, summary capability and time zone. Unrelated playback/model or history-loading notifications can reuse unchanged row content rather than rerunning date/duration formatting, summary-number formatting and avatar/surface construction. Row text/layout, admitted mood colors, unknown/withdrawn values, accessibility and row identity stay the same. Remove an unnecessary outer HStack/frame from every row. Buttons and their current navigation Binding remain outside equality so closures are never compared or frozen. No new personal cache or retention.
+
+Refresh the row time zone on appearance, foreground and the system time-zone-change notification, preserving date labels when the device zone changes. Updated headers/summaries/capability/language still invalidate the row. Existing all-Session content search, owner/epoch fences, search-result updates, deletion and pagination continue through their original paths; no extra reads or local index.
+
+Validation: source diff and work-register checks only. No build, Swift test execution, preview, installation or measured FPS/latency acceptance under explicit-build-only instruction. At the next explicitly requested build verify a long list on iPad/Mac, scrolling during live playback, later pages, search/filter, refreshed/withdrawn summary, mood/locale/time-zone updates and opening the correct session. Source-only PR179; last installed40447 unchanged.

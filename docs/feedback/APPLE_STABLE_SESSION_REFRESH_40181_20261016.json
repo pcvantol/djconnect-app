@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-16",
+  "build": "40181",
+  "scope": "Prevent automatic DJ Session refresh from shifting current DJMoment; show load status in refresh icon",
+  "root_cause": "SessionRefreshIndicatorBridge was driven by timeline.loading && empty entries, including periodic refresh. It begins UIRefreshControl and changes scroll offset by at least60pt. Physical iPad before-fix sample shifted current-card minY272.375 to214.875, a57.5pt displacement.",
+  "implementation": [
+    "Remove programmatic native refresh bridge from SessionTimelineScreen; native user pull-to-refresh remains. Saved sessions bridge unchanged.",
+    "Remove timeline inline loading spinners that alter content size.",
+    "Route timeline/retry load state to fixed20pt refresh glyph in expanded toolbar and More popover. Keep icon footprint during spinner swap.",
+    "Preserve previous Ask DJ21pt spacing and all runtime contracts."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "strict_deep_signature": "PASS",
+    "manifest": "452 hashes PASS",
+    "installed": "iPad/iPhone40181 confirmed",
+    "native_ipad": "PASS:16 sampled current-card positions all214.875",
+    "native_iphone": "PASS:16 sampled current-card positions all181.0",
+    "iphone_visual": "Screenshot actually viewed; idle current card stable",
+    "ipad_visual": "Screenshot actually viewed; known landscape capture is portrait-shaped/clipped with black upper region. AX current-card measurement valid; no full landscape visual acceptance claim.",
+    "toolbar_spinner": "Source routing/fixed geometry and signed build verified; short spinner state not captured in screenshot"
+  },
+  "evidence": {
+    "manifest": "build/recovery/session40181-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/session40181-refresh-icon-20261016.patch",
+    "before": "/private/tmp/djc-ipad-idle-refresh-before40181-20261016.xcresult",
+    "ipad": "/private/tmp/djc-ipad-40181-stable-refresh-20261016.xcresult",
+    "iphone": "/private/tmp/djc-iphone-40181-stable-refresh-20261016.xcresult",
+    "ipad_samples": "/private/tmp/djc-ipad-40181-stable-refresh-attachments/84BBF759-4859-45D1-9287-16C0BE9780CF.txt",
+    "iphone_samples": "/private/tmp/djc-iphone-40181-stable-refresh-attachments/3C14F570-C1A5-4DB2-B7E5-248EBC731B26.txt"
+  },
+  "preservation": [
+    "Ordinary paired app observed without playback, settings, message or feedback changes.",
+    "External native probe restored; recovery/source/evidence retained.",
+    "Mac mini remains40177. No timer restart or Core messaging."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

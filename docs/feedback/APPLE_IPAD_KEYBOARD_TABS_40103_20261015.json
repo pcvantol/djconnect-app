@@ -1,0 +1,21 @@
+{
+  "build": "40103",
+  "selective_base": "/private/tmp/djc-composer-40101-source",
+  "source_commits": [
+    "e0bbeef",
+    "7b7061c"
+  ],
+  "file": "Sources/DJConnectUI/NativeBottomTabBar.swift",
+  "sha256": "217f2db25e267c36abd37318239d3ebe975569fa3fbc76142d30e595f88902be",
+  "signed_ios_watch_build": "PASS",
+  "physical_install_readback": "40103",
+  "physical_native_test": "PASS: keyboard opens, native tab bar hidden/nonhittable; outside tap dismisses keyboard; tab bar restored/hittable",
+  "visual_inspection": "PASS: both actual iPad screenshots inspected",
+  "evidence": "/private/tmp/djc-keyboard-tabs-40103-physical.xcresult",
+  "screenshots": [
+    "/private/tmp/djc-keyboard-tabs-40103-physical-images/A29AE7A6-1BF9-431A-BD79-0CA88C774A42.png",
+    "/private/tmp/djc-keyboard-tabs-40103-physical-images/5CEDCC1F-EE08-4719-BAF3-092D0DCADC63.png"
+  ],
+  "first_attempt": "40102 physically failed: controller frame already shrunk above keyboard. Fixed by window coordinate overlap, not controller overlap. Failed result retained.",
+  "boundary": "Native iPad bottom tabs presentation only. No message sent, no pairing/profile mutation; offline notice visible in restored screenshot, no network health acceptance inferred."
+}

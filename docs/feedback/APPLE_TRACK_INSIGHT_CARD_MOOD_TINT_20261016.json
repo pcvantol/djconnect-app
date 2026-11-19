@@ -1,0 +1,20 @@
+{
+  "status": "SOURCE_TRACK_INSIGHT_CARD_MOOD_TINT; iOS/macOS compile PASS; not installed",
+  "source_parent": "182f50f3de3832fc066f45b972d856abb9cf7f16",
+  "request": "Track Insight outer card background follows mood/content colors",
+  "change": "TrackInsightHero passes its existing resolved profile.colors to hero-card background. Same palette as inner scene; dark translucent base and42-percent color gradient keep a subdued outer frame. Default hero palette remains unchanged for other call sites",
+  "identity": "Live/standalone hero uses its existing mood-render override; pinned historical subject uses its own original profile. No new fact/mood inference or local provider lookup",
+  "preserved": "Outline, padding, geometry, inner illustration/artwork, motion and source/metric admission unchanged",
+  "validation": {
+    "macOS": "DJConnectUI compile PASS18.67s",
+    "iOS": "DJConnectUI arm64 iOS26 target compile PASS19.49s",
+    "logs": [
+      "/private/tmp/djc-track-insight-mood-card-mac-final-20261016.log",
+      "/private/tmp/djc-track-insight-mood-card-ios-final-20261016.log"
+    ],
+    "diff_check": "PASS",
+    "new_tests": "None for this reversible palette-only presentation change"
+  },
+  "evidence_boundaries": "No native screenshot, app install or physical visual acceptance claimed",
+  "effects": "Sole writer local source/receipt only; no backend/config/provider/automation change, push/PR/merge or cleanup"
+}

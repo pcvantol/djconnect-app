@@ -1,0 +1,236 @@
+{
+  "visual-followup-iphone-r3": {
+    "receipt": {
+      "at": "2026-10-24T22:27:25.508499+00:00",
+      "parent_exit": 0,
+      "all_inputs_unchanged": true,
+      "input_count": 412,
+      "command": [
+        "xcodebuild",
+        "-project",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-native-project-r4/NativeVibeScapeControlQualification.xcodeproj",
+        "-scheme",
+        "NativeVibeScapeControl",
+        "-destination",
+        "platform=iOS Simulator,id=57C501C2-9CC6-4886-ACF8-89B35C26EBE0",
+        "-derivedDataPath",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-native-derived",
+        "-resultBundlePath",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-iphone-r3/result.xcresult",
+        "-jobs",
+        "1",
+        "-parallel-testing-enabled",
+        "NO",
+        "-collect-test-diagnostics",
+        "never",
+        "CODE_SIGNING_ALLOWED=NO",
+        "test"
+      ],
+      "scope": "Actual VibeScapeScreen and synthetic in-memory owner/runtime/catalogue; explicit microphone denial only, zero POST/context/AskDJ, fresh help, background/owner dismissal. No real HA/provider/model/capture/audio/paired Root/physical acceptance"
+    },
+    "summary": {
+      "result": "Passed",
+      "totalTestCount": 2,
+      "passedTests": 2,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": []
+    },
+    "hashes": {
+      "receipt.json": "a23555d7421c6d2c9d7bfea31b10ae7e2df8a1559eb602f915ec17246b92cc1b",
+      "summary.json": "a5393836f9e0978e42958801282c4138e028a7391e98a149983b46bf0750cb06",
+      "inputs.json": "fe3ccfbd5f243b0c67b078531d97f9a2573e92224e441d16900026750cd5b747",
+      "test.log": "03c4b229ad806a161a7d1defb685c9fdc94d4a470a2ee8600422b16d0e98d7a3"
+    },
+    "test_warning_lines": [],
+    "all_final_412_inputs_match": true
+  },
+  "visual-followup-ipad-r3": {
+    "receipt": {
+      "at": "2026-10-24T22:30:36.137075+00:00",
+      "parent_exit": 0,
+      "all_inputs_unchanged": true,
+      "input_count": 412,
+      "command": [
+        "xcodebuild",
+        "-project",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-native-project-ipad-r3/NativeVibeScapeControlQualification.xcodeproj",
+        "-scheme",
+        "NativeVibeScapeControl",
+        "-destination",
+        "platform=iOS Simulator,id=2BA652A2-6FD8-481E-B1B9-EA3C918CF6F1",
+        "-derivedDataPath",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-native-derived",
+        "-resultBundlePath",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-ipad-r3/result.xcresult",
+        "-jobs",
+        "1",
+        "-parallel-testing-enabled",
+        "NO",
+        "-collect-test-diagnostics",
+        "never",
+        "CODE_SIGNING_ALLOWED=NO",
+        "test"
+      ],
+      "scope": "Actual VibeScapeScreen and synthetic in-memory owner/runtime/catalogue; explicit microphone denial only, zero POST/context/AskDJ, fresh help, background/owner dismissal. No real HA/provider/model/capture/audio/paired Root/physical acceptance"
+    },
+    "summary": {
+      "result": "Passed",
+      "totalTestCount": 2,
+      "passedTests": 2,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Update the Info.plist: Support for all orientations will soon be required."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Update the Info.plist: Support for all orientations will soon be required."
+        }
+      ]
+    },
+    "hashes": {
+      "receipt.json": "517a0f1966708a5d948378ed29dded4152b8222e4de32773dcb80e392672a7f9",
+      "summary.json": "4596f634c15d315c6d63eb690c8f03d671d5ab0435424f5050e14c108b8cdde0",
+      "inputs.json": "5cb25b8ca6500970cda787855aad87744317c27eeb83c31a352d57b6859a22c2",
+      "test.log": "e404a0708353708713aff19949db5e91bc1528e3c4e4af6c9a4273d8d2391800"
+    },
+    "test_warning_lines": [
+      "<unknown>:0: warning: -[NativeVibeScapeControlUITests.VisualButtonProbeTests testActualVibeScapeButtonsDenyCaptureAndReloadServerHelp] : Update the Info.plist: Support for all orientations will soon be required.",
+      "<unknown>:0: warning: -[NativeVibeScapeControlUITests.VisualButtonProbeTests testBackgroundAndOwnerWithdrawalStillCloseTheVisit] : Update the Info.plist: Support for all orientations will soon be required."
+    ],
+    "all_final_412_inputs_match": true
+  },
+  "scope": "Actual isolated screen/AppModel, synthetic intercepted transport, explicit microphone denial only, speech unknown, no POST/context/Ask DJ/capture/audio. Original background/owner dismissal retained. Not complete Root, live paired or physical acceptance.",
+  "personally_viewed_screens": [
+    "visual-followup-iphone-r2/attachments/63A9DA86-3470-4799-958D-FAE9725D49B9.png (diagnostic only, failed parent)",
+    "visual-followup-ipad-r3/attachments/892D795D-FDEA-4BF2-95B1-989F82943C67.png",
+    "visual-followup-iphone-r3/attachments/8D5B12E3-B70F-4C9E-9AF6-E17A01C3201E.png"
+  ],
+  "at": "2026-10-24T22:53:46.087324+00:00",
+  "reviewed_head": "c1a34a6f310bcf024b52d417a7d9b3937a115ed8",
+  "protected_source": "1b01b1990e266d37fd8e29b2ec7a93ac3b16943a",
+  "original_failures_retained": {
+    "visual-followup-iphone-r1": {
+      "receipt": {
+        "at": "2026-10-24T22:14:38.037727+00:00",
+        "parent_exit": 65,
+        "all_inputs_unchanged": true,
+        "input_count": 412,
+        "command": [
+          "xcodebuild",
+          "-project",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-native-project-r1/NativeVibeScapeControlQualification.xcodeproj",
+          "-scheme",
+          "NativeVibeScapeControl",
+          "-destination",
+          "platform=iOS Simulator,id=57C501C2-9CC6-4886-ACF8-89B35C26EBE0",
+          "-derivedDataPath",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-native-derived",
+          "-resultBundlePath",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-iphone-r1/result.xcresult",
+          "-jobs",
+          "1",
+          "-parallel-testing-enabled",
+          "NO",
+          "-collect-test-diagnostics",
+          "never",
+          "CODE_SIGNING_ALLOWED=NO",
+          "test"
+        ],
+        "scope": "Actual VibeScapeScreen and synthetic in-memory owner/runtime/catalogue; explicit microphone denial only, zero POST/context/AskDJ, fresh help, background/owner dismissal. No real HA/provider/model/capture/audio/paired Root/physical acceptance"
+      },
+      "receipt_sha256": "282dcc1c49c828fdc9059bc96549ff9eb1e3545aff80abb0cdb10f733ab6ceb2",
+      "log_sha256": "a7a2ca52e83a286ae3ad0ab684e6038dc8252c79407a7d9a4566574a9d803596"
+    },
+    "visual-followup-iphone-r2": {
+      "receipt": {
+        "at": "2026-10-24T22:23:49.701135+00:00",
+        "parent_exit": 65,
+        "all_inputs_unchanged": true,
+        "input_count": 412,
+        "command": [
+          "xcodebuild",
+          "-project",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-native-project-r3/NativeVibeScapeControlQualification.xcodeproj",
+          "-scheme",
+          "NativeVibeScapeControl",
+          "-destination",
+          "platform=iOS Simulator,id=57C501C2-9CC6-4886-ACF8-89B35C26EBE0",
+          "-derivedDataPath",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-native-derived",
+          "-resultBundlePath",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/visual-followup-iphone-r2/result.xcresult",
+          "-jobs",
+          "1",
+          "-parallel-testing-enabled",
+          "NO",
+          "-collect-test-diagnostics",
+          "never",
+          "CODE_SIGNING_ALLOWED=NO",
+          "test"
+        ],
+        "scope": "Actual VibeScapeScreen and synthetic in-memory owner/runtime/catalogue; explicit microphone denial only, zero POST/context/AskDJ, fresh help, background/owner dismissal. No real HA/provider/model/capture/audio/paired Root/physical acceptance"
+      },
+      "receipt_sha256": "7d3bcc2f5dcc7c198c1ec341d6fa9c42853e0f4c7c54a59d9e25afc806858cac",
+      "log_sha256": "377bf97091d2f1c478ff4d116d56d3b4b2dc473196957a9addedc7a58817a4fc"
+    },
+    "visual-followup-focused-r1": {
+      "receipt": {
+        "at": "2026-10-24T22:11:25.302787+00:00",
+        "parent_exit": 1,
+        "all_inputs_unchanged": true,
+        "input_count": 412,
+        "command": [
+          "swift",
+          "test",
+          "--no-parallel",
+          "--scratch-path",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/v3-full-spm-r1/scratch",
+          "--cache-path",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/v3-full-spm-r1/cache",
+          "--config-path",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/v3-full-spm-r1/config",
+          "--security-path",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/v3-full-spm-r1/security",
+          "--jobs",
+          "1",
+          "--filter",
+          "bulletin|VibeScape|visualHelp|visualContext"
+        ]
+      },
+      "receipt_sha256": "d020bfe514af652a13928b595224415dc3ac83d79fa334394a1e458cef6b7a1b",
+      "log_sha256": "0126aadc6d46108ea16469f6dc545acdf33e1318b7739a6134b4001ebbcfb931"
+    },
+    "visual-followup-focused-r2": {
+      "receipt": {
+        "at": "2026-10-24T22:20:50.629022+00:00",
+        "parent_exit": 1,
+        "all_inputs_unchanged": true,
+        "input_count": 412,
+        "command": [
+          "swift",
+          "test",
+          "--no-parallel",
+          "--scratch-path",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/v3-full-spm-r1/scratch",
+          "--cache-path",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/v3-full-spm-r1/cache",
+          "--config-path",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/v3-full-spm-r1/config",
+          "--security-path",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/v3-full-spm-r1/security",
+          "--jobs",
+          "1",
+          "--filter",
+          "bulletin|VibeScape|visualHelp|visualContext"
+        ]
+      },
+      "receipt_sha256": "cc738f9d8e8229b0ecb8ba77f06f25cfbaaf639e0c703181662e6da47183e53c",
+      "log_sha256": "01d7d5bb29dbd8f08303a2ab1c35d6086192a7c2cf72278fa364a230d1293569"
+    }
+  },
+  "failure_boundaries": "iPhoneR1 retained mode1 but test polled absent repeated permission alert across control auto-hide; R2 two fresh help reads5/6 succeeded but deferred screenshot after explicit termination failed. Both native parents65, never PASS. FocusedR1 wrong speech-count assertion failed; focusedR2 developer-cache access blocked. Final native parents0 each2PASS/0fail/0skip. Earlier original mode0 reproduction and help-only PASS remain separate."
+}

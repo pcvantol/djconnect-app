@@ -1,0 +1,88 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "presentation_id",
+    "presentation_generation",
+    "sequence",
+    "observed_at_unix_ms",
+    "display_mode",
+    "phase",
+    "playback_state"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "presentation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "presentation_generation": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "observed_at_unix_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "display_mode": {
+      "const": "last_observed"
+    },
+    "phase": {
+      "enum": [
+        "active",
+        "ended"
+      ]
+    },
+    "playback_state": {
+      "enum": [
+        "playing",
+        "paused",
+        "stopped",
+        "unknown",
+        null
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:djconnect:candidate:remote-playback-status-content-state:1",
+  "$comment": "PRIVATE separate status-only candidate. Core/API must validate ORIGINAL raw UTF8/duplicate keys/integer lexemes before provider emission. ActivityKit Decoder exposes decoded values, not original raw APSData; native codec validates values/exact keys/identity/null crossfields but cannot claim raw duplicate/1.0/1e0 veto. No currentness/expiry/pixelwipe authority.",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "phase": {
+            "const": "ended"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "playback_state": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "playback_state": {
+            "enum": [
+              "playing",
+              "paused",
+              "stopped",
+              "unknown"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

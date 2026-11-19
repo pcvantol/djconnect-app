@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "parent_sha": "91a779ec0a5c986b544cd8bf1d71941e6dbab2c8",
+  "production_changed": true,
+  "negative": {
+    "failed_functions": 1,
+    "issues": 4,
+    "requests_before": 3,
+    "requests_after": 4
+  },
+  "qualified": {
+    "passed_functions": 4,
+    "failed_functions": 0,
+    "paging_parameterized_cases": 2
+  },
+  "fixture_search_envelope": "synthetic envelope with unchanged producer retained entries",
+  "new_ios_runtime": false,
+  "native_ui_qualified": false,
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift",
+      "sha256": "1a4f2e03026aede9699a1f0045b7ae3b485ac9641e3e0c1d89f5f9d374d399df"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "e57285c1fc9a0c707cd14f9c625413e6eaca2a102bf2086a687471aca0f77dff"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-producer-receipt.json",
+      "sha256": "d4b901aa3d6ec7d7e93767c2efc538dddc5f92dc2e3cbaa9213e03b0da471f93"
+    },
+    {
+      "path": "/private/tmp/djc-search-owner-fence-20261021/before-history-model.swift",
+      "sha256": "21c1dacda90ac9c2f68e69031a903b889a7d49e9393ea7e5f321337862c8cf15"
+    },
+    {
+      "path": "/private/tmp/djc-search-owner-fence-20261021/negative.log",
+      "sha256": "cf4897b7f3cbe14f857600f713149049ff787b9fd5a6eb5148d6c70974d38f59"
+    },
+    {
+      "path": "/private/tmp/djc-search-owner-fence-20261021/qualified.log",
+      "sha256": "cb60c15a6a6bbb1a0b2541cf5858613995a104c31064ddff2e7a4f90a665e216"
+    }
+  ]
+}

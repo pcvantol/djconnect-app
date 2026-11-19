@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "parent_sha": "7ee60b65f337a284838b8d24331af5a6b8ea8bcc",
+  "production_changed": false,
+  "native_nonzero_position": "INCONCLUSIVE_NATIVE_WHEEL_INPUT",
+  "retained_fixture_rows": 6,
+  "final_fixture_cases_passed": 16,
+  "final_native_captures_inspected": 3,
+  "read_offsets": [
+    0,
+    0
+  ],
+  "synthetic_wheel_window_number": 0,
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "5429316dcb440d9e13bb613b2ed419eae0af0340ff6a395bbf728dcd7f8e6e8c"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-retention-bases-v2.json",
+      "sha256": "da5d8674dc49adb1cc0fabcca51d4f8b730d31f1179462160d1f68aa97e19b14"
+    },
+    {
+      "path": "Tests/Fixtures/session-forecast-core-3cfa5512.json",
+      "sha256": "909c9bc4f882f5db84b0b92a4fef4102c3f8d123337cf0770160f590fba24cac"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-native-20261021.log",
+      "sha256": "180b48ad72901eae8537c1981dc41a672cdb151c18a89bc683c51e0e5c337637"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-final-20261021.log",
+      "sha256": "ce25d1c4b31380cd22da651ad046a219133d23539c2873d5085de1374a4d3894"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-negotiated-20261021.log",
+      "sha256": "0a406d9a6f60fe1dffa3ee5f8b1cca7b184b94d744e4779ab4f43f7aae1e1cb5"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-negotiated-20261021/native-populated-flow-metrics.json",
+      "sha256": "75ef767cc35751b2e688beed16af4ecdde8575f9d4460d3a3163b833afe8f9d1"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-negotiated-20261021/populated-flow-01-reading.png",
+      "sha256": "29d9a535657dc900126b5545186793c3d8b4108cdbe7d06e9fc40ecfe532e077"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-negotiated-20261021/populated-flow-02-forecast.png",
+      "sha256": "a8e53fbbf25e6b73cf97e6bb7637e1bbeb8d21569f55c7b928e2529b5346caae"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-negotiated-20261021/populated-flow-03-return.png",
+      "sha256": "b9c1e6a781a2163c7836a3dd0004f0448cb51b784c88f3e8429cc3b5f2a8d13e"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-wheel-20261021.log",
+      "sha256": "64b236a3fa6519cbbdbf3303336e206e13b934331dc71f8b9b1e7cce3d6efd8b"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-wheel-20261021/native-populated-flow-metrics.json",
+      "sha256": "a167ba8cda297d0ddaaab59f3a14da043bdfce4e6f7298468e26c6afefc593cd"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-wheel-20261021/populated-flow-01-reading.png",
+      "sha256": "cadde6d5582dca45dbe0d11b54c5d4b52601ff9647ad3734ae7e359d3762e816"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-wheel-20261021/populated-flow-02-forecast.png",
+      "sha256": "9a715aae8e132d5f86842d57266613b4aa7e723eb19b99d5505cb3ae6aaef81f"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-wheel-20261021/populated-flow-03-return.png",
+      "sha256": "6fd50d8fef6dabb307941b873bb1380aae7c0a2de0013b9374397fc223d2626b"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-window-event-20261021.log",
+      "sha256": "d1b77d91cc4d4ea81d244203b449961940a79dfd52e23b69db6748adcf59725d"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-window-event-20261021/native-populated-flow-metrics.json",
+      "sha256": "a167ba8cda297d0ddaaab59f3a14da043bdfce4e6f7298468e26c6afefc593cd"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-window-event-20261021/populated-flow-01-reading.png",
+      "sha256": "97e240ecb77b1b5cf8ceba9fec973dbbf45ea7146468b7336d83f3f5a8296d0b"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-window-event-20261021/populated-flow-02-forecast.png",
+      "sha256": "d8478146e2754ca22bde040e3a89f5b6c32b5fc5141164910964f188ed4a0027"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-window-event-20261021/populated-flow-03-return.png",
+      "sha256": "f705d1cce11304109a153f1a5ba094657dbc2ee5dd8758d8bf994e5ec5cef348"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-recorded-20261021.log",
+      "sha256": "4209a77b227b693136618b5dc946f939cb98c2912cf9e039482b2a00f2ee3c91"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-recorded-20261021/native-populated-flow-metrics.json",
+      "sha256": "2c6eeed5b82a1a52d8b11f8a584d53dd9e497da3958fab9ad40ad793c81480c1"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-recorded-20261021/populated-flow-01-before-switch.png",
+      "sha256": "d4255199b348120576a2cd2b218027af296342f637ccd98f70f78cfa62aeb42a"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-recorded-20261021/populated-flow-02-forecast.png",
+      "sha256": "4de3d74f22bf34c7e3a74ea77a72ac08ca6b9e211fac065f23bde35ec578054d"
+    },
+    {
+      "path": "/private/tmp/djc-populated-flow-recorded-20261021/populated-flow-03-return.png",
+      "sha256": "5b55021080edb1a678919224d48f02476a1ce39ff10a3789f7fce82aa48cf6bc"
+    }
+  ]
+}

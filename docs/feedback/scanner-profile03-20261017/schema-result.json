@@ -1,0 +1,10 @@
+{
+  "api_pin": "e6f7efd90f92cf64eed4f5d471e36123b1b21514",
+  "schema_sha256": "12ca084d90b0ecaa6548e9c33009e74bed8400581ab12efeb82d99f7741fa071",
+  "case_sha256": "893840019adb610fe2cf0b5ca05ba365ad7ce07e8b0db3f1efaeb2ed73b58125",
+  "schema_cases_pass": 89,
+  "client_data_byte_example": "PASS",
+  "validator": "exact producer scripts/validate_rendezvous_contract.py",
+  "jsonschema": "4.25.1, isolated environment",
+  "scope": "structural validation only; not duplicate-aware raw-wire parsing or crypto validation"
+}

@@ -1,0 +1,169 @@
+# Contributing to DJConnect
+
+Thanks for helping improve DJConnect.
+
+This repository is part of the DJConnect project and is MIT-licensed. Related
+DJConnect repositories are also MIT-licensed unless their own repository
+metadata or a third-party dependency states otherwise. See the local
+[LICENSE](LICENSE) file for the full license text.
+
+Please follow the community standards in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+when participating in DJConnect project spaces.
+
+## What Belongs Here
+
+This repository contains the native Apple DJConnect app client for iOS, iPadOS,
+and macOS. Changes that belong here include:
+
+- Swift source for the app client, shared UI, and local app model;
+- local app tests, build scripts, release scripts, and GitHub Actions workflows;
+- app-specific docs for pairing, release validation, architecture, privacy, and
+  the Home Assistant/client contract;
+- local release assets and helper files that are required to build or validate
+  this app.
+
+Do not commit secrets, bearer tokens, Home Assistant tokens, Spotify OAuth
+credentials, WiFi passwords, private Home Assistant URLs, private user data, or
+raw diagnostics that contain sensitive values. Keep secrets out of commits,
+logs, screenshots, test fixtures, release notes, and diagnostic exports.
+
+Report suspected vulnerabilities privately through [SECURITY.md](SECURITY.md)
+instead of public issues or pull request comments.
+
+## Development Setup
+
+Requirements:
+
+- Xcode with the iOS and macOS SDKs used by the project;
+- Swift Package Manager;
+- GitHub CLI (`gh`) for release validation and GitHub release work;
+- XcodeGen when regenerating `DJConnectApp.xcodeproj` from `project.yml`.
+
+See [DEVELOPMENT_ENVIRONMENT.md](DEVELOPMENT_ENVIRONMENT.md) for the expected
+local machine, toolchain, simulator, signing, and hygiene setup.
+
+The client fixture isolation and bounded parallel CI phases are documented in
+[Development](docs/DEVELOPMENT.md). Use a unique external Shared Data temporary
+root for `DJCONNECT_VALIDATION_ROOT`; independent builds must not share one
+DerivedData directory. Test parallelism does not authorize signing or release.
+
+Useful commands:
+
+```sh
+swift test --parallel
+swift test --parallel --num-workers 2 --package-path Tools/qualification/vibecast-native --scratch-path "$DJCONNECT_VALIDATION_ROOT/vibecast" --jobs 2
+python3 scripts/validate_localizations.py
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+./release.sh <X.Y.Z> --dry-run
+```
+
+`project.yml` is the source of truth for Xcode project settings. Regenerate the
+Xcode project only when project configuration changes require it, and keep the
+generated project diff focused.
+
+The isolated VibeCast package is also checked by CI. It uses synthetic inputs
+and injected SDK closures. Hosted App Attest capture is a separate, explicitly
+admitted operation; see [binary intake qualification](Tools/qualification/vibecast-native/API_BINARY_INTAKE.md).
+
+## Cross-Repo Contract
+
+DJConnect clients are coordinated through the Home Assistant integration and
+shared protocol contract. Changes to protocol fields, endpoints, client types,
+pairing, local Client adres behavior, OTA/update flows, Assist/STT/TTS, Spotify
+playback behavior, release-note hosting, or branding may require updates in:
+
+- `djconnect-music-dj/djconnect` for the Home Assistant integration;
+- relevant client or firmware repositories;
+- `SYNC_PROMPTS.md` and `PRODUCT_ROADMAP.md` in `djconnect-music-dj/djconnect` when the
+  contract, roadmap, or cross-repo implementation guidance changes.
+
+Do not introduce app-only protocol assumptions without updating the canonical
+Home Assistant integration contract and any affected client implementations.
+
+## Contribution Guidelines
+
+- Keep changes small, focused, and easy to review.
+- Add or update tests for code changes and protocol/contract changes.
+- Update docs, examples, screenshots, and release notes for user-facing or
+  protocol changes.
+- Do not log secrets, tokens, credentials, pairing codes, private URLs, or raw
+  diagnostics.
+- Add every user-facing Apple client string to the shared localization source
+  in `Sources/DJConnectCore/Resources/Localization` for `en`, `nl`, `de`,
+  `fr`, and `es` in the same pull request. Prefer semantic keys and format
+  placeholders over concatenating translated fragments. Keep protocol values,
+  endpoint paths, JSON keys, and `client_type` values (`ios`, `macos`,
+  `watchos`) unlocalized.
+- Run `python3 scripts/validate_localizations.py` whenever adding or changing
+  localized Apple client text. GitHub Actions runs the same validator and fails
+  pull requests that add inline English/Dutch UI pairs or incomplete locale
+  coverage.
+- Respect Spotify trademark and non-affiliation language: DJConnect is not
+  affiliated with, endorsed by, or sponsored by Spotify AB.
+- Use real DJConnect brand assets from the project. Do not redraw the logo or
+  app icon unless the change intentionally replaces the brand asset.
+- Keep app clients sending generic playback commands through Home Assistant;
+  do not reintroduce removed client-side Spotify source or default playlist
+  override settings.
+
+## AI-Assisted Development
+
+DJConnect is developed and maintained with AI-assisted and agentic engineering
+workflows, including Codex. AI assistance may be used for code changes,
+documentation, tests, release preparation and cross-repo consistency checks.
+
+All accepted changes remain maintainer-reviewed. Contributors are responsible
+for ensuring their changes are correct, testable, license-compatible and free of
+secrets or private data. Do not include tokens, passwords, private URLs,
+personal data or proprietary third-party material in prompts, issues, logs,
+screenshots or test fixtures.
+
+Before committing AI-assisted changes, review generated code and documentation
+against the same tests, release hygiene, licensing, and security expectations as
+hand-written changes.
+
+## Pull Requests
+
+Before opening a pull request:
+
+1. Run the repo-specific tests/builds that match your change.
+2. Check `git status` and keep unrelated local changes out of the PR.
+3. Describe what changed and why.
+4. List the checks you ran, including any tests you could not run.
+5. Call out impact on other DJConnect repositories and any required cross-repo
+   follow-up.
+6. For release or Ask DJ/audio behavior changes, review the app against the
+   `DJ Announcement Output Sync` section in
+   `djconnect-music-dj/djconnect/SYNC_PROMPTS.md`. Confirm exposed output modes,
+   speaker-capability gating, nested `announcement.audio_url`, local autoplay
+   decisions and push wake/sync behavior match the shared contract.
+
+## Releases
+
+This repo uses semantic version tags in the form `vX.Y.Z`.
+
+The normal release flow is:
+
+```sh
+./release.sh <X.Y.Z>
+```
+
+The release script runs the third-party/tooling preflight, validates unsigned
+iOS and macOS debug builds, creates the source release/tag in
+`djconnect-music-dj/djconnect-app`, and triggers the public unsigned release workflow.
+Public unsigned artifacts are published to `djconnect-music-dj/djconnect-app-releases`
+under platform-specific tags such as `ios/vX.Y.Z` and `macos/vX.Y.Z`.
+
+Signed TestFlight/App Store and notarized Developer ID macOS builds require the
+manual signing steps documented in [docs/RELEASE.md](docs/RELEASE.md). After a
+release, sync any protocol, roadmap, release-note, or branding changes back to
+the relevant DJConnect repositories.
+
+## Licensing
+
+By contributing to this repository, you agree that your contribution is
+licensed under the MIT License in [LICENSE](LICENSE).
+
+Spotify is a trademark of Spotify AB. DJConnect is not affiliated with,
+endorsed by, or sponsored by Spotify AB.

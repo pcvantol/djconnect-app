@@ -1,0 +1,57 @@
+{
+  "path": "/session/history",
+  "status": 200,
+  "body": {
+    "success": true,
+    "schema_version": 1,
+    "sessions": [
+      {
+        "session_id": "session-167909ead0c74e4a919e247176a97212",
+        "lifecycle_status": "ENDED",
+        "created_at": "2026-10-13T09:42:07.243400+00:00",
+        "started_at": "2026-10-13T09:42:07.253219+00:00",
+        "ended_at": "2026-10-13T09:43:25.889497+00:00",
+        "interrupted_at": "",
+        "revision": 6,
+        "summary": {
+          "schema_version": "djconnect-session-history-summary/1",
+          "session_revision": 6,
+          "state": "final",
+          "as_of": "2026-10-13T09:43:25.902727+00:00",
+          "tracks_observed": {
+            "value": 2,
+            "basis": "accepted_playback_observed_entries",
+            "coverage": "complete",
+            "state": "final",
+            "revision": 6,
+            "as_of": "2026-10-13T09:43:25.902727+00:00",
+            "observation_scope": "stage_1_media_identity_changes_not_occurrences"
+          },
+          "moments_published": {
+            "value": 2,
+            "basis": "semantic_publication_commit",
+            "coverage": "complete",
+            "state": "final",
+            "revision": 6,
+            "as_of": "2026-10-13T09:43:25.902727+00:00"
+          },
+          "mood": {
+            "value": "energy",
+            "basis": "confirmed_symbolic_mood_elapsed_intervals",
+            "coverage": "complete",
+            "state": "final",
+            "revision": 6,
+            "as_of": "2026-10-13T09:43:25.902727+00:00"
+          }
+        },
+        "read_only": true,
+        "history_coverage": "saved_entries_only_no_retrospective_observations"
+      }
+    ],
+    "revision": "1:6:2026-10-13T09:43:25.889497+00:00",
+    "next_cursor": null,
+    "coverage": "saved_sessions_keyset",
+    "retention_days": 90
+  },
+  "cache_control": "no-store"
+}

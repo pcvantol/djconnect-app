@@ -1,0 +1,42 @@
+{
+  "kind": "Synthetic silent MPEG Layer III parser fixtures; no provider or personal audio",
+  "decoding": "Apple afconvert to WAVE LEI16, inspected with Python wave; no playback",
+  "fixtures": [
+    {
+      "path": "Tests/Fixtures/speech-silence-mpeg1.mp3",
+      "sha256": "bb368151678b45da7038e6c6dbce68fe3120f9900a63ee6003b6290fe6065050",
+      "bytes": 4170,
+      "construction": "10 frames, each header fffb9000 followed by 413 zero bytes",
+      "independent_afconvert_decode": {
+        "rate": 44100,
+        "channels": 2,
+        "samples": 11520,
+        "seconds": 0.2612244897959184
+      }
+    },
+    {
+      "path": "Tests/Fixtures/speech-silence-mpeg2.mp3",
+      "sha256": "be116536b2746c77f7d5c21e824b5f172034a1a4b0f25c4039e5faf5a7b85e2c",
+      "bytes": 2080,
+      "construction": "10 frames, each header fff38000 followed by 204 zero bytes",
+      "independent_afconvert_decode": {
+        "rate": 22050,
+        "channels": 2,
+        "samples": 5760,
+        "seconds": 0.2612244897959184
+      }
+    },
+    {
+      "path": "Tests/Fixtures/speech-silence-mpeg25.mp3",
+      "sha256": "b6a431745a8761220fb70ec394382ae5cdae57dadaebeb812942548059e6f3a8",
+      "bytes": 4170,
+      "construction": "10 frames, each header ffe38000 followed by 413 zero bytes",
+      "independent_afconvert_decode": {
+        "rate": 11025,
+        "channels": 2,
+        "samples": 5760,
+        "seconds": 0.5224489795918368
+      }
+    }
+  ]
+}

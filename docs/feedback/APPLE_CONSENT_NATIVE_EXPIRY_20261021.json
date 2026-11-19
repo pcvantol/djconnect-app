@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "parent_sha": "ec33ec8e2fac35afc90f98fcfd9b7b542f6da2ee",
+  "production_changed": false,
+  "initial_status": "INCOMPLETE_FINALIZATION_BROAD_ALL_REQUEST_COUNTER",
+  "qualified_passed": 1,
+  "qualified_failed": 0,
+  "qualified_skipped": 0,
+  "inspected_qualified_renders": 4,
+  "claim_owner_requests": [
+    2,
+    2
+  ],
+  "receipt_owner_requests": [
+    4,
+    4
+  ],
+  "claim_approval_requests": 0,
+  "receipt_approval_requests": 1,
+  "clocks": "REAL_PRODUCTION_REFRESH_NO_INJECTION",
+  "owned_device": "B62B723C-74D1-499C-AFA4-1FB5FF33ECD3",
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/DJConnectRootView.swift",
+      "sha256": "4be6009743ce5b19da21edba93d4680d5af151e1bc89dd036b2859ba04699601"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectAppModel.swift",
+      "sha256": "75a0d8bddcdc3fc5b3a1da9cbfb5de4980e71b6534f0ad0a5192c5ccdd3b601e"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/DisplayConsentSessionTests.swift",
+      "sha256": "e032039016cbee4e2282540ce4709428341023dec7f59277016ca3dc20cb2ec6"
+    },
+    {
+      "path": "Tools/qualification/vibecast-product/prepare_native_consent_tests.py",
+      "sha256": "28e2cf80ea7d16cb4586f0ec64e17fd193ee83f5b950983afc906706cae3289e"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/final.log",
+      "sha256": "24ba5839251f88faa32cdd7dd42df6414245699bc980be0e89ad8617eb4253e6"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/broad-counter-test-source.swift",
+      "sha256": "831d572180e143bad3c952effb11e95e735c344a087235ae34daa582c0623cb6"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/qualified.log",
+      "sha256": "5cc65012d3b55cc08a925004b18d712d20bb52ad5d9e837c82deb8113d4c9fff"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/qualified-summary.json",
+      "sha256": "c50151b7914c387b730629524be4ec792c70e1fbde4848547491098b822fd683"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/project.json",
+      "sha256": "263c9ac2c2d85b26f9d1b189151a131aca8256a4afc704e9e866f0f6435a2cd6"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/qualified.xcresult/Info.plist",
+      "sha256": "8e70a54264c74164d28219b82d5064a7ec9dbadc9e53b554909add091f926e98"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/qualified.xcresult/database.sqlite3",
+      "sha256": "b996d980ae412ca67b89200014db42198aefd088c68f6869382bdc74389f3cc9"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/observations/native-consent-expiry.json",
+      "sha256": "8918c7bb8150146a88e4f414f6fe0a12b4de1c568a62ef3fda5e12fd11ecf32b"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/observations/short-claim-after-expiry.png",
+      "sha256": "0f5ecfdcf9a77c1389df0d8c48d29d508361ca3416ea8e7ab42af00856199d44"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/observations/short-claim-before-expiry.png",
+      "sha256": "69f58a2718be95e9b73ab1cd18acf5662d6bd6a9a1f1da98701a009e6a5c9fe4"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/observations/short-receipt-after-expiry.png",
+      "sha256": "0f5ecfdcf9a77c1389df0d8c48d29d508361ca3416ea8e7ab42af00856199d44"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/observations/short-receipt-before-expiry.png",
+      "sha256": "eaa4946511ab61857cdc3f9cd71aea1bd53f0c1a3dfebd6be1f30d7c3a104b3f"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/observations-qualified/native-consent-expiry.json",
+      "sha256": "f9211fd0bcd21b1d25038cb55dd48730796c41af3d2e5d3145a2e70f415be70d"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/observations-qualified/short-claim-after-expiry.png",
+      "sha256": "0f5ecfdcf9a77c1389df0d8c48d29d508361ca3416ea8e7ab42af00856199d44"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/observations-qualified/short-claim-before-expiry.png",
+      "sha256": "69f58a2718be95e9b73ab1cd18acf5662d6bd6a9a1f1da98701a009e6a5c9fe4"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/observations-qualified/short-receipt-after-expiry.png",
+      "sha256": "0f5ecfdcf9a77c1389df0d8c48d29d508361ca3416ea8e7ab42af00856199d44"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/observations-qualified/short-receipt-before-expiry.png",
+      "sha256": "eaa4946511ab61857cdc3f9cd71aea1bd53f0c1a3dfebd6be1f30d7c3a104b3f"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/derived/Build/Products/Debug-iphonesimulator/DJConnectUI.framework/DJConnectUI",
+      "sha256": "bc8baa03d825c19527209030aa6336d09872d1c78b87059683affcc7897d936c"
+    },
+    {
+      "path": "/private/tmp/djc-consent-expiry-20261021/derived/Build/Products/Debug-iphonesimulator/NativeConsentTests.xctest/NativeConsentTests",
+      "sha256": "d02add258928ba0596b921ef2a8d969f2b94d6d9817c6c54020cf045ca715c44"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "status": "HUMAN_TRACK_INSIGHT_UNAVAILABLE_COPY_INSTALLED_IPHONE40127_VISUALLY_VERIFIED",
+  "parent": "142850462499f945c038260a3e5b854fb6c87de9",
+  "problem": "Producer _unmeasured_detail fallback was rendered verbatim as Trackenergie, exposing qualified-analysis/playback-metadata/audio-measurement diagnostics",
+  "presentation": "Muziekanalyse: Voor dit nummer is nog geen muziekanalyse beschikbaar. Localized en/nl/de/fr/es. Existing structured unmeasured_metadata_only_v1 basis selects unavailable presentation. Exact legacy producer fallback strings also map to this state for old cached models/widgets; no broad keyword filtering",
+  "boundaries": "Raw summary/rawAnalysisText remain intact for evidence. No fabricated analysis, provider repair, numeric value, authority/pairing/Profile change. Genuine descriptions remain verbatim. Optional basis is passthrough of an existing producer field, not a new backend contract",
+  "surfaces": "Analysis card and AskDJ preview; share card/text; new/legacy widget snapshots; Watch summary source. Unavailable card title is Music analysis instead of Track energy. Other installed devices not updated in this task",
+  "core_handoff": {
+    "thread": "01a120e2-b557-76c3-8568-129dbce2f2d2",
+    "scope": "Existing authorized Track Insight communication",
+    "request": "Readable producer fallback in5languages; preserve nullmetrics/measured_audio=false/provenance; technical explanation diagnostic only",
+    "authority": "Message delivered; no producer publication/deploy performed or inferred"
+  },
+  "validation": {
+    "targeted": "9tests PASS0.056s, including5language cases, basis Codable roundtrip, exact legacy cache/widget mapping, share text, normal descriptions and existing parser/endpoint cases",
+    "targeted_log": "/private/tmp/djc-track-insight-copy-tests-final-20261016.log",
+    "initial_test_compile": "New test actor annotations were initially missing for UI share helper; corrected tests to MainActor and reran successfully; no product-source workaround",
+    "full": "685tests/9suites PASS82.497s",
+    "full_log": "/private/tmp/djc-track-insight-copy-full-tests-20261016.log",
+    "signed_ios_watch": "BUILD SUCCEEDED /private/tmp/djc-ios-40127-insight-copy-build-20261016.log",
+    "codesign": "strict deep host verification PASS"
+  },
+  "selective": {
+    "source": "/private/tmp/djc-neon-brand-40108-source",
+    "qualification": "All452baseline40126hashes verified;10explicit model/presentation/localization/Watch files patched; all452finalhashes verified after build; no full writer or unrelated Speech/Persona/widget feature import",
+    "manifest": "build/recovery/iphone40127-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/iphone40127-insight-copy-20261016/insight-copy.patch",
+    "candidate_executable_sha256": "74231aa28f04ff460a0984538fcdd2f28b067a9a41734f9df7a1ff23e62fd610"
+  },
+  "installation": {
+    "device": "iPhone00008150-001409183C07801C",
+    "build": "4.0.0/40127",
+    "result": "/private/tmp/djc-iphone-40127-insight-copy-install-20261016.json",
+    "independent_readback": "/private/tmp/djc-iphone-40127-insight-copy-readback-20261016.json",
+    "device_executable_hash": "Not read; no installed binary hash binding claimed"
+  },
+  "physical": {
+    "result": "1native test PASS0failures12.433s normalfinalization; ordinary app, TrackInsight tab, right edge scroll away from playback controls; localized unavailable message visible/hittable; technical Playbackmetadata text absent",
+    "bundle": "/private/tmp/djc-iphone-40127-insight-copy-20261016.xcresult",
+    "screenshot": "/private/tmp/djc-iphone-40127-insight-copy-20261016-attachments/4E417725-7693-45F9-9D59-8F915FE938B2.png",
+    "screenshot_sha256": "0defe3f86525810cf9fe0c24ca4b41bc09c3ed2d3c5c0b8962f2d6ca8d6cc983",
+    "viewed": true,
+    "external_harness": "Original Probe.swift restored and cmp verified"
+  },
+  "safety": {
+    "git": "Single existing writer; protected untracked2/3projects retained; only main/current merged, no eligible refs removed; no Git lock observed",
+    "processes": "No xcodebuild/swift-test/swift-frontend/lldb after completion",
+    "storage": "df internal22GiB/EP_DATA17GiB; APFS disk3free21.71GiB/disk7free14.11GiB; snapshot differences not cleanup gains; nothing deleted",
+    "effects": "Only iPhone installation/read-only UI navigation. No explicit playback/send/refresh/analysis command, Core migration/deploy, trust change or automation change. Localcommit only; Apple publication paused."
+  }
+}

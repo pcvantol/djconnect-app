@@ -1,0 +1,3393 @@
+{
+  "qualification": "PASS_CORE_TLS_HA_BASELINE",
+  "source_hashes": {
+    "custom_components/djconnect/AGENTS.md": "8fb8891e3a2cca055067fbbacafe6c189f38bc00c514a6bf6984639a182a70cf",
+    "custom_components/djconnect/__init__.py": "4825d9c7d4e6292c3108ea1c48247babf217b8efb67fa9856f2e9b781570cdcb",
+    "custom_components/djconnect/ai_tools.py": "175ac20dc1ebdb535aaec839b6fc8e8fe012ac3c81e0f0f07e1856b692c9f0c8",
+    "custom_components/djconnect/announcements.py": "d2701488be1a1f8d9d9e1b73c234bc87752f2468260e42f137c21640482da70e",
+    "custom_components/djconnect/api_handlers.py": "d461a1a6c818f7d5e1d38b2041cb1da9b847715b5d03ad54a3ddfcd05c87a8bc",
+    "custom_components/djconnect/ask_dj/__init__.py": "d40b27559d526bff6b2fda0199949f76424dfe386231cef0e0f23bdd67629cb7",
+    "custom_components/djconnect/ask_dj/actions.py": "8e42edc5bf0a3a3ef73c99273c5860d1f3ebad42dd8897cf8d2877239a25b053",
+    "custom_components/djconnect/ask_dj/dialogue.py": "d1b36bed78ea238a29b6be70a05f9ad3784ba76e2c42bf3a50125d7288424714",
+    "custom_components/djconnect/ask_dj/intents.py": "545c7cf45bc5a66719d66bed5ef2633a4e01343645080af733a11869f1c01032",
+    "custom_components/djconnect/ask_dj/observations.py": "36fb4d590e125e53e3297b3b79385a50ec3fab0dc35e46803e35f9e8eff1ccad",
+    "custom_components/djconnect/ask_dj/profile.py": "88843b457ff8374199c650f37ffe8274b2edcb88ab4f7cc6aee1595f6d349530",
+    "custom_components/djconnect/ask_dj/recent_history.py": "bdaafde32b1fd64627e7a026497449adf827d70ddf32203b8661dde9965494ed",
+    "custom_components/djconnect/ask_dj/responses.py": "66364a9e6cc0de37581adfbee882413a83f5cd5ef01f84fddf6bc4fff3c9df92",
+    "custom_components/djconnect/ask_dj/service.py": "661814ed0cdda9a35f5184a48e8f615bec2e4667d630b9cc5d83624689c8f220",
+    "custom_components/djconnect/ask_dj_history.py": "c6ba551c2c8a01fc5d6755526bde50277ba991335699f3a70d528b271d745b27",
+    "custom_components/djconnect/assist_stt.py": "609b5a7ec4c40eda3d87a84d9391256bd930c1dd1c80a5171b03df79c68aa6e5",
+    "custom_components/djconnect/ble.py": "2223ccb7fb718e51501e72042588d6920619d05d6b9b83b4a6452edbdf7e389d",
+    "custom_components/djconnect/brand/icon.png": "07a1d66ce9d7cd8139e4f228302f13c8df02d56ea55c65cd5a9325dfb995e5c7",
+    "custom_components/djconnect/brand/icon@2x.png": "d0ce54c6a24abd1e5139b435c4b9c1428944ed47721c58a93ad2427dc864048b",
+    "custom_components/djconnect/brand/logo.png": "d0ce54c6a24abd1e5139b435c4b9c1428944ed47721c58a93ad2427dc864048b",
+    "custom_components/djconnect/broadcast_handoff.py": "f6c6e828154e28285e3c364bc0193a34632d972f009baa29e0f25a4b918622d4",
+    "custom_components/djconnect/button.py": "aa1c3290c4369d99ecf6fc88f865e65e02d438d7e3b0a399621a5791062ba9bc",
+    "custom_components/djconnect/capability_contract.py": "5cac965b44345d626c5f65bb588b3b0349ed7346e6d9fda1f8a87cb3510a6cca",
+    "custom_components/djconnect/central_api.py": "78cd4645d9fd1979bbc33e500c525bffc23ae45deaeef02b129adb418674b9e6",
+    "custom_components/djconnect/ci_qualification_report.py": "a45c358669fea9cfb57a601a109443c722e10d91b067eacbb550a11cd264229b",
+    "custom_components/djconnect/client_identity.py": "31543e0cf3ed7aa8322af24d0835c0fecf77974db0d8a07c7908d9deff7588cd",
+    "custom_components/djconnect/client_retirement.py": "42bb54178f5c1655e600b21a6ccc954811d37e2a1f91f5318f7b97da6d69bca3",
+    "custom_components/djconnect/config_flow.py": "e8b5c8eb23b049453ee48df0a904861053751dff1bc4d83d08a244f7281f55b3",
+    "custom_components/djconnect/const.py": "fba8c928396766adccc33e567f7dc5538c3d66571d5931499cc30031ba808884",
+    "custom_components/djconnect/context_expression.py": "470e3c8de5c1daa264c80866a769e27d34c4126dfac3552c5afeb238a04018b7",
+    "custom_components/djconnect/conversation.py": "38596f8e30d890210fd7ef546770f05c43e05f7387c74bff82868bd3fa93ce19",
+    "custom_components/djconnect/credit_provenance.py": "297a4f07ecd232868eba0204debe77617c2c02ad65c0a5d4e03bfdb8c52166c6",
+    "custom_components/djconnect/developer_session_bootstrap.py": "f9c7a2ffabf5da01387c0db04487a97a111f5d0d9f99e700a914e765b0033918",
+    "custom_components/djconnect/developer_session_capture.py": "266f34021a64cee3f22887e7703f34d380bba91eafc9dab45ec02ca2a52b5afc",
+    "custom_components/djconnect/developer_session_scenario_driver.py": "8b959c58b6a61ddcbe0788c46a5ab3ce9e34e69a548b19ef3e9e3da20f405b03",
+    "custom_components/djconnect/device_info.py": "e57853ec0dadda4c3fde90c1cd7ed1c4a20e7962611cd1a3d2bd4b3c0273ce50",
+    "custom_components/djconnect/diagnostics.py": "8320ce2da0693e250763d99ace802ce8042988cdd26e5fa38eef606f7c45ddb0",
+    "custom_components/djconnect/discovery.py": "64a2212da414bf7bc48f43e88b52d9f4584c3395105edada1cb513fce07552e5",
+    "custom_components/djconnect/discovery_artwork.py": "042253c840f5d5032b2cfd97cd3b90d77075d343f86b39851072ae9a176cf585",
+    "custom_components/djconnect/discovery_selection.py": "09df528e850f3459c5f7b332c3d49efc22aef39a1a6835ac7ebbc10054e4645a",
+    "custom_components/djconnect/dj.py": "2c7a11d596a72907d66aee361ecd4bc5e5e8a9d6fb592aece046db79aeabc772",
+    "custom_components/djconnect/dj_brain_capabilities.py": "c0f1e79f64c1d5d437aa0f114de1ef153037b32049e35428d656f1e01b8a52a9",
+    "custom_components/djconnect/dj_response.py": "144886052ed63d95716aa316abc6fd22026fca49326213cd9638cff565f7484b",
+    "custom_components/djconnect/domain/__init__.py": "104de8336815898807e43ff381c27e7ed22d47d62ce4855adc7446eb26d67902",
+    "custom_components/djconnect/domain/backend/__init__.py": "6bd3c1290d8f7dd8302ca4245f96d32f78a017212e4c933a6718754a199b9b35",
+    "custom_components/djconnect/domain/backend/models.py": "a521deaff497130fe275de653f672e7e0829c4baec3e798b245db0f1b8c72fe3",
+    "custom_components/djconnect/domain/device/__init__.py": "8f09bb106225d83aa46a756a83d22d20c3b3c1e8421281cbc86ca6579fd5c4d3",
+    "custom_components/djconnect/domain/device/models.py": "dda709454cde61e40ea55f2a142ffd058d4562c854314593605416926ffd19eb",
+    "custom_components/djconnect/domain/errors.py": "d9766fd1d4e50dda60104676f16f8f6fb3ea89d64f65b9db001fc8d8b77f76cf",
+    "custom_components/djconnect/domain/household/__init__.py": "69b3b15d5ffa55dafbce133cb21a531044fbf0569385d2fda8f2289d77e028b4",
+    "custom_components/djconnect/domain/household/models.py": "582f1fa7cb9ae69b542483ae9a52f89db5fca6e669da8f0b40d72d0e48ecf4f5",
+    "custom_components/djconnect/domain/models/__init__.py": "b6614a01d7cfd05988d1545d834acf2a45314138c49d0c7e903be06cb4eef2eb",
+    "custom_components/djconnect/domain/models/identity.py": "249ac762374e5cbce7c907e4ff3333e89d7eaa5d648bb1b7777175beb2ae27ef",
+    "custom_components/djconnect/domain/music_account/__init__.py": "36ad7ec36df88b1d51c173af9e0ade1ee382368120f8cc04759dcd164292f785",
+    "custom_components/djconnect/domain/music_account/models.py": "eefc64ac272cd7cbf17ac4af8ec08213184d90e224280aab5a63f8a9ab2487d0",
+    "custom_components/djconnect/domain/playback_zone/__init__.py": "f5fa81c0bc682dd7f806108fb6bc012609dc94a0199d3784f8c92669879a0e4c",
+    "custom_components/djconnect/domain/playback_zone/models.py": "05738f7064e3dbcd03651bcf9a679bd92d64cc848307b5a30aa520ee92ab99b3",
+    "custom_components/djconnect/domain/profile/__init__.py": "7fe995f871fc42981932bc7083dd4833204102b8a6b41e2d382948ecc263e29c",
+    "custom_components/djconnect/domain/profile/models.py": "370ba158934e93e789bbd9b51284dd0759aa2fe2eb45b1e392adb9d5a6162744",
+    "custom_components/djconnect/domain/resolver/__init__.py": "f2a44fb57c5aba95ae343c1f60e4468bb33b1bdb4eea134fe5fc9f0e6d184268",
+    "custom_components/djconnect/domain/resolver/profile_resolver.py": "a13f58d7d965157ac0db2c31767a7460d60d6d8df9b34fb3b2f29357b8aa8167",
+    "custom_components/djconnect/domain/storage.py": "dcfe573cca050beea5b55bb483be04fd90b8e3e674a4795d93750ecec5dc0144",
+    "custom_components/djconnect/entity_ids.py": "2de2482c841bb4a1cd86af04730963ef7d9915a3ff26df86d8101731df6ff0f2",
+    "custom_components/djconnect/flow_labels.py": "687a3cace4d413737346ed0738aeb3c1dd076552145e1417957f30ba01c3f3d7",
+    "custom_components/djconnect/forecast_expression.py": "62484c29a2f9d8dd992b8021e9aec87aa881e1f859f6def736faedd37f6cb4fe",
+    "custom_components/djconnect/forecast_imagery.py": "28c15f023ddc1df1c43a3997d8a551fc74ae08a473b494398165d226c9e2fd9c",
+    "custom_components/djconnect/github.py": "90c01724de4de8f2e1bb9603a922ef0a1cb95376465dc0310e8d752c3c65d459",
+    "custom_components/djconnect/golden_qualification.py": "e7e7eca3ab4c5ea6c52bc0ae2e6c82c664d81940041ebc6bb327fcde74119561",
+    "custom_components/djconnect/ha_urls.py": "cfb435ee2f7f25450fc3f443703a3a466bffd0da103365b3163384797587d558",
+    "custom_components/djconnect/historical_projection_query.py": "d6577bd20d8d7071f35381a206c1edfe19737dca97025168e99307685bf9e55b",
+    "custom_components/djconnect/historical_projection_retention.py": "29594182bc7e7fcbaf81fa65ddd70ea04b2f1129cec361b932ea67c3df841486",
+    "custom_components/djconnect/http.py": "585895b8b5870d4f5ae7570c11d3c4ede405cef6ea31aeccd345c74b938e4013",
+    "custom_components/djconnect/hybrid_contract.py": "31362cb398fb0a7517043b75d2a4c79b2694b194a0c3ba84804c503ea29f2e34",
+    "custom_components/djconnect/hybrid_service.py": "ffb73fa232353ad4aa6af4ca78cbe94a7efa7712617bcc56a5351e58fe61a30a",
+    "custom_components/djconnect/hybrid_transport.py": "cf60611d297823b4ccdeadd549c1d76ef9dcc98165801b0b95684c250165e0c2",
+    "custom_components/djconnect/icon.png": "2e39030507fe218c70e3885dec5c29f464b88d12c66d93935fdac861fd795c2f",
+    "custom_components/djconnect/icon@2x.png": "058def399acd93b3d298e4a0a9869eec0ef67307d483db049a02e902f596b5f1",
+    "custom_components/djconnect/image_proxy.py": "d3ceddab37cc811fffe89b5e0673ad5af6ec05a91217cb860b930f3e136fd817",
+    "custom_components/djconnect/logo.png": "ff9007c335731b2c35b66961abfed09c80ce3da91032a9e947dbde94ffe8360b",
+    "custom_components/djconnect/manifest.json": "9635fb3c3a9990bdffbf993d3f2af9432bda12310bc24dc5267d27ea814bb67c",
+    "custom_components/djconnect/moment_expression.py": "a154684f2d14affdb96228b0de8f3cba2df819ce0548c925637510852d090871",
+    "custom_components/djconnect/moment_navigation.py": "7c4d94c6d4ebe947abf083818a2264c28e9d2ae3b577b45c2009e72712412af6",
+    "custom_components/djconnect/mood.py": "84aefec705178fe6b32f601771d6280e5eb788f161c8cff1fd106a061d792e8c",
+    "custom_components/djconnect/music_discovery.py": "c29433a74e0eb4a6cf216db1a6b057e0a24d67e13f57db74a0972c4b1ac39535",
+    "custom_components/djconnect/music_dna.py": "2fdb38693e1de8876aaf5ba16e5ddd62feb888133377a60922f8d9457de77bfe",
+    "custom_components/djconnect/music_intent.py": "1ae3c524e6f36d6ac80fd9145c1df0d811236c06c8af8226acbcc52747385af7",
+    "custom_components/djconnect/native_moment_delivery.py": "e7f4c9be356a60cc9dae05a6a200a58b3e07f1118a3e304e47380ddda528c642",
+    "custom_components/djconnect/number.py": "57dd84220fbb1903708c9c4a0f850d699919aabbe4300dcce252fb0f205e3e7b",
+    "custom_components/djconnect/paired_live.py": "b4f2796aab724309b31e750b8991031527921916f295a488c3f36a69a8dd17b6",
+    "custom_components/djconnect/paired_live_contract.py": "fb4485b6acd9d548c17953edf64af4c4c4aa98c93cb325721acc033ff787f736",
+    "custom_components/djconnect/pairing_defaults.py": "d65b049671f2c594edadfeed12a8a5b0da4d1c3a4f33aaa77b0a7e35aae243b7",
+    "custom_components/djconnect/persistence/README.md": "c305e30879e4a3006a72fcf44487408ec7afba4caff509503d2b603c6ecf927f",
+    "custom_components/djconnect/persistence/__init__.py": "8dc97e8769e396ad480a8a5db345974f63b7ff334020980a3d15921e898c8b97",
+    "custom_components/djconnect/persistence/bootstrap.py": "e53a745c435a27232435a8957a0c20a6694882b92b1802794387066bfc0a6ed3",
+    "custom_components/djconnect/persistence/history.py": "8ae35a7f6a58946bce802566b7869eebc3b240cfd60b9832f7654b34cf22b0c8",
+    "custom_components/djconnect/persistence/ownership.py": "167eaa9ffb4ac5705987ac77e1e261d4741123787fd193192a4a65429bedc8e0",
+    "custom_components/djconnect/persistence/provider.py": "db00665911dca6883598a849b5316880c92d0e82429c730801e4af00dda9395b",
+    "custom_components/djconnect/persistence/reconciliation.py": "75d9dd20de1652f0a731870cb8d7885687c1dd04861b1250a3364e7715462c3e",
+    "custom_components/djconnect/persistence/schema.py": "a4162c0f093a9b4113a563154e8c0d62502e012fd939f9a8bfabc6f24da87745",
+    "custom_components/djconnect/persistence/service.py": "e0550c13efc926c12fc19abacfb569075e300540e7714386604e43a9ae54265a",
+    "custom_components/djconnect/persistence/sessions.py": "19e5f68577911da193e8d1a2508930621cf68db229668d24c5a7d15919a21df5",
+    "custom_components/djconnect/persistence/sqlite.py": "7bf5e6e452a15625f759bec72cd65c4375cbf33c28b08d54922b417cf6033fa3",
+    "custom_components/djconnect/persistence/summary.py": "f97711ebd2366e33d4164dd541cf6b2526f2d7cb0e26c0c13dcbc33b0e1125db",
+    "custom_components/djconnect/pipeline.py": "36ff6bf121bbc293714805f60bc7951c8341fb68cb14de4e6027d2af6040d237",
+    "custom_components/djconnect/playback_observation.py": "55b221124b8b41e3507407a26ca0557ee170aef1fad3d7f195de079f4ace5383",
+    "custom_components/djconnect/presence_policy.py": "dc31404f519979e14c1735cd23c3b82fd3b2ce1b9f14d6cf0d3ff25506d86672",
+    "custom_components/djconnect/presentation_composer.py": "bc16ebcf1c9e2fd2d53d8c7ba488b2e174771501d08030589af972baff5355a5",
+    "custom_components/djconnect/processor.py": "649b4867d996ec66f4af2dddd3edcb5ac2bae16de89759ad83f79f5955ed83c6",
+    "custom_components/djconnect/profile_backend.py": "4b19f7b37dac97573fd4dbccd3fe2973aeac236e5783a2d08ccdb360d38f3ad4",
+    "custom_components/djconnect/profile_context.py": "b65b5bc6159b10b4f8c864c5af4a2bdaeda34449eb8e839e0f253db302a58320",
+    "custom_components/djconnect/profile_export.py": "47975a364fd47395f839fc47b31fa0fec93e5f2d0604a164191a7876e1bcafc9",
+    "custom_components/djconnect/profile_privacy.py": "80a539a327c8d6c4650e0936ea0440800d0b0d8c71aff6c073520f343db77d88",
+    "custom_components/djconnect/prompts/dj_persona.md": "dc9047cbadf58a7d5a89e5555ea93f5ef427c5b0ad79f3018ca57e02c9f61b1a",
+    "custom_components/djconnect/push.py": "69e5fd796adec720297498210080a11666d2ecf7e0a233abcc14c6a8ce3ffd4c",
+    "custom_components/djconnect/repairs.py": "8da089025d61e2031fc38af7a670938b3b6129cc0e1b554adc3e174daae2688b",
+    "custom_components/djconnect/request_auth.py": "f7fab1417869e350bcfd28e23bc48d6de34d53c22550c952f8e1490a0574c031",
+    "custom_components/djconnect/retired_provider.py": "f3de992cecc510365cafab54b04566b356a421cc4dc39a47758d1e86362dc788",
+    "custom_components/djconnect/select.py": "a65541b0aeaf29f37127fea0756a8ac8bef99f5307fcc36b21b61c237f0ce46a",
+    "custom_components/djconnect/sensor.py": "c4367a31d848f4a901bda036451082c931e296353a5db2521a2ed7a91da34fc8",
+    "custom_components/djconnect/services.yaml": "1518c18418619ba8f50e2c7f1ed6ae8b4b5b4384f9dad165765365ea63b7ea8e",
+    "custom_components/djconnect/session_conversation.py": "183f5e85e69f14af05829bfe6dc5d638cfcda4049a9523bb7327db1411abb7a3",
+    "custom_components/djconnect/session_facts.py": "1e2d86cbed27cd8a9960649119ee5e9d1ff55b03f7aa707a864c7485d1826287",
+    "custom_components/djconnect/session_forecast.py": "d57c7d6bb0abcfb7d881c395c3f2ee1615051908bbdfcc3b4ae80799d5f919f3",
+    "custom_components/djconnect/session_forecast_transport.py": "0b0a6ac26356a56319354dacb77b9a0e8ea1a5736745614223b6100afcc3b15d",
+    "custom_components/djconnect/session_history_maintenance.py": "29450d7b149f5911492524d6d4f90c050f2dc730ad32523c9bbe97b7c9e8ed4c",
+    "custom_components/djconnect/session_history_projection.py": "545bbb1f37cb17c374a2791429fe117b47dea4b8d32ae922816a7f772f0cd8ab",
+    "custom_components/djconnect/session_mood.py": "019382baa7e5e2d5553b03dcdd3a8fdc1ba4eb7c87d7da3c99b54fe901ceece3",
+    "custom_components/djconnect/session_presence.py": "8c7687c42ce931ad8abbda0a4f2323a074e472f8913cb93aab1c1f45d39e313f",
+    "custom_components/djconnect/session_runtime.py": "143141d8d3626b6c8febbfc88476870db3417c4bc990d5060b63adcb3ab0ad76",
+    "custom_components/djconnect/spotify.py": "0e84480b356a9ae6649657c3fbe9f557663c04c8d0aba82fcca7ab150a1201b7",
+    "custom_components/djconnect/spotify_backend.py": "9f9748cb01e16d76f378fda1ee4aac5272099f1f02f0639478496fedfa3fe855",
+    "custom_components/djconnect/spotify_oauth.py": "e072ea0673dfd589abd09622813db5c2a29321f9906a49285695a1d792dc7d70",
+    "custom_components/djconnect/strings.json": "2f65fcdac9429fb21f5f66a674e6ce59b15ba15dc97ec83d25bf5b78dfdaabd7",
+    "custom_components/djconnect/structural_invariant_validator.py": "5c16b015fe646e9da85f68f0c05bc79ab563c2feb56c7e6c1a409a139c546ae8",
+    "custom_components/djconnect/switch.py": "4dbc76dcf13427c4b945e86cf20ac499e6be11f226232d1bde78eba0f7d6fc9d",
+    "custom_components/djconnect/tool_handlers.py": "6d4a452ed7fc446aa27660a1348c35e74dd6159e1d309cb1c722bb16c28e046c",
+    "custom_components/djconnect/tool_registry.py": "ef94acfa61b20c24af1ad1a6d31140140a6469d020cc2a3baa981492f6154c7a",
+    "custom_components/djconnect/track_insight.py": "a441ff0d1c7956ff23f0845bfcbf245c8cf44d161df141412760a21c0f14e6a1",
+    "custom_components/djconnect/track_insight_target.py": "6ab907bb71a34f4ad95a2a82111dae6b3173101e11980393af4f0f627711e770",
+    "custom_components/djconnect/translations/de.json": "8f412f0a12dd88929d572c6dfe8a22da071605358d2167b414a42d0c895548c0",
+    "custom_components/djconnect/translations/en.json": "2f962a629466627e99efc8eb2c24b20072aa0477021f0e10ed3b9e176bcb63e7",
+    "custom_components/djconnect/translations/es.json": "951473fdd5d6cc2477d57dbe2b0d9f685102a904cbea382810ab2755f5e41dd7",
+    "custom_components/djconnect/translations/fr.json": "dc46cb320886454665f17b8c111cc3e37f9e24aaf1311016734d9d895fb9db24",
+    "custom_components/djconnect/translations/nl.json": "25bcbbd71f08a8550ee4be37f633cf1b752ed3f5d617ba5ec6eaba2c62dbe095",
+    "custom_components/djconnect/transport_capabilities.py": "908b8f2e6f175f2822d6f0f0b354a26f4bc4b1ef4f7017fab807db2eb3c3bca2",
+    "custom_components/djconnect/transport_delivery.py": "70b45afe6e25f960973affd39ae6d77e8a695db41df8919e749ca6885aedd8af",
+    "custom_components/djconnect/transport_operations.py": "cf808dce680f958ee17876ce018a53b11b23c4f14d22cdeae61e2f13612b0e20",
+    "custom_components/djconnect/tts.py": "1d5154ae501174fcc43c287c97de6429b15f743cd2fac0ce7ccaf2a83215f7c7",
+    "custom_components/djconnect/universal_receiver.html": "6e515bf57db98790e4caeac725cb40a2723cb0960e97cce0709682756d215a6c",
+    "custom_components/djconnect/universal_receiver_browser_e2e.py": "d781dc3334cfc5d50b80217912cfed3aeaf21a2e2205f053446fb5feece3d68d",
+    "custom_components/djconnect/update.py": "d6a1ea30a3a33e04e8668dd6b11b6720d5b8f531b1160ac8771a16742179c7a5",
+    "custom_components/djconnect/use_cases.py": "9303bd8d611e374227e20332bb9c46ebc1de5caaaf95efa0bf0758c33b291b0a",
+    "custom_components/djconnect/verification_clock.py": "7d2383659ea419abf747bbd5e2f3cd382e9e13d1ae5946d331fd3d9412bacf0e",
+    "custom_components/djconnect/vibecast.html": "d72acde5b311e69eebd30ae3a4c47a658f263555da3feed9c709ba426564f4c8",
+    "custom_components/djconnect/vibecast.py": "afe141de6ab48c43bbc54ca745d8a7fb4d4a78326b6907f96825d1f81b743ed6",
+    "custom_components/djconnect/vibecast_renderer/cast-host.js": "b3b15f607735918f83d130b6afffb460f6d7a808e3c69228ece9b947816be52b",
+    "custom_components/djconnect/vibecast_renderer/local-host.js": "d13b693b8c983db1e171f9a5373301bd7359f7f3de555819dc2931c08d317a0e",
+    "custom_components/djconnect/vibecast_renderer/renderer.js": "f0455cbe8b294e55d9add12c9c1fff86578a0f7b8c403314fb7ce2a041c4d60c",
+    "custom_components/djconnect/vibecast_renderer/style.css": "6f32448f84e06e5d2bb4241503af9247843b834f506f9f564402f8072d5b925e",
+    "custom_components/djconnect/vibecast_renderer/template.html": "698eb9bc06fa5e14618f178996a612d10c514f1559026da12a32919e34c87ed6",
+    "custom_components/djconnect/voice_profiles.py": "83141040bb0da13e7846372734b9ab2d98955f8c1382f087ee5bc000399a7b83",
+    "custom_components/djconnect/wav_util.py": "06841ae5e471e20b2c234c2214eebb14dc764bf3a59acd9cd4767fdef3cc7c45",
+    "custom_components/djconnect/websocket_api.py": "734fb8f8f7afe5573050a0224a17cb1b9e2040d9c506dcf3a4830b54cb01d73f",
+    "scripts/verification/verify_hybrid_transport_http.py": "1076bff2bcf5399bde1436a2fd3b1c7f1b8e2470459e8d0a2f2074d44fcef4e6"
+  },
+  "transport_receipts": [
+    {
+      "case": "additive-disjoint-capability",
+      "body": {
+        "available": true,
+        "version": 1,
+        "requires_authenticated_tls": true,
+        "client_types": [
+          "ios",
+          "macos",
+          "watchos"
+        ],
+        "audience": "paired_owner_actions",
+        "path": "/api/djconnect/v1/actions/paired",
+        "auth": "paired_device_first_frame",
+        "ha_credentials_issued": false,
+        "commands": [
+          "djconnect/read",
+          "djconnect/operation/execute",
+          "djconnect/operation/status"
+        ],
+        "context_path": "/api/djconnect/v1/transport/context",
+        "operation_path": "/api/djconnect/v1/transport/operation",
+        "status_path": "/api/djconnect/v1/transport/operation/status",
+        "recovery_path": "/api/djconnect/v1/session/broadcast/recovery",
+        "lease_seconds": 300,
+        "auth_timeout_seconds": 5,
+        "revocation_check_seconds": 1,
+        "heartbeat_seconds": 15,
+        "frame_bytes": 65536,
+        "pending_limit": 8,
+        "outgoing_queue_limit": 64,
+        "connection_request_limit": 256,
+        "connection_limit": 16,
+        "paired_device_connection_limit": 2,
+        "operation_identity": "uuidv7",
+        "operation_lifetime_ms": 300000,
+        "after_send_retry": "reconcile_original_operation_only",
+        "cross_origin_redirects": "forbidden",
+        "browser_origin": "same_https_origin_only",
+        "native_adoption": "separate_consumer_qualification"
+      }
+    },
+    {
+      "path": "transport/context",
+      "status": 200,
+      "request": {
+        "contract_version": 1,
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        }
+      },
+      "body": {
+        "success": true,
+        "contract_version": 1,
+        "ha_install_id": "ha_owned_hybrid_fixture",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "server_time_ms": 1792053890548,
+        "operation_lifetime_ms": 300000,
+        "requires_authenticated_tls": true,
+        "action_operations": [
+          "ask_dj/message",
+          "command",
+          "session/mood",
+          "session/presence",
+          "track_insight"
+        ],
+        "http_operations": [
+          "ask_dj/message",
+          "command",
+          "session/end",
+          "session/mood",
+          "session/presence",
+          "session/start",
+          "track_insight"
+        ],
+        "read_operations": [
+          "session/active",
+          "session/broadcast/recover",
+          "session/broadcast/snapshot",
+          "session/forecast"
+        ]
+      }
+    },
+    {
+      "case": "foreign-browser-origin-before-secret",
+      "status": 403
+    },
+    {
+      "case": "ordinary-pairing-required",
+      "status": 401
+    },
+    {
+      "case": "plaintext-rejected-before-secret",
+      "status": 426
+    },
+    {
+      "case": "untrusted-certificate-rejected",
+      "before_secret": true
+    },
+    {
+      "path": "transport/operation",
+      "status": 201,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4df6-7000-b1cc-54c29de25672",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "session/start",
+        "payload": {
+          "mood": "groove",
+          "dj_persona": "home_dj",
+          "language": "en"
+        }
+      },
+      "body": {
+        "success": true,
+        "session": {
+          "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+          "owner_profile_id": "profile-a",
+          "room": "",
+          "selected_mood": "groove",
+          "dj_persona": "home_dj",
+          "locale": "en",
+          "music_backend": "spotify_direct",
+          "runtime_state": "active",
+          "created_at": "2026-10-15T08:44:50.560708+00:00",
+          "started_at": "2026-10-15T08:44:50.563698+00:00",
+          "session_start_strategy": "manual",
+          "initial_session_mood": "groove",
+          "mood_revision": 0,
+          "selected_presence": "balanced",
+          "presence_revision": 0,
+          "interaction_profile": "balanced",
+          "session_direction": {
+            "direction": "maintaining_energy",
+            "initialized_at": "2026-10-15T08:44:50.560708+00:00",
+            "updated_at": "2026-10-15T08:44:50.560708+00:00",
+            "start_strategy": "manual"
+          },
+          "discover_personalization_available": false,
+          "performance_memory": {
+            "source_flow_id": "flow-session-f76f12021d0d4f239ba5f71c74664444",
+            "recent_moment_ids": [
+              "moment-8933af5735ba443fa0b88129f815d3bb"
+            ],
+            "recent_moment_types": [
+              "track"
+            ],
+            "recent_artists": [
+              "Fixture artist"
+            ],
+            "recent_albums": [
+              "Fixture album"
+            ],
+            "recent_genres": [],
+            "recent_recommendations": [],
+            "recent_session_directions": [],
+            "recent_silence_count": 0
+          },
+          "planner": {
+            "planner_state": "ready",
+            "planning_horizon_minutes": 15,
+            "created_at": "2026-10-15T08:44:50.560708+00:00",
+            "last_replan_at": "2026-10-15T08:44:50.580351+00:00",
+            "current_goal": "",
+            "configuration": {
+              "minimum_time_between_moments_seconds": 60.0,
+              "maximum_track_context_per_track": 1,
+              "allow_consecutive_silence": true,
+              "recommendation_preference": "balanced",
+              "exploration_preference": "balanced",
+              "energy_preference": "balanced",
+              "interaction_profile": "balanced"
+            },
+            "pending_events": [],
+            "output": {
+              "session_flow": {
+                "flow_id": "flow-session-f76f12021d0d4f239ba5f71c74664444",
+                "flow_revision": 1,
+                "planning_horizon_minutes": 15,
+                "created_at": "2026-10-15T08:44:50.580351+00:00",
+                "items": [
+                  {
+                    "item_id": "now-current-track",
+                    "item_type": "current_track",
+                    "position": "now",
+                    "label": "Current Track"
+                  },
+                  {
+                    "item_id": "next-planning-horizon",
+                    "item_type": "planning_horizon",
+                    "position": "next",
+                    "label": "Planning Horizon"
+                  },
+                  {
+                    "item_id": "next-maintain-direction",
+                    "item_type": "maintain_direction",
+                    "position": "next",
+                    "label": "Maintain Direction"
+                  },
+                  {
+                    "item_id": "later-future-direction",
+                    "item_type": "future_direction",
+                    "position": "later",
+                    "label": "Future Direction"
+                  },
+                  {
+                    "item_id": "later-future-placeholder",
+                    "item_type": "future_placeholder",
+                    "position": "later",
+                    "label": "Future Placeholder"
+                  },
+                  {
+                    "item_id": "moment-moment-8933af5735ba443fa0b88129f815d3bb",
+                    "item_type": "dj_moment",
+                    "position": "next",
+                    "label": "Fixture work — Fixture artist",
+                    "moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+                    "moment_type": "track"
+                  }
+                ]
+              }
+            }
+          },
+          "broadcast": {
+            "session": {
+              "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+              "runtime_state": "active",
+              "selected_mood": "groove",
+              "mood_revision": 0,
+              "selected_presence": "balanced",
+              "presence_revision": 0,
+              "locale": "en"
+            },
+            "playback": {
+              "state": "playing",
+              "item_id": "8471a10c182b220b054bc25e",
+              "title": "Fixture work",
+              "artist": "Fixture artist",
+              "album": "Fixture album",
+              "updated_at": "2026-10-15T08:44:50.584022+00:00",
+              "duration_ms": 300000,
+              "position_ms": 1000,
+              "source_url": "https://open.spotify.com/track/1111111111111111111111"
+            },
+            "planner": {
+              "planning_state": "ready",
+              "planning_horizon_minutes": 15,
+              "current_direction": "maintaining_energy",
+              "session_direction": {
+                "direction": "maintaining_energy",
+                "initialized_at": "2026-10-15T08:44:50.560708+00:00",
+                "updated_at": "2026-10-15T08:44:50.560708+00:00",
+                "start_strategy": "manual"
+              }
+            },
+            "session_flow": {
+              "flow_id": "flow-session-f76f12021d0d4f239ba5f71c74664444",
+              "flow_revision": 1,
+              "planning_horizon_minutes": 15,
+              "created_at": "2026-10-15T08:44:50.580351+00:00",
+              "items": [
+                {
+                  "item_id": "now-current-track",
+                  "item_type": "current_track",
+                  "position": "now",
+                  "label": "Current Track"
+                },
+                {
+                  "item_id": "next-planning-horizon",
+                  "item_type": "planning_horizon",
+                  "position": "next",
+                  "label": "Planning Horizon"
+                },
+                {
+                  "item_id": "next-maintain-direction",
+                  "item_type": "maintain_direction",
+                  "position": "next",
+                  "label": "Maintain Direction"
+                },
+                {
+                  "item_id": "later-future-direction",
+                  "item_type": "future_direction",
+                  "position": "later",
+                  "label": "Future Direction"
+                },
+                {
+                  "item_id": "later-future-placeholder",
+                  "item_type": "future_placeholder",
+                  "position": "later",
+                  "label": "Future Placeholder"
+                },
+                {
+                  "item_id": "moment-moment-8933af5735ba443fa0b88129f815d3bb",
+                  "item_type": "dj_moment",
+                  "position": "next",
+                  "label": "Fixture work — Fixture artist",
+                  "moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+                  "moment_type": "track"
+                }
+              ]
+            },
+            "audience": {
+              "signal_totals": {},
+              "recent_activity": []
+            },
+            "dj_moments": [
+              {
+                "moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+                "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+                "created_at": "2026-10-15T08:44:50.579186+00:00",
+                "type": "track",
+                "knowledge_intent": {
+                  "type": "track_context",
+                  "goal": "Explain one relevant detail that improves appreciation of the current track."
+                },
+                "presentation_intent": {
+                  "source_session_mood": "groove",
+                  "dj_persona": "home_dj",
+                  "tone_of_voice": "warm and conversational",
+                  "energy_level": "groove",
+                  "delivery_style": "short contextual music story",
+                  "voice_style": "persona-guided",
+                  "visual_theme": "music-context",
+                  "importance": "normal",
+                  "maximum_duration_seconds": 25,
+                  "delivery_channels": [
+                    "broadcast",
+                    "owner",
+                    "shared"
+                  ],
+                  "visibility": "session_shared"
+                },
+                "title": "Fixture work — Fixture artist",
+                "summary": "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured.",
+                "content": "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured.",
+                "artwork": null,
+                "actions": [
+                  {
+                    "action_type": "ask_dj",
+                    "label": "Ask DJ",
+                    "icon_hint": "sparkles",
+                    "priority": 1,
+                    "required_capability": "ask_dj",
+                    "payload": {
+                      "title": "Fixture work",
+                      "artist": "Fixture artist",
+                      "album": "Fixture album"
+                    }
+                  },
+                  {
+                    "action_type": "tell_me_more",
+                    "label": "Tell Me More",
+                    "icon_hint": "info",
+                    "priority": 2,
+                    "required_capability": "ask_dj",
+                    "payload": {
+                      "title": "Fixture work",
+                      "artist": "Fixture artist",
+                      "album": "Fixture album"
+                    }
+                  },
+                  {
+                    "action_type": "show_artist",
+                    "label": "Show Artist",
+                    "icon_hint": "person",
+                    "priority": 3,
+                    "required_capability": "music_context",
+                    "payload": {
+                      "title": "Fixture work",
+                      "artist": "Fixture artist",
+                      "album": "Fixture album"
+                    }
+                  },
+                  {
+                    "action_type": "show_album",
+                    "label": "Show Album",
+                    "icon_hint": "rectangle.stack",
+                    "priority": 4,
+                    "required_capability": "music_context",
+                    "payload": {
+                      "title": "Fixture work",
+                      "artist": "Fixture artist",
+                      "album": "Fixture album"
+                    }
+                  },
+                  {
+                    "action_type": "show_track",
+                    "label": "Show Track",
+                    "icon_hint": "music.note",
+                    "priority": 5,
+                    "required_capability": "music_context",
+                    "payload": {
+                      "title": "Fixture work",
+                      "artist": "Fixture artist",
+                      "album": "Fixture album"
+                    }
+                  }
+                ],
+                "visibility": "session_shared",
+                "delivery_channels": [
+                  "broadcast",
+                  "owner",
+                  "shared"
+                ],
+                "importance": "normal",
+                "source_references": [
+                  "track_insight"
+                ],
+                "generation_metadata": {
+                  "provider": "track_insight",
+                  "track_title": "Fixture work",
+                  "artist": "Fixture artist",
+                  "album": "Fixture album",
+                  "genre": "",
+                  "recommendation": "",
+                  "validated": "true"
+                }
+              }
+            ],
+            "presentations": [
+              {
+                "presentation_id": "presentation-moment-8933af5735ba443fa0b88129f815d3bb",
+                "source_moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+                "source_moment_type": "track",
+                "visibility": "session_shared",
+                "speech": {
+                  "mode": "primary_only",
+                  "segments": [
+                    {
+                      "ordinal": 1,
+                      "speaker_role": "dj",
+                      "text": "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured."
+                    }
+                  ]
+                }
+              }
+            ],
+            "broadcast": {
+              "started_at": "2026-10-15T08:44:50.560708+00:00",
+              "snapshot_watermark": 8
+            },
+            "native_delivery": {
+              "schema_version": 1,
+              "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+              "current_moment_id": null,
+              "active_flow_moment_ids": [],
+              "admissions": [
+                {
+                  "moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+                  "qualification": "unqualified",
+                  "current_display_allowed": false,
+                  "active_flow_display_allowed": false,
+                  "source_expires_at": null,
+                  "display_expires_at": null,
+                  "executable_actions": [],
+                  "requires_spotify_attribution": false
+                }
+              ],
+              "revocation_scope": "session",
+              "revision": "dc5c0205a8980ca6d27bd5be"
+            },
+            "session_forecast": {
+              "contract_version": 1,
+              "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+              "revision": 1,
+              "state": "ready",
+              "issued_at": "2026-10-15T08:44:50.588886+00:00",
+              "valid_until": "2026-10-15T08:46:50.588115+00:00",
+              "nominal_window_seconds": 900,
+              "supported_window_seconds": 900,
+              "current_anchor": {
+                "item_id": "8471a10c182b220b054bc25e",
+                "source_url": "https://open.spotify.com/track/1111111111111111111111"
+              },
+              "summary": "I can keep a steady thread around Fixture artist, adding context when it helps.",
+              "sections": [
+                {
+                  "id": "current",
+                  "title": "Now",
+                  "claim_type": "current",
+                  "text": "Now playing: Fixture work — Fixture artist.",
+                  "source_url": "https://open.spotify.com/track/1111111111111111111111"
+                },
+                {
+                  "id": "guidance",
+                  "title": "The coming minutes",
+                  "claim_type": "intention",
+                  "text": "I can keep a steady thread around Fixture artist, adding context when it helps."
+                },
+                {
+                  "id": "aim",
+                  "title": "What I am aiming for",
+                  "claim_type": "conditional_target",
+                  "text": "The aim is a steady flow that can carry the current musical thread without rushing it."
+                }
+              ],
+              "imagery": []
+            }
+          }
+        },
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4df6-7000-b1cc-54c29de25672",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054190550,
+          "result_available": true,
+          "response_status": 201,
+          "error": null
+        },
+        "result_available": true
+      }
+    },
+    {
+      "path": "session/broadcast/recovery",
+      "status": 200,
+      "request": {
+        "contract_version": 1,
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+        "recovery_cursor": "00000000000000000000000000000000"
+      },
+      "body": {
+        "success": true,
+        "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+        "recovery": "snapshot_required",
+        "snapshot": {
+          "session": {
+            "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+            "runtime_state": "active",
+            "selected_mood": "groove",
+            "mood_revision": 0,
+            "selected_presence": "balanced",
+            "presence_revision": 0,
+            "locale": "en"
+          },
+          "playback": {
+            "state": "playing",
+            "item_id": "8471a10c182b220b054bc25e",
+            "title": "Fixture work",
+            "artist": "Fixture artist",
+            "album": "Fixture album",
+            "updated_at": "2026-10-15T08:44:50.584022+00:00",
+            "duration_ms": 300000,
+            "position_ms": 1000,
+            "source_url": "https://open.spotify.com/track/1111111111111111111111"
+          },
+          "planner": {
+            "planning_state": "ready",
+            "planning_horizon_minutes": 15,
+            "current_direction": "maintaining_energy",
+            "session_direction": {
+              "direction": "maintaining_energy",
+              "initialized_at": "2026-10-15T08:44:50.560708+00:00",
+              "updated_at": "2026-10-15T08:44:50.560708+00:00",
+              "start_strategy": "manual"
+            }
+          },
+          "session_flow": {
+            "flow_id": "flow-session-f76f12021d0d4f239ba5f71c74664444",
+            "flow_revision": 1,
+            "planning_horizon_minutes": 15,
+            "created_at": "2026-10-15T08:44:50.580351+00:00",
+            "items": [
+              {
+                "item_id": "now-current-track",
+                "item_type": "current_track",
+                "position": "now",
+                "label": "Current Track"
+              },
+              {
+                "item_id": "next-planning-horizon",
+                "item_type": "planning_horizon",
+                "position": "next",
+                "label": "Planning Horizon"
+              },
+              {
+                "item_id": "next-maintain-direction",
+                "item_type": "maintain_direction",
+                "position": "next",
+                "label": "Maintain Direction"
+              },
+              {
+                "item_id": "later-future-direction",
+                "item_type": "future_direction",
+                "position": "later",
+                "label": "Future Direction"
+              },
+              {
+                "item_id": "later-future-placeholder",
+                "item_type": "future_placeholder",
+                "position": "later",
+                "label": "Future Placeholder"
+              },
+              {
+                "item_id": "moment-moment-8933af5735ba443fa0b88129f815d3bb",
+                "item_type": "dj_moment",
+                "position": "next",
+                "label": "Fixture work — Fixture artist",
+                "moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+                "moment_type": "track"
+              }
+            ]
+          },
+          "audience": {
+            "signal_totals": {},
+            "recent_activity": []
+          },
+          "dj_moments": [
+            {
+              "moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+              "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+              "created_at": "2026-10-15T08:44:50.579186+00:00",
+              "type": "track",
+              "knowledge_intent": {
+                "type": "track_context",
+                "goal": "Explain one relevant detail that improves appreciation of the current track."
+              },
+              "presentation_intent": {
+                "source_session_mood": "groove",
+                "dj_persona": "home_dj",
+                "tone_of_voice": "warm and conversational",
+                "energy_level": "groove",
+                "delivery_style": "short contextual music story",
+                "voice_style": "persona-guided",
+                "visual_theme": "music-context",
+                "importance": "normal",
+                "maximum_duration_seconds": 25,
+                "delivery_channels": [
+                  "broadcast",
+                  "owner",
+                  "shared"
+                ],
+                "visibility": "session_shared"
+              },
+              "title": "Fixture work — Fixture artist",
+              "summary": "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured.",
+              "content": "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured.",
+              "artwork": null,
+              "actions": [
+                {
+                  "action_type": "ask_dj",
+                  "label": "Ask DJ",
+                  "icon_hint": "sparkles",
+                  "priority": 1,
+                  "required_capability": "ask_dj",
+                  "payload": {
+                    "title": "Fixture work",
+                    "artist": "Fixture artist",
+                    "album": "Fixture album"
+                  }
+                },
+                {
+                  "action_type": "tell_me_more",
+                  "label": "Tell Me More",
+                  "icon_hint": "info",
+                  "priority": 2,
+                  "required_capability": "ask_dj",
+                  "payload": {
+                    "title": "Fixture work",
+                    "artist": "Fixture artist",
+                    "album": "Fixture album"
+                  }
+                },
+                {
+                  "action_type": "show_artist",
+                  "label": "Show Artist",
+                  "icon_hint": "person",
+                  "priority": 3,
+                  "required_capability": "music_context",
+                  "payload": {
+                    "title": "Fixture work",
+                    "artist": "Fixture artist",
+                    "album": "Fixture album"
+                  }
+                },
+                {
+                  "action_type": "show_album",
+                  "label": "Show Album",
+                  "icon_hint": "rectangle.stack",
+                  "priority": 4,
+                  "required_capability": "music_context",
+                  "payload": {
+                    "title": "Fixture work",
+                    "artist": "Fixture artist",
+                    "album": "Fixture album"
+                  }
+                },
+                {
+                  "action_type": "show_track",
+                  "label": "Show Track",
+                  "icon_hint": "music.note",
+                  "priority": 5,
+                  "required_capability": "music_context",
+                  "payload": {
+                    "title": "Fixture work",
+                    "artist": "Fixture artist",
+                    "album": "Fixture album"
+                  }
+                }
+              ],
+              "visibility": "session_shared",
+              "delivery_channels": [
+                "broadcast",
+                "owner",
+                "shared"
+              ],
+              "importance": "normal",
+              "source_references": [
+                "track_insight"
+              ],
+              "generation_metadata": {
+                "provider": "track_insight",
+                "track_title": "Fixture work",
+                "artist": "Fixture artist",
+                "album": "Fixture album",
+                "genre": "",
+                "recommendation": "",
+                "validated": "true"
+              }
+            }
+          ],
+          "presentations": [
+            {
+              "presentation_id": "presentation-moment-8933af5735ba443fa0b88129f815d3bb",
+              "source_moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+              "source_moment_type": "track",
+              "visibility": "session_shared",
+              "speech": {
+                "mode": "primary_only",
+                "segments": [
+                  {
+                    "ordinal": 1,
+                    "speaker_role": "dj",
+                    "text": "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured."
+                  }
+                ]
+              }
+            }
+          ],
+          "broadcast": {
+            "started_at": "2026-10-15T08:44:50.560708+00:00",
+            "snapshot_watermark": 8
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [],
+            "admissions": [
+              {
+                "moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+                "qualification": "unqualified",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": false,
+                "source_expires_at": null,
+                "display_expires_at": null,
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              }
+            ],
+            "revocation_scope": "session",
+            "revision": "dc5c0205a8980ca6d27bd5be"
+          },
+          "session_forecast": {
+            "contract_version": 1,
+            "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+            "revision": 1,
+            "state": "ready",
+            "issued_at": "2026-10-15T08:44:50.588886+00:00",
+            "valid_until": "2026-10-15T08:46:50.588115+00:00",
+            "nominal_window_seconds": 900,
+            "supported_window_seconds": 900,
+            "current_anchor": {
+              "item_id": "8471a10c182b220b054bc25e",
+              "source_url": "https://open.spotify.com/track/1111111111111111111111"
+            },
+            "summary": "I can keep a steady thread around Fixture artist, adding context when it helps.",
+            "sections": [
+              {
+                "id": "current",
+                "title": "Now",
+                "claim_type": "current",
+                "text": "Now playing: Fixture work — Fixture artist.",
+                "source_url": "https://open.spotify.com/track/1111111111111111111111"
+              },
+              {
+                "id": "guidance",
+                "title": "The coming minutes",
+                "claim_type": "intention",
+                "text": "I can keep a steady thread around Fixture artist, adding context when it helps."
+              },
+              {
+                "id": "aim",
+                "title": "What I am aiming for",
+                "claim_type": "conditional_target",
+                "text": "The aim is a steady flow that can carry the current musical thread without rushing it."
+              }
+            ],
+            "imagery": []
+          }
+        },
+        "recovery_cursor": "rOeXJpC_0X-i4gdXNfdx4TzLauzoF5atOxUOvASPjzo"
+      }
+    },
+    {
+      "case": "broadcast-audience-cannot-authorize-actions",
+      "body": {
+        "type": "auth_invalid",
+        "code": "invalid_auth"
+      }
+    },
+    {
+      "case": "actual-two-device-connection-bound",
+      "accepted": 2,
+      "denied": 1
+    },
+    {
+      "case": "actual-sixteen-total-connection-bound",
+      "accepted": 16,
+      "denied": 1
+    },
+    {
+      "case": "actual-wss-next",
+      "request": {
+        "id": 2,
+        "type": "djconnect/operation/execute",
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4e99-7000-b1b5-b09b09e192e2",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "command",
+        "payload": {
+          "command": "next"
+        }
+      },
+      "body": {
+        "id": 2,
+        "connection_id": "6e6d6bdcfe0d7d7a3a02a64f32fbee16",
+        "type": "result",
+        "success": true,
+        "status": 200,
+        "result": {
+          "success": true,
+          "provider": "spotify_direct",
+          "source": "spotify_direct",
+          "backend_available": true,
+          "playback": {
+            "has_playback": true,
+            "is_playing": true,
+            "title": "Fixture work",
+            "track_name": "Fixture work",
+            "uri": "spotify:track:2222222222222222222222",
+            "current_uri": "spotify:track:2222222222222222222222",
+            "context": {
+              "type": "",
+              "uri": "",
+              "href": ""
+            },
+            "context_uri": "",
+            "queue_context": "",
+            "artist": "Fixture artist",
+            "artist_name": "Fixture artist",
+            "artist_ids": [
+              "aaaaaaaaaaaaaaaaaaaaaa"
+            ],
+            "album_name": "Fixture album",
+            "album_uri": "",
+            "release_date": "",
+            "release_date_precision": "",
+            "isrc": "",
+            "album_image_url": "",
+            "media_image_url": "",
+            "progress_ms": 1000,
+            "duration_ms": 300000,
+            "volume_percent": 40,
+            "shuffle": false,
+            "repeat_state": "off",
+            "device": {
+              "id": "own-speaker",
+              "name": "",
+              "type": "",
+              "active": true,
+              "supports_volume": true,
+              "volume_percent": 40
+            }
+          },
+          "ha_install_id": "ha_owned_hybrid_fixture",
+          "integration_version": "4.0.0-rc.1",
+          "ha_version": "4.0.0-rc.1",
+          "ha_major_minor": "4.0",
+          "music_backend": "spotify_direct",
+          "music_backend_name": "Spotify Direct",
+          "music_backend_available": true,
+          "music_backend_revision": 0,
+          "music_backend_capabilities": {
+            "supports_search": true,
+            "supports_playlists": true,
+            "supports_queue": true,
+            "supports_outputs": true,
+            "supports_volume": true,
+            "supports_favorites": true,
+            "supports_recently_played": true,
+            "supports_top_items": true,
+            "supports_recommendations": true,
+            "supports_library_profile": true,
+            "supports_shuffle": true,
+            "supports_repeat": true,
+            "supports_seek": true,
+            "supports_transfer_or_output_selection": true
+          },
+          "music_backend_observation_capabilities": {
+            "supports_current_playback_status": true,
+            "supports_media_change_observation": true,
+            "observation_mode_event": false,
+            "observation_mode_polling": true,
+            "supports_playback_instance_identity": false,
+            "supports_continue_stage2": false
+          },
+          "music_target_player": {},
+          "music_backend_error": null,
+          "operation_receipt": {
+            "contract_version": 1,
+            "operation_id": "01a13ebc-4e99-7000-b1b5-b09b09e192e2",
+            "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+            "phase": "confirmed",
+            "expires_at_ms": 1792054190713,
+            "result_available": true,
+            "response_status": 200,
+            "error": null
+          },
+          "result_available": true
+        }
+      }
+    },
+    {
+      "path": "transport/operation",
+      "status": 200,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4e99-7000-b1b5-b09b09e192e2",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "command",
+        "payload": {
+          "command": "next"
+        }
+      },
+      "body": {
+        "success": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4e99-7000-b1b5-b09b09e192e2",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054190713,
+          "result_available": false,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": false
+      }
+    },
+    {
+      "case": "second-qualified-http-entry-reconciles-original-id",
+      "body": {
+        "success": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4e99-7000-b1b5-b09b09e192e2",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054190713,
+          "result_available": false,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": false
+      },
+      "boundary": "two TLS entry points on one isolated HA; not native cellular routing"
+    },
+    {
+      "path": "transport/operation",
+      "status": 409,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4e99-7000-b1b5-b09b09e192e2",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "command",
+        "payload": {
+          "command": "previous"
+        }
+      },
+      "body": {
+        "success": false,
+        "error": "operation_conflict"
+      }
+    },
+    {
+      "path": "transport/operation",
+      "status": 200,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4e9d-7000-b935-4aeb359c6694",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "command",
+        "payload": {
+          "command": "next"
+        }
+      },
+      "body": {
+        "success": true,
+        "provider": "spotify_direct",
+        "source": "spotify_direct",
+        "backend_available": true,
+        "playback": {
+          "has_playback": true,
+          "is_playing": true,
+          "title": "Fixture work",
+          "track_name": "Fixture work",
+          "uri": "spotify:track:3333333333333333333333",
+          "current_uri": "spotify:track:3333333333333333333333",
+          "context": {
+            "type": "",
+            "uri": "",
+            "href": ""
+          },
+          "context_uri": "",
+          "queue_context": "",
+          "artist": "Fixture artist",
+          "artist_name": "Fixture artist",
+          "artist_ids": [
+            "aaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          "album_name": "Fixture album",
+          "album_uri": "",
+          "release_date": "",
+          "release_date_precision": "",
+          "isrc": "",
+          "album_image_url": "",
+          "media_image_url": "",
+          "progress_ms": 1000,
+          "duration_ms": 300000,
+          "volume_percent": 40,
+          "shuffle": false,
+          "repeat_state": "off",
+          "device": {
+            "id": "own-speaker",
+            "name": "",
+            "type": "",
+            "active": true,
+            "supports_volume": true,
+            "volume_percent": 40
+          }
+        },
+        "ha_install_id": "ha_owned_hybrid_fixture",
+        "integration_version": "4.0.0-rc.1",
+        "ha_version": "4.0.0-rc.1",
+        "ha_major_minor": "4.0",
+        "music_backend": "spotify_direct",
+        "music_backend_name": "Spotify Direct",
+        "music_backend_available": true,
+        "music_backend_revision": 0,
+        "music_backend_capabilities": {
+          "supports_search": true,
+          "supports_playlists": true,
+          "supports_queue": true,
+          "supports_outputs": true,
+          "supports_volume": true,
+          "supports_favorites": true,
+          "supports_recently_played": true,
+          "supports_top_items": true,
+          "supports_recommendations": true,
+          "supports_library_profile": true,
+          "supports_shuffle": true,
+          "supports_repeat": true,
+          "supports_seek": true,
+          "supports_transfer_or_output_selection": true
+        },
+        "music_backend_observation_capabilities": {
+          "supports_current_playback_status": true,
+          "supports_media_change_observation": true,
+          "observation_mode_event": false,
+          "observation_mode_polling": true,
+          "supports_playback_instance_identity": false,
+          "supports_continue_stage2": false
+        },
+        "music_target_player": {},
+        "music_backend_error": null,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4e9d-7000-b935-4aeb359c6694",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054190717,
+          "result_available": true,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": true
+      }
+    },
+    {
+      "case": "concurrent-correlation",
+      "ids": [
+        4,
+        5
+      ]
+    },
+    {
+      "case": "actual-wss-session/mood",
+      "request": {
+        "id": 7,
+        "type": "djconnect/operation/execute",
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4e9f-7000-875e-70c2f00ddd3d",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "session/mood",
+        "payload": {
+          "contract_version": 1,
+          "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+          "selected_mood": "energy",
+          "expected_mood_revision": 0
+        }
+      },
+      "body": {
+        "id": 7,
+        "connection_id": "6e6d6bdcfe0d7d7a3a02a64f32fbee16",
+        "type": "result",
+        "success": true,
+        "status": 200,
+        "result": {
+          "success": true,
+          "contract_version": 1,
+          "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+          "selected_mood": "energy",
+          "mood_revision": 1,
+          "changed": true,
+          "operation_receipt": {
+            "contract_version": 1,
+            "operation_id": "01a13ebc-4e9f-7000-875e-70c2f00ddd3d",
+            "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+            "phase": "confirmed",
+            "expires_at_ms": 1792054190719,
+            "result_available": true,
+            "response_status": 200,
+            "error": null
+          },
+          "result_available": true
+        }
+      }
+    },
+    {
+      "path": "transport/operation",
+      "status": 200,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4e9f-7000-875e-70c2f00ddd3d",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "session/mood",
+        "payload": {
+          "contract_version": 1,
+          "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+          "selected_mood": "energy",
+          "expected_mood_revision": 0
+        }
+      },
+      "body": {
+        "success": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4e9f-7000-875e-70c2f00ddd3d",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054190719,
+          "result_available": false,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": false
+      }
+    },
+    {
+      "case": "actual-wss-session/mood",
+      "request": {
+        "id": 8,
+        "type": "djconnect/operation/execute",
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ea1-7000-9ff9-354942095841",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "session/mood",
+        "payload": {
+          "contract_version": 1,
+          "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+          "selected_mood": "party",
+          "expected_mood_revision": 0
+        }
+      },
+      "body": {
+        "id": 8,
+        "connection_id": "6e6d6bdcfe0d7d7a3a02a64f32fbee16",
+        "type": "result",
+        "success": false,
+        "status": 409,
+        "result": {
+          "success": false,
+          "operation_receipt": {
+            "contract_version": 1,
+            "operation_id": "01a13ebc-4ea1-7000-9ff9-354942095841",
+            "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+            "phase": "rejected",
+            "expires_at_ms": 1792054190721,
+            "result_available": false,
+            "response_status": 409,
+            "error": "mood_revision_conflict"
+          },
+          "result_available": false,
+          "error": "mood_revision_conflict"
+        }
+      }
+    },
+    {
+      "path": "transport/operation/status",
+      "status": 409,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ea1-7000-9ff9-354942095841",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f"
+      },
+      "body": {
+        "success": false,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4ea1-7000-9ff9-354942095841",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "rejected",
+          "expires_at_ms": 1792054190721,
+          "result_available": false,
+          "response_status": 409,
+          "error": "mood_revision_conflict"
+        },
+        "result_available": false,
+        "error": "mood_revision_conflict"
+      }
+    },
+    {
+      "case": "actual-wss-session/presence",
+      "request": {
+        "id": 9,
+        "type": "djconnect/operation/execute",
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ea3-7000-bb9c-c29c0c878330",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "session/presence",
+        "payload": {
+          "contract_version": 1,
+          "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+          "selected_presence": "occasional",
+          "expected_presence_revision": 0
+        }
+      },
+      "body": {
+        "id": 9,
+        "connection_id": "6e6d6bdcfe0d7d7a3a02a64f32fbee16",
+        "type": "result",
+        "success": true,
+        "status": 200,
+        "result": {
+          "success": true,
+          "contract_version": 1,
+          "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+          "selected_presence": "occasional",
+          "presence_revision": 1,
+          "changed": true,
+          "operation_receipt": {
+            "contract_version": 1,
+            "operation_id": "01a13ebc-4ea3-7000-bb9c-c29c0c878330",
+            "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+            "phase": "confirmed",
+            "expires_at_ms": 1792054190723,
+            "result_available": true,
+            "response_status": 200,
+            "error": null
+          },
+          "result_available": true
+        }
+      }
+    },
+    {
+      "path": "transport/operation",
+      "status": 200,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ea4-7000-b473-e6b9bb3fa1f9",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "session/presence",
+        "payload": {
+          "contract_version": 1,
+          "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+          "selected_presence": "balanced",
+          "expected_presence_revision": 1
+        }
+      },
+      "body": {
+        "success": true,
+        "contract_version": 1,
+        "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+        "selected_presence": "balanced",
+        "presence_revision": 2,
+        "changed": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4ea4-7000-b473-e6b9bb3fa1f9",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054190724,
+          "result_available": true,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": true
+      }
+    },
+    {
+      "case": "actual-wss-ask_dj/message",
+      "request": {
+        "id": 10,
+        "type": "djconnect/operation/execute",
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ea5-7000-ad91-44971d7b45d2",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "ask_dj/message",
+        "payload": {
+          "text": "help",
+          "client_message_id": "hybrid-owned-help-1",
+          "language": "en",
+          "audio_response": "never"
+        }
+      },
+      "body": {
+        "id": 10,
+        "connection_id": "6e6d6bdcfe0d7d7a3a02a64f32fbee16",
+        "type": "result",
+        "success": true,
+        "status": 200,
+        "result": {
+          "success": true,
+          "text": "# Things you can ask Ask DJ\n\n## Start music\n- Play [artist]\n- I want to hear [song]\n- Play [song] by [artist]\n- Put on a [genre] playlist\n- Play something for cooking\n\n## Play Now choices\n- Show me albums by [artist]\n- Which albums did [artist] release?\n- Give me 5 songs by [artist]\n- Give me 10 versions of [song] by different artists\n- Find artists similar to [artist]\n- Which playlists are there for [genre]?\n- Which playlists do I have?\n- Make a mix based on [artist], [artist] and [artist]\n\n## Speakers and playback\n- Which speakers are available?\n- Switch speaker\n- What is playing on?\n- Pause\n- Resume\n- Next song\n- Previous song\n- What is in the queue?\n- Louder\n- Softer\n- Shuffle on\n- Repeat off\n\n## DJ context\n- What is playing now?\n- Why did you choose this song?\n- Tell me about this artist\n- Do you have a live version?\n- Do you have an acoustic version?\n- Give a DJ intro for this song\n- Analyze this song\n- What genre is this?\n\n## Discover and Music DNA\n- What is new in Discover?\n- Refresh my Discover recommendations\n- What does my Music DNA say?\n- Which Discover recommendations fit me best?\n- Why does this recommendation fit my taste?\n\n## Personal taste\n- What do you know about me?\n- Analyze my listening profile\n- What did I listen to this month?\n- Give personal music recommendations\n- Which artists fit my taste?\n- I want more music like this\n\n## Follow-ups\n- Try again\n- Play it\n- I want to hear [song]\n- No, I mean the live version\n- Only from the 90s\n- Make this a playlist\n\n## Good to know\n- Ask DJ only starts music directly for clear playback requests.\n- For lists, albums, recommendations and speakers you get buttons such as Play Now or Activate.",
+          "dj_text": "# Things you can ask Ask DJ\n\n## Start music\n- Play [artist]\n- I want to hear [song]\n- Play [song] by [artist]\n- Put on a [genre] playlist\n- Play something for cooking\n\n## Play Now choices\n- Show me albums by [artist]\n- Which albums did [artist] release?\n- Give me 5 songs by [artist]\n- Give me 10 versions of [song] by different artists\n- Find artists similar to [artist]\n- Which playlists are there for [genre]?\n- Which playlists do I have?\n- Make a mix based on [artist], [artist] and [artist]\n\n## Speakers and playback\n- Which speakers are available?\n- Switch speaker\n- What is playing on?\n- Pause\n- Resume\n- Next song\n- Previous song\n- What is in the queue?\n- Louder\n- Softer\n- Shuffle on\n- Repeat off\n\n## DJ context\n- What is playing now?\n- Why did you choose this song?\n- Tell me about this artist\n- Do you have a live version?\n- Do you have an acoustic version?\n- Give a DJ intro for this song\n- Analyze this song\n- What genre is this?\n\n## Discover and Music DNA\n- What is new in Discover?\n- Refresh my Discover recommendations\n- What does my Music DNA say?\n- Which Discover recommendations fit me best?\n- Why does this recommendation fit my taste?\n\n## Personal taste\n- What do you know about me?\n- Analyze my listening profile\n- What did I listen to this month?\n- Give personal music recommendations\n- Which artists fit my taste?\n- I want more music like this\n\n## Follow-ups\n- Try again\n- Play it\n- I want to hear [song]\n- No, I mean the live version\n- Only from the 90s\n- Make this a playlist\n\n## Good to know\n- Ask DJ only starts music directly for clear playback requests.\n- For lists, albums, recommendations and speakers you get buttons such as Play Now or Activate.",
+          "message": "# Things you can ask Ask DJ\n\n## Start music\n- Play [artist]\n- I want to hear [song]\n- Play [song] by [artist]\n- Put on a [genre] playlist\n- Play something for cooking\n\n## Play Now choices\n- Show me albums by [artist]\n- Which albums did [artist] release?\n- Give me 5 songs by [artist]\n- Give me 10 versions of [song] by different artists\n- Find artists similar to [artist]\n- Which playlists are there for [genre]?\n- Which playlists do I have?\n- Make a mix based on [artist], [artist] and [artist]\n\n## Speakers and playback\n- Which speakers are available?\n- Switch speaker\n- What is playing on?\n- Pause\n- Resume\n- Next song\n- Previous song\n- What is in the queue?\n- Louder\n- Softer\n- Shuffle on\n- Repeat off\n\n## DJ context\n- What is playing now?\n- Why did you choose this song?\n- Tell me about this artist\n- Do you have a live version?\n- Do you have an acoustic version?\n- Give a DJ intro for this song\n- Analyze this song\n- What genre is this?\n\n## Discover and Music DNA\n- What is new in Discover?\n- Refresh my Discover recommendations\n- What does my Music DNA say?\n- Which Discover recommendations fit me best?\n- Why does this recommendation fit my taste?\n\n## Personal taste\n- What do you know about me?\n- Analyze my listening profile\n- What did I listen to this month?\n- Give personal music recommendations\n- Which artists fit my taste?\n- I want more music like this\n\n## Follow-ups\n- Try again\n- Play it\n- I want to hear [song]\n- No, I mean the live version\n- Only from the 90s\n- Make this a playlist\n\n## Good to know\n- Ask DJ only starts music directly for clear playback requests.\n- For lists, albums, recommendations and speakers you get buttons such as Play Now or Activate.",
+          "images": [],
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "confirmation_actions": [],
+          "error": null,
+          "intent": {
+            "category": "informational",
+            "intent": "help",
+            "action": "none"
+          },
+          "items": [],
+          "action": "none",
+          "music_dna_key": "profile:profile-a",
+          "assistant_message": {
+            "id": "server-9460f429-70c6-49f6-89ce-e0fea10cd3c1",
+            "client_message_id": "hybrid-owned-help-1",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "# Things you can ask Ask DJ\n\n## Start music\n- Play [artist]\n- I want to hear [song]\n- Play [song] by [artist]\n- Put on a [genre] playlist\n- Play something for cooking\n\n## Play Now choices\n- Show me albums by [artist]\n- Which albums did [artist] release?\n- Give me 5 songs by [artist]\n- Give me 10 versions of [song] by different artists\n- Find artists similar to [artist]\n- Which playlists are there for [genre]?\n- Which playlists do I have?\n- Make a mix based on [artist], [artist] and [artist]\n\n## Speakers and playback\n- Which speakers are available?\n- Switch speaker\n- What is playing on?\n- Pause\n- Resume\n- Next song\n- Previous song\n- What is in the queue?\n- Louder\n- Softer\n- Shuffle on\n- Repeat off\n\n## DJ context\n- What is playing now?\n- Why did you choose this song?\n- Tell me about this artist\n- Do you have a live version?\n- Do you have an acoustic version?\n- Give a DJ intro for this song\n- Analyze this song\n- What genre is this?\n\n## Discover and Music DNA\n- What is new in Discover?\n- Refresh my Discover recommendations\n- What does my Music DNA say?\n- Which Discover recommendations fit me best?\n- Why does this recommendation fit my taste?\n\n## Personal taste\n- What do you know about me?\n- Analyze my listening profile\n- What did I listen to this month?\n- Give personal music recommendations\n- Which artists fit my taste?\n- I want more music like this\n\n## Follow-ups\n- Try again\n- Play it\n- I want to hear [song]\n- No, I mean the live version\n- Only from the 90s\n- Make this a playlist\n\n## Good to know\n- Ask DJ only starts music directly for clear playback requests.\n- For lists, albums, recommendations and speakers you get buttons such as Play Now or Activate.",
+            "created_at": "2026-10-15T08:44:50.757905Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "images": [],
+            "links": [],
+            "sources": [],
+            "audio_url": null,
+            "playback_actions": [],
+            "intent": {
+              "category": "informational",
+              "intent": "help",
+              "action": "none"
+            },
+            "action": "none",
+            "session_turn": {
+              "turn_id": "turn-92b1be73cd8a52be8aa570c52df81fbf",
+              "request_digest": "1301557f82cecada24ac9aa5aa902b4e4cb7dcdc7c09497f2926dec01cbdc935",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "hybrid-owned-help-1",
+            "exchange_order": 1,
+            "confirmation_actions": [],
+            "items": [],
+            "origin": ""
+          },
+          "user_id": null,
+          "user_message": {
+            "id": "server-ed2e53e4-a8f1-4b0a-8272-e4cc5b5ba3a4",
+            "client_message_id": "hybrid-owned-help-1",
+            "role": "user",
+            "text": "help",
+            "created_at": "2026-10-15T08:44:50.757795Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "images": [],
+            "links": [],
+            "sources": [],
+            "audio_url": null,
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-92b1be73cd8a52be8aa570c52df81fbf",
+              "request_digest": "1301557f82cecada24ac9aa5aa902b4e4cb7dcdc7c09497f2926dec01cbdc935",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "hybrid-owned-help-1",
+            "exchange_order": 0
+          },
+          "messages": [
+            {
+              "id": "server-ed2e53e4-a8f1-4b0a-8272-e4cc5b5ba3a4",
+              "client_message_id": "hybrid-owned-help-1",
+              "role": "user",
+              "text": "help",
+              "created_at": "2026-10-15T08:44:50.757795Z",
+              "client_id": "djconnect-ios-ABCDEF123456",
+              "client_type": "ios",
+              "status": "delivered",
+              "images": [],
+              "links": [],
+              "sources": [],
+              "audio_url": null,
+              "playback_actions": [],
+              "session_turn": {
+                "turn_id": "turn-92b1be73cd8a52be8aa570c52df81fbf",
+                "request_digest": "1301557f82cecada24ac9aa5aa902b4e4cb7dcdc7c09497f2926dec01cbdc935",
+                "profile_id": "profile-a",
+                "context": {},
+                "captured_playback_item_id": "",
+                "input_type": "text",
+                "explicit_playback_request": false,
+                "implicit_playback_entry": null,
+                "dependency_entries": []
+              },
+              "historical_entry_references": [],
+              "exchange_id": "hybrid-owned-help-1",
+              "exchange_order": 0
+            },
+            {
+              "id": "server-9460f429-70c6-49f6-89ce-e0fea10cd3c1",
+              "client_message_id": "hybrid-owned-help-1",
+              "role": "assistant",
+              "message_kind": "assistant",
+              "text": "# Things you can ask Ask DJ\n\n## Start music\n- Play [artist]\n- I want to hear [song]\n- Play [song] by [artist]\n- Put on a [genre] playlist\n- Play something for cooking\n\n## Play Now choices\n- Show me albums by [artist]\n- Which albums did [artist] release?\n- Give me 5 songs by [artist]\n- Give me 10 versions of [song] by different artists\n- Find artists similar to [artist]\n- Which playlists are there for [genre]?\n- Which playlists do I have?\n- Make a mix based on [artist], [artist] and [artist]\n\n## Speakers and playback\n- Which speakers are available?\n- Switch speaker\n- What is playing on?\n- Pause\n- Resume\n- Next song\n- Previous song\n- What is in the queue?\n- Louder\n- Softer\n- Shuffle on\n- Repeat off\n\n## DJ context\n- What is playing now?\n- Why did you choose this song?\n- Tell me about this artist\n- Do you have a live version?\n- Do you have an acoustic version?\n- Give a DJ intro for this song\n- Analyze this song\n- What genre is this?\n\n## Discover and Music DNA\n- What is new in Discover?\n- Refresh my Discover recommendations\n- What does my Music DNA say?\n- Which Discover recommendations fit me best?\n- Why does this recommendation fit my taste?\n\n## Personal taste\n- What do you know about me?\n- Analyze my listening profile\n- What did I listen to this month?\n- Give personal music recommendations\n- Which artists fit my taste?\n- I want more music like this\n\n## Follow-ups\n- Try again\n- Play it\n- I want to hear [song]\n- No, I mean the live version\n- Only from the 90s\n- Make this a playlist\n\n## Good to know\n- Ask DJ only starts music directly for clear playback requests.\n- For lists, albums, recommendations and speakers you get buttons such as Play Now or Activate.",
+              "created_at": "2026-10-15T08:44:50.757905Z",
+              "client_id": "djconnect-ios-ABCDEF123456",
+              "client_type": "ios",
+              "status": "delivered",
+              "images": [],
+              "links": [],
+              "sources": [],
+              "audio_url": null,
+              "playback_actions": [],
+              "intent": {
+                "category": "informational",
+                "intent": "help",
+                "action": "none"
+              },
+              "action": "none",
+              "session_turn": {
+                "turn_id": "turn-92b1be73cd8a52be8aa570c52df81fbf",
+                "request_digest": "1301557f82cecada24ac9aa5aa902b4e4cb7dcdc7c09497f2926dec01cbdc935",
+                "profile_id": "profile-a",
+                "context": {},
+                "captured_playback_item_id": "",
+                "input_type": "text",
+                "explicit_playback_request": false,
+                "implicit_playback_entry": null,
+                "dependency_entries": []
+              },
+              "historical_entry_references": [],
+              "exchange_id": "hybrid-owned-help-1",
+              "exchange_order": 1,
+              "confirmation_actions": [],
+              "items": [],
+              "origin": ""
+            }
+          ],
+          "history_revision": 1,
+          "clear_revision": 0,
+          "history_limit": 1000,
+          "history_trimmed_before": null,
+          "history_trimmed_count": 0,
+          "server_time": "2026-10-15T08:44:50.758433Z",
+          "media_delivery_basis": "current_response_only",
+          "owner_profile_id": "profile-a",
+          "client_message_id": "hybrid-owned-help-1",
+          "conversation": {
+            "schema_version": 1,
+            "turn_id": "turn-92b1be73cd8a52be8aa570c52df81fbf",
+            "thread_id": "default",
+            "context": {},
+            "entry_ids": [],
+            "history_scope": "profile",
+            "input_type": "text",
+            "style": {
+              "persona": "home_dj",
+              "mood": "energy",
+              "mood_basis": "confirmed_session",
+              "language": "en",
+              "response_style": "balanced"
+            },
+            "model_source_basis": null,
+            "metrics": {
+              "agent_calls": 0,
+              "lookup_calls": 0,
+              "prompt_bytes": 0
+            }
+          },
+          "operation_receipt": {
+            "contract_version": 1,
+            "operation_id": "01a13ebc-4ea5-7000-ad91-44971d7b45d2",
+            "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+            "phase": "confirmed",
+            "expires_at_ms": 1792054190725,
+            "result_available": true,
+            "response_status": 200,
+            "error": null
+          },
+          "result_available": true
+        }
+      }
+    },
+    {
+      "path": "transport/operation",
+      "status": 200,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ea5-7000-ad91-44971d7b45d2",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "ask_dj/message",
+        "payload": {
+          "text": "help",
+          "client_message_id": "hybrid-owned-help-1",
+          "language": "en",
+          "audio_response": "never"
+        }
+      },
+      "body": {
+        "success": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4ea5-7000-ad91-44971d7b45d2",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054190725,
+          "result_available": false,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": false
+      }
+    },
+    {
+      "case": "actual-wss-track_insight",
+      "request": {
+        "id": 11,
+        "type": "djconnect/operation/execute",
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ec7-7000-ac32-745e11f281ab",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "track_insight",
+        "payload": {
+          "title": "Fixture work",
+          "artist": "Fixture artist",
+          "locale": "en"
+        }
+      },
+      "body": {
+        "id": 11,
+        "connection_id": "6e6d6bdcfe0d7d7a3a02a64f32fbee16",
+        "type": "result",
+        "success": true,
+        "status": 200,
+        "result": {
+          "id": "track_insight_3edc15c15520501bb7b47366",
+          "created_at": "2026-10-15T08:44:50.760788+00:00",
+          "source": "http",
+          "language": "en",
+          "mood_context": null,
+          "track": {
+            "title": "Fixture work",
+            "artist": "Fixture artist",
+            "album": null,
+            "artwork_url": null,
+            "duration_ms": 0,
+            "progress_ms": 0,
+            "is_playing": false,
+            "player_id": null,
+            "entity_id": null,
+            "backend": "spotify_direct"
+          },
+          "analysis": {
+            "summary": "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured.",
+            "full_text": "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured.",
+            "listening_cues": [],
+            "genre": null,
+            "subgenre": null,
+            "mood": null,
+            "vibe": null,
+            "texture": null,
+            "emotional_tone": null,
+            "energy": null,
+            "danceability": null,
+            "intensity": null,
+            "confidence": null,
+            "production_notes": [],
+            "instrumentation": [],
+            "arrangement_notes": [],
+            "similar_tracks": [],
+            "basis": "unmeasured_metadata_only_v1",
+            "measured_audio": false,
+            "verified_context": "",
+            "source_attribution": {}
+          },
+          "visual_profile": {
+            "palette": [
+              "#20b05f",
+              "#25d80f",
+              "#8725d4"
+            ],
+            "motion_style": "sharp",
+            "pulse_speed": 0.625,
+            "wave_amplitude": 0.6,
+            "particle_density": 0.575,
+            "glow_strength": 0.6,
+            "spectrum_bias": "low",
+            "seed": "20b05f25d80f8725d47781dc10bd96e0cd1c16250a71578063c7f6e350f574f0",
+            "basis": "decorative_unmeasured_v1",
+            "audio_reactive": false
+          },
+          "cache": {
+            "hit": false,
+            "key": "3edc15c15520501bb7b47366"
+          },
+          "operation_receipt": {
+            "contract_version": 1,
+            "operation_id": "01a13ebc-4ec7-7000-ac32-745e11f281ab",
+            "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+            "phase": "confirmed",
+            "expires_at_ms": 1792054190759,
+            "result_available": true,
+            "response_status": 200,
+            "error": null
+          },
+          "result_available": true
+        }
+      }
+    },
+    {
+      "case": "actual-wss-forecast-after-mood",
+      "body": {
+        "id": 12,
+        "connection_id": "6e6d6bdcfe0d7d7a3a02a64f32fbee16",
+        "type": "result",
+        "result": {
+          "success": true,
+          "contract_version": 1,
+          "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+          "forecast": {
+            "contract_version": 1,
+            "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+            "revision": 2,
+            "state": "ready",
+            "issued_at": "2026-10-15T08:44:50.721110+00:00",
+            "valid_until": "2026-10-15T08:46:50.588115+00:00",
+            "nominal_window_seconds": 900,
+            "supported_window_seconds": 900,
+            "current_anchor": {
+              "item_id": "8471a10c182b220b054bc25e",
+              "source_url": "https://open.spotify.com/track/1111111111111111111111"
+            },
+            "summary": "I can keep a steady thread around Fixture artist, adding context when it helps.",
+            "sections": [
+              {
+                "id": "current",
+                "title": "Now",
+                "claim_type": "current",
+                "text": "Now playing: Fixture work — Fixture artist.",
+                "source_url": "https://open.spotify.com/track/1111111111111111111111"
+              },
+              {
+                "id": "guidance",
+                "title": "The coming minutes",
+                "claim_type": "intention",
+                "text": "I can keep a steady thread around Fixture artist, adding context when it helps."
+              },
+              {
+                "id": "aim",
+                "title": "What I am aiming for",
+                "claim_type": "conditional_target",
+                "text": "The aim is a livelier atmosphere, with the current music as the point of departure."
+              }
+            ],
+            "imagery": []
+          }
+        },
+        "status": 200,
+        "success": true
+      }
+    },
+    {
+      "path": "session/broadcast/recovery",
+      "status": 200,
+      "request": {
+        "contract_version": 1,
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+        "recovery_cursor": "rOeXJpC_0X-i4gdXNfdx4TzLauzoF5atOxUOvASPjzo"
+      },
+      "body": {
+        "success": true,
+        "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+        "recovery": "snapshot_required",
+        "snapshot": {
+          "session": {
+            "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+            "runtime_state": "active",
+            "selected_mood": "energy",
+            "mood_revision": 1,
+            "selected_presence": "balanced",
+            "presence_revision": 2,
+            "locale": "en"
+          },
+          "playback": {
+            "state": "playing",
+            "item_id": "8471a10c182b220b054bc25e",
+            "title": "Fixture work",
+            "artist": "Fixture artist",
+            "album": "Fixture album",
+            "updated_at": "2026-10-15T08:44:50.584022+00:00",
+            "duration_ms": 300000,
+            "position_ms": 1000,
+            "source_url": "https://open.spotify.com/track/1111111111111111111111"
+          },
+          "planner": {
+            "planning_state": "ready",
+            "planning_horizon_minutes": 15,
+            "current_direction": "maintaining_energy",
+            "session_direction": {
+              "direction": "maintaining_energy",
+              "initialized_at": "2026-10-15T08:44:50.560708+00:00",
+              "updated_at": "2026-10-15T08:44:50.560708+00:00",
+              "start_strategy": "manual"
+            }
+          },
+          "session_flow": {
+            "flow_id": "flow-session-f76f12021d0d4f239ba5f71c74664444",
+            "flow_revision": 1,
+            "planning_horizon_minutes": 15,
+            "created_at": "2026-10-15T08:44:50.580351+00:00",
+            "items": [
+              {
+                "item_id": "now-current-track",
+                "item_type": "current_track",
+                "position": "now",
+                "label": "Current Track"
+              },
+              {
+                "item_id": "next-planning-horizon",
+                "item_type": "planning_horizon",
+                "position": "next",
+                "label": "Planning Horizon"
+              },
+              {
+                "item_id": "next-maintain-direction",
+                "item_type": "maintain_direction",
+                "position": "next",
+                "label": "Maintain Direction"
+              },
+              {
+                "item_id": "later-future-direction",
+                "item_type": "future_direction",
+                "position": "later",
+                "label": "Future Direction"
+              },
+              {
+                "item_id": "later-future-placeholder",
+                "item_type": "future_placeholder",
+                "position": "later",
+                "label": "Future Placeholder"
+              },
+              {
+                "item_id": "moment-moment-8933af5735ba443fa0b88129f815d3bb",
+                "item_type": "dj_moment",
+                "position": "next",
+                "label": "Fixture work — Fixture artist",
+                "moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+                "moment_type": "track"
+              }
+            ]
+          },
+          "audience": {
+            "signal_totals": {},
+            "recent_activity": []
+          },
+          "dj_moments": [
+            {
+              "moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+              "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+              "created_at": "2026-10-15T08:44:50.579186+00:00",
+              "type": "track",
+              "knowledge_intent": {
+                "type": "track_context",
+                "goal": "Explain one relevant detail that improves appreciation of the current track."
+              },
+              "presentation_intent": {
+                "source_session_mood": "groove",
+                "dj_persona": "home_dj",
+                "tone_of_voice": "warm and conversational",
+                "energy_level": "groove",
+                "delivery_style": "short contextual music story",
+                "voice_style": "persona-guided",
+                "visual_theme": "music-context",
+                "importance": "normal",
+                "maximum_duration_seconds": 25,
+                "delivery_channels": [
+                  "broadcast",
+                  "owner",
+                  "shared"
+                ],
+                "visibility": "session_shared"
+              },
+              "title": "Fixture work — Fixture artist",
+              "summary": "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured.",
+              "content": "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured.",
+              "artwork": null,
+              "actions": [
+                {
+                  "action_type": "ask_dj",
+                  "label": "Ask DJ",
+                  "icon_hint": "sparkles",
+                  "priority": 1,
+                  "required_capability": "ask_dj",
+                  "payload": {
+                    "title": "Fixture work",
+                    "artist": "Fixture artist",
+                    "album": "Fixture album"
+                  }
+                },
+                {
+                  "action_type": "tell_me_more",
+                  "label": "Tell Me More",
+                  "icon_hint": "info",
+                  "priority": 2,
+                  "required_capability": "ask_dj",
+                  "payload": {
+                    "title": "Fixture work",
+                    "artist": "Fixture artist",
+                    "album": "Fixture album"
+                  }
+                },
+                {
+                  "action_type": "show_artist",
+                  "label": "Show Artist",
+                  "icon_hint": "person",
+                  "priority": 3,
+                  "required_capability": "music_context",
+                  "payload": {
+                    "title": "Fixture work",
+                    "artist": "Fixture artist",
+                    "album": "Fixture album"
+                  }
+                },
+                {
+                  "action_type": "show_album",
+                  "label": "Show Album",
+                  "icon_hint": "rectangle.stack",
+                  "priority": 4,
+                  "required_capability": "music_context",
+                  "payload": {
+                    "title": "Fixture work",
+                    "artist": "Fixture artist",
+                    "album": "Fixture album"
+                  }
+                },
+                {
+                  "action_type": "show_track",
+                  "label": "Show Track",
+                  "icon_hint": "music.note",
+                  "priority": 5,
+                  "required_capability": "music_context",
+                  "payload": {
+                    "title": "Fixture work",
+                    "artist": "Fixture artist",
+                    "album": "Fixture album"
+                  }
+                }
+              ],
+              "visibility": "session_shared",
+              "delivery_channels": [
+                "broadcast",
+                "owner",
+                "shared"
+              ],
+              "importance": "normal",
+              "source_references": [
+                "track_insight"
+              ],
+              "generation_metadata": {
+                "provider": "track_insight",
+                "track_title": "Fixture work",
+                "artist": "Fixture artist",
+                "album": "Fixture album",
+                "genre": "",
+                "recommendation": "",
+                "validated": "true"
+              }
+            }
+          ],
+          "presentations": [
+            {
+              "presentation_id": "presentation-moment-8933af5735ba443fa0b88129f815d3bb",
+              "source_moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+              "source_moment_type": "track",
+              "visibility": "session_shared",
+              "speech": {
+                "mode": "primary_only",
+                "segments": [
+                  {
+                    "ordinal": 1,
+                    "speaker_role": "dj",
+                    "text": "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured."
+                  }
+                ]
+              }
+            }
+          ],
+          "broadcast": {
+            "started_at": "2026-10-15T08:44:50.560708+00:00",
+            "snapshot_watermark": 12
+          },
+          "native_delivery": {
+            "schema_version": 1,
+            "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+            "current_moment_id": null,
+            "active_flow_moment_ids": [],
+            "admissions": [
+              {
+                "moment_id": "moment-8933af5735ba443fa0b88129f815d3bb",
+                "qualification": "unqualified",
+                "current_display_allowed": false,
+                "active_flow_display_allowed": false,
+                "source_expires_at": null,
+                "display_expires_at": null,
+                "executable_actions": [],
+                "requires_spotify_attribution": false
+              }
+            ],
+            "revocation_scope": "session",
+            "revision": "dc5c0205a8980ca6d27bd5be"
+          },
+          "session_forecast": {
+            "contract_version": 1,
+            "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+            "revision": 2,
+            "state": "ready",
+            "issued_at": "2026-10-15T08:44:50.721110+00:00",
+            "valid_until": "2026-10-15T08:46:50.588115+00:00",
+            "nominal_window_seconds": 900,
+            "supported_window_seconds": 900,
+            "current_anchor": {
+              "item_id": "8471a10c182b220b054bc25e",
+              "source_url": "https://open.spotify.com/track/1111111111111111111111"
+            },
+            "summary": "I can keep a steady thread around Fixture artist, adding context when it helps.",
+            "sections": [
+              {
+                "id": "current",
+                "title": "Now",
+                "claim_type": "current",
+                "text": "Now playing: Fixture work — Fixture artist.",
+                "source_url": "https://open.spotify.com/track/1111111111111111111111"
+              },
+              {
+                "id": "guidance",
+                "title": "The coming minutes",
+                "claim_type": "intention",
+                "text": "I can keep a steady thread around Fixture artist, adding context when it helps."
+              },
+              {
+                "id": "aim",
+                "title": "What I am aiming for",
+                "claim_type": "conditional_target",
+                "text": "The aim is a livelier atmosphere, with the current music as the point of departure."
+              }
+            ],
+            "imagery": []
+          }
+        },
+        "recovery_cursor": "n8HaiIR5iwCSrznsoiUiemxXZFN24SOs_aHvOhxceEs"
+      }
+    },
+    {
+      "case": "actual-wss-command",
+      "request": {
+        "id": 14,
+        "type": "djconnect/operation/execute",
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ecb-7000-8492-349a2b89f799",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "command",
+        "payload": {
+          "command": "queue"
+        }
+      },
+      "body": {
+        "id": 14,
+        "connection_id": "6e6d6bdcfe0d7d7a3a02a64f32fbee16",
+        "type": "result",
+        "success": true,
+        "status": 200,
+        "result": {
+          "operation_receipt": {
+            "contract_version": 1,
+            "operation_id": "01a13ebc-4ecb-7000-8492-349a2b89f799",
+            "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+            "phase": "confirmed",
+            "expires_at_ms": 1792054190763,
+            "result_available": false,
+            "response_status": 200,
+            "error": null
+          },
+          "result_available": false
+        }
+      }
+    },
+    {
+      "path": "transport/operation",
+      "status": 200,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ecb-7000-8492-349a2b89f799",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "command",
+        "payload": {
+          "command": "queue"
+        }
+      },
+      "body": {
+        "success": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4ecb-7000-8492-349a2b89f799",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054190763,
+          "result_available": false,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": false
+      }
+    },
+    {
+      "case": "actual-wss-command",
+      "request": {
+        "id": 13,
+        "type": "djconnect/operation/execute",
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ece-7000-9e4f-ddbe3f077eec",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "command",
+        "payload": {
+          "command": "devices"
+        }
+      },
+      "body": {
+        "id": 13,
+        "connection_id": "6e6d6bdcfe0d7d7a3a02a64f32fbee16",
+        "type": "result",
+        "success": true,
+        "status": 200,
+        "result": {
+          "devices": [
+            {
+              "id": "own-speaker",
+              "name": "Fixture speaker",
+              "type": "",
+              "active": true,
+              "supports_volume": true,
+              "volume_percent": null,
+              "is_active": true,
+              "cached": false,
+              "first_seen_at": 1792053890.7671943,
+              "last_seen_at": 1792053890.7671943,
+              "source": "spotify",
+              "provider": "spotify"
+            }
+          ],
+          "success": true,
+          "provider": "spotify_direct",
+          "source": "spotify_direct",
+          "backend_available": true,
+          "ha_install_id": "ha_owned_hybrid_fixture",
+          "integration_version": "4.0.0-rc.1",
+          "ha_version": "4.0.0-rc.1",
+          "ha_major_minor": "4.0",
+          "music_backend": "spotify_direct",
+          "music_backend_name": "Spotify Direct",
+          "music_backend_available": true,
+          "music_backend_revision": 0,
+          "music_backend_capabilities": {
+            "supports_search": true,
+            "supports_playlists": true,
+            "supports_queue": true,
+            "supports_outputs": true,
+            "supports_volume": true,
+            "supports_favorites": true,
+            "supports_recently_played": true,
+            "supports_top_items": true,
+            "supports_recommendations": true,
+            "supports_library_profile": true,
+            "supports_shuffle": true,
+            "supports_repeat": true,
+            "supports_seek": true,
+            "supports_transfer_or_output_selection": true
+          },
+          "music_backend_observation_capabilities": {
+            "supports_current_playback_status": true,
+            "supports_media_change_observation": true,
+            "observation_mode_event": false,
+            "observation_mode_polling": true,
+            "supports_playback_instance_identity": false,
+            "supports_continue_stage2": false
+          },
+          "music_target_player": {},
+          "music_backend_error": null,
+          "operation_receipt": {
+            "contract_version": 1,
+            "operation_id": "01a13ebc-4ece-7000-9e4f-ddbe3f077eec",
+            "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+            "phase": "confirmed",
+            "expires_at_ms": 1792054190766,
+            "result_available": true,
+            "response_status": 200,
+            "error": null
+          },
+          "result_available": true
+        }
+      }
+    },
+    {
+      "path": "transport/operation",
+      "status": 200,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ed0-7000-8651-b8467d0d4ef8",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "command",
+        "payload": {
+          "command": "devices"
+        }
+      },
+      "body": {
+        "devices": [
+          {
+            "id": "own-speaker",
+            "name": "Fixture speaker",
+            "type": "",
+            "active": true,
+            "supports_volume": true,
+            "volume_percent": null,
+            "is_active": true,
+            "cached": false,
+            "first_seen_at": 1792053890.7671943,
+            "last_seen_at": 1792053890.7693276,
+            "source": "spotify",
+            "provider": "spotify"
+          }
+        ],
+        "success": true,
+        "provider": "spotify_direct",
+        "source": "spotify_direct",
+        "backend_available": true,
+        "ha_install_id": "ha_owned_hybrid_fixture",
+        "integration_version": "4.0.0-rc.1",
+        "ha_version": "4.0.0-rc.1",
+        "ha_major_minor": "4.0",
+        "music_backend": "spotify_direct",
+        "music_backend_name": "Spotify Direct",
+        "music_backend_available": true,
+        "music_backend_revision": 0,
+        "music_backend_capabilities": {
+          "supports_search": true,
+          "supports_playlists": true,
+          "supports_queue": true,
+          "supports_outputs": true,
+          "supports_volume": true,
+          "supports_favorites": true,
+          "supports_recently_played": true,
+          "supports_top_items": true,
+          "supports_recommendations": true,
+          "supports_library_profile": true,
+          "supports_shuffle": true,
+          "supports_repeat": true,
+          "supports_seek": true,
+          "supports_transfer_or_output_selection": true
+        },
+        "music_backend_observation_capabilities": {
+          "supports_current_playback_status": true,
+          "supports_media_change_observation": true,
+          "observation_mode_event": false,
+          "observation_mode_polling": true,
+          "supports_playback_instance_identity": false,
+          "supports_continue_stage2": false
+        },
+        "music_target_player": {},
+        "music_backend_error": null,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4ed0-7000-8651-b8467d0d4ef8",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054190768,
+          "result_available": true,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": true
+      }
+    },
+    {
+      "case": "closed-read-policy",
+      "body": {
+        "id": 6,
+        "connection_id": "6e6d6bdcfe0d7d7a3a02a64f32fbee16",
+        "type": "result",
+        "success": false,
+        "status": 400,
+        "error": {
+          "code": "unsupported_read"
+        }
+      }
+    },
+    {
+      "case": "request-id-reuse-closes-connection",
+      "body": {
+        "type": "auth_invalid",
+        "code": "invalid_request_id"
+      }
+    },
+    {
+      "case": "actual-out-of-order-held-effect-fast-read",
+      "received_id": 2,
+      "still_pending_id": 1
+    },
+    {
+      "case": "replacement-socket-original-id-status",
+      "body": {
+        "id": 1,
+        "connection_id": "77ad13932b674ddd9942e9ec925e7e71",
+        "type": "result",
+        "success": true,
+        "status": 202,
+        "result": {
+          "success": true,
+          "operation_receipt": {
+            "contract_version": 1,
+            "operation_id": "01a13ebc-4ed3-7000-b3e9-21bd99e09e6f",
+            "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+            "phase": "accepted",
+            "expires_at_ms": 1792054190771,
+            "result_available": false,
+            "response_status": null,
+            "error": null
+          },
+          "result_available": false
+        }
+      },
+      "new_connection_id": true
+    },
+    {
+      "path": "transport/operation",
+      "status": 202,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ed3-7000-b3e9-21bd99e09e6f",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "command",
+        "payload": {
+          "command": "next"
+        }
+      },
+      "body": {
+        "success": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4ed3-7000-b3e9-21bd99e09e6f",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "accepted",
+          "expires_at_ms": 1792054190771,
+          "result_available": false,
+          "response_status": null,
+          "error": null
+        },
+        "result_available": false
+      }
+    },
+    {
+      "path": "transport/operation",
+      "status": 200,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4ed3-7000-b3e9-21bd99e09e6f",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "command",
+        "payload": {
+          "command": "next"
+        }
+      },
+      "body": {
+        "success": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4ed3-7000-b3e9-21bd99e09e6f",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054190771,
+          "result_available": false,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": false
+      }
+    },
+    {
+      "case": "disconnect-before-provider-send-no-duplicate",
+      "mutations": 3
+    },
+    {
+      "case": "actual-provider-ack-loss",
+      "status": 200,
+      "body": {
+        "success": false,
+        "error": "backend_unavailable",
+        "message": "synthetic external acknowledgement loss",
+        "backend_available": false,
+        "playback": {
+          "has_playback": true,
+          "is_playing": true,
+          "title": "Fixture work",
+          "track_name": "Fixture work",
+          "uri": "spotify:track:4444444444444444444444",
+          "current_uri": "spotify:track:4444444444444444444444",
+          "context": {
+            "type": "",
+            "uri": "",
+            "href": ""
+          },
+          "context_uri": "",
+          "queue_context": "",
+          "artist": "Fixture artist",
+          "artist_name": "Fixture artist",
+          "artist_ids": [
+            "aaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          "album_name": "Fixture album",
+          "album_uri": "",
+          "release_date": "",
+          "release_date_precision": "",
+          "isrc": "",
+          "album_image_url": "",
+          "media_image_url": "",
+          "progress_ms": 1000,
+          "duration_ms": 300000,
+          "volume_percent": 40,
+          "shuffle": false,
+          "repeat_state": "off",
+          "device": {
+            "id": "own-speaker",
+            "name": "",
+            "type": "",
+            "active": true,
+            "supports_volume": true,
+            "volume_percent": 40
+          }
+        },
+        "music_backend": "spotify_direct",
+        "music_backend_name": "Spotify Direct",
+        "music_backend_available": true,
+        "music_backend_revision": 0,
+        "music_backend_capabilities": {
+          "supports_search": true,
+          "supports_playlists": true,
+          "supports_queue": true,
+          "supports_outputs": true,
+          "supports_volume": true,
+          "supports_favorites": true,
+          "supports_recently_played": true,
+          "supports_top_items": true,
+          "supports_recommendations": true,
+          "supports_library_profile": true,
+          "supports_shuffle": true,
+          "supports_repeat": true,
+          "supports_seek": true,
+          "supports_transfer_or_output_selection": true
+        },
+        "music_backend_observation_capabilities": {
+          "supports_current_playback_status": true,
+          "supports_media_change_observation": true,
+          "observation_mode_event": false,
+          "observation_mode_polling": true,
+          "supports_playback_instance_identity": false,
+          "supports_continue_stage2": false
+        },
+        "music_target_player": {},
+        "music_backend_error": null,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4ed8-7000-91d4-0dfa16b6c26a",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "unknown",
+          "expires_at_ms": 1792054190776,
+          "result_available": true,
+          "response_status": 200,
+          "error": "backend_unavailable"
+        },
+        "result_available": true
+      }
+    },
+    {
+      "case": "profile-reassignment-before-send",
+      "status": 403,
+      "additional_mutations": 0
+    },
+    {
+      "case": "actual-eight-pending-bound",
+      "body": {
+        "id": 9,
+        "connection_id": "26baaf8da5d82acd5a8644a933d37855",
+        "type": "result",
+        "success": false,
+        "status": 429,
+        "error": {
+          "code": "operation_capacity"
+        }
+      }
+    },
+    {
+      "case": "actual-idle-missing-pong-close",
+      "elapsed_seconds": 23.489158052005223
+    },
+    {
+      "case": "actual-idle-source-withdrawal",
+      "elapsed_seconds": 1.0048320420028176,
+      "body": {
+        "type": "auth_invalid",
+        "code": "operation_context_changed"
+      }
+    },
+    {
+      "case": "actual-idle-token-rotation",
+      "elapsed_seconds": 1.0069946669973433,
+      "body": {
+        "type": "auth_invalid",
+        "code": "unauthorized"
+      }
+    },
+    {
+      "path": "transport/operation/status",
+      "status": 200,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4e99-7000-b1b5-b09b09e192e2",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f"
+      },
+      "body": {
+        "success": true,
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ebc-4e99-7000-b1b5-b09b09e192e2",
+          "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054190713,
+          "result_available": false,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": false
+      }
+    },
+    {
+      "path": "transport/operation",
+      "status": 409,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ebc-4e99-7000-b1b5-b09b09e192e2",
+        "operation_epoch": "ff23517f2e86dc5e829a891b8d11ba4f",
+        "operation": "command",
+        "payload": {
+          "command": "next"
+        }
+      },
+      "body": {
+        "success": false,
+        "error": "operation_epoch_changed"
+      }
+    },
+    {
+      "path": "session/presence",
+      "status": 200,
+      "request": {
+        "device_id": "djconnect-ios-ABCDEF123456",
+        "client_type": "ios",
+        "contract_version": 1,
+        "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+        "selected_presence": "music_only",
+        "expected_presence_revision": 2
+      },
+      "body": {
+        "success": true,
+        "contract_version": 1,
+        "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+        "selected_presence": "music_only",
+        "presence_revision": 3,
+        "changed": true
+      }
+    },
+    {
+      "case": "actual-auth-deadline",
+      "elapsed_seconds": 5.011396751986467,
+      "body": {
+        "type": "auth_invalid",
+        "code": "auth_timeout"
+      }
+    },
+    {
+      "case": "actual-300s-idle-music-only-lease",
+      "elapsed_seconds": 300.0104176370078,
+      "body": {
+        "type": "auth_invalid",
+        "code": "auth_expired"
+      },
+      "lease_connection_id": "2be4151662f069120a31d04b5ce9dc53"
+    },
+    {
+      "case": "lease-renewal-retains-pairing-and-session",
+      "same_session": true
+    },
+    {
+      "path": "transport/context",
+      "status": 200,
+      "request": {
+        "contract_version": 1,
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        }
+      },
+      "body": {
+        "success": true,
+        "contract_version": 1,
+        "ha_install_id": "ha_owned_hybrid_fixture",
+        "operation_epoch": "eac5f77b9681352f59435edb82881d80",
+        "server_time_ms": 1792054221378,
+        "operation_lifetime_ms": 300000,
+        "requires_authenticated_tls": true,
+        "action_operations": [
+          "ask_dj/message",
+          "command",
+          "session/mood",
+          "session/presence",
+          "track_insight"
+        ],
+        "http_operations": [
+          "ask_dj/message",
+          "command",
+          "session/end",
+          "session/mood",
+          "session/presence",
+          "session/start",
+          "track_insight"
+        ],
+        "read_operations": [
+          "session/active",
+          "session/broadcast/recover",
+          "session/broadcast/snapshot",
+          "session/forecast"
+        ]
+      }
+    },
+    {
+      "path": "transport/operation",
+      "status": 200,
+      "request": {
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "contract_version": 1,
+        "operation_id": "01a13ec1-5a43-7000-b874-456d1f052c6f",
+        "operation_epoch": "eac5f77b9681352f59435edb82881d80",
+        "operation": "session/end",
+        "payload": {
+          "session_id": "session-f76f12021d0d4f239ba5f71c74664444"
+        }
+      },
+      "body": {
+        "success": true,
+        "session": {
+          "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+          "owner_profile_id": "profile-a",
+          "room": "",
+          "selected_mood": "energy",
+          "dj_persona": "home_dj",
+          "locale": "en",
+          "music_backend": "spotify_direct",
+          "runtime_state": "ended",
+          "created_at": "2026-10-15T08:44:50.560708+00:00",
+          "started_at": "2026-10-15T08:44:50.563698+00:00",
+          "session_start_strategy": "manual",
+          "initial_session_mood": "groove",
+          "mood_revision": 1,
+          "selected_presence": "music_only",
+          "presence_revision": 3,
+          "interaction_profile": "balanced",
+          "session_direction": {
+            "direction": "maintaining_energy",
+            "initialized_at": "2026-10-15T08:44:50.560708+00:00",
+            "updated_at": "2026-10-15T08:44:50.560708+00:00",
+            "start_strategy": "manual"
+          },
+          "discover_personalization_available": false,
+          "performance_memory": {
+            "source_flow_id": "flow-session-f76f12021d0d4f239ba5f71c74664444",
+            "recent_moment_ids": [],
+            "recent_moment_types": [],
+            "recent_artists": [],
+            "recent_albums": [],
+            "recent_genres": [],
+            "recent_recommendations": [],
+            "recent_session_directions": [],
+            "recent_silence_count": 0
+          },
+          "planner": {
+            "planner_state": "ready",
+            "planning_horizon_minutes": 15,
+            "created_at": "2026-10-15T08:44:50.560708+00:00",
+            "last_replan_at": "2026-10-15T08:44:50.580351+00:00",
+            "current_goal": "",
+            "configuration": {
+              "minimum_time_between_moments_seconds": 60.0,
+              "maximum_track_context_per_track": 1,
+              "allow_consecutive_silence": true,
+              "recommendation_preference": "balanced",
+              "exploration_preference": "balanced",
+              "energy_preference": "balanced",
+              "interaction_profile": "balanced"
+            },
+            "pending_events": [],
+            "output": {
+              "session_flow": {
+                "flow_id": "flow-session-f76f12021d0d4f239ba5f71c74664444",
+                "flow_revision": 1,
+                "planning_horizon_minutes": 15,
+                "created_at": "2026-10-15T08:44:50.580351+00:00",
+                "items": [
+                  {
+                    "item_id": "now-current-track",
+                    "item_type": "current_track",
+                    "position": "now",
+                    "label": "Current Track"
+                  },
+                  {
+                    "item_id": "next-planning-horizon",
+                    "item_type": "planning_horizon",
+                    "position": "next",
+                    "label": "Planning Horizon"
+                  },
+                  {
+                    "item_id": "next-maintain-direction",
+                    "item_type": "maintain_direction",
+                    "position": "next",
+                    "label": "Maintain Direction"
+                  },
+                  {
+                    "item_id": "later-future-direction",
+                    "item_type": "future_direction",
+                    "position": "later",
+                    "label": "Future Direction"
+                  },
+                  {
+                    "item_id": "later-future-placeholder",
+                    "item_type": "future_placeholder",
+                    "position": "later",
+                    "label": "Future Placeholder"
+                  }
+                ]
+              }
+            }
+          },
+          "broadcast": {
+            "session": {
+              "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+              "runtime_state": "ended",
+              "selected_mood": "energy",
+              "mood_revision": 1,
+              "selected_presence": "music_only",
+              "presence_revision": 3,
+              "locale": "en"
+            },
+            "playback": {
+              "state": "playing",
+              "item_id": "a087fe70b69de99082c39fdf",
+              "title": "Fixture work",
+              "artist": "Fixture artist",
+              "album": "Fixture album",
+              "updated_at": "2026-10-15T08:50:20.759589+00:00",
+              "duration_ms": 300000,
+              "position_ms": 1000,
+              "source_url": "https://open.spotify.com/track/5555555555555555555555"
+            },
+            "planner": {
+              "planning_state": "ready",
+              "planning_horizon_minutes": 15,
+              "current_direction": "maintaining_energy",
+              "session_direction": {
+                "direction": "maintaining_energy",
+                "initialized_at": "2026-10-15T08:44:50.560708+00:00",
+                "updated_at": "2026-10-15T08:44:50.560708+00:00",
+                "start_strategy": "manual"
+              }
+            },
+            "session_flow": {
+              "flow_id": "flow-session-f76f12021d0d4f239ba5f71c74664444",
+              "flow_revision": 1,
+              "planning_horizon_minutes": 15,
+              "created_at": "2026-10-15T08:44:50.580351+00:00",
+              "items": [
+                {
+                  "item_id": "now-current-track",
+                  "item_type": "current_track",
+                  "position": "now",
+                  "label": "Current Track"
+                },
+                {
+                  "item_id": "next-planning-horizon",
+                  "item_type": "planning_horizon",
+                  "position": "next",
+                  "label": "Planning Horizon"
+                },
+                {
+                  "item_id": "next-maintain-direction",
+                  "item_type": "maintain_direction",
+                  "position": "next",
+                  "label": "Maintain Direction"
+                },
+                {
+                  "item_id": "later-future-direction",
+                  "item_type": "future_direction",
+                  "position": "later",
+                  "label": "Future Direction"
+                },
+                {
+                  "item_id": "later-future-placeholder",
+                  "item_type": "future_placeholder",
+                  "position": "later",
+                  "label": "Future Placeholder"
+                }
+              ]
+            },
+            "audience": {
+              "signal_totals": {},
+              "recent_activity": []
+            },
+            "dj_moments": [],
+            "presentations": [],
+            "broadcast": {
+              "started_at": "2026-10-15T08:44:50.560708+00:00",
+              "snapshot_watermark": 0
+            },
+            "native_delivery": {
+              "schema_version": 1,
+              "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+              "current_moment_id": null,
+              "active_flow_moment_ids": [],
+              "admissions": [],
+              "revocation_scope": "session",
+              "revision": "d42a4d4591aba66690edd95d"
+            },
+            "session_forecast": {
+              "contract_version": 1,
+              "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+              "revision": 16,
+              "state": "withdrawn",
+              "issued_at": "2026-10-15T08:50:20.760482+00:00",
+              "valid_until": "2026-10-15T08:52:20.760391+00:00",
+              "nominal_window_seconds": 900,
+              "supported_window_seconds": 0,
+              "current_anchor": null,
+              "summary": "",
+              "sections": [],
+              "imagery": []
+            }
+          }
+        },
+        "operation_receipt": {
+          "contract_version": 1,
+          "operation_id": "01a13ec1-5a43-7000-b874-456d1f052c6f",
+          "operation_epoch": "eac5f77b9681352f59435edb82881d80",
+          "phase": "confirmed",
+          "expires_at_ms": 1792054521379,
+          "result_available": true,
+          "response_status": 200,
+          "error": null
+        },
+        "result_available": true
+      }
+    },
+    {
+      "path": "session/broadcast/recovery",
+      "status": 404,
+      "request": {
+        "contract_version": 1,
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        },
+        "session_id": "session-f76f12021d0d4f239ba5f71c74664444",
+        "recovery_cursor": "rOeXJpC_0X-i4gdXNfdx4TzLauzoF5atOxUOvASPjzo"
+      },
+      "body": {
+        "success": false,
+        "error": "active_session_not_found",
+        "message": "active_session_not_found"
+      }
+    }
+  ],
+  "provider_calls": [
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/artists"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/search"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/artists/aaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/me/player/next"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/me/player/next"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/search"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/devices"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/me/player/next"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/me/player/next"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/tracks/contains"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/artists/aaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/artists/aaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/artists/aaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/artists/aaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/artists/aaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/player/queue"
+    }
+  ],
+  "accepted_provider_mutations": 4,
+  "expected_mutations": 4,
+  "real_model_calls": 0,
+  "max_rss_kib": 251360,
+  "journal_bytes": 879,
+  "journal_pre_idle_bytes": 16349,
+  "native": "OPEN",
+  "installed": "NOT_RUN",
+  "provider_boundary": "explicit external music/source fixtures only",
+  "remaining": "Exact independent review and separately owned native/installed/hardware/joint qualification; physical routing remains OPEN"
+}

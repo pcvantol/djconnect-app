@@ -1,0 +1,63 @@
+{
+  "assignment": "DJC-APPLE-NL-TAGLINE-ALIGNMENT-20261015",
+  "source_commit": "1fe6698",
+  "branch": "codex/apple-dj-presence-v1",
+  "build": "40209",
+  "languages": [
+    "en",
+    "nl",
+    "de",
+    "fr",
+    "es"
+  ],
+  "shared_key": "brand.tagline",
+  "coverage": [
+    "runtime launch",
+    "shared About/setup/service banners",
+    "Watch About where already present",
+    "native localized OS launch screen"
+  ],
+  "source_changes": [
+    "remove three legacy tagline keys",
+    "one shared five-language key",
+    "About resolver no longer NL/EN-only",
+    "unlimited tagline wrapping and vertical compact/accessibility layout",
+    "scroll runtime launch when necessary",
+    "replace retired captioned OS launch raster with generated native labels",
+    "source-copy documentation and CI regression hook"
+  ],
+  "validation": {
+    "mac_build": "40209",
+    "ios_build": "40209",
+    "embedded_watch": "arm64 and arm64_32 Watch root compiled",
+    "strict_codesign": "Mac/iOS PASS",
+    "existing_localization_validator": "1188 keys PASS; single-line block comment parsing fixed",
+    "tagline_validator": "exact five-language text, resource parity, generated OS copy, no active legacy keys/raster PASS",
+    "swift_resource_test": "sharedBrandTaglineUsesExactApprovedCopyInEveryLanguage PASS",
+    "native_render": "actual built DJConnectUI banner via NSHostingView;20 images,5 locales x320/700pt xnormal/accessibility3 layout; both contact sheets visually inspected; no clipped tagline seen",
+    "built_ios_launch_strings": "all five generated translations read from compiled app bundle",
+    "diff_check": "PASS"
+  },
+  "evidence": {
+    "manifest": "build/recovery/tagline40209-selective-manifest-20261017.json",
+    "native_preview": "build/recovery/tagline40209/nl-compact.png",
+    "normal_contact_sheet": "build/recovery/tagline40209/djc-tagline40209-host-contact-normal.png",
+    "accessibility_layout_contact_sheet": "build/recovery/tagline40209/djc-tagline40209-host-contact-ax.png",
+    "mac_build": "/private/tmp/djc-tagline40209-mac-final.log",
+    "ios_build": "/private/tmp/djc-tagline40209-ios-final.log",
+    "swift_test": "/private/tmp/djc-tagline40209-tests.log",
+    "native_render_log": "/private/tmp/djc-tagline40209-host-render-final.log"
+  },
+  "boundaries": [
+    "No device/app installation in this task; previously installed40208 not replaced",
+    "No source push/PR/merge; existing publication pause preserved",
+    "Render is native Mac component evidence, not physical iOS/Watch or spoken VoiceOver proof; macOS dynamic type environment checks adaptive layout, not physical iOS font scaling",
+    "System launch storyboard compiled and bundle translations verified; actual device OS-launch screenshot NOT_RUN",
+    "ImageRenderer initially produced blank native-glass images; not accepted as visual proof; replaced with actual NSHostingView render"
+  ],
+  "preservation": [
+    "Original artwork master and historical release evidence unchanged",
+    "Community/Personal tier copy and all product/backend behavior unchanged",
+    "Existing unrelated Xcode project copies and websocket resumption note preserved"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "build": "40207",
+  "scope": "Mac shared AskDJ/DJ Session composer collapses after outside-editor mouse click",
+  "change": "Non-hit-testing AppKit probe observes local left/right mouse down. Outside its editor rect clears native first responder and SwiftUI focus; event passes through. Monitor removed when detached/dismantled. Collapsed TextField lineLimit1; expanded2...4. Draft untouched.",
+  "checks": [
+    "macOS build PASS",
+    "452 source hashes PASS",
+    "Mac40207 installed version/signature/executable verification PASS",
+    "diff check PASS"
+  ],
+  "runtime_mouse": "NOT_RUN; previously confirmed automation kernel symlink-root failure remains. No host configuration/security changes made.",
+  "ios": "UIKit behavior retained; iPhone/iPad remain40205",
+  "preservation": "Timer paused; no Core messages or publication; previous app backed up."
+}

@@ -1,0 +1,17 @@
+{
+  "pass": true,
+  "checks": [
+    "browser private key nonextractable",
+    "Mac JOSESwift encrypt -> actual Chromium jose decrypt",
+    "actual Chromium rejects changed tag",
+    "actual Chromium jose encrypt -> Mac JOSESwift decrypt",
+    "Mac rejects changed Chromium ciphertext"
+  ],
+  "isSecureContext": true,
+  "privateKeyExtractable": false,
+  "scope": "isolated synthetic actual Chromium WebCrypto/jose <-> Mac CLI JOSESwift; no iOS/AppAttest/TV",
+  "chromium_version": "155.0.8059.85",
+  "webkit": "NOT_RUN",
+  "native_ios": "NOT_RUN",
+  "AppAttest": "NOT_RUN"
+}

@@ -1,0 +1,621 @@
+{
+  "qualification": "actual Runtime accepted playback and repository/query window; synthetic inputs, not installed/native proof",
+  "first_page": {
+    "success": true,
+    "schema_version": 1,
+    "session": {
+      "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+      "lifecycle_status": "ACTIVE",
+      "created_at": "2026-10-08T21:29:03.441816+00:00",
+      "started_at": "2026-10-08T21:29:03.442319+00:00",
+      "ended_at": "",
+      "interrupted_at": "",
+      "revision": "26:ACTIVE:0:0:",
+      "read_only": false,
+      "history_coverage": "saved_entries_only_no_retrospective_observations"
+    },
+    "entries": [
+      {
+        "entry_id": "entry-afcb9ae70992537ab1777c723bb6da6c",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 1,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.442645+00:00",
+        "retained_until": "2027-01-06T21:29:03.442645+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "…And Justice for All",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "82c6454a845207c1120d5a16",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0123456789abcdefghijkL",
+          "title": "One"
+        },
+        "text": "One · Metallica · …And Justice for All",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-31453d19a54254968fa4a95a86d78f9c",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 2,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.443015+00:00",
+        "retained_until": "2027-01-06T21:29:03.443015+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "468309bf594aa60321c8c491",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000000",
+          "title": "Track 0"
+        },
+        "text": "Track 0 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-4111bdcd666b55949abe89520cd76947",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 3,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.443428+00:00",
+        "retained_until": "2027-01-06T21:29:03.443428+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "63bf0397fbdc1fd1f3fbec76",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001",
+          "title": "Track 1"
+        },
+        "text": "Track 1 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-d6b873e7df9550d7ba5c812096e9d3c5",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 4,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.443828+00:00",
+        "retained_until": "2027-01-06T21:29:03.443828+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "e876818bdbce007cbc615bff",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000002",
+          "title": "Track 2"
+        },
+        "text": "Track 2 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-58e5d95a31ab5bd9868f4c091dbac084",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 5,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.444182+00:00",
+        "retained_until": "2027-01-06T21:29:03.444182+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "0a7d1ed7df65205c42e524c4",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000003",
+          "title": "Track 3"
+        },
+        "text": "Track 3 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-ff94681f1e2c5dcbbcd8d5b82712927e",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 6,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.444510+00:00",
+        "retained_until": "2027-01-06T21:29:03.444510+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "3534b7648d65084718c698be",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000004",
+          "title": "Track 4"
+        },
+        "text": "Track 4 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-fadaf89fae3351b5b9baf40f0cff2a2c",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 7,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.444816+00:00",
+        "retained_until": "2027-01-06T21:29:03.444816+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "2d8610aca9f7195b20e12e4b",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000005",
+          "title": "Track 5"
+        },
+        "text": "Track 5 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-b3d34a87e40352b39be07e4d74acd83d",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 8,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.445185+00:00",
+        "retained_until": "2027-01-06T21:29:03.445185+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "f2e0ee1f255fba9c7660c90d",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000006",
+          "title": "Track 6"
+        },
+        "text": "Track 6 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-c0e5bfb822fd58bfbe65e14b4a255878",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 9,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.445517+00:00",
+        "retained_until": "2027-01-06T21:29:03.445517+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "94a4f22e5a85606a323c1b7f",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000007",
+          "title": "Track 7"
+        },
+        "text": "Track 7 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-5967072565ca5ab9b64cab34387bde07",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 10,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.445806+00:00",
+        "retained_until": "2027-01-06T21:29:03.445806+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "3ed27b64a632fd5e5781f1ff",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000008",
+          "title": "Track 8"
+        },
+        "text": "Track 8 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-3dcddc55769a5da58fa26cc9a5e5c89d",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 11,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.446198+00:00",
+        "retained_until": "2027-01-06T21:29:03.446198+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "1b87d03b085f1aa978354ef2",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000009",
+          "title": "Track 9"
+        },
+        "text": "Track 9 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-4d5d194a8b5657e9bd4cd0a76fbb02f6",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 12,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.446577+00:00",
+        "retained_until": "2027-01-06T21:29:03.446577+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "0e542a17457c274896395740",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000010",
+          "title": "Track 10"
+        },
+        "text": "Track 10 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-f4e8b0b5673d50bf8a9978f1f08bdde3",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 13,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.446914+00:00",
+        "retained_until": "2027-01-06T21:29:03.446914+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "b04dc4aa7e3750ffe7d8d483",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000011",
+          "title": "Track 11"
+        },
+        "text": "Track 11 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-8878048ff2dd5303a48d689a504be70f",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 14,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.447236+00:00",
+        "retained_until": "2027-01-06T21:29:03.447236+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "8c7d90ec8da0b51f8e056be4",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000012",
+          "title": "Track 12"
+        },
+        "text": "Track 12 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-8c368bf42da0555a910b0fddd87798d1",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 15,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.447523+00:00",
+        "retained_until": "2027-01-06T21:29:03.447523+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "ad34104c047b10723f3f7253",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000013",
+          "title": "Track 13"
+        },
+        "text": "Track 13 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-ec9304a6ddf75b18b93069137be90a28",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 16,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.447849+00:00",
+        "retained_until": "2027-01-06T21:29:03.447849+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "1f0cf2291dad6440fd5bf482",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000014",
+          "title": "Track 14"
+        },
+        "text": "Track 14 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-62642d5ed80b588f96f1419be51fa0e1",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 17,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.448235+00:00",
+        "retained_until": "2027-01-06T21:29:03.448235+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "8677ddfa42ca5b6a9c9f4770",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000015",
+          "title": "Track 15"
+        },
+        "text": "Track 15 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-9c183e525126559684488653c2310027",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 18,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.448537+00:00",
+        "retained_until": "2027-01-06T21:29:03.448537+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "dca4e2fe52efc7e66e4e322f",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000016",
+          "title": "Track 16"
+        },
+        "text": "Track 16 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-ebd605f80b435ccfb3e640e5f9a21ba5",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 19,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.448830+00:00",
+        "retained_until": "2027-01-06T21:29:03.448830+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "d6c8d8808a615d701cb5c0e9",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000017",
+          "title": "Track 17"
+        },
+        "text": "Track 17 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-a9342fcaaa8b5571ae7423b75261be66",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 20,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.449134+00:00",
+        "retained_until": "2027-01-06T21:29:03.449134+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "72fb28031ac90d9e014b9a15",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000018",
+          "title": "Track 18"
+        },
+        "text": "Track 18 · Metallica",
+        "requires_spotify_attribution": true
+      }
+    ],
+    "revision": "26:ACTIVE:0:0:",
+    "next_cursor": "eyJhZnRlciI6IDIwLCAibW9kZSI6ICJ0aW1lbGluZSIsICJwcm9maWxlX2lkIjogInByb2ZpbGUtYSIsICJxdWVyeSI6ICIiLCAicmV2aXNpb24iOiAiMjY6QUNUSVZFOjA6MDoiLCAic2Vzc2lvbl9pZCI6ICJzZXNzaW9uLWE4YWY4NmUxMzBmMDQ5OGQ5NTY4MTZlYjZkMGFkY2FkIn3NY1Fg_cNM5K_LfTmoi83zdmmG7MTGwFHzpC5hlvLwlg==",
+    "coverage": "saved_entries_only"
+  },
+  "tail_window": {
+    "success": true,
+    "schema_version": 1,
+    "session": {
+      "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+      "lifecycle_status": "ACTIVE",
+      "created_at": "2026-10-08T21:29:03.441816+00:00",
+      "started_at": "2026-10-08T21:29:03.442319+00:00",
+      "ended_at": "",
+      "interrupted_at": "",
+      "revision": "26:ACTIVE:0:0:",
+      "read_only": false,
+      "history_coverage": "saved_entries_only_no_retrospective_observations"
+    },
+    "entries": [
+      {
+        "entry_id": "entry-04a3971c475e5fb1b44fd47a0b5cbb7f",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 24,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.450249+00:00",
+        "retained_until": "2027-01-06T21:29:03.450249+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "a86f7baaaf20ba1a6bbf1ea8",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000022",
+          "title": "Track 22"
+        },
+        "text": "Track 22 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-f71e1a42b1425c7eac70374ae771d7ee",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 25,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.450515+00:00",
+        "retained_until": "2027-01-06T21:29:03.450515+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "6139c3fbce607bd2a9f4cceb",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000023",
+          "title": "Track 23"
+        },
+        "text": "Track 23 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-3a3cc30a7c3a5c8b9af6c811d47728bd",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 26,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.450831+00:00",
+        "retained_until": "2027-01-06T21:29:03.450831+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "2c6e2b199646cbfa611e4bd4",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000024",
+          "title": "Track 24"
+        },
+        "text": "Track 24 · Metallica",
+        "requires_spotify_attribution": true
+      }
+    ],
+    "revision": "26:ACTIVE:0:0:",
+    "next_cursor": null,
+    "coverage": "bounded_saved_entry_window",
+    "window": "tail",
+    "anchor_entry_id": null,
+    "scanned_order_min": 24,
+    "scanned_order_max": 26,
+    "scan_complete": false,
+    "window_limit": 3
+  },
+  "anchor_window": {
+    "success": true,
+    "schema_version": 1,
+    "session": {
+      "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+      "lifecycle_status": "ACTIVE",
+      "created_at": "2026-10-08T21:29:03.441816+00:00",
+      "started_at": "2026-10-08T21:29:03.442319+00:00",
+      "ended_at": "",
+      "interrupted_at": "",
+      "revision": "26:ACTIVE:0:0:",
+      "read_only": false,
+      "history_coverage": "saved_entries_only_no_retrospective_observations"
+    },
+    "entries": [
+      {
+        "entry_id": "entry-3dcddc55769a5da58fa26cc9a5e5c89d",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 11,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.446198+00:00",
+        "retained_until": "2027-01-06T21:29:03.446198+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "1b87d03b085f1aa978354ef2",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000009",
+          "title": "Track 9"
+        },
+        "text": "Track 9 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-4d5d194a8b5657e9bd4cd0a76fbb02f6",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 12,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.446577+00:00",
+        "retained_until": "2027-01-06T21:29:03.446577+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "0e542a17457c274896395740",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000010",
+          "title": "Track 10"
+        },
+        "text": "Track 10 · Metallica",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-f4e8b0b5673d50bf8a9978f1f08bdde3",
+        "session_id": "session-a8af86e130f0498d956816eb6d0adcad",
+        "order": 13,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-08T21:29:03.446914+00:00",
+        "retained_until": "2027-01-06T21:29:03.446914+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "",
+          "artist": "Metallica",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "b04dc4aa7e3750ffe7d8d483",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/0000000000000000000011",
+          "title": "Track 11"
+        },
+        "text": "Track 11 · Metallica",
+        "requires_spotify_attribution": true
+      }
+    ],
+    "revision": "26:ACTIVE:0:0:",
+    "next_cursor": null,
+    "coverage": "bounded_saved_entry_window",
+    "window": "anchor",
+    "anchor_entry_id": "entry-3dcddc55769a5da58fa26cc9a5e5c89d",
+    "scanned_order_min": 11,
+    "scanned_order_max": 13,
+    "scan_complete": false,
+    "window_limit": 3
+  }
+}

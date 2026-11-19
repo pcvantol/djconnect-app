@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-16",
+  "build": "40188",
+  "scope": "Replace rotating white label dash with recognizable fixed turntable tonearm",
+  "implementation": [
+    "Remove Capsule label mark from rotating vinyl group.",
+    "Draw fixed pivot mount, counterweight, bent silver/charcoal arm, headshell/cartridge and stylus in Canvas, above and outside TimelineView rotation.",
+    "Retain existing record reflection, grooves, label rotation, pause/resume elapsed timing and reduced-motion behavior.",
+    "Decorative overlay ignores hit testing and retains parent accessibility-hidden behavior."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "manifest": "452 hashes PASS",
+    "installed": "iPhone/iPad40188 confirmed",
+    "source_render_visual": "Actual new Canvas and placeholder SwiftUI components extracted and rendered with ImageRenderer; preview actually viewed: recognizable tonearm rests on grooves; white label dash absent. Preview uses representative page/label colors.",
+    "physical_visual": "NOT_RUN; no claim of physical rotating-placeholder screenshot."
+  },
+  "evidence": {
+    "manifest": "build/recovery/vinyl40188-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/vinyl40188-tonearm-20261016.patch",
+    "preview": "build/recovery/vinyl40188-tonearm-preview.png",
+    "render_script": "/private/tmp/djc-tonearm40188-preview.swift",
+    "build": "/private/tmp/djc-ios-40188-tonearm-build.log"
+  },
+  "preservation": [
+    "No playback actions, profile/settings, messages or external publication.",
+    "Recovery/evidence and unrelated alternate projects retained.",
+    "No timer restart or Core messages."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}

@@ -1,0 +1,116 @@
+{
+  "path": "/session/history/session-167909ead0c74e4a919e247176a97212",
+  "status": 200,
+  "body": {
+    "success": true,
+    "schema_version": 1,
+    "session": {
+      "session_id": "session-167909ead0c74e4a919e247176a97212",
+      "lifecycle_status": "ENDED",
+      "created_at": "2026-10-13T09:42:07.243400+00:00",
+      "started_at": "2026-10-13T09:42:07.253219+00:00",
+      "ended_at": "2026-10-13T09:43:25.889497+00:00",
+      "interrupted_at": "",
+      "revision": "6:ENDED:0:0:8cd62b0bb1b22dcb",
+      "summary": {
+        "schema_version": "djconnect-session-history-summary/1",
+        "session_revision": "6:ENDED:0:0:8cd62b0bb1b22dcb",
+        "state": "final",
+        "as_of": "2026-10-13T09:43:25.904529+00:00",
+        "tracks_observed": {
+          "value": 2,
+          "basis": "accepted_playback_observed_entries",
+          "coverage": "complete",
+          "state": "final",
+          "revision": "6:ENDED:0:0:8cd62b0bb1b22dcb",
+          "as_of": "2026-10-13T09:43:25.904529+00:00",
+          "observation_scope": "stage_1_media_identity_changes_not_occurrences"
+        },
+        "moments_published": {
+          "value": 2,
+          "basis": "semantic_publication_commit",
+          "coverage": "complete",
+          "state": "final",
+          "revision": "6:ENDED:0:0:8cd62b0bb1b22dcb",
+          "as_of": "2026-10-13T09:43:25.904529+00:00"
+        },
+        "mood": {
+          "value": "energy",
+          "basis": "confirmed_symbolic_mood_elapsed_intervals",
+          "coverage": "complete",
+          "state": "final",
+          "revision": "6:ENDED:0:0:8cd62b0bb1b22dcb",
+          "as_of": "2026-10-13T09:43:25.904529+00:00"
+        }
+      },
+      "read_only": true,
+      "history_coverage": "saved_entries_only_no_retrospective_observations"
+    },
+    "entries": [
+      {
+        "entry_id": "entry-cc002dad509f5c5fbc5c37ffbc95c26b",
+        "session_id": "session-167909ead0c74e4a919e247176a97212",
+        "order": 1,
+        "kind": "dj_moment",
+        "occurred_at": "2026-10-13T09:42:07.274886+00:00",
+        "retained_until": "2027-01-11T09:42:07.274886+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "archive_basis": "runtime_authored_direction_v1",
+        "locale": "nl",
+        "moment_id": "moment-4da2559c8dca42459738fad4e378ae09",
+        "moment_type": "session",
+        "persona": "home_dj",
+        "source_attribution": {},
+        "summary": "De sessie beweegt naar een rustiger gevoel.",
+        "text": "We doen het wat rustiger aan."
+      },
+      {
+        "entry_id": "entry-1d71ddd591ec5b639ff52b32c7ea4ccf",
+        "session_id": "session-167909ead0c74e4a919e247176a97212",
+        "order": 2,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-13T09:42:07.281476+00:00",
+        "retained_until": "2027-01-11T09:42:07.281476+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "Fixture Edition",
+          "artist": "Northline",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "8471a10c182b220b054bc25e",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/1111111111111111111111",
+          "title": "Anchor 1"
+        },
+        "text": "Anchor 1 · Northline · Fixture Edition",
+        "requires_spotify_attribution": true
+      },
+      {
+        "entry_id": "entry-f2901863005b56359cb2cf8b10f08844",
+        "session_id": "session-167909ead0c74e4a919e247176a97212",
+        "order": 3,
+        "kind": "playback_observed",
+        "occurred_at": "2026-10-13T09:43:22.286771+00:00",
+        "retained_until": "2027-01-11T09:43:22.286771+00:00",
+        "historical_view_only": true,
+        "current_display_allowed": false,
+        "playback": {
+          "album": "Fixture Edition",
+          "artist": "Northline",
+          "coverage": "observed_playing_not_full_listen",
+          "item_id": "4bb2c319269cfc4a072749b4",
+          "provider": "Spotify",
+          "source_url": "https://open.spotify.com/track/4444444444444444444444",
+          "title": "Anchor 4"
+        },
+        "text": "Anchor 4 · Northline · Fixture Edition",
+        "requires_spotify_attribution": true
+      }
+    ],
+    "revision": "6:ENDED:0:0:8cd62b0bb1b22dcb",
+    "next_cursor": null,
+    "coverage": "saved_entries_only"
+  },
+  "cache_control": "no-store"
+}

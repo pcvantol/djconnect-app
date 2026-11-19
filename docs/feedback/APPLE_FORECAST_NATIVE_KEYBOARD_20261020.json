@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "parent_commit": "2543eef8a2067e21a42cadbbc0c3f86f5ec983bb",
+  "scope": "bounded native Mac window key-equivalent routing and focus over synthetic paired GET fixture",
+  "swift_testing_functions_passed": 1,
+  "parameterized_cases_passed": 16,
+  "failed": 0,
+  "native_command_f_dispatches": 3,
+  "native_flow_search_focus": true,
+  "forecast_query_preserved": true,
+  "unsent_draft_preserved": true,
+  "session_identity_preserved": true,
+  "session_playback_preserved": true,
+  "wire_get_only": true,
+  "source_input_sha256": {
+    "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift": "f6efac117ac03acf122245e5cbd3a69a327033a2c347a1f10198b928a9dc2937",
+    "Sources/DJConnectUI/SessionTimelineScreen.swift": "811561f75f73bcceffd954a05fd9cc9cfcea840192cd7ba311e9f552fb5200d9",
+    "Sources/DJConnectUI/SessionForecastView.swift": "2ebab4f71359c654cc8a80cab9b2a1f74426acce871c1d6598b029ee03f6376c",
+    "Tests/Fixtures/session-forecast-core-3cfa5512.json": "909c9bc4f882f5db84b0b92a4fef4102c3f8d123337cf0770160f590fba24cac"
+  },
+  "log_sha256": "7c1bc9101f1196f26b8315deb5a00a1c2f25dc5036b75fd26fd1b466351a4cb2",
+  "screenshot_sha256": {
+    "keyboard-03-flow-search-closed.png": "b9426198a53cb8fba89f43d367ce68a638d63bff21075c119f5411cd0098d36d",
+    "keyboard-01-forecast.png": "1d8b541a7308539376f5bd02eaf3cbcb7d9873da976f92964644852963d2fa93",
+    "keyboard-02-flow-search.png": "30a7b72517f98719b61a1b1b9c62ec7c96a05445521b090161ce6c6c37668074"
+  },
+  "production_source_delta": false,
+  "external_publication": false,
+  "physical_input_qualified": false,
+  "voiceover_qualified": false,
+  "ios_keyboard_qualified": false,
+  "scroll_restoration_qualified": false,
+  "installed_ha_qualified": false,
+  "new_recovery_bundles": 0
+}

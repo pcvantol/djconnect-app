@@ -1,0 +1,19 @@
+{
+  "status": "CLEANUP_ABORTED_BEFORE_DELETE; source recovery archive verified",
+  "preflight": "/private/tmp/djc-safe-cache-preflight-20261016-0355.json: seven own cache roots existed; no active build tools, lsofempty, no symlinks, uid501.",
+  "safety_stop": "Before any rmtree, deletion script hashes retainedproducts. iOS product was absent, causing FileNotFoundError. No deletion executed. Later fixedrootlisting found hybrid iOS andMac roots contained only Logs/info.plist. Build/products/intermediates/index changed after inventory; cause/actor unknown. No attribution to own cleanup.",
+  "actual_deletions_this_turn": [],
+  "installed_mac": "40116; explicit HOSTACCESS strictdeepcodesignverifyexit0. Sandbox-only check returned CSSMERR_TP_NOT_TRUSTED; host rerun confirms signature, no trustsetting changed. ExecutableSHA256780f8623d7d1e03a6716f4506ac9636619a7e4a463fb77ee526a13d684a024fe.",
+  "source_snapshot": "RootViewSHA2566d9778361896281feaffeef4d56eb805bd3b16fa0820be79a6687f48a15fe550 equals previousaudit. Selectivesource/latestpassediPadtab+settingsxcresults present.",
+  "recovery": {
+    "archive": "/Users/pcvantol/Documents/GitHub/djconnect-app/build/apple-40017-recovery/source/build/recovery/selective-40117-source-20261016.tar.gz",
+    "archive_sha256": "040d25e4a3d327a5b25b75679cda56a12a5fd3ea0f6294cbfd88c347d2e6e9f3",
+    "archive_bytes": 8470813,
+    "file_count": 451,
+    "excluded": "Only screenshot and tmp directories of selective snapshot. Existing originals and all external qualification evidence retained. Build source, resources, project, tests, scripts and docs archived. No binary products recreated."
+  },
+  "recovery_validation": "451archivefiles independentlyhashed fromcompressedmembers equalmanifest; source rehashedafterarchiveequal. Archive/manifest inignoredlocalbuild/recovery only, no publication. Originalscreenshots/tmp/source/evidence notdeleted. Sourcebackup is not recovery of missing signedproducts or new build acceptance.",
+  "next": "Vanished hybrid productpaths cannot be used for installation. Rebuild only for actualnewqualifiedwork using verified selective source/archive, never incompletefullwriter. No broadcleanup whileinventoryunexpectedlychanges.",
+  "refs": "Soleactivewriter; main/currentonlyprovenmerged, noneeligible; unrelateduntrackedprojectfolders preserved.",
+  "storage": "Freshdf6.8GiBinternal/2.5GiBEP_DATA; increase cannot be attributed to own deletion."
+}

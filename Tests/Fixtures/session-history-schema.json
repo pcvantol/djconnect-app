@@ -1,0 +1,339 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "djconnect.session-conversation-history.v1",
+  "title": "Owner Session conversation/history projection v1",
+  "$defs": {
+    "session": {
+      "type": "object",
+      "required": [
+        "session_id",
+        "lifecycle_status",
+        "revision",
+        "read_only"
+      ],
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "lifecycle_status": {
+          "enum": [
+            "OPENING",
+            "ACTIVE",
+            "ENDED",
+            "INTERRUPTED"
+          ]
+        },
+        "revision": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "read_only": {
+          "type": "boolean"
+        },
+        "history_coverage": {
+          "type": "string"
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "required": [
+        "entry_id",
+        "session_id",
+        "order",
+        "kind",
+        "occurred_at",
+        "retained_until"
+      ],
+      "properties": {
+        "entry_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "enum": [
+            "playback_observed",
+            "dj_moment",
+            "conversation_user",
+            "conversation_dj"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "retained_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "turn_id": {
+          "type": "string"
+        },
+        "input_type": {
+          "enum": [
+            "text",
+            "voice"
+          ]
+        },
+        "requires_spotify_attribution": {
+          "type": "boolean"
+        },
+        "historical_view_only": {
+          "const": true
+        },
+        "current_display_allowed": {
+          "const": false
+        }
+      }
+    },
+    "open_action": {
+      "type": "object",
+      "required": [
+        "kind",
+        "session_id",
+        "entry_id",
+        "navigation_only"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "open_session"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "entry_id": {
+          "type": "string"
+        },
+        "navigation_only": {
+          "const": true
+        }
+      }
+    },
+    "conversation_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "selected_entry": {
+          "type": "object",
+          "required": [
+            "session_id",
+            "entry_id"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "session_id": {
+              "type": "string"
+            },
+            "entry_id": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "timeline_window_query": {
+      "type": "object",
+      "required": [
+        "window"
+      ],
+      "properties": {
+        "window": {
+          "enum": [
+            "tail",
+            "anchor"
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "anchor_entry_id": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "window": {
+                "const": "anchor"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "anchor_entry_id"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "success",
+        "schema_version",
+        "sessions"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "sessions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/session"
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "success",
+        "schema_version",
+        "session",
+        "entries"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "session": {
+          "$ref": "#/$defs/session"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/entry"
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "success",
+        "schema_version",
+        "matches"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "matches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/entry"
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "success",
+        "conversation"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        },
+        "conversation": {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "turn_id",
+            "context",
+            "entry_ids",
+            "input_type"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 1
+            },
+            "turn_id": {
+              "type": "string"
+            },
+            "context": {
+              "$ref": "#/$defs/conversation_context"
+            },
+            "entry_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "input_type": {
+              "enum": [
+                "text",
+                "voice"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "success",
+        "schema_version",
+        "session",
+        "entry",
+        "read_only",
+        "navigation_only"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "session": {
+          "$ref": "#/$defs/session"
+        },
+        "entry": {
+          "$ref": "#/$defs/entry"
+        },
+        "read_only": {
+          "type": "boolean"
+        },
+        "navigation_only": {
+          "const": true
+        }
+      }
+    }
+  ]
+}

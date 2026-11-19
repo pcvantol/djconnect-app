@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-16",
+  "build": "40160",
+  "scope": "Album-art-derived tint for the artwork glass border in DJ Session and Now Playing",
+  "implementation": [
+    "Shared artwork glass modifier uses the existing artwork cache and average-image colour sampler used by Now Playing player card.",
+    "Inset glass and border tint follow displayed artwork URL; URL changes reset tint immediately and cancelled old loads cannot install a stale colour.",
+    "Existing artwork layout, tap surface and playback overlays preserved. Reduce Transparency and Reduce Motion respected."
+  ],
+  "selective_source_manifest": "build/recovery/iphone40160-selective-source-manifest-20261016.json",
+  "verified_files": 452,
+  "checks": {
+    "signed_ios_build": "PASS",
+    "codesign": "strict deep PASS",
+    "diff_check": "PASS",
+    "physical_screenshot_probe": "PASS; ordinary live DJ Session, no playback/send action by probe",
+    "installed_readback": "iPhone bundleVersion40160"
+  },
+  "evidence": {
+    "build_log": "/private/tmp/djc-ios-40160-artwork-glass-build.log",
+    "install": "/private/tmp/djc-iphone-40160-install.json",
+    "apps": "/private/tmp/djc-iphone-40160-apps.json",
+    "xcresult": "/private/tmp/djc-iphone-40160-artwork-tint-20261016.xcresult",
+    "screenshot_actually_viewed": "/private/tmp/djc-iphone-40160-artwork-tint-attachments/CFF18CD7-8FDA-42EE-85DC-34D269E9D814.png",
+    "visual_observation": "Kim Carnes cover has a muted warm/neutral artwork-derived ring, replacing the page-purple ring.",
+    "executable_sha256": "5f73441768603652e713c5c4c56540aa8747e954b92ed8a7f8b30f925ffaeed3"
+  },
+  "limits": [
+    "Physical screenshot verifies iPhone DJ Session only; Now Playing shares the modifier but has no additional physical screenshot in this change.",
+    "Average cover tint, not per-edge multicolour extraction.",
+    "Other devices not installed; full unqualified writer not installed."
+  ],
+  "publication": "Local commit only; no push/PR/merge",
+  "cleanup": "Original probe restored; evidence and untracked Xcode projects preserved."
+}

@@ -1,0 +1,40 @@
+{
+  "status": "LOCAL_PERSONA_SOURCE_AND_MODELED_TESTS_PASS; not installed/native accepted",
+  "producer_main": "8757ecd38a5fe31254a36aba5e0cbe5852edfa7e",
+  "scope": "Active DJ-session Persona control only; independent of unpublished generic TTS candidate. Timer PAUSED at direct human request.",
+  "contract": {
+    "route": "POST /api/djconnect/v1/session/persona",
+    "version": 1,
+    "request": "Exactly client_type/device_id/session_id/selected_persona/expected_persona_revision/contract_version; ordinary paired auth and no-store",
+    "snapshots": "Actual Core Runtime/Broadcast fields dj_persona and persona_revision; mutation response/current use selected_persona and persona_revision",
+    "values": [
+      "home_dj",
+      "radio_dj",
+      "club_dj",
+      "festival_dj"
+    ],
+    "capability": "Exact active_session_persona flag/version/path/method/auth/ordering/scope/values gate"
+  },
+  "implementation": [
+    "Confirmed state only; pending never relabels selection",
+    "Independent Persona revision/certainty fence across Runtime, HTTP recovery and Broadcast persona_changed; stale/sibling/same-revision contradictory input cannot replace confirmed current state",
+    "403 authority withdrawal and session/background/epoch/successor fences; session end immediately invalidates pending Persona work",
+    "409 adopts safely ordered current response and shows localized conflict; no automatic write retry",
+    "Lost response rereads Session once without replaying mutation",
+    "Active-session popover next to Mood/Presence; four localized choices, confirmed checkmark, pending/error/unavailable, accessible labels and44pt rows",
+    "No Profile/default/Persona-history rewrite, presence budget, original AskDJ replay, playback or provider action"
+  ],
+  "validation": {
+    "final_regression": "641 Swift tests in5suites PASS31.102s; existing intentional skips retained",
+    "regression_log": "/private/tmp/djc-persona-final-regression-20261016.log",
+    "mac_library": "DJConnectUI native Swift build PASS",
+    "ios_simulator_library": "DJConnectUI arm64 iOS26 simulator build PASS48.13s",
+    "ios_log": "/private/tmp/djc-persona-ios-library-build-20261016.log",
+    "localizations": "1159keys five languages PASS after final copy correction",
+    "diff_check": "PASS"
+  },
+  "review": "Local self-review of pinned source/response fields, CAS/authority/lifecycle and no-replay paths; no independent review claimed. Early testmacro/fixturesetup corrections retained in private logs.",
+  "limits": "No ordinary installed/native-menu/accessibility/audible/cross-device runtime acceptance yet. No full unfinished writer install. No TTS Voice menu/MP3 integration or new Core contract adoption claimed. Existing installed iPad40117 and Mac/iPhone40116 retained.",
+  "effects": "Local source/tests/fixture/documentation only; timer paused; no push/PR/merge/install/HA change. Preserve untracked Xcode copies.",
+  "next": "Review source candidate then qualify selective native menu and real shared Session confirmation under usable native test authorization; do not change active shared Session just to create a fixture."
+}

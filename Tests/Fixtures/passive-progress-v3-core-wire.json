@@ -1,0 +1,645 @@
+{
+  "qualification": "ACTUAL_ISOLATED_HA_MAC_PASSIVE_V3_SYNTHETIC_PROVIDER_ONLY",
+  "capabilities": {
+    "version": 1,
+    "owner_only": true,
+    "authentication": "paired_device_bearer",
+    "authorize_path": "/api/djconnect/v1/session/surface/authorize",
+    "read_path": "/api/djconnect/v1/session/surface/read",
+    "surfaces": [
+      "live_activity",
+      "watch_widget",
+      "widget"
+    ],
+    "explicit_consent_required": true,
+    "max_cache_seconds": 120,
+    "read_side_effects": false,
+    "live_invalidation": "existing_owner_broadcast_events",
+    "projection_versions": [
+      1,
+      2,
+      3
+    ],
+    "default_projection_version": 1,
+    "background_delivery": false,
+    "watch_replication": false,
+    "watch_widget": {
+      "scope": "paired_watch_widget_v1",
+      "surface": "watch_widget",
+      "client_type": "watchos",
+      "contract_version": 1,
+      "projection_version": 1,
+      "explicit_consent_required": true,
+      "locked_display_required": true,
+      "background_delivery": false
+    }
+  },
+  "examples": [
+    {
+      "case": "original_mac_v3",
+      "passive_session": {
+        "schema_version": 3,
+        "surface": "widget",
+        "binding_id": "89d8561a2bb26cc2e65f1389be5a5f47",
+        "generation": "3724b24aa22f9f074fc3315fecd51bd0",
+        "session_id": "session-86862c4fba144774965e0ee057e349fd",
+        "delivery_sequence": 11,
+        "as_of": "2026-11-06T16:03:02.919618+00:00",
+        "observed_at": "2026-11-06T16:03:02.913811+00:00",
+        "expires_at": "2026-11-06T16:05:02.913811+00:00",
+        "state": "active",
+        "playback_state": "playing",
+        "cache_policy": {
+          "scope": "current_surface_only",
+          "maximum_seconds": 120,
+          "renew_on_read": false,
+          "locked_display": false,
+          "os_pixel_erasure": "best_effort_when_learned"
+        },
+        "mood": {
+          "value": "groove",
+          "revision": 0
+        },
+        "presence": "balanced",
+        "persona": "home_dj",
+        "navigation": {
+          "kind": "open_session",
+          "session_id": "session-86862c4fba144774965e0ee057e349fd"
+        },
+        "contribution": {
+          "moment_id": "moment-645b0c9e2478f770e32c0a6c6f6af246",
+          "published_at": "2026-11-06T16:03:02.789146+00:00",
+          "text": "Welkom, fijn dat je er bent! Ik ben je Home DJ: warm en nieuwsgierig gezelschap. Met Groove houd ik mijn bijdragen ontspannen en vloeiend. Je koos Gebalanceerd: ik wissel bijdragen af met ruimte voor de muziek. Veel luisterplezier!",
+          "persona": "home_dj",
+          "source_attribution": {},
+          "usage_basis": "runtime_authored_direction",
+          "expires_at": "2026-11-06T16:03:27.789146+00:00",
+          "rights": {
+            "passive_cache": true,
+            "os_snapshot": true,
+            "external_relay": false,
+            "watch_replication": false
+          }
+        },
+        "now_playing": {
+          "item_id": "02e3d582594577327c335fc0",
+          "subject_uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+          "track": "Fixture track",
+          "artist": "Northline",
+          "album": "Fixture album",
+          "observed_at": "2026-11-06T16:03:02.846272+00:00",
+          "expires_at": "2026-11-06T16:05:02.846272+00:00",
+          "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA",
+          "attribution": {
+            "provider": "Spotify",
+            "mark": "spotify",
+            "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+          },
+          "usage_basis": "spotify_temporary_passive_metadata",
+          "progress": {
+            "schema_version": 1,
+            "position_ms": 20351,
+            "duration_ms": 240000,
+            "playback_state": "playing",
+            "observed_at": "2026-11-06T16:03:02.846272+00:00",
+            "expires_at": "2026-11-06T16:05:02.846272+00:00"
+          }
+        },
+        "artwork": [
+          {
+            "slot": "now_playing",
+            "asset_id": "TbB17LR_2DrpHKKdIJDgP2vTZIP8Id5B",
+            "subject": {
+              "provider": "spotify",
+              "uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+              "type": "track",
+              "album_uri": "spotify:album:BBBBBBBBBBBBBBBBBBBBBB"
+            },
+            "role": "current_cover",
+            "media_revision": "681d2d91d2ef1c1add1969d5",
+            "captured_at": "2026-11-06T16:03:02.913727+00:00",
+            "expires_at": "2026-11-06T16:05:02.846272+00:00",
+            "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA",
+            "attribution": {
+              "provider": "Spotify",
+              "mark": "spotify",
+              "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "alt_text": {
+              "en": "Artwork for Fixture track",
+              "nl": "Hoes van Fixture track",
+              "de": "Cover von Fixture track",
+              "fr": "Pochette de Fixture track",
+              "es": "Portada de Fixture track"
+            },
+            "width": 64,
+            "height": 64,
+            "crop_allowed": false,
+            "usage_basis": "spotify_temporary_passive_cover",
+            "image_path": "/api/djconnect/v1/session/surface/image/session-86862c4fba144774965e0ee057e349fd/TbB17LR_2DrpHKKdIJDgP2vTZIP8Id5B",
+            "rights": {
+              "passive_cache": true,
+              "os_snapshot": true,
+              "external_relay": false,
+              "watch_replication": false
+            }
+          }
+        ],
+        "contribution_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "now_playing_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "artwork_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "revision": "0905e3371ad2936022e6d67f8e52c534"
+      }
+    },
+    {
+      "case": "live_activity_v3",
+      "passive_session": {
+        "schema_version": 3,
+        "surface": "live_activity",
+        "binding_id": "726845b300cf1603bf8d11d4fb828172",
+        "generation": "d6d6c850b401833ecb83232434a72af3",
+        "session_id": "session-86862c4fba144774965e0ee057e349fd",
+        "delivery_sequence": 11,
+        "as_of": "2026-11-06T16:03:02.920743+00:00",
+        "observed_at": "2026-11-06T16:03:02.913811+00:00",
+        "expires_at": "2026-11-06T16:05:02.913811+00:00",
+        "state": "active",
+        "playback_state": "playing",
+        "cache_policy": {
+          "scope": "current_surface_only",
+          "maximum_seconds": 120,
+          "renew_on_read": false,
+          "locked_display": true,
+          "os_pixel_erasure": "best_effort_when_learned"
+        },
+        "mood": {
+          "value": "groove",
+          "revision": 0
+        },
+        "presence": "balanced",
+        "persona": "home_dj",
+        "navigation": {
+          "kind": "open_session",
+          "session_id": "session-86862c4fba144774965e0ee057e349fd"
+        },
+        "contribution": {
+          "moment_id": "moment-645b0c9e2478f770e32c0a6c6f6af246",
+          "published_at": "2026-11-06T16:03:02.789146+00:00",
+          "text": "Welkom, fijn dat je er bent! Ik ben je Home DJ: warm en nieuwsgierig gezelschap. Met Groove houd ik mijn bijdragen ontspannen en vloeiend. Je koos Gebalanceerd: ik wissel bijdragen af met ruimte voor de muziek. Veel luisterplezier!",
+          "persona": "home_dj",
+          "source_attribution": {},
+          "usage_basis": "runtime_authored_direction",
+          "expires_at": "2026-11-06T16:03:27.789146+00:00",
+          "rights": {
+            "passive_cache": true,
+            "os_snapshot": true,
+            "external_relay": false,
+            "watch_replication": false
+          }
+        },
+        "now_playing": {
+          "item_id": "02e3d582594577327c335fc0",
+          "subject_uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+          "track": "Fixture track",
+          "artist": "Northline",
+          "album": "Fixture album",
+          "observed_at": "2026-11-06T16:03:02.846272+00:00",
+          "expires_at": "2026-11-06T16:05:02.846272+00:00",
+          "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA",
+          "attribution": {
+            "provider": "Spotify",
+            "mark": "spotify",
+            "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+          },
+          "usage_basis": "spotify_temporary_passive_metadata",
+          "progress": {
+            "schema_version": 1,
+            "position_ms": 20351,
+            "duration_ms": 240000,
+            "playback_state": "playing",
+            "observed_at": "2026-11-06T16:03:02.846272+00:00",
+            "expires_at": "2026-11-06T16:05:02.846272+00:00"
+          }
+        },
+        "artwork": [
+          {
+            "slot": "now_playing",
+            "asset_id": "TbB17LR_2DrpHKKdIJDgP2vTZIP8Id5B",
+            "subject": {
+              "provider": "spotify",
+              "uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+              "type": "track",
+              "album_uri": "spotify:album:BBBBBBBBBBBBBBBBBBBBBB"
+            },
+            "role": "current_cover",
+            "media_revision": "681d2d91d2ef1c1add1969d5",
+            "captured_at": "2026-11-06T16:03:02.913727+00:00",
+            "expires_at": "2026-11-06T16:05:02.846272+00:00",
+            "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA",
+            "attribution": {
+              "provider": "Spotify",
+              "mark": "spotify",
+              "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "alt_text": {
+              "en": "Artwork for Fixture track",
+              "nl": "Hoes van Fixture track",
+              "de": "Cover von Fixture track",
+              "fr": "Pochette de Fixture track",
+              "es": "Portada de Fixture track"
+            },
+            "width": 64,
+            "height": 64,
+            "crop_allowed": false,
+            "usage_basis": "spotify_temporary_passive_cover",
+            "image_path": "/api/djconnect/v1/session/surface/image/session-86862c4fba144774965e0ee057e349fd/TbB17LR_2DrpHKKdIJDgP2vTZIP8Id5B",
+            "rights": {
+              "passive_cache": true,
+              "os_snapshot": true,
+              "external_relay": false,
+              "watch_replication": false
+            }
+          }
+        ],
+        "contribution_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "now_playing_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "artwork_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "revision": "42a295e6c3a31fabdd979c8eac727a69"
+      }
+    },
+    {
+      "case": "minimal_watch_widget",
+      "passive_session": {
+        "schema_version": 1,
+        "scope": "paired_watch_widget_v1",
+        "surface": "watch_widget",
+        "binding_id": "e7ad56c34e899c3ad038afb05de34ae4",
+        "generation": "c5d4493dcbd73ec05d974d6b0fd5f70f",
+        "session_id": "session-86862c4fba144774965e0ee057e349fd",
+        "delivery_sequence": 11,
+        "as_of": "2026-11-06T16:03:02.924092+00:00",
+        "observed_at": "2026-11-06T16:03:02.913811+00:00",
+        "expires_at": "2026-11-06T16:05:02.913811+00:00",
+        "state": "active",
+        "cache_policy": {
+          "scope": "current_watch_widget_only",
+          "maximum_seconds": 120,
+          "renew_on_read": false,
+          "locked_display": true,
+          "os_pixel_erasure": "best_effort_when_learned"
+        },
+        "mood": {
+          "value": "groove",
+          "revision": 0
+        },
+        "now_playing": {
+          "item_id": "02e3d582594577327c335fc0",
+          "subject_uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+          "track": "Fixture track",
+          "observed_at": "2026-11-06T16:03:02.846272+00:00",
+          "expires_at": "2026-11-06T16:05:02.846272+00:00",
+          "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA",
+          "attribution": {
+            "provider": "Spotify",
+            "mark": "spotify",
+            "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+          },
+          "usage_basis": "spotify_temporary_passive_metadata"
+        },
+        "artwork": [
+          {
+            "slot": "now_playing",
+            "asset_id": "TbB17LR_2DrpHKKdIJDgP2vTZIP8Id5B",
+            "subject": {
+              "provider": "spotify",
+              "uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+              "type": "track",
+              "album_uri": "spotify:album:BBBBBBBBBBBBBBBBBBBBBB"
+            },
+            "role": "current_cover",
+            "media_revision": "681d2d91d2ef1c1add1969d5",
+            "captured_at": "2026-11-06T16:03:02.913727+00:00",
+            "expires_at": "2026-11-06T16:05:02.846272+00:00",
+            "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA",
+            "attribution": {
+              "provider": "Spotify",
+              "mark": "spotify",
+              "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "alt_text": {
+              "en": "Artwork for Fixture track",
+              "nl": "Hoes van Fixture track",
+              "de": "Cover von Fixture track",
+              "fr": "Pochette de Fixture track",
+              "es": "Portada de Fixture track"
+            },
+            "width": 64,
+            "height": 64,
+            "crop_allowed": false,
+            "usage_basis": "spotify_temporary_passive_cover",
+            "image_path": "/api/djconnect/v1/session/surface/image/session-86862c4fba144774965e0ee057e349fd/TbB17LR_2DrpHKKdIJDgP2vTZIP8Id5B",
+            "rights": {
+              "passive_cache": true,
+              "os_snapshot": true,
+              "external_relay": false,
+              "watch_replication": false,
+              "paired_watch_cache": true
+            }
+          }
+        ],
+        "now_playing_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "artwork_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "revision": "321251659bedc1082377d3c443a8b36a"
+      }
+    },
+    {
+      "case": "confirmed_mood",
+      "passive_session": {
+        "schema_version": 3,
+        "surface": "widget",
+        "binding_id": "89d8561a2bb26cc2e65f1389be5a5f47",
+        "generation": "3724b24aa22f9f074fc3315fecd51bd0",
+        "session_id": "session-86862c4fba144774965e0ee057e349fd",
+        "delivery_sequence": 18,
+        "as_of": "2026-11-06T16:03:02.950215+00:00",
+        "observed_at": "2026-11-06T16:03:02.948570+00:00",
+        "expires_at": "2026-11-06T16:05:02.948570+00:00",
+        "state": "active",
+        "playback_state": "playing",
+        "cache_policy": {
+          "scope": "current_surface_only",
+          "maximum_seconds": 120,
+          "renew_on_read": false,
+          "locked_display": false,
+          "os_pixel_erasure": "best_effort_when_learned"
+        },
+        "mood": {
+          "value": "energy",
+          "revision": 1
+        },
+        "presence": "balanced",
+        "persona": "home_dj",
+        "navigation": {
+          "kind": "open_session",
+          "session_id": "session-86862c4fba144774965e0ee057e349fd"
+        },
+        "contribution": {
+          "moment_id": "moment-645b0c9e2478f770e32c0a6c6f6af246",
+          "published_at": "2026-11-06T16:03:02.789146+00:00",
+          "text": "Welkom, fijn dat je er bent! Ik ben je Home DJ: warm en nieuwsgierig gezelschap. Met Groove houd ik mijn bijdragen ontspannen en vloeiend. Je koos Gebalanceerd: ik wissel bijdragen af met ruimte voor de muziek. Veel luisterplezier!",
+          "persona": "home_dj",
+          "source_attribution": {},
+          "usage_basis": "runtime_authored_direction",
+          "expires_at": "2026-11-06T16:03:27.789146+00:00",
+          "rights": {
+            "passive_cache": true,
+            "os_snapshot": true,
+            "external_relay": false,
+            "watch_replication": false
+          }
+        },
+        "now_playing": {
+          "item_id": "02e3d582594577327c335fc0",
+          "subject_uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+          "track": "Fixture track",
+          "artist": "Northline",
+          "album": "Fixture album",
+          "observed_at": "2026-11-06T16:03:02.846272+00:00",
+          "expires_at": "2026-11-06T16:05:02.846272+00:00",
+          "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA",
+          "attribution": {
+            "provider": "Spotify",
+            "mark": "spotify",
+            "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+          },
+          "usage_basis": "spotify_temporary_passive_metadata",
+          "progress": {
+            "schema_version": 1,
+            "position_ms": 20351,
+            "duration_ms": 240000,
+            "playback_state": "playing",
+            "observed_at": "2026-11-06T16:03:02.846272+00:00",
+            "expires_at": "2026-11-06T16:05:02.846272+00:00"
+          }
+        },
+        "artwork": [
+          {
+            "slot": "now_playing",
+            "asset_id": "TbB17LR_2DrpHKKdIJDgP2vTZIP8Id5B",
+            "subject": {
+              "provider": "spotify",
+              "uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+              "type": "track",
+              "album_uri": "spotify:album:BBBBBBBBBBBBBBBBBBBBBB"
+            },
+            "role": "current_cover",
+            "media_revision": "681d2d91d2ef1c1add1969d5",
+            "captured_at": "2026-11-06T16:03:02.913727+00:00",
+            "expires_at": "2026-11-06T16:05:02.846272+00:00",
+            "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA",
+            "attribution": {
+              "provider": "Spotify",
+              "mark": "spotify",
+              "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "alt_text": {
+              "en": "Artwork for Fixture track",
+              "nl": "Hoes van Fixture track",
+              "de": "Cover von Fixture track",
+              "fr": "Pochette de Fixture track",
+              "es": "Portada de Fixture track"
+            },
+            "width": 64,
+            "height": 64,
+            "crop_allowed": false,
+            "usage_basis": "spotify_temporary_passive_cover",
+            "image_path": "/api/djconnect/v1/session/surface/image/session-86862c4fba144774965e0ee057e349fd/TbB17LR_2DrpHKKdIJDgP2vTZIP8Id5B",
+            "rights": {
+              "passive_cache": true,
+              "os_snapshot": true,
+              "external_relay": false,
+              "watch_replication": false
+            }
+          }
+        ],
+        "contribution_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "now_playing_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "artwork_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "revision": "e7eccea059ae798f11be0160807a12e1"
+      }
+    },
+    {
+      "case": "watch_confirmed_mood",
+      "passive_session": {
+        "schema_version": 1,
+        "scope": "paired_watch_widget_v1",
+        "surface": "watch_widget",
+        "binding_id": "e7ad56c34e899c3ad038afb05de34ae4",
+        "generation": "c5d4493dcbd73ec05d974d6b0fd5f70f",
+        "session_id": "session-86862c4fba144774965e0ee057e349fd",
+        "delivery_sequence": 18,
+        "as_of": "2026-11-06T16:03:02.950838+00:00",
+        "observed_at": "2026-11-06T16:03:02.948570+00:00",
+        "expires_at": "2026-11-06T16:05:02.948570+00:00",
+        "state": "active",
+        "cache_policy": {
+          "scope": "current_watch_widget_only",
+          "maximum_seconds": 120,
+          "renew_on_read": false,
+          "locked_display": true,
+          "os_pixel_erasure": "best_effort_when_learned"
+        },
+        "mood": {
+          "value": "energy",
+          "revision": 1
+        },
+        "now_playing": {
+          "item_id": "02e3d582594577327c335fc0",
+          "subject_uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+          "track": "Fixture track",
+          "observed_at": "2026-11-06T16:03:02.846272+00:00",
+          "expires_at": "2026-11-06T16:05:02.846272+00:00",
+          "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA",
+          "attribution": {
+            "provider": "Spotify",
+            "mark": "spotify",
+            "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+          },
+          "usage_basis": "spotify_temporary_passive_metadata"
+        },
+        "artwork": [
+          {
+            "slot": "now_playing",
+            "asset_id": "TbB17LR_2DrpHKKdIJDgP2vTZIP8Id5B",
+            "subject": {
+              "provider": "spotify",
+              "uri": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+              "type": "track",
+              "album_uri": "spotify:album:BBBBBBBBBBBBBBBBBBBBBB"
+            },
+            "role": "current_cover",
+            "media_revision": "681d2d91d2ef1c1add1969d5",
+            "captured_at": "2026-11-06T16:03:02.913727+00:00",
+            "expires_at": "2026-11-06T16:05:02.846272+00:00",
+            "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA",
+            "attribution": {
+              "provider": "Spotify",
+              "mark": "spotify",
+              "url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "alt_text": {
+              "en": "Artwork for Fixture track",
+              "nl": "Hoes van Fixture track",
+              "de": "Cover von Fixture track",
+              "fr": "Pochette de Fixture track",
+              "es": "Portada de Fixture track"
+            },
+            "width": 64,
+            "height": 64,
+            "crop_allowed": false,
+            "usage_basis": "spotify_temporary_passive_cover",
+            "image_path": "/api/djconnect/v1/session/surface/image/session-86862c4fba144774965e0ee057e349fd/TbB17LR_2DrpHKKdIJDgP2vTZIP8Id5B",
+            "rights": {
+              "passive_cache": true,
+              "os_snapshot": true,
+              "external_relay": false,
+              "watch_replication": false,
+              "paired_watch_cache": true
+            }
+          }
+        ],
+        "now_playing_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "artwork_status": {
+          "state": "available",
+          "reason": "qualified"
+        },
+        "revision": "2764a5bae263d439d1216a059462d106"
+      }
+    }
+  ],
+  "request_contract": {
+    "authorize": {
+      "contract_version": 1,
+      "projection_version": 3,
+      "device_id": "djconnect-macos-ABCDEF123457",
+      "client_type": "macos",
+      "session_id": "<current-session-id>",
+      "surface": "widget",
+      "enabled": true,
+      "os_snapshot_cache": true,
+      "locked_display": false
+    },
+    "authorization_response": {
+      "success": true,
+      "contract_version": 1,
+      "grant_id": "<opaque-current-surface-grant>",
+      "passive_session": "See original_mac_v3 example"
+    },
+    "read": {
+      "contract_version": 1,
+      "projection_version": 3,
+      "device_id": "djconnect-macos-ABCDEF123457",
+      "client_type": "macos",
+      "session_id": "<current-session-id>",
+      "surface": "widget",
+      "grant_id": "<opaque-current-surface-grant>"
+    },
+    "image_query": {
+      "contract_version": "1",
+      "projection_version": "3",
+      "device_id": "djconnect-macos-ABCDEF123457",
+      "client_type": "macos",
+      "surface": "widget",
+      "grant_id": "<opaque-current-surface-grant>"
+    },
+    "watch_overrides": {
+      "client_type": "watchos",
+      "device_id": "djconnect-watchos-ABCDEF123458",
+      "surface": "watch_widget",
+      "projection_version": 1,
+      "locked_display": true
+    }
+  },
+  "notes": [
+    "Resource examples are actual isolated HA output; no real provider/model/native calls.",
+    "Grant/identity request placeholders are schema documentation, not live authority.",
+    "Images require ordinary paired bearer plus exact own surface/grant/version; no bearer is included.",
+    "No background delivery or cross-device replication permission."
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "status": "PRESENTATION_SOURCE_COMPONENT_COMPILES; not integrated or installed",
+  "component": "Sources/DJConnectUI/SessionSpeechRecoveryNotice.swift",
+  "sha256": "a5ac8b0452cdf7bcc51de4d63c6e3ab9a40406dfc9a9b705df2f9481de76cf51",
+  "behavior": [
+    "Inline native glass notice keeps text/session controls outside its scope",
+    "Localized title and retained-contribution message",
+    "Expandable localized recovery instructions for selected Assist pipeline, TTS provider/access/connection/language/voice",
+    "Explicit optional reference-owner retry callback; disabled while checking/backoff or caller denies authority",
+    "No networking, player, provider selection, fallback, auto retry or raw provider data inside view"
+  ],
+  "localization": "Seven recovery keys in nl/en/de/fr/es; scripts/validate_localizations.py passes1149keys",
+  "validation": {
+    "build": "swift build --build-system native --target DJConnectUI -j2 PASS36.22seconds",
+    "log": "/private/tmp/djc-speech-recovery-ui-native-20261016.log",
+    "initial_attempt": "sandbox modulecache denied; host default swiftbuild resource codesign metadata failure; native build succeeds without deleting source/evidence",
+    "diff_check": "PASS"
+  },
+  "required_before_integration": [
+    "Exact renewed producer pin/schema and safe notice/status fixtures",
+    "Reference-scoped speech owner and validated WAV/MP3 private byte playback",
+    "Runtime authority/revision/backoff refresh and invalidation",
+    "Five-language native accessibility/long-copy verification and physical playback acceptance"
+  ],
+  "limits": "Source build only; component has no ordinary UI callsite yet. No runtime, installed, VoiceOver, audible or provider PASS. Existing installed builds remain unchanged. No full writer installation.",
+  "publication": "Local commit only"
+}

@@ -1,0 +1,5 @@
+# Keep the display awake during VibeScape
+
+An admitted active VibeScape visit now holds a display wake lock. iPhone/iPad temporarily disable the application idle timer; shared lease IDs handle overlapping windows and restore the prior setting when the last visit releases. Mac uses a scoped ProcessInfo idleDisplaySleepDisabled activity, ending it on release without changing system preferences. Calls are idempotent. Acquire occurs after admission on appearance when the scene is active. Explicit close, owner/session/lifecycle invalidation, scene inactivity (existing close behavior), and disappearance all release the lock. No background keepalive, playback, network or voice behavior changes.
+
+Source/diff/register checks only; no compilation, native test, build or installation per owner's explicit-build-only instruction. Pending PR179, no merge; installed40447 unchanged. Next requested build should verify actual idle timeout while visible, restoration after leaving/backgrounding and iPad multiwindow release order. Physical display/sleep acceptance is not claimed.

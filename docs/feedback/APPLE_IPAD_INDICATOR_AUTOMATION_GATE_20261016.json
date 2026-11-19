@@ -1,0 +1,17 @@
+{
+  "status": "NOT_RUN_NATIVE_AUTOMATION_INITIALIZATION_GATE",
+  "task": "Installed iPad connection indicator acceptance on eight live pages and archive omission",
+  "device": "iPad40117 ordinary app; no reinstall",
+  "preflight": "CoreDevice wired/paired/connected",
+  "native_result": "Runner failed to initialize UI testing: Timed out while enabling automation mode;64.740seconds",
+  "result_bundle": "/private/tmp/djc-ipad-connection-indicators-40117-20261016.xcresult",
+  "log": "/private/tmp/djc-ipad-connection-indicators-40117-20261016.log",
+  "lock_readback": {
+    "passcodeRequired": false,
+    "unlockedSinceBoot": true
+  },
+  "limits": "No screen test entered, no page/geometry/indicator PASS. An unlocked readback is not proof of XCTest automation authorization. No assumption that PIN or one-hour timeout resolves this separate gate.",
+  "effects": "No test-driven app navigation, radio/playback/send/settings mutation or code entry; temporary external Probe.swift restored. No repeated automation enable attempt. Existing physical offline/About receipts remain valid and separate.",
+  "next": "Resume this exact bounded UI acceptance only after native automation availability changes; no repeated permission question under heartbeat. Preserve prepared probe and result.",
+  "prepared_probe": "Temporary external source was restored; qualified runner configuration and failure result are retained. No claim of standalone archived probe source."
+}

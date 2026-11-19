@@ -1,0 +1,9 @@
+# Status-only Source217 finalization
+
+Source217 merged as `abc03e4426e2bd6e76dc13804cff3946a3dec41e`; its complete tree equals reviewed candidate `3e3b3ffc1f698563ed7bda3b7a314a1c9bf973ed`. Its own original main CI40416656758 and formal run40418151258 qualify this bounded source. Durable asset679781693 was downloaded and its actual bytes match the provider digest, exact source commit and formal digest. All twelve original required checks pass. The companion JSON records the independent whole-eleven review and native test-receipt hashes.
+
+The accepted source is isolated Tools-only preparation: a private eight-field status codec, separate two-field Activity identity/type/configuration, and a static last-observed renderer shared with widget observations. It passed eight native model/component tests per platform, 33 original source-raw shape vectors and ten personally inspected offscreen component images across five client languages. Actual default-decoder lexical counterexamples remain explicit. This does not claim native OS raw rejection, actual Lock Screen/Island/WidgetKit delivery or installed adoption.
+
+The human display choice permits status and original observation time with retained OS presentation. It does not create owner consent, native token provenance, an App Attest result, provisioning, issuer/operator or provider authority. New bootstrap/proof/error/revoke/order contracts and genuine activation remain closed. No shipping code, profile registration, positive factory, native key or token operation, Activity request/update/end, HA/provider request or ordinary installation was added.
+
+This documentary Final has its own exact-head review/CI, protected merge and original qualification gates. No future source or operational acceptance is inherited from this source record.

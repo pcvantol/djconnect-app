@@ -1,0 +1,87 @@
+{
+  "source_pr": 111,
+  "reviewed_head": "0688cf6529358ba72660cb5c0da28d296df84463",
+  "main_sha": "b47d17a3bd7aade005787206785578bee585096b",
+  "tree": "422cf1173bc48e660931b0a5beb5f4264a03b973",
+  "unpaginated_commit_files": 300,
+  "paginated_commit_files": 369,
+  "paginated_pr_files": 369,
+  "local_git_files": 369,
+  "complete_sets_equal": true,
+  "collector_pin": "ebbb35f038a7a3c7d46c12660968bcd50eb67580",
+  "collector_has_missing_files": 69,
+  "formal_reconciliation": "PENDING central producer pagination correction; no manual status",
+  "schema_version": 1,
+  "repository": "pcvantol/djconnect-app",
+  "base": "be7e63609193561bfd37ee144ecbd8dad04d5609",
+  "pre_merge_all_checks": "PASS; explicit platform skips retained",
+  "owner_authorization_run": 39060691226,
+  "owner_authorization_zip_sha256": "6feddb8faca47d5b157c65b054f29d9a302343ddaa97c87521dda874dbaacaed",
+  "pre_merge_ci_run": 39060662586,
+  "pre_merge_runner_zip_sha256": "edc96abb949641946183946af9ec68d62c49feb8c8520654cfab84071bb6d48b",
+  "pre_merge_native_run": 39060662445,
+  "pre_merge_native_tests": 784,
+  "pre_merge_native_suites": 10,
+  "pre_merge_native_seconds": 82.596,
+  "latest_local_swift_tests": 784,
+  "latest_local_swift_suites": 10,
+  "latest_local_swift_seconds": 89.368,
+  "local_replacement_session_repetitions": 10,
+  "input_manifest_sha256": "3a10533e72965ca759e595cabaa34c701e2ec686189839b3825d36011a7c73b1",
+  "input_files": 291,
+  "source_main_ci_run": 39061192756,
+  "source_main_ci": "PASS including native coverage",
+  "post_merge_evidence": "FAILED39061762379 before publication; blocked by central collector pagination correction",
+  "independent_current_full_technical_ux_review": "NOT_RUN; older reviews retain their original source bindings",
+  "product_acceptance": "PARTIAL; all unresolved functional/hardware requirements retained",
+  "new_device_installation": false,
+  "new_core_or_ha_deployment": false,
+  "production_distribution": false,
+  "tde_observe": {
+    "workflow": "PASS",
+    "assessment": "FAIL",
+    "repository_qualification": "FAILED",
+    "runtime": "1.1.1",
+    "critical_findings": 3,
+    "high_findings": 174,
+    "regression": "UNKNOWN; no comparison baseline",
+    "product_debt_closed": false
+  },
+  "cleanup": {
+    "both_original_checkouts_clean_main": true,
+    "original_wip_paths_preserved": [
+      18,
+      155
+    ],
+    "verified_git_bundles": 2,
+    "wip_archive_hash_mismatches": 0,
+    "local_branches_deleted": 3,
+    "worktrees_deleted": 0,
+    "excluded_experiments_preserved": true,
+    "remote_only_main_after_source_merge": true,
+    "current_exception": "Temporary PR112 Finalization branch while draft open",
+    "temporary_merged_branches_archived_removed": 2,
+    "stash_hashes_verified": [
+      18,
+      155
+    ],
+    "bundles_storage": "Stable ignored workspace build/recovery; original private paths preserved as symlinks"
+  },
+  "post_merge_run": 39061762379,
+  "source_main_artifacts": {
+    "apple-xccov-coverage": {
+      "run": 39061192756,
+      "artifact_id": 12112055515,
+      "sha256": "84fe8e7de53f0b3672f7ea916c1b1dd495c1c9d288e08ccdd8b90bd328f651da",
+      "independent_digest_verified": true
+    },
+    "runner-evidence-apple": {
+      "run": 39061192756,
+      "artifact_id": 12110934118,
+      "sha256": "913d81286931a2373fdbc08bd61df53e426dec9312e9d673d1ab6c5f30a8013d",
+      "independent_digest_verified": true
+    }
+  },
+  "formal_publication": "NOT_PUBLISHED; durable builder correctly refused unqualified result",
+  "attempted_cancel": "Run already completed; no cancellation or status bypass performed"
+}

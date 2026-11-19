@@ -1,0 +1,18 @@
+{
+  "build": "40111",
+  "source_commit": "c8d941f36b93af27db26dc3b75351b6f532c7868",
+  "change": "FeedbackPromptView groups hero glyph, title, explanatory copy, primary action and Niet nu inside one shared djSessionFrostedSurface card. Branding banner stays above. Native sheet presentation retained.",
+  "signed_builds": {
+    "macos": "PASS",
+    "ios_watch": "PASS"
+  },
+  "installed": "40111 on Mac mini and real iPad; selective qualified UI snapshot, not unfinished full writer.",
+  "validation": "Native tests PASS on both installed apps; actual screenshots visually inspected, all feedback content/actions inside one glass card. GitHub action never activated. Both sheets dismissed via Niet nu; temporary Mac demo stopped and pairing screen restored.",
+  "mac_evidence": "/private/tmp/djc-feedback-glass-40111-mac.xcresult",
+  "ipad_evidence": "/private/tmp/djc-feedback-glass-40111-ipad.xcresult",
+  "mac_screenshot": "/private/tmp/djc-feedback-glass-40111-mac-images/F16D3871-AFEB-4598-B2BA-5A3A86ADE437.png",
+  "ipad_screenshot": "/private/tmp/djc-feedback-glass-40111-ipad-images/F1B264CD-B24E-4FB6-A05F-41BD6EA021C7.png",
+  "source_note": "Whitespace indentation tidied after compilation; installed logic and structure identical.",
+  "cleanup": "One active writer; current/main only proven merged. No eligible stale branches/worktrees; unrelated untracked projects preserved. Internal free disk8.7GiB.",
+  "delivery": "Local source only; publication pause preserved. Next installation40112+."
+}

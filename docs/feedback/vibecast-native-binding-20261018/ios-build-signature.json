@@ -1,0 +1,13 @@
+{
+  "app_bundle": "dev.djconnect.ios",
+  "build": "40315",
+  "app_id": "ZEML4LPXH4.dev.djconnect.ios",
+  "team": "ZEML4LPXH4",
+  "get_task_allow": true,
+  "strict_app_and_test_signatures": "PASS",
+  "embedded_qualification_bundles": [
+    "PlugIns/VibeCastNativeQualification.xctest"
+  ],
+  "scope": "DIAGNOSTIC_ONLY, not installed; ordinary original40315 retained",
+  "executed_on_device": false
+}

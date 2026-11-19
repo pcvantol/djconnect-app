@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "kind": "apple_native_ui_followup_qualification",
+  "assignment": "DJC-APPLE-SESSION-CONVERSATION-HISTORY-V1-20261008",
+  "source_pr": 99,
+  "source_main": "0e0deed212107b8ab36a7cfa0b3d32ed2c388231",
+  "reviewed_head": "1b78af9d2aa94176ed79c0337ae3f780894edf38",
+  "native_product_source": "e5d268142ca6f6f9dc23f2d263ff56aeac83832f",
+  "product_sources_identical": true,
+  "later_delta": "one obsolete microphone-consent test corrected, no product changes",
+  "build": 40014,
+  "native_software": {
+    "iphone": "PASS complete Demo current/typed/scripted voice/readonly history/hero/mood/start",
+    "ipad": "PASS complete Demo route and wide welcome layout",
+    "mac": "PASS owner-authorized exact-e5 temporary ad-hoc bundle; current Moment/music, hero/end/Feest/start, readonly correct demo-evening/ElectricFeel/no composer, scripted voice entries7/8, actual native keyboard+Send entries9/10"
+  },
+  "ordinary_live_regression": {
+    "result": "PASS",
+    "platform": "iPhone simulator",
+    "producer_pin": "491e2258920e730901875e3c8b258565a06e8463",
+    "source_slots": "software-modeled configured source/device slots and synthetic tracks",
+    "route": "genuine ordinary pair, decoded native Moment/state, mood revisions, updates/reconnect, independent player and history recovery"
+  },
+  "tests": {
+    "swift_model_count": 473,
+    "mac_xcode_count": 473,
+    "mac_xcode_corrected_test": "PASS without permission-status skip",
+    "localization_keys": 1061,
+    "reported_suite_count_includes_environment_gated_cases": true,
+    "general_ci_environment_skips": {
+      "Swift tests": 8,
+      "Run macOS core tests with coverage": 8
+    },
+    "general_ci_not_equivalent_to_dedicated_live_fixture_execution": true
+  },
+  "independent_review": {
+    "technical": "exact-e5 Source GO plus test-only delta GO",
+    "ux": "bounded native iPhone/iPad/Mac screenshot GO"
+  },
+  "screenshots": {
+    "mac-welcome-idle": {
+      "filename": "mac-welcome-idle.png",
+      "sha256": "b3ace89b14aebbea9323e2fe55242787659841ebf2c22bc56657c0ac8a7c1bad",
+      "retention": "retained private native evidence pack; pixels not included in this metadata record"
+    },
+    "mac-demo-restarted": {
+      "filename": "mac-demo-restarted-qualified.png",
+      "sha256": "7bbf6c9c8b9c8e014f623e65f0e6bce07110b11c853b77f96965347a3d1350c2",
+      "retention": "retained private native evidence pack; pixels not included in this metadata record"
+    },
+    "mac-demo-archives": {
+      "filename": "mac-demo-archives.png",
+      "sha256": "2f0f7cbb3020ea446f70864a4344923b258b5747a2a5bd8a07fd4d704b0b1292",
+      "retention": "retained private native evidence pack; pixels not included in this metadata record"
+    },
+    "mac-demo-readonly": {
+      "filename": "mac-demo-readonly.png",
+      "sha256": "0128cedac89c081bfa5559b67494e9e189fcba493cfa0299a52ba596299baeb3",
+      "retention": "retained private native evidence pack; pixels not included in this metadata record"
+    },
+    "mac-scripted-voice": {
+      "filename": "mac-demo-voice-qualified.png",
+      "sha256": "b3121a5a1c1648a7dd1f603c22a40732cc469fb9b38e240af33b56450ea9d1d5",
+      "retention": "retained private native evidence pack; pixels not included in this metadata record"
+    },
+    "mac-native-keyboard-turn": {
+      "filename": "mac-demo-typed-final.png",
+      "sha256": "18f842310b6a51dc5ef967dcad5ea69322c0a2c9bd876d8852ac419add1a6627",
+      "retention": "retained private native evidence pack; pixels not included in this metadata record"
+    },
+    "iphone-welcome-hero": {
+      "filename": "004B5A6B-CDE9-4D42-937C-522A44B87D8A.png",
+      "sha256": "84e187b04f8362c76b828f1c5b1f49e6240f0b58b86a3339ad4ee5937a25effd",
+      "retention": "retained private native evidence pack; pixels not included in this metadata record"
+    },
+    "ipad-welcome-wide": {
+      "filename": "E037D2B7-3EF9-4F11-9756-CFEF4CE8CB6E.png",
+      "sha256": "bcee065d0615b8a2f0e2418f492698f2362455ce29cc75324d9ac97c0dd46ddc",
+      "retention": "retained private native evidence pack; pixels not included in this metadata record"
+    }
+  },
+  "before_evidence": "owner-supplied inactive Demo screenshot; not independently source-qualified",
+  "failed_attempts_excluded": [
+    "obsolete consent test failed on hosted unknown-permission status before correction",
+    "AX value setter did not update binding; actual keyboard input was separately proven",
+    "immediate transient Mac AX snapshot empty; stable later snapshot used",
+    "Start identifier inherited idle container; actual unique native Start label used"
+  ],
+  "scope_limits": [
+    "scripted Demo voice is not recording/STT/TTS acceptance",
+    "no current physical microphone/VoiceOver proof",
+    "no latest hero XXXL or long-language native proof",
+    "Discover producer image fields remain missing and reported to existing Core owner",
+    "no current real-provider speaker transfer or production runtime acceptance",
+    "last verified physical iPad build40013; latest iPad/MacBook installation pending",
+    "simulator device/app40014 running but Simulator.app GUI missing",
+    "no Store/TestFlight/HA deployment or new Core writer"
+  ],
+  "product_acceptance": "PARTIAL"
+}

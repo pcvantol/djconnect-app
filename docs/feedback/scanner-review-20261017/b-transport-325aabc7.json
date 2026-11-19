@@ -1,0 +1,724 @@
+{
+  "fixture_version": 1,
+  "scope": "actual_isolated_HA_B_transport",
+  "credentials": "replaced_nonfunctional_examples_not_replayable",
+  "A": "unavailable",
+  "examples": [
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/owner/context",
+      "authentication": "ordinary_paired_owner",
+      "origin": null,
+      "request": {
+        "contract_version": 1,
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        }
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+        "display_entry_url": "https://ha.display-lab.djconnect.dev/djconnect/vibecast/display",
+        "route_trust": "paired_owner_response",
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "limits": {
+          "claim_seconds": 120,
+          "lease_seconds": 60,
+          "share_seconds_default": 7200,
+          "displays_per_share": 8
+        }
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/claim",
+      "authentication": "none",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "browser_nonce": "q_WnGbqY-OfjLaL5kS-QtyC6tU3fyB66QAGhDr6UiiA"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "claim_id": "-QzCBTkjWnJGiCZRHxBAKELEi-x5WSgaDc6Kz2abltc",
+        "claim_secret": "iCbLZX4QnLBt7PJEqXqcI6zQKAAkR_E55ydaAZcD4Ps",
+        "code": "000000",
+        "browser_generation": "W0OBrbMviGcawZZJm5NZVAYqYVkWZV0gjyZjnHQhUU4",
+        "expires_in": 120,
+        "expires_at": "2026-10-16T22:48:43.631950+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/claim",
+      "authentication": "none",
+      "origin": null,
+      "request": {
+        "contract_version": 1,
+        "browser_nonce": "q_WnGbqY-OfjLaL5kS-QtyC6tU3fyB66QAGhDr6UiiA"
+      },
+      "status": 403,
+      "cache_control": "no-store",
+      "response": {
+        "success": false,
+        "contract_version": 1,
+        "error": "display_origin_denied"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/claim",
+      "authentication": "none",
+      "origin": "https://foreign.example.net",
+      "request": {
+        "contract_version": 1,
+        "browser_nonce": "q_WnGbqY-OfjLaL5kS-QtyC6tU3fyB66QAGhDr6UiiA"
+      },
+      "status": 403,
+      "cache_control": "no-store",
+      "response": {
+        "success": false,
+        "contract_version": 1,
+        "error": "display_origin_denied"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/owner/resolve",
+      "authentication": "ordinary_paired_owner",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "code": "000000",
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        }
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "claim_id": "-QzCBTkjWnJGiCZRHxBAKELEi-x5WSgaDc6Kz2abltc",
+        "browser_generation": "W0OBrbMviGcawZZJm5NZVAYqYVkWZV0gjyZjnHQhUU4",
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "expires_in": 119.99859120800102,
+        "expires_at": "2026-10-16T22:48:43.631947+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/owner/approve",
+      "authentication": "ordinary_paired_owner",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "claim_id": "-QzCBTkjWnJGiCZRHxBAKELEi-x5WSgaDc6Kz2abltc",
+        "browser_generation": "W0OBrbMviGcawZZJm5NZVAYqYVkWZV0gjyZjnHQhUU4",
+        "code": "000000",
+        "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+        "share": {
+          "mode": "create",
+          "consent": true
+        },
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        }
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "state": "approved",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+        "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+        "share_id": "_XhsMHwCnFpvuN0O8azPN0Hx21LKkhQryZxtGyN4M6A",
+        "share_generation": 1,
+        "share_expires_in": 7199.999996458995,
+        "share_expires_at": "2026-10-17T00:46:43.634043+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/owner/approve",
+      "authentication": "ordinary_paired_owner",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "claim_id": "-QzCBTkjWnJGiCZRHxBAKELEi-x5WSgaDc6Kz2abltc",
+        "browser_generation": "W0OBrbMviGcawZZJm5NZVAYqYVkWZV0gjyZjnHQhUU4",
+        "code": "000000",
+        "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+        "share": {
+          "mode": "create",
+          "consent": true
+        },
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        }
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "state": "approved",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+        "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+        "share_id": "_XhsMHwCnFpvuN0O8azPN0Hx21LKkhQryZxtGyN4M6A",
+        "share_generation": 1,
+        "share_expires_in": 7199.999049709004,
+        "share_expires_at": "2026-10-17T00:46:43.634044+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/collect",
+      "authentication": "none",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "claim_id": "-QzCBTkjWnJGiCZRHxBAKELEi-x5WSgaDc6Kz2abltc",
+        "claim_secret": "iCbLZX4QnLBt7PJEqXqcI6zQKAAkR_E55ydaAZcD4Ps",
+        "browser_generation": "W0OBrbMviGcawZZJm5NZVAYqYVkWZV0gjyZjnHQhUU4",
+        "browser_nonce": "q_WnGbqY-OfjLaL5kS-QtyC6tU3fyB66QAGhDr6UiiA"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "state": "admitted",
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+        "grant_token": "djcd_gGv7Q6MZrOqjVGpOrazTnv-6qJfaxDNDJrSCeoeSmRM",
+        "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+        "share_id": "_XhsMHwCnFpvuN0O8azPN0Hx21LKkhQryZxtGyN4M6A",
+        "share_generation": 1,
+        "lease_revision": 0,
+        "lease_expires_in": 59.99999770800059,
+        "share_expires_in": 7199.998411249995,
+        "capabilities": {
+          "view_display": true,
+          "owner_controls": false,
+          "audience_signals": false,
+          "ask_dj": false,
+          "session_end": false,
+          "share_close": false
+        },
+        "lease_expires_at": "2026-10-16T22:47:43.635631+00:00",
+        "share_expires_at": "2026-10-17T00:46:43.634044+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/collect",
+      "authentication": "none",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "claim_id": "-QzCBTkjWnJGiCZRHxBAKELEi-x5WSgaDc6Kz2abltc",
+        "claim_secret": "iCbLZX4QnLBt7PJEqXqcI6zQKAAkR_E55ydaAZcD4Ps",
+        "browser_generation": "W0OBrbMviGcawZZJm5NZVAYqYVkWZV0gjyZjnHQhUU4",
+        "browser_nonce": "q_WnGbqY-OfjLaL5kS-QtyC6tU3fyB66QAGhDr6UiiA"
+      },
+      "status": 404,
+      "cache_control": "no-store",
+      "response": {
+        "success": false,
+        "contract_version": 1,
+        "error": "display_claim_unavailable"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/owner/context",
+      "authentication": "dedicated_display",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        }
+      },
+      "status": 401,
+      "cache_control": "no-store",
+      "response": {
+        "success": false,
+        "contract_version": 1,
+        "error": "unauthorized"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/snapshot",
+      "authentication": "dedicated_display",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "snapshot": {
+          "contract_version": 1,
+          "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+          "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+          "share_id": "_XhsMHwCnFpvuN0O8azPN0Hx21LKkhQryZxtGyN4M6A",
+          "share_generation": 1,
+          "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+          "lease_revision": 0,
+          "session": {
+            "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+            "runtime_state": "active",
+            "locale": "en"
+          },
+          "playback": {
+            "state": "playing",
+            "item_id": "02e3d582594577327c335fc0",
+            "title": "Fixture track",
+            "artist": "Fixture artist",
+            "album": "Fixture album",
+            "updated_at": "2026-10-16T22:46:43.628501+00:00",
+            "duration_ms": 300000,
+            "position_ms": 1000,
+            "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+          },
+          "dj_moments": [],
+          "broadcast": {
+            "snapshot_watermark": 8
+          },
+          "session_presentation": {
+            "mood": "groove",
+            "persona": "home_dj",
+            "presence": "balanced"
+          },
+          "projection_revision": "8702ce8ad672be8bd791e58a6b10bc91",
+          "as_of": "2026-10-16T22:46:43.638964+00:00",
+          "lease_expires_at": "2026-10-16T22:47:43.635523+00:00",
+          "share_expires_at": "2026-10-17T00:46:43.633937+00:00"
+        }
+      }
+    },
+    {
+      "transport": "WSS",
+      "path": "/api/djconnect/v1/display/live",
+      "authentication": "dedicated_display_first_frame",
+      "frame": {
+        "type": "snapshot",
+        "contract_version": 1,
+        "connection_generation": 1,
+        "snapshot": {
+          "contract_version": 1,
+          "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+          "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+          "share_id": "_XhsMHwCnFpvuN0O8azPN0Hx21LKkhQryZxtGyN4M6A",
+          "share_generation": 1,
+          "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+          "lease_revision": 0,
+          "session": {
+            "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+            "runtime_state": "active",
+            "locale": "en"
+          },
+          "playback": {
+            "state": "playing",
+            "item_id": "02e3d582594577327c335fc0",
+            "title": "Fixture track",
+            "artist": "Fixture artist",
+            "album": "Fixture album",
+            "updated_at": "2026-10-16T22:46:43.628501+00:00",
+            "duration_ms": 300000,
+            "position_ms": 1000,
+            "source_url": "https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA"
+          },
+          "dj_moments": [],
+          "broadcast": {
+            "snapshot_watermark": 8
+          },
+          "session_presentation": {
+            "mood": "groove",
+            "persona": "home_dj",
+            "presence": "balanced"
+          },
+          "projection_revision": "8702ce8ad672be8bd791e58a6b10bc91",
+          "as_of": "2026-10-16T22:46:43.643563+00:00",
+          "lease_expires_at": "2026-10-16T22:47:43.635561+00:00",
+          "share_expires_at": "2026-10-17T00:46:43.633975+00:00"
+        }
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/renew",
+      "authentication": "dedicated_display",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+        "renew_sequence": 1
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "lease_revision": 1,
+        "lease_expires_in": 59.999999209001544,
+        "lease_expires_at": "2026-10-16T22:47:43.648386+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/renew",
+      "authentication": "dedicated_display",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+        "renew_sequence": 1
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "lease_revision": 1,
+        "lease_expires_in": 59.999410250005894,
+        "lease_expires_at": "2026-10-16T22:47:43.648386+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/renew",
+      "authentication": "dedicated_display",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+        "renew_sequence": 3
+      },
+      "status": 409,
+      "cache_control": "no-store",
+      "response": {
+        "success": false,
+        "contract_version": 1,
+        "error": "display_context_changed"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/renew",
+      "authentication": "dedicated_display",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+        "renew_sequence": 2
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "lease_revision": 2,
+        "lease_expires_in": 59.999997666993295,
+        "lease_expires_at": "2026-10-16T22:48:03.772734+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/renew",
+      "authentication": "dedicated_display",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+        "renew_sequence": 3
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "lease_revision": 3,
+        "lease_expires_in": 59.99999924999429,
+        "lease_expires_at": "2026-10-16T22:48:23.953839+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/renew",
+      "authentication": "dedicated_display",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+        "renew_sequence": 4
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "lease_revision": 4,
+        "lease_expires_in": 59.999998540995875,
+        "lease_expires_at": "2026-10-16T22:48:44.124676+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/owner/revoke",
+      "authentication": "ordinary_paired_owner",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+        "share_id": "_XhsMHwCnFpvuN0O8azPN0Hx21LKkhQryZxtGyN4M6A",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        }
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/renew",
+      "authentication": "dedicated_display",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "display_id": "u4teneO9FhexM6z1kjV38jbMhmrHsQcnydFwbnIT_x0",
+        "renew_sequence": 2
+      },
+      "status": 401,
+      "cache_control": "no-store",
+      "response": {
+        "success": false,
+        "contract_version": 1,
+        "error": "display_grant_invalid"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/claim",
+      "authentication": "none",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "browser_nonce": "zA7pih3y3ZeRsCM15HpkRFR8zMYoj-8JnYhcLB3rv2A"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "claim_id": "BGZvbDOjaTAszz23ALyNu6-pixCK9Lb7MlQ7D_LLEjU",
+        "claim_secret": "UBX9WBF_LsyUb87NhyH_v-TABV-02QPhV0On3fCdrPw",
+        "code": "000000",
+        "browser_generation": "FpUXVdC--I64NmKCoCV_xoqlIlzDFHLFrILGEUTfXJM",
+        "expires_in": 120,
+        "expires_at": "2026-10-16T22:49:54.263786+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/owner/approve",
+      "authentication": "ordinary_paired_owner",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "claim_id": "BGZvbDOjaTAszz23ALyNu6-pixCK9Lb7MlQ7D_LLEjU",
+        "browser_generation": "FpUXVdC--I64NmKCoCV_xoqlIlzDFHLFrILGEUTfXJM",
+        "code": "000000",
+        "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+        "share": {
+          "mode": "existing",
+          "share_id": "_XhsMHwCnFpvuN0O8azPN0Hx21LKkhQryZxtGyN4M6A",
+          "share_generation": 1
+        },
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        }
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "state": "approved",
+        "display_id": "hFW0CXfMiUmw4dsC5fD49x38CmZ63bXcJRGXtB4Zz0I",
+        "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+        "share_id": "_XhsMHwCnFpvuN0O8azPN0Hx21LKkhQryZxtGyN4M6A",
+        "share_generation": 1,
+        "share_expires_in": 7129.365206426999,
+        "share_expires_at": "2026-10-17T00:46:43.633637+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/collect",
+      "authentication": "none",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "claim_id": "BGZvbDOjaTAszz23ALyNu6-pixCK9Lb7MlQ7D_LLEjU",
+        "claim_secret": "UBX9WBF_LsyUb87NhyH_v-TABV-02QPhV0On3fCdrPw",
+        "browser_generation": "FpUXVdC--I64NmKCoCV_xoqlIlzDFHLFrILGEUTfXJM",
+        "browser_nonce": "zA7pih3y3ZeRsCM15HpkRFR8zMYoj-8JnYhcLB3rv2A"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "response": {
+        "success": true,
+        "contract_version": 1,
+        "state": "admitted",
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "display_id": "hFW0CXfMiUmw4dsC5fD49x38CmZ63bXcJRGXtB4Zz0I",
+        "grant_token": "djcd_DF4QusGKWZ6RJK6E1l_cQXXdVBJW7D0g8VPpxIo0XVg",
+        "session_id": "session-8376b1ae922d4c8885c4aa19d17ad05d",
+        "share_id": "_XhsMHwCnFpvuN0O8azPN0Hx21LKkhQryZxtGyN4M6A",
+        "share_generation": 1,
+        "lease_revision": 0,
+        "lease_expires_in": 59.99998895799217,
+        "share_expires_in": 7129.362011135003,
+        "capabilities": {
+          "view_display": true,
+          "owner_controls": false,
+          "audience_signals": false,
+          "ask_dj": false,
+          "session_end": false,
+          "share_close": false
+        },
+        "lease_expires_at": "2026-10-16T22:48:54.271617+00:00",
+        "share_expires_at": "2026-10-17T00:46:43.633639+00:00"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/renew",
+      "authentication": "dedicated_display",
+      "origin": "https://ha.display-lab.djconnect.dev",
+      "request": {
+        "contract_version": 1,
+        "issuer_epoch": "FYrt5jgIX3fcPYyWqII3Q4J56CCi6fmel5j9tvvd7bc",
+        "display_id": "hFW0CXfMiUmw4dsC5fD49x38CmZ63bXcJRGXtB4Zz0I",
+        "renew_sequence": 1
+      },
+      "status": 401,
+      "cache_control": "no-store",
+      "response": {
+        "success": false,
+        "contract_version": 1,
+        "error": "display_grant_invalid"
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "GET",
+      "path": "/api/djconnect/v1/capabilities",
+      "status": 200,
+      "response_projection": {
+        "session_broadcast": {
+          "paired_display_admission": {
+            "supported": true,
+            "version": 1,
+            "availability": "owner_context_required",
+            "owner_context_path": "/api/djconnect/v1/display/owner/context",
+            "entry_path": "/djconnect/vibecast/display",
+            "requires_external_https": true,
+            "owner_authentication": "paired_device_bearer",
+            "display_authentication": "dedicated_display_bearer",
+            "read_only": true,
+            "rendezvous_a": false
+          }
+        }
+      }
+    },
+    {
+      "transport": "HTTP",
+      "method": "POST",
+      "path": "/api/djconnect/v1/display/owner/context",
+      "authentication": "ordinary_paired_owner",
+      "origin": null,
+      "request": {
+        "contract_version": 1,
+        "identity": {
+          "device_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios"
+        }
+      },
+      "status": 503,
+      "cache_control": "no-store",
+      "response": {
+        "success": false,
+        "contract_version": 1,
+        "error": "display_external_url_unavailable"
+      }
+    }
+  ],
+  "producer_code_pin": "3cb9cf129f31d419e8b2027e4dc1ba08fafdb9d8",
+  "capture_context": "Ephemeral synthetic owner/Profile/Session, ordinary pairing; actual HA production registration/HTTP/WSS. Only external provider boundaries are fixtures. Session ended and lab removed; identifiers are examples, not authority."
+}

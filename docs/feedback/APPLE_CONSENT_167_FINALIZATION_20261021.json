@@ -1,0 +1,48 @@
+{
+  "recorded_at": "2026-10-21T06:54:48.870071+00:00",
+  "source_pr": 167,
+  "approved_candidate": "8462454f4c662259b0fd47f4bd78c2545f41daa0",
+  "merged_source": "b90b40071f9eadbe81dc084f815213a4fabd066e",
+  "source_tree": "cb5964628621a7543419e5a373a4509180e9844f",
+  "build": "40402",
+  "ios_build": "PASS",
+  "mac_build": "PASS",
+  "installed_verified": [
+    "iPhone",
+    "iPad",
+    "Mac mini",
+    "MacBook"
+  ],
+  "macbook": "INSTALLED_READBACK_HASH_SIGNATURE_RUNNING_PASS",
+  "finalization": "SOURCE_MAIN_QUALIFIED; separate documentary PR delivery and final-main readback pending",
+  "main_ci_run": 39555773003,
+  "blocked_tde_run": 39555113965,
+  "cleanup": {
+    "old_recovery_apps_removed": 60,
+    "new_transient_backup_removed_after_verification": 1,
+    "current_apps_source_git_and_test_evidence_preserved": true,
+    "macbook_recovery_apps_removed": 14,
+    "total_recovery_apps_removed": 75
+  },
+  "receipts": {
+    "ios-build.log": "4bff60a51ff6580aaa0f2be83a000233c6a9ed72beebd48d041ab74ebd5af34d",
+    "mac-build.log": "c89452a0044c52d263b671ee3eb497214814403bd47c30d6f299120b14e42407",
+    "iphone-install.json": "569cdc5dda09a080e4ce06cab9b48c2cffb48bf1c097b0b92f359743ac73af7d",
+    "ipad-install.json": "d2da4e19316f84f98623f77d6640e4bd21e51ab29f610747bf3f09c137a113c9",
+    "iphone-readback.json": "6fa78de933b41fa7c18fd19068b4d3b5040b036fd915b2bdf4ec38784f8ffc18",
+    "ipad-readback.json": "453d7ac5d7b8d4a5f5c74800e0a23613d4181f2265539f97dcec7217dfcaec27",
+    "macmini-readback.json": "05caa6fa2ab54d761385ee78ccb3e08de67d188cf0d00d9192a606d387a47460",
+    "macbook-readback-cleanup.json": "be1126bd5ad5f3958c6ea9abb850619bd545ace7f96f3adf7ca48c4f8571e086"
+  },
+  "limits": "Install/version/hash/signature proof only; no physical UI/audio/VoiceOver/HA acceptance. Later local night changes not published or installed.",
+  "tde_cancellation": "39555113965 COMPLETED/CANCELLED after explicit owner approval and targeted Apple listener restart",
+  "source_input_files_matching_merged_commit": 208,
+  "tde_observe": {
+    "run": 39555772553,
+    "workflow": "SUCCESS",
+    "assessment": "BLOCKED",
+    "qualification": "BLOCKED",
+    "reason": "store requires validated canonical evidence"
+  },
+  "source_manifest_sha256": "028633a341e4a6eb9f1d4bddf99580fde6b4d79e81c8bfbc8acf772dc49f5d5e"
+}

@@ -1,0 +1,90 @@
+{
+  "status": "PLAN_ONLY; no host selection approval, installation, copy, HA stop or cutover performed",
+  "problem": "Docker Desktop published bridge masks LAN peer as gateway; officially enabled host mode masks real Pi as127.0.0.1. Current Core direct-ingress policy cannot safely qualify either.",
+  "candidate": {
+    "host": "Existing Pi10/rbpi5-djconnect192.168.1.129",
+    "architecture": "aarch64,4GiB total,~3.1GiB available,103GiB root free",
+    "interface": "wlan0 UP192.168.1.129/24,dynamicDHCP; eth0 no carrier",
+    "existing_role": "VibeCast kiosk active; preserve service/display/network configuration",
+    "missing_runtime": "Docker command absent; container runtime installation would be a new host change"
+  },
+  "current_ha_dev": {
+    "host": "Mac192.168.1.134:8123",
+    "ha_version": "2026.10.0",
+    "image": "ghcr.io/home-assistant/home-assistant@sha256:1b64d38f38d922bf9d59336451fd6453e1d614f934456af4ee3d2a51061be3a4",
+    "image_platform": "linux/arm64",
+    "installed_core": "58205056c235a73488591591dd3d83f80f7bf847",
+    "config_mount": "/Users/pcvantol/docker/homeassistant/config -> /config",
+    "config_allocated_KiB": 276804,
+    "authority": "Do not substitute stable/latest tag or later Speech main without separate delivery authority"
+  },
+  "dependencies": [
+    {
+      "service": "Music Assistant",
+      "current_endpoint": "http://172.18.0.4:8095",
+      "candidate_endpoint": "http://192.168.1.134:8095",
+      "pi_tcp_only": "PASS"
+    },
+    {
+      "service": "Wyoming Piper",
+      "current_endpoint": "wyoming-piper:10200",
+      "candidate_endpoint": "192.168.1.134:10200",
+      "pi_tcp_only": "PASS"
+    },
+    {
+      "service": "Wyoming Whisper",
+      "current_endpoint": "wyoming-whisper:10300",
+      "candidate_endpoint": "192.168.1.134:10300",
+      "pi_tcp_only": "PASS"
+    }
+  ],
+  "phases": [
+    "Choose and authorize target host plus a bounded HA-dev interruption. Pi receiver colocation is a scope change from exposing the existing Mac port. A dedicated Linux host/bridged VM is an alternative, not yet provisioned; Mac/EP_DATA currently lack room for an unplanned VM.",
+    "Before mutation coordinate Core/resource leases; pin exact existing HA OCI digest and installed Core artifact; record source container configuration and restart policy, client local/remote origins and provider endpoints without publishing secrets. Ensure a stable target LAN address and deliberate IPv4/IPv6 reachability policy; no blanket gateway allowlist.",
+    "Prepare consistent private backup of complete HA configuration/storage and data, including Profile/pairing fingerprints. Keep credentials only in private backup/SSH transfer, never Git/logs. Do not drop databases/history merely to reduce copied bytes. Verify archive/checksums and restore instructions before cutover.",
+    "Prepare target runtime/storage with kiosk resource limits and no automatic parallel HA startup. Reconfigure only the three HA dependency endpoints through supported HA configuration procedures, retaining entry identities/authentication; do not patch live .storage blindly. Existing Mac MA/Wyoming containers remain in place.",
+    "At cutover stop only Mac HA-dev cleanly and suppress its auto-restart for the agreed window, preserving original container/config and policy for rollback. Start exactly one target HA instance from the consistent copy and exact image. Do not run two live installations with the same pairing/Profile/provider identity. Repoint the existing external TLS tunnel and explicitly configured client local origin only through an agreed supported path preserving paired installation identity; no re-pair/reset or certificate bypass.",
+    "Before local actions require real iPad socket-peer/interface evidence and Core-owned operator qualification bound to exact installation/origin/interface/expiry; then independently validate HTTP context and WS auth_ok. Run real LAN/external/LAN, original-operation status, background and UI-state preservation checks. Qualify provider dependencies and kiosk responsiveness separately. TCP/health200 is not full acceptance."
+  ],
+  "rollback": "Stop target HA before any old instance resumes. Restore original remote tunnel/client configured origins and original Mac HA container restart policy; start original unchanged Mac config/runtime. Verify original paired installation/Profile fingerprints, HA health, dependencies and kiosk. Remove only newly created test resources after readback, preserving backup and receipts.",
+  "open_decisions": [
+    "Pi receiver colocation versus separate Linux host/bridged VM",
+    "Agreed downtime and target address/IPv6 exposure",
+    "Supported paired-client local-origin and external tunnel update path",
+    "Kiosk CPU/memory acceptance budget",
+    "Core operator qualification author and exact delivery pin"
+  ],
+  "sources": [
+    "https://www.home-assistant.io/installation/linux/",
+    "docs/feedback/APPLE_DOCKER_HOST_NETWORK_PROBE_20261016.json",
+    "docs/feedback/APPLE_DIRECT_LINUX_TOPOLOGY_20261016.json"
+  ],
+  "evidence_limits": "Linux host networking is documented by Home Assistant; current Pi peer/capacity and dependency TCP tests are actual. No HA on Pi, dependency functional/provider test, native iPad LAN or migration PASS. No install/config mutation this turn.",
+  "apple_origin_change_audit": {
+    "status": "SOURCE_READBACK_ONLY; no client configuration or runtime change",
+    "writer": "049a663e026d6fcd9fcbb7731fde6c3234a5c386",
+    "selective_app_model_sha256": "36311979124f7c0d6ecde42ff9c934301e0ded51b7235a05df43d7c8d3ff1749",
+    "findings": [
+      "apply(pairingResponse:fallbackBaseURL:) persists local and remote origins, but its only production call found is the pair operation.",
+      "localHomeAssistantURL() prioritizes persisted haLocalURL over editable homeAssistantURL; changing the latter alone cannot reliably rebind an existing paired client.",
+      "pinLocalHomeAssistantURLIfNeeded runs only after a local connection has already succeeded, so it cannot discover an unknown new local origin.",
+      "Command response application reads installation/bootstrap and backend summary but does not apply response.haLocalURL/haRemoteURL.",
+      "Existing hybrid coordinator is keyed by configured local/remote origins plus installation and device IDs. Do not bypass that trust boundary by injecting a new URL or editing app-private defaults."
+    ],
+    "required_before_cutover": "Confirm an existing supported paired-origin rebind path or separately deliver and qualify one preserving installID/Profile/token, trusted external recovery and operation reconciliation. Source inspection alone does not establish native migration acceptance.",
+    "alternative_to_evaluate": "Stable existing client hostname routed directly to chosen Linux host, if already configured and operator-controlled; current IP-based origins cannot be assumed to follow DNS. No DNS/IP takeover authorized or performed."
+  },
+  "core_origin_rebind_readback": {
+    "evidence_status": "CORE_REPORTED_SOURCE_READBACK; not independently executed by Apple",
+    "source_pin": "3535c97c3b50e9a126d0f22fcc5ce50d81851499",
+    "frozen_finalization": "d54ec7b62e0212723159308ed090f3ba06f21248",
+    "runtime_boundary": "Core reports relevant runtime unchanged in frozen Finalization; this is not a new installed artifact qualification.",
+    "metadata": "ha_urls.py:12-26 and http.py:2764-2789 supply local/eligible remote URLs plus bootstrap installation metadata.",
+    "transport_context": "hybrid_service.py:320-342 supplies installation/epoch/time/policy, not origin mutation.",
+    "contract": "HYBRID_HTTP_WEBSOCKET_TRANSPORT_V1.md:59-94 binds trusted origins and expected installation; reads do not change endpoint configuration.",
+    "conclusion": "No demonstrated delivered end-to-end automatic origin rebind. Metadata availability does not establish consumer persistence or rebind authority.",
+    "gate": "Confirm an explicit supported Apple origin-edit path preserving installation/Profile/token and original-operation status. If absent, separately bound contract/client work requires its own admission; do not extend frozen Core Finalization or incomplete consumer WIP implicitly.",
+    "effects": "No code, configuration, deployment, migration, re-pair/reset, credential transfer or new operation performed.",
+    "source_url": "https://github.com/pcvantol/djconnect/blob/3535c97c3b50e9a126d0f22fcc5ce50d81851499/custom_components/djconnect/http.py#L2764"
+  }
+}

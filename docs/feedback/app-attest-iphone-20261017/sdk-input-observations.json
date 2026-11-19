@@ -1,0 +1,20 @@
+{
+  "app_bundle_id" : "dev.djconnect.ios",
+  "attestation_calls" : false,
+  "build" : "40230",
+  "errors" : [
+    {
+      "code" : 2,
+      "domain" : "com.apple.devicecheck.error",
+      "input_length" : 0,
+      "rejected" : true
+    },
+    {
+      "input_length" : 31,
+      "rejected" : false
+    }
+  ],
+  "key_generation" : false,
+  "server_verification" : "NOT_RUN_API_LANE_OWNS",
+  "valid_assertion_after_errors" : true
+}

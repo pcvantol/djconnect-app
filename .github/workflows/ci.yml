@@ -1,0 +1,231 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  software-assurance-governance:
+    name: Software Assurance governance
+    permissions:
+      contents: read
+    uses: djconnect-music-dj/djconnect-shared-workflows/.github/workflows/software-assurance-governance-aabd.yml@4025a68add8ba98f1f2e0307d7f3998e45c0d9ef
+    with:
+      execution_profile: balanced
+      owner: ${{ github.repository }}
+
+  test-and-unsigned-build:
+    name: CI
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: [self-hosted, internal-release, qualification, apple, macmini-build]
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          echo "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer" >> "$GITHUB_ENV"
+          xcodebuild -version
+          scratch="$RUNNER_TEMP/djconnect-ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          mkdir -p "$scratch/tmp"
+          echo "DJC_CI_SCRATCH=$scratch" >> "$GITHUB_ENV"
+          echo "TMPDIR=$scratch/tmp" >> "$GITHUB_ENV"
+
+      - name: Update third-party packages, dependencies and tools
+        run: |
+          set -euo pipefail
+          Tools/release/update_thirdparty.sh
+
+      - name: Upload third-party update report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: thirdparty-update-report
+          path: build/release/thirdparty-update-report.txt
+          if-no-files-found: ignore
+
+      - name: Clean local build output
+        run: |
+          set -euo pipefail
+          rm -rf .build .xcode-derived
+
+      - name: Validate Postman collection
+        run: |
+          set -euo pipefail
+          if [[ -f Tools/validate_postman_collection.js && -f docs/postman/djconnect-local-device-api.postman_collection.json ]]; then
+            node Tools/validate_postman_collection.js docs/postman/djconnect-local-device-api.postman_collection.json
+          else
+            echo "Skipping Postman collection validation; no collection validator is present in this repository."
+          fi
+
+      - name: Independent contract, localization and hygiene checks (four workers)
+        run: /usr/bin/python3 Tools/qualification/run_parallel_validation.py --phase checks --output-root "$DJC_CI_SCRATCH"
+
+      - name: Swift suites (parallel cases and independent package workers)
+        run: /usr/bin/python3 Tools/qualification/run_parallel_validation.py --phase swift --output-root "$DJC_CI_SCRATCH"
+
+      - name: macOS and iOS unsigned builds (isolated parallel workers)
+        run: /usr/bin/python3 Tools/qualification/run_parallel_validation.py --phase builds --output-root "$DJC_CI_SCRATCH"
+
+      - name: Upload all parallel validation results and original logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apple-parallel-validation-logs
+          path: ${{ env.DJC_CI_SCRATCH }}/logs-*
+          if-no-files-found: error
+
+      - name: Upload unsigned Apple build artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apple-unsigned-build-artifacts
+          path: |
+            ${{ env.DJC_CI_SCRATCH }}/derived-macos/Build/Products/Debug/DJConnect.app
+            ${{ env.DJC_CI_SCRATCH }}/derived-ios/Build/Products/Debug-iphoneos/DJConnect.app
+          if-no-files-found: error
+
+      - name: Record runner qualification evidence
+        if: always()
+        env:
+          REQUIRED_RUNNER_ROLE: apple
+        run: |
+          set -euo pipefail
+          mkdir -p runner-evidence
+          jq -n \
+            --arg runner_name "$RUNNER_NAME" \
+            --arg runner_os "$RUNNER_OS" \
+            --arg runner_arch "$RUNNER_ARCH" \
+            --arg required_role "$REQUIRED_RUNNER_ROLE" \
+            --arg git_sha "$GITHUB_SHA" \
+            --arg xcode "$(xcodebuild -version | tr '\n' ';')" \
+            --arg swift "$(swift --version | head -n 1)" \
+            '{runner_name:$runner_name,runner_os:$runner_os,runner_arch:$runner_arch,required_role:$required_role,git_sha:$git_sha,xcode:$xcode,swift:$swift}' \
+            > runner-evidence/runner-evidence.json
+
+      - name: Upload runner qualification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: runner-evidence-apple
+          path: runner-evidence/runner-evidence.json
+          if-no-files-found: error
+
+  post-merge-coverage:
+    name: Post-merge coverage evidence
+    needs: test-and-unsigned-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, internal-release, qualification, apple, macmini-build]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Run macOS core tests with coverage
+        run: |
+          # Coverage evidence is an unsigned CI build. It must not require the
+          # runner's interactive Development-signing keychain access.
+          # The shared scheme also contains DJConnectMacUITests.  Coverage
+          # evidence is deliberately limited to the non-interactive core
+          # target: UI automation requires a dedicated GUI test environment.
+          set -euo pipefail
+          coverage_root="$RUNNER_TEMP/djconnect-coverage-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          xcodebuild test -project DJConnectApp.xcodeproj -scheme DJConnectMac -only-testing:DJConnectCoreTests -destination platform=macOS -parallel-testing-enabled YES -enableCodeCoverage YES -derivedDataPath "$coverage_root/derived" -resultBundlePath "$coverage_root/coverage.xcresult" CODE_SIGNING_ALLOWED=NO
+          xcrun xccov view --report --json "$coverage_root/coverage.xcresult" > coverage.json
+          printf '%s\n' "$GITHUB_SHA" > coverage-main-sha.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apple-xccov-coverage
+          path: |
+            coverage.json
+            coverage-main-sha.txt
+          if-no-files-found: error
+
+  cleanup-workflow-runs:
+    name: Cleanup old workflow runs
+    needs:
+      - test-and-unsigned-build
+    # Preserve CI and release evidence; cleanup must not run automatically.
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Delete old completed workflow runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          KEEP_RUNS: "2"
+        run: |
+          set -euo pipefail
+
+          current_workflow_id="$(
+            gh api "/repos/${REPO}/actions/runs/${CURRENT_RUN_ID}" --jq '.workflow_id'
+          )"
+
+          # Preserve the originating pull request's exact-SHA checks until
+          # post-merge reconciliation has read their qualification evidence.
+          protected_run_ids=()
+          pr_head_sha="$(
+            gh api -H 'Accept: application/vnd.github+json' \
+              "/repos/${REPO}/commits/${GITHUB_SHA}/pulls" \
+              --jq '[.[] | select(.merged_at and .base.ref == "main" and .merge_commit_sha == env.GITHUB_SHA)] | if length == 1 then .[0].head.sha else empty end' \
+              || true
+          )"
+          if [[ -n "$pr_head_sha" ]]; then
+            mapfile -t protected_run_ids < <(
+              gh api "/repos/${REPO}/actions/runs?head_sha=${pr_head_sha}&per_page=100" \
+                --paginate --jq '.workflow_runs[] | .id'
+            )
+          fi
+
+          mapfile -t workflows < <(
+            gh api --paginate "/repos/${REPO}/actions/workflows?per_page=100" \
+              --jq '.workflows[] | @base64'
+          )
+
+          for encoded_workflow in "${workflows[@]}"; do
+            workflow="$(
+              printf '%s' "$encoded_workflow" | base64 --decode
+            )"
+            workflow_id="$(jq -r '.id' <<<"$workflow")"
+            workflow_name="$(jq -r '.name' <<<"$workflow")"
+            keep_limit="$KEEP_RUNS"
+            kept=0
+
+            if [[ "$workflow_id" == "$current_workflow_id" ]]; then
+              keep_limit=$((KEEP_RUNS - 1))
+            fi
+
+            echo "Checking completed runs for ${workflow_name} (${workflow_id})"
+
+            mapfile -t completed_run_ids < <(
+              gh api "/repos/${REPO}/actions/workflows/${workflow_id}/runs?status=completed&per_page=100" \
+                --jq '.workflow_runs | sort_by(.created_at) | reverse | .[].id'
+            )
+
+            for run_id in "${completed_run_ids[@]}"; do
+              if [[ "$run_id" == "$CURRENT_RUN_ID" || " ${protected_run_ids[*]} " == *" ${run_id} "* ]]; then
+                continue
+              fi
+
+              kept=$((kept + 1))
+              if [[ "$kept" -le "$keep_limit" ]]; then
+                continue
+              fi
+
+              echo "Deleting completed workflow run ${run_id}"
+              gh api --method DELETE "/repos/${REPO}/actions/runs/${run_id}"
+            done
+          done

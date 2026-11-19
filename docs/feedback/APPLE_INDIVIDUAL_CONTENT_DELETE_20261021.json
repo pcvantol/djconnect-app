@@ -1,0 +1,174 @@
+{
+  "base_commit": "418a9ff50619c6cbf76922bd7b3cd2f37a7f4f51",
+  "core_source": "58561f97a04c36fce21ba5e6886eb6c3640a4ec3",
+  "core_final": "b4bf47018d165e4f9e171291425a7a134ca9e0d2",
+  "apple_publication": "LOCAL_ONLY",
+  "qualification": {
+    "mac_functions": 9,
+    "parameter_cases": 50,
+    "failures": 0,
+    "seconds": 1.158,
+    "ios": "UNSIGNED_BUILD_FOR_TESTING_PASS",
+    "localization_keys": 1387,
+    "locales": 5,
+    "native_gesture_acceptance": "NOT_QUALIFIED",
+    "public_native_status_button": "INCONCLUSIVE_NO_BRIDGE",
+    "physical_devices": "NOT_RUN",
+    "personal_erase_requests": 0
+  },
+  "receipts": [
+    {
+      "path": "/private/tmp/djc-content-deletion-core-58561f97.md",
+      "sha256": "3a868d32af4c9c68fb157c5795d6446a25210d5bb4a6963de48ca5c8cbbc0723"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021/native-qualified/native-observations.json",
+      "sha256": "482f32fe1a5a5bd818ac2e1d0f6afb0f823b988e14361472e8fbe3d01e1f6baa"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021/native-qualified/pending-320.png",
+      "sha256": "a2e739039844f2c69770d8d3b8e358137cb59f031382b73de3e75fe482532846"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021/native-qualified/pending-430.png",
+      "sha256": "11048916b885bd5db2db53b350e4102c7a797bcec61d8cdd3dabe1c8d05e797e"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-build.log",
+      "sha256": "bd40e24cc1a12028eddfc37803aefe3e50e718f62c35ea00f9df8dfac808e001"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-core-installed-receipt.json",
+      "sha256": "e1486de1fbe5a908866ab0ca69641b39da8f4ac906415c498dbd90d804b79356"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-final-native.log",
+      "sha256": "dc3998a45b8df1d445a92465f83a77be666cb805fab119c83f2aaf8d729b474f"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-final-tests.log",
+      "sha256": "cfdd8341e0cec22010e9ddf201abff5b1db5e9045853c976db862d8e02064080"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-ios-build.log",
+      "sha256": "801e9929df930b48fa8fc2b05a7bfc7c539fd755c621239824f1ce552a9d6a6b"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-ios-final.log",
+      "sha256": "b00e6de08debdce19ed8bd449888430a1a239e0f9fe9251e69a7c5cba127fcd0"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-ios-project.log",
+      "sha256": "2c6554a3c60df378688fddee608088dbc40099eaec3545365664f6a21c184656"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-ios-qualified-final.log",
+      "sha256": "afbb18266702da809e6ada012958d7885be0662a75cf085fa637abf0f60a5d66"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-qualified-final.log",
+      "sha256": "8e8e890a8410f333a52fe2f027b98da04dcd060b03b0916e44909201d78e7a09"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-qualified-tests.log",
+      "sha256": "ff82ff7da365e3868854086181652bae8de2e29c85f48c8a467539c0d7e66abb"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-tests.log",
+      "sha256": "206d3bef78acffe56efe9ed4026df3b5d780ee28312399cead2fced52377554f"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-wire-qualified.log",
+      "sha256": "ef9e11b8c2cfdaf10ab9cd1afbb6d881e2543a08c6f131f6e6b8057d514e27a4"
+    },
+    {
+      "path": "Sources/DJConnectCore/DJConnectClient.swift",
+      "sha256": "0936f1b967640b1eb576f99bd93c4df2eea9e711fb77c6c10e59666f2d76dcab"
+    },
+    {
+      "path": "Sources/DJConnectCore/DJConnectContentDeletion.swift",
+      "sha256": "7fb04194d2d734b7d263d7a725ab5f913f8f535e6f184b0da18c095715175b73"
+    },
+    {
+      "path": "Sources/DJConnectCore/DJConnectSessionHistory.swift",
+      "sha256": "fcc833323b90f4eadf3f0ac9004e967e110c370145592a5479055fc01c87db12"
+    },
+    {
+      "path": "Sources/DJConnectCore/Resources/Localization/de.lproj/Localizable.strings",
+      "sha256": "81cecffab8885e3c3fb48a8d17d16896827c113a40584635f46eb5eb86b26b20"
+    },
+    {
+      "path": "Sources/DJConnectCore/Resources/Localization/en.lproj/Localizable.strings",
+      "sha256": "8cbd23754ce1d2884210729f7faf3cb038508c4daa997543a170335969135a0a"
+    },
+    {
+      "path": "Sources/DJConnectCore/Resources/Localization/es.lproj/Localizable.strings",
+      "sha256": "7ad22b3f9957da349282a11c457833b492981516c4294d2003ad1dde4e0b227a"
+    },
+    {
+      "path": "Sources/DJConnectCore/Resources/Localization/fr.lproj/Localizable.strings",
+      "sha256": "3a7b56d965412a537784b6a8cbb89d7ab24397d4301269d94333aea139f00ca7"
+    },
+    {
+      "path": "Sources/DJConnectCore/Resources/Localization/nl.lproj/Localizable.strings",
+      "sha256": "fbdc59105e21bf49a667e3ca0166ce044f66f1342ff0670398bbab4869c3013d"
+    },
+    {
+      "path": "Sources/DJConnectUI/ContentDeletionActions.swift",
+      "sha256": "51b6fe4d3b74071332482cc8e49d350ad3e79cb682cf7f7cc8376f99751845c1"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectAppModel.swift",
+      "sha256": "202ec45e6a71d422a89eda86b4c7914497d69132b667a86bdaae1cbc0098d08e"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectRootView.swift",
+      "sha256": "54aff01eb4e9041eef296cbc98346cfacbc81e2a4276f96ed273eebc49761d31"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift",
+      "sha256": "148aca06f820ad00775e5bf6ac219127e0c870ae160a0fa11afbc3736b8edc40"
+    },
+    {
+      "path": "Sources/DJConnectUI/NativeSessionMomentsView.swift",
+      "sha256": "b89a6bb40113e563282b211dbd33fc027468730a24f595fa154bdfda4308f82e"
+    },
+    {
+      "path": "Sources/DJConnectUI/SessionTimelineScreen.swift",
+      "sha256": "7c499e95658457caf9fc951d5b57459bce8bc5d99e318f3e1efbe09ad6d23fdb"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/ContentDeletionContractTests.swift",
+      "sha256": "71ce5c3c20bd5491214403b31ba4949693903f767ba1fdf8a9f611b90f72e718"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "671287ab12db9f6ef388769bf075aead91582241e28986d3bca1f9f905a29960"
+    },
+    {
+      "path": "Tests/Fixtures/content-deletion-core-58561f97.json",
+      "sha256": "7c062c4a5b944f3abfb5a8d419a1c5403eeaa842636f83c78821c1b979b3159c"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "a65ea09ed57eb011c397e04532162de8a672b169784acb79ed408bf571daeb60"
+    },
+    {
+      "path": "DJConnectApp.xcodeproj/project.pbxproj",
+      "sha256": "802a4658167f235b57e24958cb0941ad4f2d36fe9f181709921eaf75d3bd77d0"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-project-audit.json",
+      "sha256": "1a0fad0eb141eec5e245dca9faa7805bef791f86e60f03948d077905e95b64e4"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-project-generation.log",
+      "sha256": "d986ac827a2c1ff4a460738d2b612f1f1381dd24ba03787be0c6bac4ebbd6c5f"
+    },
+    {
+      "path": "/private/tmp/djc-individual-content-delete-20261021-project-generation-qualified.log",
+      "sha256": "e5c0b7d17b5192fa4767b0db14deffd004e3baf454203b770465e1f57fee1183"
+    }
+  ],
+  "shipping_project_registration": "ADDITIVE_ONLY_TARGETS_SETTINGS_UNCHANGED"
+}

@@ -1,0 +1,456 @@
+import Foundation
+
+/// Ephemeral owner Broadcast content. Never persist or export this projection.
+public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
+    public var momentID: String
+    public var sessionID: String
+    public var createdAt: String
+    public var type: String
+    public var title: String
+    public var summary: String
+    public var content: String
+    public var presentationIntent: PresentationIntent
+    public var knowledgeIntent: [String: String]?
+    public var visibility: String?
+    public var deliveryChannels: [String]?
+    public var importance: String?
+    public var artwork: Artwork?
+    public var actions: [Action]
+    public var sourceReferences: [String]
+    public var sourceAttribution: [String: String]?
+    public var generationMetadata: [String: String]?
+    public var playbackItemID: String?
+    public var settingsConfirmation: DJConnectSettingsConfirmationIdentity? = nil
+    public var sources: [DJConnectBulletinSource] = []
+    public var musicAnnouncement: DJConnectMusicAnnouncement? = nil
+    public var id: String { momentID }
+
+    public struct Artwork: Codable, Equatable, Sendable { public var url: String? }
+    public struct Action: Codable, Equatable, Sendable {
+        public var actionType: String
+        public var label: String
+        public var iconHint: String?
+        public var priority: Int?
+        public var requiredCapability: String?
+        public var payload: [String: String]?
+        enum CodingKeys: String, CodingKey {
+            case label, priority, payload
+            case actionType = "action_type", iconHint = "icon_hint", requiredCapability = "required_capability"
+        }
+    }
+    public struct PresentationIntent: Codable, Equatable, Sendable {
+        public var sourceSessionMood: String?
+        public var djPersona: String?
+        public var toneOfVoice: String?
+        public var energyLevel: String?
+        public var deliveryStyle: String?
+        public var voiceStyle: String?
+        public var visualTheme: String?
+        public var importance: String?
+        public var maximumDurationSeconds: Int?
+        public var deliveryChannels: [String]?
+        public var visibility: String
+        enum CodingKeys: String, CodingKey {
+            case visibility, importance
+            case sourceSessionMood = "source_session_mood", djPersona = "dj_persona", toneOfVoice = "tone_of_voice"
+            case energyLevel = "energy_level", deliveryStyle = "delivery_style", voiceStyle = "voice_style"
+            case visualTheme = "visual_theme", maximumDurationSeconds = "maximum_duration_seconds", deliveryChannels = "delivery_channels"
+        }
+    }
+    enum CodingKeys: String, CodingKey {
+        case musicAnnouncement = "music_announcement"
+        case type, title, summary, content, artwork, actions, sources
+        case momentID = "moment_id", sessionID = "session_id", createdAt = "created_at"
+        case presentationIntent = "presentation_intent", sourceReferences = "source_references"
+        case settingsConfirmation = "settings_confirmation"
+        case knowledgeIntent = "knowledge_intent", visibility, deliveryChannels = "delivery_channels", importance
+        case sourceAttribution = "source_attribution", generationMetadata = "generation_metadata", playbackItemID = "playback_item_id"
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        momentID = try c.decode(String.self, forKey: .momentID)
+        sessionID = try c.decode(String.self, forKey: .sessionID)
+        createdAt = try c.decode(String.self, forKey: .createdAt)
+        type = try c.decode(String.self, forKey: .type)
+        musicAnnouncement = try? c.decode(DJConnectMusicAnnouncement.self, forKey: .musicAnnouncement)
+        content = try c.decode(String.self, forKey: .content)
+        presentationIntent = try c.decode(PresentationIntent.self, forKey: .presentationIntent)
+        knowledgeIntent = try? c.decode([String: String].self, forKey: .knowledgeIntent)
+        visibility = try? c.decode(String.self, forKey: .visibility)
+        deliveryChannels = try? c.decode([String].self, forKey: .deliveryChannels)
+        importance = try? c.decode(String.self, forKey: .importance)
+        title = (try? c.decode(String.self, forKey: .title)) ?? ""
+        summary = (try? c.decode(String.self, forKey: .summary)) ?? ""
+        if type == "dj_bulletin" {
+            artwork = try c.decodeIfPresent(Artwork.self, forKey: .artwork)
+            actions = try c.decode([Action].self, forKey: .actions)
+        } else {
+            artwork = try? c.decode(Artwork.self, forKey: .artwork)
+            actions = (try? c.decode([LossyBroadcastValue<Action>].self, forKey: .actions))?.compactMap(\.value) ?? []
+        }
+        sourceReferences = (try? c.decode([String].self, forKey: .sourceReferences)) ?? []
+        // Broken attribution must not turn restricted source content into an
+        // apparently unrestricted card. Only this entry is discarded upstream.
+        sourceAttribution = try c.decodeIfPresent([String: String].self, forKey: .sourceAttribution)
+        generationMetadata = try? c.decode([String: String].self, forKey: .generationMetadata)
+        playbackItemID = try? c.decode(String.self, forKey: .playbackItemID)
+        settingsConfirmation = try c.decodeIfPresent(DJConnectSettingsConfirmationIdentity.self, forKey: .settingsConfirmation)
+        sources = type == "dj_bulletin" ? try c.decodeIfPresent([DJConnectBulletinSource].self, forKey: .sources) ?? [] : []
+    }
+}
+
+public struct DJConnectSessionPlayback: Codable, Equatable, Sendable {
+    public var state: String?
+    public var itemID: String?
+    public var title: String?
+    public var artist: String?
+    public var album: String?
+    public var artworkURL: String?
+    public var durationMS: Int?
+    public var positionMS: Int?
+    public var updatedAt: String?
+    public var sourceURL: String?
+    enum CodingKeys: String, CodingKey {
+        case state, title, artist, album
+        case itemID = "item_id", artworkURL = "artwork_url", durationMS = "duration_ms", positionMS = "position_ms"
+        case updatedAt = "updated_at", sourceURL = "source_url"
+    }
+}
+
+public struct DJConnectPresentation: Codable, Equatable, Sendable, Identifiable {
+    public var presentationID: String
+    public var momentID: String
+    public var momentType: String
+    public var visibility: String
+    public var speech: Speech?
+    public var id: String { presentationID }
+    public struct Speech: Codable, Equatable, Sendable {
+        public var mode: String
+        public var segments: [Segment]
+        public struct Segment: Codable, Equatable, Sendable {
+            public var ordinal: Int
+            public var speakerRole: String
+            public var text: String
+            enum CodingKeys: String, CodingKey { case ordinal, text; case speakerRole = "speaker_role" }
+        }
+    }
+    enum CodingKeys: String, CodingKey {
+        case visibility, speech
+        case presentationID = "presentation_id", momentID = "source_moment_id", momentType = "source_moment_type"
+    }
+}
+
+struct LossyBroadcastValue<Value: Decodable>: Decodable {
+    let value: Value?
+    init(from decoder: Decoder) throws { value = try? Value(from: decoder) }
+}
+
+
+/// Ephemeral replacement authority supplied by the owner Broadcast route.
+public struct DJConnectNativeMomentDelivery: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var sessionID: String
+    public var revision: String
+    public var currentMomentID: String?
+    public var currentSilenceMomentID: String? = nil
+    public var activeFlowMomentIDs: [String]
+    public var admissions: [Admission]
+    public var revocationScope: String
+    public struct Admission: Codable, Equatable, Sendable {
+        public var momentID: String
+        public var qualification: String
+        public var currentDisplayAllowed: Bool
+        public var activeFlowDisplayAllowed: Bool
+        public var sourceExpiresAt: String?
+        public var displayExpiresAt: String?
+        public var executableActions: [String]
+        public var requiresSpotifyAttribution: Bool
+        public var navigationActions: [DJConnectMomentInsightNavigation] = []
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            guard c.contains(.sourceExpiresAt), c.contains(.displayExpiresAt) else { throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Incomplete native deadline authority")) }
+            momentID = try c.decode(String.self, forKey: .momentID)
+            qualification = try c.decode(String.self, forKey: .qualification)
+            currentDisplayAllowed = try c.decode(Bool.self, forKey: .currentDisplayAllowed)
+            activeFlowDisplayAllowed = try c.decode(Bool.self, forKey: .activeFlowDisplayAllowed)
+            sourceExpiresAt = try c.decodeIfPresent(String.self, forKey: .sourceExpiresAt)
+            displayExpiresAt = try c.decodeIfPresent(String.self, forKey: .displayExpiresAt)
+            executableActions = try c.decode([String].self, forKey: .executableActions)
+            requiresSpotifyAttribution = try c.decode(Bool.self, forKey: .requiresSpotifyAttribution)
+            navigationActions = (try? c.decode([LossyBroadcastValue<DJConnectMomentInsightNavigation>].self, forKey: .navigationActions))?.compactMap(\.value) ?? []
+        }
+        public func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(momentID, forKey: .momentID); try c.encode(qualification, forKey: .qualification)
+            try c.encode(currentDisplayAllowed, forKey: .currentDisplayAllowed)
+            try c.encode(activeFlowDisplayAllowed, forKey: .activeFlowDisplayAllowed)
+            try c.encode(sourceExpiresAt, forKey: .sourceExpiresAt)
+            try c.encode(displayExpiresAt, forKey: .displayExpiresAt)
+            try c.encode(executableActions, forKey: .executableActions)
+            try c.encode(requiresSpotifyAttribution, forKey: .requiresSpotifyAttribution)
+            try c.encode(navigationActions, forKey: .navigationActions)
+        }
+        enum CodingKeys: String, CodingKey {
+            case momentID = "moment_id", qualification
+            case currentDisplayAllowed = "current_display_allowed", activeFlowDisplayAllowed = "active_flow_display_allowed"
+            case sourceExpiresAt = "source_expires_at", displayExpiresAt = "display_expires_at"
+            case navigationActions = "navigation_actions"
+            case executableActions = "executable_actions", requiresSpotifyAttribution = "requires_spotify_attribution"
+        }
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        guard c.contains(.currentMomentID) else { throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Incomplete native current authority")) }
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        sessionID = try c.decode(String.self, forKey: .sessionID)
+        revision = try c.decode(String.self, forKey: .revision)
+        currentMomentID = try c.decodeIfPresent(String.self, forKey: .currentMomentID)
+        currentSilenceMomentID = try c.decodeIfPresent(String.self, forKey: .currentSilenceMomentID)
+        activeFlowMomentIDs = try c.decode([String].self, forKey: .activeFlowMomentIDs)
+        admissions = try c.decode([Admission].self, forKey: .admissions)
+        revocationScope = try c.decode(String.self, forKey: .revocationScope)
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(schemaVersion, forKey: .schemaVersion); try c.encode(sessionID, forKey: .sessionID)
+        try c.encode(revision, forKey: .revision); try c.encode(currentMomentID, forKey: .currentMomentID)
+        try c.encodeIfPresent(currentSilenceMomentID, forKey: .currentSilenceMomentID)
+        try c.encode(activeFlowMomentIDs, forKey: .activeFlowMomentIDs)
+        try c.encode(admissions, forKey: .admissions); try c.encode(revocationScope, forKey: .revocationScope)
+    }
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version", sessionID = "session_id", revision
+        case currentSilenceMomentID = "current_silence_moment_id"
+        case currentMomentID = "current_moment_id", activeFlowMomentIDs = "active_flow_moment_ids"
+        case admissions, revocationScope = "revocation_scope"
+    }
+}
+
+public extension DJConnectMoment {
+    var isSettingsConfirmation: Bool {
+        guard let identity = settingsConfirmation, identity.isValid else { return false }
+        return type == "session" && sourceReferences == ["accepted_settings"] && sourceAttribution == nil &&
+            presentationIntent.visibility == "owner_only" && visibility == "owner_only" &&
+            knowledgeIntent?["type"] == "session_direction" &&
+            generationMetadata?["purpose"] == "accepted_settings_change" && generationMetadata?["validated"] == "true" &&
+            id == "moment-" + String(identity.confirmation_id.dropFirst(9)) &&
+            DJConnectHistoryEntry.date(createdAt) == DJConnectHistoryEntry.date(identity.accepted_at) &&
+            artwork == nil && actions.isEmpty
+    }
+    /// Preserve producer references and both recording attributions without inventing URLs.
+    var nativeSourceURLs: [URL] {
+        let references = sourceReferences + [sourceAttribution?["url"], sourceAttribution?["url_previous"]].compactMap { $0 }
+            + (isBulletinV1 ? sources.map(\.url) : [])
+        var seen = Set<String>()
+        return references.compactMap { raw in
+            guard let url = URL(string: raw), url.scheme == "https", url.host != nil,
+                  url.user == nil, url.password == nil, seen.insert(raw).inserted else { return nil }
+            return url
+        }
+    }
+}
+
+public extension DJConnectBroadcastState {
+    mutating func clearNativeAuthority() {
+        sessionForecast = nil
+        nativeDelivery = nil
+        sessionMedia = []
+        djMoments = []
+        presentations = []
+    }
+    func nativeCurrentMoment(at date: Date, spotifyAttributionAvailable: Bool = false) -> DJConnectMoment? {
+        guard session.runtimeState == "active",
+              let authority = nativeDelivery, authority.schemaVersion == 1,
+              authority.sessionID == session.sessionID, authority.revocationScope == "session",
+              !authority.revision.isEmpty, authority.currentSilenceMomentID == nil, let id = authority.currentMomentID,
+              let moment = djMoments.first(where: { $0.id == id }),
+              moment.isSettingsConfirmation || (playback?.state == "playing" &&
+                (moment.isMusicAnnouncementV1 ? moment.musicAnnouncement?.media_uri == playback?.itemID : moment.playbackItemID == playback?.itemID)),
+              admitted(moment, authority: authority, at: date, current: true, spotifyAttributionAvailable: spotifyAttributionAvailable) else { return nil }
+        return moment
+    }
+    func nativeFlowMoments(at date: Date) -> [DJConnectMoment] {
+        guard session.runtimeState == "active", let authority = nativeDelivery,
+              authority.schemaVersion == 1, authority.sessionID == session.sessionID,
+              authority.revocationScope == "session", !authority.revision.isEmpty else { return [] }
+        let currentID = nativeCurrentMoment(at: date)?.id
+        var seen = Set<String>()
+        return authority.activeFlowMomentIDs.compactMap { id in
+            guard id != currentID, seen.insert(id).inserted,
+                  sessionFlow.items.contains(where: { $0.itemType == "dj_moment" && $0.momentID == id }),
+                  let moment = djMoments.first(where: { $0.id == id }),
+                  admitted(moment, authority: authority, at: date, current: false) else { return nil }
+            return moment
+        }
+    }
+    private func admitted(_ moment: DJConnectMoment, authority: DJConnectNativeMomentDelivery, at date: Date, current: Bool, spotifyAttributionAvailable: Bool = false) -> Bool {
+        let matches = authority.admissions.filter { $0.momentID == moment.id }
+        guard matches.count == 1, let admission = matches.first,
+              admission.qualification == "qualified", admission.executableActions.isEmpty,
+              moment.sessionID == session.sessionID, !moment.content.isEmpty,
+              ["owner_only", "session_shared", "public_broadcast"].contains(moment.presentationIntent.visibility),
+              current ? admission.currentDisplayAllowed : admission.activeFlowDisplayAllowed else { return false }
+        if moment.type == "dj_bulletin" {
+            #if os(watchOS)
+            return false // Bulletin V1 is an owner phone/tablet/Mac Flow surface.
+            #else
+            return moment.admitsBulletin(admission, at: date, current: current)
+            #endif
+        }
+        if moment.type == "music_announcement" {
+            guard moment.isMusicAnnouncementV1, admission.requiresSpotifyAttribution,
+                  let expiry = admission.sourceExpiresAt.flatMap(nativeDeadline), date < expiry else { return false }
+            if current {
+                guard spotifyAttributionAvailable, let deadline = admission.displayExpiresAt.flatMap(nativeDeadline), date < deadline else { return false }
+            }
+            return true
+        }
+        // A new wire family cannot inherit music-source action/speech admission.
+        guard moment.isSupportedNativeType else { return false }
+        if moment.settingsConfirmation != nil || moment.sourceReferences.contains("accepted_settings") {
+            guard moment.isSettingsConfirmation, !admission.requiresSpotifyAttribution,
+                  admission.sourceExpiresAt == nil else { return false }
+        }
+        if admission.requiresSpotifyAttribution {
+            guard current, spotifyAttributionAvailable,
+                  moment.sourceAttribution?["provider"] == "Spotify",
+                  moment.sourceAttribution?["license"] == "Spotify metadata display",
+                  let raw = moment.sourceAttribution?["url"],
+                  let url = URL(string: raw), url.scheme == "https", url.host == "open.spotify.com",
+                  url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
+                  url.path.range(of: "^/album/[A-Za-z0-9]{22}$", options: .regularExpression) != nil,
+                  let expiry = admission.sourceExpiresAt.flatMap(nativeDeadline), date < expiry,
+                  let deadline = admission.displayExpiresAt.flatMap(nativeDeadline), date < deadline else { return false }
+            return true
+        }
+        if let source = admission.sourceExpiresAt {
+            guard let expiry = nativeDeadline(source), date < expiry,
+                  let provider = moment.sourceAttribution?["provider"], ["MusicBrainz", "Wikidata"].contains(provider),
+                  moment.sourceAttribution?["license"] == "CC0-1.0",
+                  let url = moment.sourceAttribution?["url"], moment.nativeSourceURLs.contains(where: { $0.absoluteString == url }) else { return false }
+            if let previous = moment.sourceAttribution?["url_previous"], !moment.nativeSourceURLs.contains(where: { $0.absoluteString == previous }) { return false }
+        } else {
+            if moment.isSettingsConfirmation {
+                return admission.displayExpiresAt.flatMap(nativeDeadline).map { date < $0 } == true
+            }
+            guard moment.settingsConfirmation == nil, moment.type == "session", moment.sourceAttribution == nil,
+                  moment.sourceReferences == ["session_direction"],
+                  moment.knowledgeIntent?["type"] == "session_direction",
+                  moment.generationMetadata?["context_source"] == "session_direction",
+                  moment.generationMetadata?["validated"] == "true" else { return false }
+        }
+        if current {
+            guard let deadline = admission.displayExpiresAt.flatMap(nativeDeadline), date < deadline else { return false }
+        }
+        return true
+    }
+}
+
+private func nativeDeadline(_ value: String) -> Date? {
+    let parser = ISO8601DateFormatter()
+    parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return parser.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+}
+
+/// Inert reference to an already published subject. It grants no playback effects.
+public struct DJConnectMomentInsightReference: Codable, Equatable, Sendable, Identifiable {
+    public let schemaVersion: Int
+    public let sessionID: String
+    public let momentID: String
+    public let actionID: String
+    public var id: String { actionID }
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version", sessionID = "session_id", momentID = "moment_id", actionID = "action_id"
+    }
+    public var isValid: Bool {
+        schemaVersion == 1 && [sessionID, momentID, actionID].allSatisfy { !$0.isEmpty && $0.count <= 128 }
+            && actionID == "insight-" + momentID
+    }
+}
+
+public struct DJConnectMomentInsightNavigation: Codable, Equatable, Sendable {
+    public let schemaVersion: Int
+    public let kind: String
+    public let target: String
+    public let actionID: String
+    public let label: String
+    public let requiredCapability: String
+    public let reference: DJConnectMomentInsightReference
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version", kind, target, actionID = "action_id", label
+        case requiredCapability = "required_capability", reference
+    }
+    public var isValid: Bool {
+        schemaVersion == 1 && kind == "navigation" && target == "track_insight"
+            && requiredCapability == "moment_track_insight_navigation_v1" && reference.isValid
+            && actionID == reference.actionID && !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && label.count <= 256
+    }
+}
+
+public struct DJConnectMomentInsightSubject: Decodable, Equatable, Sendable {
+    public let mode: String
+    public let reference: DJConnectMomentInsightReference
+    public let mediaIdentity: String
+    public let expiresIn: Double
+    enum CodingKeys: String, CodingKey { case mode, reference, mediaIdentity = "media_identity", expiresIn = "expires_in" }
+    public func matches(_ requested: DJConnectMomentInsightReference) -> Bool {
+        mode == "explicit" && reference == requested && reference.isValid
+            && !mediaIdentity.isEmpty && mediaIdentity.count <= 512 && expiresIn.isFinite && expiresIn > 0 && expiresIn <= 600
+    }
+}
+
+public struct DJConnectMomentInsightDetail: Sendable {
+    public let insight: TrackInsight
+    public let subject: DJConnectMomentInsightSubject
+}
+
+public extension DJConnectBroadcastState {
+    func nativeCurrentInsightNavigation(at date: Date, spotifyAttributionAvailable: Bool = false) -> DJConnectMomentInsightNavigation? {
+        guard let current = nativeCurrentMoment(at: date, spotifyAttributionAvailable: spotifyAttributionAvailable), current.type == "track",
+              let admission = nativeDelivery?.admissions.first(where: { $0.momentID == current.id }) else { return nil }
+        let offers = admission.navigationActions.filter { $0.isValid && $0.reference.sessionID == session.sessionID && $0.reference.momentID == current.id }
+        return offers.count == 1 ? offers[0] : nil
+    }
+
+    func originalInsightDeadline(for reference: DJConnectMomentInsightReference) -> Date? {
+        guard reference.isValid, reference.sessionID == session.sessionID,
+              let moment = djMoments.first(where: { $0.id == reference.momentID }),
+              let published = nativeDeadline(moment.createdAt),
+              let admission = nativeDelivery?.admissions.first(where: { $0.momentID == moment.id }),
+              let source = admission.sourceExpiresAt.flatMap(nativeDeadline) else { return nil }
+        return min(published.addingTimeInterval(600), source)
+    }
+}
+
+/// Original Core occurrence metadata; neither a local track-start detector nor a media grant.
+public struct DJConnectMusicAnnouncement: Codable, Equatable, Sendable {
+    public let schema_version: Int
+    public let occurrence_id: String
+    public let media_uri: String
+    public let album_uri: String?
+    public let title: String
+    public let artist: String
+    public let realization: String
+    public let automatic_deadline_seconds: Double
+    public var isSupported: Bool {
+        schema_version == 1 && !occurrence_id.isEmpty && occurrence_id.utf8.count <= 128 &&
+        DJConnectCurrentInsightSubject.isRecordingURI(media_uri) &&
+        (album_uri == nil || album_uri?.range(of: "^spotify:album:[A-Za-z0-9]{22}$", options: .regularExpression) != nil) &&
+        !title.isEmpty && title.utf8.count <= 2000 && !artist.isEmpty && artist.utf8.count <= 2000 &&
+        ["generated", "degraded"].contains(realization) && automatic_deadline_seconds == 12
+    }
+}
+public extension DJConnectMoment {
+    var isMusicAnnouncementV1: Bool {
+        guard type == "music_announcement", let metadata = musicAnnouncement, metadata.isSupported else { return false }
+        return !content.isEmpty && content.unicodeScalars.count <= 4000 &&
+            DJConnectHistoryEntry.date(createdAt) != nil &&
+            generationMetadata?["context_source"] == "track_start_announcement" &&
+            generationMetadata?["occurrence_id"] == metadata.occurrence_id &&
+            generationMetadata?["realization"] == metadata.realization &&
+            sourceReferences == ["spotify_playback_status"] &&
+            sourceAttribution?["provider"] == "Spotify" && sourceAttribution?["license"] == "Spotify-Policy" &&
+            sourceAttribution?["url"] == "https://open.spotify.com/track/" + metadata.media_uri.dropFirst("spotify:track:".count) &&
+            actions.isEmpty && artwork == nil && settingsConfirmation == nil
+    }
+}

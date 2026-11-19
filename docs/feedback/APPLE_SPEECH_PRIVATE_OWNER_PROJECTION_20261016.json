@@ -1,0 +1,58 @@
+{
+  "status": "SOURCE_OPTIONAL_PRIVATE_OWNER_PROJECTION_PASS; runtime playback not connected or installed",
+  "source_parent": "c0c2001ba1779ef60104fdc396977f7c2c7a9d8e",
+  "producer_contract_pin": "9faffe533d4a117eb8ad362e73809d126bdcc9d7",
+  "producer_readback": [
+    "docs/product/SESSION_SPEECH_DELIVERY_V1.md",
+    "custom_components/djconnect/ask_dj/service.py:391",
+    "custom_components/djconnect/historical_projection_query.py:109,159"
+  ],
+  "changes": [
+    "Ask DJ message/general responses decode optional session_speech; scoped conversation wrapper receives the same descriptor through its existing base",
+    "Retained Session history entries decode optional session_speech while preserving original reference/text and existing fields",
+    "Unknown schema, malformed optional projection, invalid mixed reference or non-private cache policy drops the optional capability without rejecting ordinary text/actions",
+    "Ask DJ response/history-message encoders omit session_speech. Explicit history-entry encoder retains existing fields/media but omits private speech grants. Standalone optional wrapper encoding emits null, never descriptor data",
+    "Decoding is not playback admission. Existing exact contribution/text/expiry checks remain required, together with future runtime owner/epoch/voice fences"
+  ],
+  "validation": {
+    "focused": "15 Speech contract tests PASS; final focused set19 tests PASS2.128s includes push owner transition/background boundaries and queue completion",
+    "focused_logs": [
+      "/private/tmp/djc-speech-owner-projection-focused-20261016.log",
+      "/private/tmp/djc-speech-owner-push-fix-focused-20261016.log"
+    ],
+    "ios": "DJConnectUI arm64 iOS26 simulator library PASS50.95s; final AppModel push-fix recompile PASS5.66s",
+    "ios_logs": [
+      "/private/tmp/djc-speech-owner-projection-ios-20261016.log",
+      "/private/tmp/djc-speech-owner-projection-ios-final-20261016.log"
+    ],
+    "preliminary_failures": [
+      "Parallel run:664tests,31.631s,one existing queue loading completion check failed. Queue rows are published before the completion callback; bounded wait now includes loading completion without changing assertions or runtime queue logic",
+      "Next parallel run:664tests,29.702s,VibeCast successor refresh assertions failed; same VibeCast test passes in small serialized selection. No VibeCast runtime/test change",
+      "First explicitly serial run:664tests,83.154s,push401 test counted4 requests instead of2; small serialized selection reproduced3. Found self-induced owner epoch change during error recovery caused unintended push reregistration. Fixed separately in AppModel; original actual-owner-transition recovery tests pass"
+    ],
+    "full_final": "664 tests in8suites PASS83.144seconds; explicit --no-parallel",
+    "full_final_log": "/private/tmp/djc-speech-owner-projection-all-final-20261016.log",
+    "diff_check": "PASS"
+  },
+  "evidence_boundaries": [
+    "Existing pinned Core6b26158a fixture parent shapes used unchanged. Descriptor decoding is separate from current freshness/playback eligibility",
+    "History-message parent with session_speech is explicitly modeled only to test codec export privacy, not claimed as a new producer advertisement",
+    "No live provider, synthesis, playback, app launch/install, physical UI, network-radio change or audible result"
+  ],
+  "remaining": [
+    "Runtime Speech collection for owner Broadcast Moments and binding to current accepted UI contributions",
+    "Fresh options before explicit preparation and complete post-await owner/epoch/selection/expiry fences",
+    "RAM-only audio player integration, stop/withdrawal/background behavior and once-only new-publication autoplay",
+    "Qualified selective build and native/audible acceptance before claiming installed Speech"
+  ],
+  "installed": "Unchanged: Mac40119 autoplay-only menu; iPad40117/iPhone40116 per existing receipts. Full voice/gender/Speech source not installed",
+  "effects": "Sole writer local source/tests/receipt only; no HA/config/Core deploy, provider request, app install, push/PR/merge, cross-thread message or automation change",
+  "cleanup": "One writer/worktree,current/main only merged refs,no Git locks or active build/trace processes. No refs/cache/evidence deleted; untracked DJConnectApp 2/3.xcodeproj preserved",
+  "storage": {
+    "df_internal": "4.8GiB",
+    "df_EP_DATA": "1.0GiB",
+    "APFS_disk3_free_bytes": 5120249856,
+    "APFS_disk7_free_bytes": 2409537536,
+    "note": "Separate fresh snapshots may differ; no cleanup or own free-space gain claim"
+  }
+}

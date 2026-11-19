@@ -1,0 +1,63 @@
+{
+  "source_pr": 220,
+  "candidate": "ff78ad6ba1668dcaa4f07db16ba72cc70e239ec6",
+  "main": "1d7f31717ce65e285518de77fd19848101211c52",
+  "tree": "18eb12c2653495e383abd820d98cdcd59d398f68",
+  "reviewed_and_merged_tree_equal": true,
+  "main_CI_run": 40441424900,
+  "formal_run": 40442739546,
+  "original_run_attempts": 1,
+  "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+  "formal_digest": "d879e03ab3931f200196bd47cdcab2830df7077a57d38c04b93b511547960d5f",
+  "formal_findings": [],
+  "formal_raw_sha256": "7ebed9066a16fa47f7c2ee8c2472acefbdf97b96e3a1dea036c11e6862be41e3",
+  "durable_asset_id": 680280825,
+  "durable_actual_and_provider_sha256": "273f818435e4c83753c769b2726f5f9fbafe34becc21db6f24c41cb072aea739",
+  "durable_inner_integrity_verified": true,
+  "all12_required_checks": {
+    "post_merge_build_validation": "PASS",
+    "post_merge_ci": "PASS",
+    "post_merge_coverage": "PASS",
+    "post_merge_governance": "PASS",
+    "post_merge_lint": "PASS",
+    "post_merge_static_analysis": "PASS",
+    "post_merge_tests": "PASS",
+    "required_checks": "PASS",
+    "software_assurance": "PASS",
+    "trusted_delivery": "PASS",
+    "verification": "PASS",
+    "workflow_integrity": "PASS"
+  },
+  "review_sha256": "29d604fe633a2cc4ee40b59760b1bfa6f32c35506dad6eba2997d17e5a6dfbba",
+  "scope": "Tools-only private preparation or its documentary Final; no native/operator/clock/provider/installation acceptance",
+  "schema_version": 1,
+  "kind": "apple_prepared_push_proof_source220_finalization",
+  "native_preparation": {
+    "scope": "Tools-only private parser and synthetic logical model",
+    "Swift6_controls": 105,
+    "actual_compile_parent_exit": 0,
+    "actual_run_parent_exit": 0,
+    "consumed_inputs": 8,
+    "unchanged_before_after_and_exact_candidate_Git_join": true,
+    "iOS_simulator_cross_compilation": "PASS; compilation only",
+    "iOS_simulator_execution": false,
+    "no_native_SDK_or_provider_operations": true
+  },
+  "source_test_receipt_sha256": "e505ae84fe308c94a540b441e9d56f214a2f00d34b255851c86f66af981c7858",
+  "scope_successor_packet_sha256": "05f2b7b16145c0f1d938db54ccb1f45ec022d4126c0d3fae99b35f917491d34a",
+  "historical_failure": {
+    "candidate": "c4e0e494e5c672628d85fcdffa394b25baf9e512",
+    "state": "HOLD",
+    "original_controls": "103 PASS; scope change control absent",
+    "external_causal_probe": "Exact frozen model: 103 PASS / 1 FAIL, actual parent exit 1",
+    "successor": "Exact scope UTF8-byte comparison and irreversible retirement/return-ABA controls"
+  },
+  "closed_operational_gates": [
+    "Actual authenticated Core/API operator/current-owner admission",
+    "Qualified original clock witness and conservative cross-domain mapping",
+    "Protected Core owner UI/once journal and actual proof-port composition",
+    "Full native crypto/provisioning/key and token acquisition authority",
+    "Registered Activity profile and shipping adoption",
+    "Actual WidgetKit/ActivityKit/APNs delivery and ordinary installation"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-16",
+  "build": "40190",
+  "scope": "Match Voice popover translucency to other native menus",
+  "root_cause": "Voice/autoplay popovers explicitly overrode presentationBackground with ultraThinMaterial. Mood/presence/connection popovers use native presentation background.",
+  "implementation": [
+    "Remove explicit ultraThinMaterial presentation override from installed autoplay-only Voice popover.",
+    "Apply same one-line removal to existing full-provider Voice toolbar in writer for presentation parity; do not adopt unqualified provider source into selective build.",
+    "Keep menu content, autoplay preference, capabilities, scope/epoch checks, gestures and other popovers unchanged."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "mac_build": "PASS",
+    "signature": "strict deep PASS",
+    "manifest": "452 hashes PASS",
+    "installed": "iPhone/iPad/Mac mini40190 confirmed; Mac executable hash verified",
+    "native_iphone_probe": "PASS: opened Voice popover, observed autoplay control after2s, captured screenshot, dismissed without toggling.",
+    "iphone_visual": "Screenshot actually viewed: native frosted menu with blurred underlying content and page tint.",
+    "mac_ipad_visual": "NOT_RUN; installation/signature and shared source verified."
+  },
+  "evidence": {
+    "manifest": "build/recovery/voice40190-selective-source-manifest-20261016.json",
+    "selective_patch": "build/recovery/voice40190-native-glass-20261016.patch",
+    "writer_provider_parity_patch": "build/recovery/voice40190-writer-provider-parity-20261016.patch",
+    "xcresult": "/private/tmp/djc-iphone-40190-voice-glass-20261016.xcresult",
+    "screenshot": "/private/tmp/djc-iphone-40190-voice-glass-attachments/CC2D7629-069E-4E49-AFB6-D0E060B2EF02.png",
+    "mac_backup": "build/recovery/DJConnect-before40190.app"
+  },
+  "preservation": [
+    "External probe restored; no preference toggles, TTS preparation/playback or new messages.",
+    "Recovery/evidence and unrelated projects retained.",
+    "No timer restart or Core messages."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}

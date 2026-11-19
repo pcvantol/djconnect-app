@@ -1,0 +1,482 @@
+{
+  "scope": "synthetic native macOS offscreen Metal only, not physical iPhone/iPad or provider acceptance",
+  "gpu_report": {
+    "device": "Apple M6",
+    "evidence": "native macOS offscreen Metal; production pipeline and presentation integrator; no whole-app FPS claim",
+    "native_voice": "NOT_RUN",
+    "occurrences": "20 explicit synthetic occurrence/seed inputs per family, not real provider playback",
+    "physical_iphone_ipad": "NOT_RUN",
+    "resolution": [
+      960,
+      640
+    ],
+    "scenarios": [
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.033916665823199,
+        "gpu_ms_p95": 3.1383749992528465,
+        "scenario": "home-chill-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.054749998933403,
+        "gpu_ms_p95": 3.006499999173684,
+        "scenario": "home-chill-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.075083331874339,
+        "gpu_ms_p95": 3.001125001901528,
+        "scenario": "home-chill-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.0517499979177956,
+        "gpu_ms_p95": 3.142791669233702,
+        "scenario": "home-groove-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.078291665384313,
+        "gpu_ms_p95": 3.1959999978425913,
+        "scenario": "home-groove-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.0355000015115365,
+        "gpu_ms_p95": 3.1737499994051177,
+        "scenario": "home-groove-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.0290833308536094,
+        "gpu_ms_p95": 3.201791667379439,
+        "scenario": "home-energy-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.0660000009229407,
+        "gpu_ms_p95": 3.165708334563533,
+        "scenario": "home-energy-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.033791668509366,
+        "gpu_ms_p95": 3.0596249998779967,
+        "scenario": "home-energy-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.027624999755062,
+        "gpu_ms_p95": 3.137625000817934,
+        "scenario": "home-party-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.06304166931659,
+        "gpu_ms_p95": 3.008583331393311,
+        "scenario": "home-party-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 2.07083333589253,
+        "gpu_ms_p95": 3.1434583324880805,
+        "scenario": "home-party-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.1401249980262946,
+        "gpu_ms_p95": 4.515208333032206,
+        "scenario": "radio-chill-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.150041666231118,
+        "gpu_ms_p95": 4.601083332090639,
+        "scenario": "radio-chill-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.1314166662923526,
+        "gpu_ms_p95": 4.533250001259148,
+        "scenario": "radio-chill-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.1415833327628206,
+        "gpu_ms_p95": 4.44841666467255,
+        "scenario": "radio-groove-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.124833332549315,
+        "gpu_ms_p95": 4.540166668448364,
+        "scenario": "radio-groove-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.1043333328852896,
+        "gpu_ms_p95": 4.5047500025248155,
+        "scenario": "radio-groove-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.1658333355153445,
+        "gpu_ms_p95": 4.770666666445322,
+        "scenario": "radio-energy-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.1250833308149595,
+        "gpu_ms_p95": 4.706208335846895,
+        "scenario": "radio-energy-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.1362916670332197,
+        "gpu_ms_p95": 4.475500001717592,
+        "scenario": "radio-energy-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.137625000817934,
+        "gpu_ms_p95": 4.849208333325805,
+        "scenario": "radio-party-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.150249998725485,
+        "gpu_ms_p95": 4.66312499702326,
+        "scenario": "radio-party-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 3.1442083345609717,
+        "gpu_ms_p95": 4.587083330989117,
+        "scenario": "radio-party-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 4.3278749981254805,
+        "gpu_ms_p95": 6.192125001689419,
+        "scenario": "club-chill-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 4.160583332122769,
+        "gpu_ms_p95": 6.199125000421191,
+        "scenario": "club-chill-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 4.257500000676373,
+        "gpu_ms_p95": 6.220875002327375,
+        "scenario": "club-chill-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 4.128749998926651,
+        "gpu_ms_p95": 6.011666668200633,
+        "scenario": "club-groove-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 4.131083333049901,
+        "gpu_ms_p95": 5.9714999988500495,
+        "scenario": "club-groove-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 4.16150000091875,
+        "gpu_ms_p95": 6.090124999900581,
+        "scenario": "club-groove-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 4.162375000305474,
+        "gpu_ms_p95": 6.241458333533956,
+        "scenario": "club-energy-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 4.200625000521541,
+        "gpu_ms_p95": 5.921208332438255,
+        "scenario": "club-energy-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 4.389749999972992,
+        "gpu_ms_p95": 6.3653750003140885,
+        "scenario": "club-energy-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 4.448125000635628,
+        "gpu_ms_p95": 6.370250001054956,
+        "scenario": "club-party-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 4.500583330809604,
+        "gpu_ms_p95": 6.51037499847007,
+        "scenario": "club-party-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 5.176291666430188,
+        "gpu_ms_p95": 6.397874996764585,
+        "scenario": "club-party-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.061583334172610193,
+        "gpu_ms_p95": 0.12129166861996055,
+        "scenario": "festival-chill-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.044124997657490894,
+        "gpu_ms_p95": 0.10345833288738504,
+        "scenario": "festival-chill-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.029625000024680048,
+        "gpu_ms_p95": 0.04833333514397964,
+        "scenario": "festival-chill-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.06137499804026447,
+        "gpu_ms_p95": 0.1698749983916059,
+        "scenario": "festival-groove-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.0441250012954697,
+        "gpu_ms_p95": 0.3263750004407484,
+        "scenario": "festival-groove-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.03729166928678751,
+        "gpu_ms_p95": 0.1570416643517092,
+        "scenario": "festival-groove-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.07787499998812564,
+        "gpu_ms_p95": 0.3476249985396862,
+        "scenario": "festival-energy-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.043125000956933945,
+        "gpu_ms_p95": 0.049875001423060894,
+        "scenario": "festival-energy-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.02912499985541217,
+        "gpu_ms_p95": 0.03125000148429535,
+        "scenario": "festival-energy-100"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.06120833495515399,
+        "gpu_ms_p95": 0.1161666659754701,
+        "scenario": "festival-party-0"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.04275000173947774,
+        "gpu_ms_p95": 0.15804166832822375,
+        "scenario": "festival-party-50"
+      },
+      {
+        "frames": 120,
+        "gpu_ms_median": 0.029541664844146,
+        "gpu_ms_p95": 0.095458330179099,
+        "scenario": "festival-party-100"
+      }
+    ],
+    "touch_gpu_checks": [
+      {
+        "expiry_restores_pixels": true,
+        "family": "home",
+        "swipe_mean_byte_delta": 1.0674454752604168,
+        "tap_mean_byte_delta": 1.86674072265625
+      },
+      {
+        "expiry_restores_pixels": true,
+        "family": "radio",
+        "swipe_mean_byte_delta": 1.4659920247395832,
+        "tap_mean_byte_delta": 3.5305692545572915
+      },
+      {
+        "expiry_restores_pixels": true,
+        "family": "club",
+        "swipe_mean_byte_delta": 1.055086669921875,
+        "tap_mean_byte_delta": 2.065293782552083
+      },
+      {
+        "expiry_restores_pixels": true,
+        "family": "festival",
+        "swipe_mean_byte_delta": 0.37165283203125,
+        "tap_mean_byte_delta": 0.7599129231770834
+      }
+    ],
+    "transition_frames": 240,
+    "transition_gpu_ms_median": 10.651708333170973,
+    "transition_gpu_ms_p95": 12.776041668985272,
+    "user_acceptance": "PENDING",
+    "visual_field_gpu_checks": [
+      {
+        "family": "home",
+        "field": "palette",
+        "mean_rgb_byte_delta": 12.206557074652778
+      },
+      {
+        "family": "home",
+        "field": "depth",
+        "mean_rgb_byte_delta": 8.881526150173611
+      },
+      {
+        "family": "home",
+        "field": "roughness",
+        "mean_rgb_byte_delta": 5.062262912326389
+      },
+      {
+        "family": "home",
+        "field": "deformation",
+        "mean_rgb_byte_delta": 16.625738932291668
+      },
+      {
+        "family": "radio",
+        "field": "palette",
+        "mean_rgb_byte_delta": 7.348961046006944
+      },
+      {
+        "family": "radio",
+        "field": "depth",
+        "mean_rgb_byte_delta": 21.013961046006944
+      },
+      {
+        "family": "radio",
+        "field": "roughness",
+        "mean_rgb_byte_delta": 0.5134233940972223
+      },
+      {
+        "family": "radio",
+        "field": "deformation",
+        "mean_rgb_byte_delta": 3.767108832465278
+      },
+      {
+        "family": "club",
+        "field": "palette",
+        "mean_rgb_byte_delta": 13.125935329861111
+      },
+      {
+        "family": "club",
+        "field": "depth",
+        "mean_rgb_byte_delta": 16.655672743055554
+      },
+      {
+        "family": "club",
+        "field": "roughness",
+        "mean_rgb_byte_delta": 2.1748334418402777
+      },
+      {
+        "family": "club",
+        "field": "deformation",
+        "mean_rgb_byte_delta": 0.7819905598958333
+      },
+      {
+        "family": "festival",
+        "field": "palette",
+        "mean_rgb_byte_delta": 1.861193576388889
+      },
+      {
+        "family": "festival",
+        "field": "depth",
+        "mean_rgb_byte_delta": 4.716872829861111
+      },
+      {
+        "family": "festival",
+        "field": "roughness",
+        "mean_rgb_byte_delta": 2.8003759765625
+      },
+      {
+        "family": "festival",
+        "field": "deformation",
+        "mean_rgb_byte_delta": 4.5325705295138885
+      }
+    ]
+  },
+  "source_receipt": {
+    "base_head": "6c3096ca3e6e372c211830ef75cebf788eae0ae3",
+    "inputs_sha256": {
+      "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/source/Sources/DJConnectUI/VibeScapeShaders/VibeScape.metal": "72d95b25db069219ac17928be1e9fb7a239de864d489933d5f884afbcdd4e61f",
+      "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/source/Sources/DJConnectUI/VibeScapeFamilies.swift": "6375f4897c10465b24ca4b2d4338b17b676bf04a45ec9a09c9d68bebe4f8d191",
+      "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/source/Sources/DJConnectUI/VibeScapeScene.swift": "97ae8263da0499e46f312c907660a308387898aeab249d991c5feb6278007bbe",
+      "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/source/Sources/DJConnectUI/VibeScapeMetalEngine.swift": "0ac50022abf1e0f62323a03628796c0063a25a36a45a35d79a58b1e67ca0f522",
+      "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/source/Tools/qualification/vibescape/FamilyMetalProbe.swift": "8a858150f6efbb3c8251785d3c69267e6fee8a178f1c7b42292493a491679e6f",
+      "/Volumes/Shared Data/tmp/pcvantol/apple-firstkey-paired-parents-20261102/swift-build-r6/out/Products/Debug/DJConnectCore.o": "466a8622c0c53ff62ddccd00721dae2ba33c62ab1bdd72d50d7c60db057bd7a8",
+      "/Volumes/Shared Data/tmp/pcvantol/apple-firstkey-paired-parents-20261102/swift-build-r6/out/Products/Debug/JOSESwift.o": "658d7cb5b2c6676a1cdaf2cb0e7af24db11dbfe0a0938b7fc9a0088f4b47dda3"
+    },
+    "source_and_products_unchanged": true,
+    "commands": [
+      [
+        "xcrun",
+        "-sdk",
+        "macosx",
+        "metal",
+        "-c",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/source/Sources/DJConnectUI/VibeScapeShaders/VibeScape.metal",
+        "-o",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/vibescape-worlds/gpu-shipping-final-r1/scene.air"
+      ],
+      [
+        "xcrun",
+        "-sdk",
+        "macosx",
+        "metallib",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/vibescape-worlds/gpu-shipping-final-r1/scene.air",
+        "-o",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/vibescape-worlds/gpu-shipping-final-r1/scene.metallib"
+      ],
+      [
+        "swiftc",
+        "-O",
+        "-parse-as-library",
+        "-target",
+        "arm64-apple-macosx26.0",
+        "-I",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-firstkey-paired-parents-20261102/swift-build-r6/out/Products/Debug",
+        "-I",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-firstkey-paired-parents-20261102/swift-build-r6/out/Products/Debug/Modules",
+        "-module-cache-path",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/vibescape-worlds/gpu-shipping-final-r1/module-cache",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/source/Sources/DJConnectUI/VibeScapeFamilies.swift",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/source/Sources/DJConnectUI/VibeScapeScene.swift",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/source/Sources/DJConnectUI/VibeScapeMetalEngine.swift",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/source/Tools/qualification/vibescape/FamilyMetalProbe.swift",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-firstkey-paired-parents-20261102/swift-build-r6/out/Products/Debug/DJConnectCore.o",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-firstkey-paired-parents-20261102/swift-build-r6/out/Products/Debug/JOSESwift.o",
+        "-o",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/vibescape-worlds/gpu-shipping-final-r1/probe"
+      ],
+      [
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/vibescape-worlds/gpu-shipping-final-r1/probe",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/vibescape-worlds/gpu-shipping-final-r1/scene.metallib",
+        "/Volumes/Shared Data/tmp/pcvantol/apple-suggestions-more-footer-20261102/vibescape-worlds/gpu-shipping-final-r1/renders"
+      ]
+    ],
+    "xcode": "Xcode 27.2\nBuild version 27B52\n",
+    "scope": "synthetic inputs, native offscreen Mac GPU only"
+  },
+  "screenshots": {
+    "native-dynamics.png": "27916dde8b8aa2fa635430c2391168d3b3ac70860e006433e41bc978d3e7976b",
+    "native-monochrome.png": "8c657a6d5c1294647912cecf3fb7e297cb9806ffdeb0b4074bf29207563e9343"
+  }
+}

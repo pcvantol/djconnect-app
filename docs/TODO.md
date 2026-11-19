@@ -1,0 +1,120 @@
+# Todo And Known Issues
+
+Actuele Apple-lanestatus (17okt2026): [integrale open-werk- en acceptatiematrix](feedback/APPLE_OPEN_WORK_20261017.md) en [requirementniveau/afmeldingen40258](feedback/APPLE_REQUIREMENT_ACCEPTANCE_20261017.md). Historische done-notities hieronder sluiten nieuwe Session/Speech/Settings/Watch-acceptatie niet af.
+
+This document tracks app-local known project gaps. The canonical product
+roadmap lives in `djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md`; if roadmap changes
+originate here, update `djconnect-music-dj/djconnect` separately. Concrete backlog items
+with acceptance criteria live in [ISSUES.md](ISSUES.md).
+
+## Parallel validation follow-through (2026-10-31)
+
+Local parallel-test/CI preparation is recorded in
+[the source evidence](feedback/APPLE_PARALLEL_CLIENT_VALIDATION_20261031.md).
+Exact-head review/CI, protected source delivery and separate Finalization remain
+open until their original receipts exist. This preparation does not close the
+broader performance or device-acceptance work registers.
+
+## High Priority
+
+- Qualify shared WebSocket authentication/capabilities and a single result-reader
+  before enabling additional product-read concurrency. The rejected Discovery
+  prototype is excluded from the parallel-CI/resource-isolation increment.
+
+- Validate live backend devices, queue, playlists, liked proxy, and voice flows
+  against a real Home Assistant `djconnect` setup.
+- Field-test both Spotify Direct and Music Assistant against HA `3.2.x`,
+  including `music_backend_capabilities`, `unsupported_backend_capability`,
+  stale `music_backend_revision` Ask DJ actions, and backend switch recovery.
+- Field-test LAN pairing plus post-pairing `ha_remote_url` fallback on physical
+  iPhone/iPad and Mac using the canonical
+  `djconnect-music-dj/djconnect/FIELD_TEST_APP_CLIENTS.md` checklist.
+- Field-test APNs wake/sync hints for iOS/macOS/watchOS with central
+  `djconnect-api`, confirming push never carries raw prompts, raw audio,
+  Ask DJ history, Music DNA, Spotify tokens, HA tokens, or bearer tokens.
+- Validate HA entity creation and status sync for iOS, iPadOS, and macOS app
+  clients after pairing.
+- Validate the blocking pairing sheet and Demo Mode on physical iPhone, iPad,
+  and Mac before App Store/TestFlight review.
+- Keep the Apple app and Home Assistant integration on the same `major.minor`
+  protocol line; app `3.2.x` requires HA `3.2.x`.
+- Work through the high-priority local issues in [ISSUES.md](ISSUES.md),
+  especially physical-device validation.
+
+## Playback
+
+- Field-test retry throttling and user-facing recovery copy for
+  `backend_unavailable` against live backend outage/recovery.
+
+## Voice/PTT
+
+- Field-test returned WAV/MP3 response audio playback on iPhone, iPad, Mac, and
+  Apple Watch.
+
+## iOS
+
+- Tune app icon presentation before release if App Store review or platform
+  guidelines require changes.
+- Tune iPhone and iPad layouts with real device/simulator screenshots.
+- Re-check that every primary iPhone/iPad screen uses the DJConnect gradient
+  canvas and that compact permission rows stay readable with Dynamic Type.
+- Complete qualified passive Session projection adoption for widgets, Live Activity and Dynamic Island; current native foundation does not prove rich-content/lock-screen acceptance.
+- Decide whether Shortcuts integration should map to DJConnect commands.
+
+## macOS
+
+- Decide whether to add a menu bar controller.
+- Add media key support only if it maps cleanly to DJConnect commands.
+- Tune window sizing, sidebar defaults, and settings layout.
+
+## Testing
+
+- Extend the initial `DJConnectIOSUITests` target with a real or recorded Home
+  Assistant pairing and network flow fixture.
+- Add UI tests for compact permission rows, Demo Mode microphone response, and
+  any remaining local app surfaces not covered by the current UI suite.
+- Add UI tests for Ask DJ search, bubble context menus, replay controls, and
+  server-synced system/retention messages once a mock HA fixture exists.
+- Add focused app-model tests for permission status mapping once platform
+  authorization APIs are wrapped behind injectable adapters.
+- Add focused app-model tests for pairing retry state and stale authenticated
+  auth recovery.
+- Add deeper diagnostics export tests for any newly introduced token-like fields.
+- Add deeper app-storage token reset/re-pair coverage for physical-device-only
+  edge cases after field testing.
+- Add performance regression checks for repeated artwork URLs.
+
+## Release/Build
+
+- Restore or approve the central Apple operational manifest and validate one
+  manifest-bound dual-Mac deployment plus separate smoke run before declaring
+  this release path operational. The current workflows must not bypass that
+  gate with an arbitrary CI artifact.
+- Verify the Mac mini's Apple Development signature on the MacBook after SSH
+  transfer, and validate operator-led recovery of both run-scoped previous apps.
+- Configure Apple developer team and signing.
+- Add privacy manifests if required by release tooling.
+- Configure required reviewers and secrets for the protected `testflight-beta`
+  GitHub Environment, plus notarized macOS release packaging.
+- Keep five-language What's New release notes (`en`, `nl`, `de`, `fr`, `es`)
+  aligned with the latest GitHub release and only add new work to an
+  `Unreleased` changelog section after tags are published.
+
+## Known Issues
+
+- Live queue, playlist, output selection, liked proxy, and voice/PTT are wired
+  in the Apple app, but still need validation against the matching HA backend.
+- The app icon now follows the shared DJConnect brand asset from
+  `djconnect-music-dj/djconnect`; `Tools/GenerateAppIcon.swift` generates
+  platform-specific iOS, macOS, and watchOS asset sets, with iOS dark/tinted
+  renditions.
+- The unpaired app now has Demo Mode for UI inspection, but Demo Mode does not
+  validate HA pairing, HA entity creation, Spotify OAuth, or voice round trips.
+- `DJConnectCoreTests` currently run through Swift Package tests; Xcode test
+  integration should be expanded as the app targets mature.
+- `xcodebuild` may print simulator/cache warnings in the sandboxed Codex
+  environment even when builds succeed.
+
+Shared native WebSocket source qualification is in progress; see
+[the bounded adapter scope and original failures](feedback/APPLE_NATIVE_WEBSOCKET_CONCURRENCY_20261031.md).
+This does not close general performance or authorize additional Discovery concurrency.

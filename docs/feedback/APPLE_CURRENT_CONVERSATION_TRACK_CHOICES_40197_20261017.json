@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-17",
+  "build": "40197",
+  "scope": "Current-only conversation presentation and structured track choices",
+  "fixes": [
+    "Retain local question with directly accepted private_ephemeral answer across ordinary history refresh; remove both on authority withdrawal/clear/expiry; no durable local profile history.",
+    "Render current-only turn in captured active DJ Session without manufacturing retained history IDs.",
+    "Accept structured track-item value as nondisplay metadata instead of dropping row title/URI.",
+    "Suppress duplicate noninteractive track item when matching renderable track action is present."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "mac_build": "PASS",
+    "unit": "PASS4 tests with7 parameter cases:0/6 choices, history withdrawal, producer reply and lease expiry",
+    "unit_log": "/private/tmp/djc-conversation40196-tests.log",
+    "manifest": "452 final source hashes PASS; reverse-check of exact writer delta PASS on selective source; original source differences remain qualified/excluded",
+    "installed": {
+      "iphone": "40197",
+      "ipad": "40197",
+      "mac": "40197"
+    },
+    "signature": "iOS and Mac strict deep PASS; Mac installed executable equal candidate",
+    "preview": "Attempted actual chat-component ImageRenderer; native glass content unsupported in output. NOT visual PASS. Temporary instrumentation restored.",
+    "native_gui": "NOT_RUN for conversation delta; no live Within Temptation/current-playback response qualification"
+  },
+  "open_backend": "Missing playback context and Within Temptation choices still need live backend investigation. Permission request to contact Core pending; no message sent.",
+  "evidence": {
+    "patch": "build/recovery/conversation40197-current-turn-track-items-20261017.patch",
+    "manifest": "build/recovery/conversation40197-selective-source-manifest-20261017.json",
+    "mac_backup": "build/recovery/DJConnect-before40197.app"
+  },
+  "preservation": [
+    "Tests use isolated fixtures; no live playback/profile mutation.",
+    "Cancelled only our waiting Xcode runFirstLaunch wrappers/children; existing CoreDevice CLI completed installs. No system helper kill or trust changes.",
+    "Timer paused; unrelated untracked projects retained."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}

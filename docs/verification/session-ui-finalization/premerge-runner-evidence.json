@@ -1,0 +1,9 @@
+{
+  "runner_name": "djconnect-apple-macos-macmini",
+  "runner_os": "macOS",
+  "runner_arch": "ARM64",
+  "required_role": "apple",
+  "git_sha": "94d6e868a2eb8852f71f81bf7150a0496be16903",
+  "xcode": "Xcode 27.0;Build version 27A266a;",
+  "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)"
+}

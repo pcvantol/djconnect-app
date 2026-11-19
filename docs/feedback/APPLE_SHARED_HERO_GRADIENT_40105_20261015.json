@@ -1,0 +1,16 @@
+{
+  "build": "40105",
+  "selective_base": "/private/tmp/djc-history-position-40104-source",
+  "source_commit": "d0d06fb5210efe640a42821f1fbc6a0fc08d0c7b",
+  "file": "Sources/DJConnectUI/DJConnectRootView.swift",
+  "source_sha256": "dff1ae21c71a937e4508189041e4d4c70184b3de01f59746265415de084849e5",
+  "changes": "Shared horizontal blue-left to purple-right hero gradient; Discover, Ask DJ, active/inactive Music DNA use existing shared hero modifier; Track Insight, Session welcome, VibeCast and Feedback inherit it. Removed3 duplicated gradients.",
+  "signed_ios_watch_build": "PASS",
+  "physical_install_readback": "40105",
+  "physical_native_navigation_probe": "PASS: ordinary installed Ask DJ -> Track Insight -> Discover, no fixture or action sent",
+  "physical_visual_inspection": "PASS: all3screenshots inspected. Ask DJ and Discover hero gradients match; actual Track Insight loaded with mood visualizer and shared outer card. Empty Track Insight hero uses same modifier but was not physically captured in this run.",
+  "evidence": "/private/tmp/djc-hero-gradient-40105-physical.xcresult",
+  "screenshots_dir": "/private/tmp/djc-hero-gradient-40105-physical-images",
+  "scope": "Static hero presentation; dynamic mood visuals and backend semantics retained. No source publication.",
+  "cleanup": "One active writerworktree; merged list only current lane and main. Other refs unproven and untracked projects preserved. No eligible stale worktree/branch to remove."
+}

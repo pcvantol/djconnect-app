@@ -1,0 +1,29 @@
+{
+  "scope": "PROTECTED_LOCAL_HTTP_NATIVE_MAC_INSPECT_SOFTWARE_JWE_ONLY",
+  "source_repository": "pcvantol/djconnect-api",
+  "protected_main": "828fbaf300ca369dcc753b676295e84094d5e8c6",
+  "path": "qualification/rendezvous/root-integration-runtime.mjs",
+  "sha256": "27e9f5ae2a7b7350f3ae51352cf4efb023ec17f79bc8f42968cc3bdfbfe34854",
+  "finalization_receipt": "https://github.com/pcvantol/djconnect-api/issues/90#issuecomment-6288860618",
+  "native_execution": true,
+  "public_activation_allowed": false,
+  "genuine_verifier_required": true,
+  "simulator_app_attest_supported": false,
+  "notes": "Exact protected runtime and pinned JOSE provenance verified. Only loopback locator/response URL metadata translated. Synthetic HA owner route, no enrollment/submit/fake verifier/SDK/public activation; genuine simulator unsupported evidence separate.",
+  "native_scope": "Mac Swift inspect and JOSE encryption; no SDK or iOS positive execution",
+  "post_statuses": [
+    [
+      "create",
+      201
+    ],
+    [
+      "inspect",
+      200
+    ],
+    [
+      "cancel",
+      200
+    ]
+  ],
+  "receipt_sha256": "d5f7021409b7d3c0a6a7a43bd65d706966a5ba3e2dd898752336708351fd9eb5"
+}

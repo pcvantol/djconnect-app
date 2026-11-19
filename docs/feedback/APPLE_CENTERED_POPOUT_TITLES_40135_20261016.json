@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "source_parent": "94564b8",
+  "request": "Horizontally center menu popout titles.",
+  "change": "Center multiline title Text across available width for shared Mood/Presence selector, connection popout and autoplay Voice popout. Match full Voice/Persona source headers, without adding those gated implementations to the selective app. Menu options and settings remain left aligned.",
+  "build": "40135",
+  "manifest": "build/recovery/iphone40135-selective-source-manifest-20261016.json",
+  "files_verified": 452,
+  "signed_ios_watch_build": "PASS",
+  "codesign_deep_strict": "PASS",
+  "candidate_executable_sha256": "d5802c26b2b3aeae799aa1e4f9f1a18c86ce013b855818e1bca2b4e050d19f2d",
+  "install": "/private/tmp/djc-iphone-40135-install.json",
+  "readback": "/private/tmp/djc-iphone-40135-readback.json",
+  "physical_test": {
+    "result": "PASS",
+    "seconds": 34.295,
+    "xcresult": "/private/tmp/djc-iphone-40135-centered-titles-20261016.xcresult",
+    "screenshots_actually_viewed": [
+      "/private/tmp/djc-iphone-40135-centered-titles-attachments/330CFFA6-341E-4C54-BB57-42AE8612B3AF.png",
+      "/private/tmp/djc-iphone-40135-centered-titles-attachments/E996DD14-0F8B-4833-8232-693FE98B4F0E.png",
+      "/private/tmp/djc-iphone-40135-centered-titles-attachments/75B55AC8-2133-4D58-BE79-E2F09879B80C.png",
+      "/private/tmp/djc-iphone-40135-centered-titles-attachments/F30EF288-2E09-4A69-B055-1B7E8C24FA0C.png"
+    ],
+    "observation": "Connection, Mood, Presence and Voice titles horizontally centered. Each native popover closed via outside tap. No selection/toggle changed."
+  },
+  "source_ui_compile": {
+    "result": "PASS",
+    "seconds": 20.1,
+    "log": "/private/tmp/djc-40136-centered-titles-composer-ui-build.log"
+  },
+  "limits": "Physical iPhone titles only; prepared full Voice/Persona headers source only, no additional contract adoption. No settings writes, playback/send/provider action, push, PR, merge or Core deploy."
+}

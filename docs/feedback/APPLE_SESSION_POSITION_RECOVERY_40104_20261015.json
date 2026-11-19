@@ -1,0 +1,14 @@
+{
+  "build": "40104",
+  "selective_base": "/private/tmp/djc-keyboard-tabs-40103-source",
+  "source_commit": "cf2c4dc2b02c43b127dd0954eb3e9c230cb2a90a",
+  "file": "Sources/DJConnectUI/SessionTimelineScreen.swift",
+  "sha256": "ffad05c74a32ecdfa36db7b13015c5608aa29145c8bd926d5a37d2a25a4e9acd",
+  "root_cause": "positionUnavailable was set when a search result vanished or closing search lost its prior reading anchor; never cleared. Bare global history.changed message persisted with no action. Screenshot placement matches this path; no captured request/trace proves a specific original backend error.",
+  "fix": "Remove sticky flag and bare banner. Closing search returns to current anchor when previous anchor no longer retained; valid anchors preserved. Existing turn conflicts and timeline read errors with explicit actions remain.",
+  "regression_tests": "4PASS: reading anchor scope, search reset, stale-query rejection, retention/epoch render cache",
+  "signed_ios_watch_build": "PASS",
+  "physical_install_readback": "40104",
+  "physical_original_trigger_reproduction": "NOT_RUN: no fake/live retention mutation or search expiry reproduced on device",
+  "cleanup": "Only one active writer worktree. Three other local refs not proven merged; preserve under publication pause. Untracked project directories preserved. No eligible stale artifact deleted."
+}

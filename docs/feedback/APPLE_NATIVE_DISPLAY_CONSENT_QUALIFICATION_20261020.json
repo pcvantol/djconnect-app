@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "base": "aa9785361e6d41f9c086765fc3b9db28669184b8",
+  "scope": "isolated actual iOS AppModel consent; synthetic URLProtocol owner/HTTP",
+  "ios": {
+    "passed": 18,
+    "failed": 0,
+    "skipped": 0,
+    "os": "iOS Simulator 27.1"
+  },
+  "macos": {
+    "passed": 13,
+    "failed": 0
+  },
+  "input_sha256": {
+    "Tests/DJConnectCoreTests/DisplayConsentSessionTests.swift": "0432abf5ee66bf4dcc3cad5ebf9bf9e47ab9b3546c8d7da526ab2c7d0109062f",
+    "Tools/qualification/vibecast-product/prepare_native_consent_tests.py": "36c46204f8375edc4ca7f311468ba3a982a7e30898b26456bf58ea6a59d2b288",
+    "Tests/Fixtures/session-history-producer-receipt.json": "d4b901aa3d6ec7d7e93767c2efc538dddc5f92dc2e3cbaa9213e03b0da471f93",
+    "Tests/Fixtures/session-history-active-session-before-auth-failure.json": "4c7e565f7b10705164f78681bf9f7a30d156fef668a06d7084fd203cf0393e2d"
+  },
+  "evidence_sha256": {
+    "summary.json": "fa43ab642ccad326cac22485ce93e967e4da7167eb1c4a7632c4f4fdde52388c",
+    "final.log": "99ac6cd3ad6d37f9ed14a93250ce6d8c2f501e00e6110b4daa5ba3355f562357",
+    "macos-regression.log": "9ecb0f9197189c7babddd5e35b184b460ca326cd73f310a38564bd777c715b7b"
+  },
+  "production_source_changed": false,
+  "native_taps_qualified": false,
+  "installed_ha_qualified": false,
+  "physical_qualified": false,
+  "sdk_effects": 0,
+  "new_recovery_bundles": 0
+}

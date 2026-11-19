@@ -1,0 +1,10 @@
+{
+  "status": "SOURCE_FIXTURE_INTAKE_ONLY",
+  "core_commit": "3cfa55121e6c29cf6308fa570cbb5af0d2261057",
+  "source_path": "examples/client_contracts/session_forecast_v1/transport-fixtures.json",
+  "sha256": "909c9bc4f882f5db84b0b92a4fef4102c3f8d123337cf0770160f590fba24cac",
+  "consumer_fixture": "Tests/Fixtures/session-forecast-core-3cfa5512.json",
+  "native": "NOT_RUN",
+  "installed": "NOT_RUN",
+  "physical": "NOT_RUN"
+}

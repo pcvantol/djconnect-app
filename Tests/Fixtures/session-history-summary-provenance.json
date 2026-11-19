@@ -1,0 +1,8 @@
+{
+  "producer_pin": "ccbb839f4e544b3739c31202685d147207e4c289",
+  "files": {
+    "Tests/Fixtures/session-history-summary-final-list.json": "613464a3f2f8994e82f87903416034cfc24dd28c13fe0db19e48b513debe68a0",
+    "Tests/Fixtures/session-history-summary-final-detail.json": "8312a77c92036504cc6de15a0028b7f33017137aaf779874fc687df661e0cf5b",
+    "Tests/Fixtures/session-history-summary-summary-states.json": "86a54f42ca7d24e17b31d037ba4363cd5141cc1ff5c478d8a145e594ce5b289f"
+  }
+}

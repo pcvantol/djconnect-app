@@ -1,0 +1,98 @@
+{
+  "at": "2026-10-26T22:00:51.799554+00:00",
+  "status": "PRIVATE_R6_EXACT_IDENTITY_PREIMAGE_AND_RAW_VS_NATIVE_VALIDATION_BOUNDARY_PINNED_NOT_NORMATIVE_OR_RUNTIME_GO",
+  "human_choice_receipt_sha256": "8966a1ade9099c02e5e0547016944cd7cbca8134fecda7fbd6730806944ae9f1",
+  "product": "Only original observed playstate+timestamp; OS may retain old presentation; no track/artist/artwork/text/progress/current/live/guaranteedwipe",
+  "B_transport": {
+    "method": "GET",
+    "path": "/api/djconnect/v1/surface-push/widget-status/observation",
+    "origin": "Exactly original selected paired HA origin (scheme+host+port), never issuercentral origin or a response URL. Existing trusted HA local HTTP/remoteHTTPS selection not broadened. Cross-origin denied.",
+    "query_fields": {
+      "contract_version": "literal ASCII 1",
+      "request_id": "canonical lowercase UUIDv4",
+      "target_generation": "canonical lowercase server-issued UUIDv4, not native placementUUID"
+    },
+    "query_policy": "Exactly these three singleton keys, no duplicates/unknown keys/body; original immutable attempt captured BEFORE child scheduling/await",
+    "authorization": "Authorization: Bearer djcbstatus_<43 canonical unpadded base64url chars encoding32random bytes>. Reserved candidate B capability, not A purpose/App/paired/enrollment token; hash-only server custody and explicitly shared signed app+extension Keychain, never AppGroup defaults. No actual token minted.",
+    "ambient_policy": "Dedicated transport with cookies/credential storage/default auth disabled, no redirect/proxy authlearning/retry/credential refresh; no body/URL/token logging. One bounded attempt10seconds/max8192responsebytes.",
+    "headers": {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "private,no-store",
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff"
+    },
+    "JSON_cache_policy_literal": "private,no-store",
+    "HTTP_variants": {
+      "200": "Exact closed observation schema; unavailable false/null includes retired grant/source/target or lost boot witness, never repairs authority",
+      "400": "Malformed lexical/query/schema; no observation, no fallback",
+      "401": "Missing/invalid Bcredential; no observation, no paired-token fallback",
+      "403": "Foreign audience/origin/scope; no observation",
+      "503": "Owner/issuer/status service unavailable; no observation"
+    },
+    "non200_policy": "Never render or derive authority from non200 body; closed bounded error schema to be pinned before implementation; no generic successbody tolerance",
+    "crossfields": [
+      "echo original request_id",
+      "observation.target_generation exactly original requested generation",
+      "Bgrant original epoch/audience/current owner/source/Session/nativegeneration checked server-side before everyawait and final noawaitCAS",
+      "source_generation reflects real original source epoch; not oldcached Profile/Session rawID",
+      "server fixed original wall+mono grantexpiry/revoke checked eachread; no response lifetime/arrival lease, no expiry reset",
+      "same original request/task generation at most one publication; cancellation/duplicate/oldchild/ABA rejects without newcurrentness"
+    ]
+  },
+  "bootstrap_boundary": {
+    "finding": "TARGET-BOOTSTRAP-1 is not solved by a readcredential; no pre-existing positive A factory required or assumed",
+    "proposed_new_context_route": "GET /api/djconnect/v1/surface-push/status-bootstrap/context",
+    "proposed_new_owner_approval_route": "POST /api/djconnect/v1/surface-push/status-bootstrap/approve",
+    "proposed_new_target_register_route": "POST /api/djconnect/v1/surface-push/status-bootstrap/register",
+    "authority_separation": [
+      "Existing pairedidentity authenticates only bootstrap candidate, never human consent or native environment",
+      "Actual authenticated HAowner approval, exact selected status/retention policy + scoped Profile/source/Session ownership, original nonce/generation/deadline, genuine reviewedflow; no consent=true/admin/sourcehash shortcut",
+      "Fresh actual native token and independently qualified signed bundle/environment proof bound to bootstrap/realdevice/source; no client synthesized environment or placementUUID",
+      "Server alone issues native targetgeneration only after genuineowner+targetproof; it is not an input prerequisite for first bootstrap",
+      "Actual Coreprivate keycustody + separately approved APIoperatorcapability enrollment is separate; no Bcredential or context called an enrollmentgrant",
+      "Only after real targetregistration and original B ownergrant can exactBcredential issue; positive runtime remains unavailable if any real authority missing"
+    ],
+    "wire_status": "Context/approve/register request,response,nonce,proof/verifier and revokejournal schemas NEED JOINT AGREEMENT before source implementation; named routes are reserved proposal, not implemented or accepted. No generic success schema/futurepin supplied."
+  },
+  "Activity_profile": {
+    "status": "Separate remote-playback-status-v1 candidate, NOT original Tools rich V1 or legacy local ContentState; no identity aliases or accepted native profile.",
+    "native_type_name": "DJConnectRemotePlaybackStatusActivityAttributesV1",
+    "schema_file": "activity-status-v1.schema.json",
+    "target_and_profile": "Exact native activityID+Attributesversion+presentationUUID/generation+profilehash; no old localtoken/type reuse",
+    "payload_limit": "Complete APNs JSON including envelope <=4096UTF8bytes, no truncation or injected fake text",
+    "event_time": "APS timestamp uses actual original Unixseconds; ContentState observed_at uses actual original Unixms. Never futuretimestamp to force ordering.",
+    "ordering_open": "Real same-second coalescing/end policy must be agreed; sequence alone does not prove statelessOS order. Closed until accepted profile/target/order native qualification.",
+    "display": "Static last-observed status and original timestamp; no advancing progress/currentness lease. End uses neutral playback_state:null; OSretention accepted in productchoice, genuine owner lockeddisplay/storage consent still explicit.",
+    "profile_id": "remote-playback-status-v1",
+    "attribute_identity_fields": [
+      "presentation_id",
+      "presentation_generation"
+    ],
+    "candidate_naming_state": "Exact Core/Apple model tuple agreed for review; replaces earlier tentative names only. No accepted native/profile/runtime admission.",
+    "attributes_schema_file": "activity-status-attributes-v1.schema.json",
+    "attributes_schema_sha256": "639dad776e1ee25465cc82154ccdf1b0d2c0a59a48b326fc3e7a91b55224a76b",
+    "content_state_schema_sha256": "2e38225064a2cec0252f8cab60f8d1db8eada5dba53a9701333fab47c02c239c",
+    "profile_tuple_sha256": "090b8c9cd0d0b74622cd8ce00accaaecd816feb9d762f0554a9709bbf6342517",
+    "profile_tuple_file": "activity-status-profile-tuple.json",
+    "profile_hash_contract": "SHA256 of exact four-key identity object in profile tuple file; sortedkeys/compactUTF8/ensure_ascii=false/noBOM/no trailing newline; all outer metadata excluded",
+    "lexical_validation_boundary": "Core/API original raw preflight before provider. Native ActivityKit Decoder has no raw APSData hook: validate values/closed keys/null/identity, never claim raw duplicate/integerlexeme rejection. Bnetwork can own true raw preflight."
+  },
+  "strict_lexical_requirements": [
+    "Core/API provider ingress/emission and Bnetwork raw preflight: strictUTF8/rejectBOM/duplicateJSON/nonfinite before map overwrite",
+    "Source raw contract rejects float/integer lexical substitutions and bool-as-int; native ActivityKit value decoding is NOT proof of those original lexemes",
+    "Safeintegerdomain1..9007199254740991, canonical UUIDv4, no future/source synthesized observationtime",
+    "No top-level/nested artist/title/artwork/credentials/URLs/command/profileSessionIDs",
+    "phase ended implies playback_state null; active requires explicit boundedplaystate",
+    "Positive ROSchema validity is data shape ONLY, not genuine authorization/native receipt proof"
+  ],
+  "remaining_gates": [
+    "Joint exactbootstrap and error schema/proof contracts",
+    "Normal protected CoreSource+separateFinal+originalQ and consumeradoption",
+    "Genuine ownerapproval/keys/operatorenrollment/native signed targetproof",
+    "Actual receiver/storage/Activity/rendering/provider/nativeacceptance"
+  ],
+  "effects": "NONE; startupownerNil, purposemaps empty/activityProfiles[] remain. No deployment/keygeneration/enrollment/native/device action by candidate.",
+  "predecessor_contract_sha256": "9264e9b4f604f18e65c1185dbd29e045eeabfdace506c0a11d98cd8160b7a7fb",
+  "revision": 6,
+  "vectors_sha256": "aa8f1e1e2e817bc6d58fc12c2b98a0150755f028f09d4a6f024227ffec5e445a"
+}

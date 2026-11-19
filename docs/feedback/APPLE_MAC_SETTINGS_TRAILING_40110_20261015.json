@@ -1,0 +1,21 @@
+{
+  "build": "40110",
+  "source_commit": "bd45ca9e7cb39701886f9fa339592c76808b54ad",
+  "scope": "macOS Settings only: shared trailing LabeledContent style, native switch on right, wake phrase input max320pt; labels retain intrinsic width to avoid compression by prose. iOS unchanged.",
+  "selective_source": "/private/tmp/djc-neon-brand-40108-source, qualified UI snapshot plus exact settings-only patch",
+  "installed_source_sha256": "a6efeb209c8ee8c59f9b018798fd0faa4db10c61e03da66432ec66a300d48794",
+  "signed_mac_build": "PASS",
+  "installed_readback": "40110",
+  "installed_mac_binary_sha256": "45d901eea3411d10e6ef5b6c5fd21839f5591aaac7339cad6f0e334137d6e808",
+  "signature_verification": "PASS with normal Keychain access; sandbox-only check lacked trust access.",
+  "physical_ui_test": "PASS: installed app -> temporary demo -> Settings -> screenshots -> stop demo -> pairing screen restored. No backend/pairing changes.",
+  "visual_acceptance": "Top App/DJ-announcement rows and scrolled Music DNA/permission sections inspected. Controls share right edge; labels readable. No destructive setting activated.",
+  "evidence": "/private/tmp/djc-settings-trailing-40110-lower.xcresult",
+  "screenshots": [
+    "/private/tmp/djc-settings-trailing-40110-images/5014E72B-26DE-49DB-8574-DE1A004DE4DC.png",
+    "/private/tmp/djc-settings-trailing-40110-lower-images/259FA3F8-397E-4672-825A-B970A0675F54.png"
+  ],
+  "iteration": "40109 revealed compressed Music DNA label; corrected in40110. First40110 lower capture scrolled sidebar, replaced by actual screen-settings scroll capture.",
+  "cleanup": "One active writer; only current branch/main proven merged. No eligible stale branches/worktrees; untracked project folders preserved.",
+  "delivery": "Local only; Apple source publication pause preserved."
+}

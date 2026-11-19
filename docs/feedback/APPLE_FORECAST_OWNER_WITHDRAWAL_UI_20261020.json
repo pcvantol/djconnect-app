@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "parent_sha": "2e182e1e5dcd9e54dec49018a0240900b74e211b",
+  "production_changed": true,
+  "shared_forecast_admission": "PASS",
+  "native_withdrawal_and_recovery_visual": "PASS_THREE_INSPECTED_CAPTURES",
+  "native_retry_ax_enabled_assertion": "NOT_QUALIFIED_NO_NSButton_BRIDGE",
+  "forecast_reads_during_withdrawal": [
+    2,
+    2
+  ],
+  "mac_executed_functions": 10,
+  "mac_skipped_functions": 1,
+  "lifecycle_cases": 16,
+  "canonical_artist_cases": 7,
+  "ios_build_for_testing": "PASS",
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/DJConnectAppModel.swift",
+      "sha256": "75a0d8bddcdc3fc5b3a1da9cbfb5de4980e71b6534f0ad0a5192c5ccdd3b601e"
+    },
+    {
+      "path": "Sources/DJConnectUI/SessionForecastView.swift",
+      "sha256": "7a14739c5b0a1cdb88f778041c91a37c6846350caf436529d0a94900ff214649"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "6c03b40c48b0eff9b391f7cc22ed1ebddb62d5d1a77f7665f5894d2a8c4376c2"
+    },
+    {
+      "path": "Tests/Fixtures/session-forecast-core-3cfa5512.json",
+      "sha256": "909c9bc4f882f5db84b0b92a4fef4102c3f8d123337cf0770160f590fba24cac"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-before-20261020.log",
+      "sha256": "b04583a602b6861a339e6079ef5897a50d91420a1176ab97855c3497a25f7fde"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-before-20261020/withdrawal-01-authorized.png",
+      "sha256": "c334028ec0e8a0e599ad5141f747c896b94eb394d34ce48d31c95c3f0e3d2f8b"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-presentation-20261020.log",
+      "sha256": "bd60ffacb6b9828551b974dab992bcd26fd2e5e42a371501ac035dcca6162b11"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-presentation-20261020/native-withdrawal-metrics.json",
+      "sha256": "8cf6d79055da3734268400088376302f50618fe889208f261a3ef77e802ca157"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-presentation-20261020/withdrawal-01-authorized.png",
+      "sha256": "c334028ec0e8a0e599ad5141f747c896b94eb394d34ce48d31c95c3f0e3d2f8b"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-presentation-20261020/withdrawal-02-owner-suspended.png",
+      "sha256": "ace375f403fab7dfcc31b6274c9463dac752d79618a7052676887437dff4bf7d"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-final-20261020.log",
+      "sha256": "9294073e49f2d6b4338886741d3f7db403f874a304643007c4519afe868bda92"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-final-20261020/native-withdrawal-metrics.json",
+      "sha256": "25150ff657649608a22ac8a7fb6151c61103c928648bb1f686088ad5eae5933b"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-final-20261020/withdrawal-01-authorized.png",
+      "sha256": "c334028ec0e8a0e599ad5141f747c896b94eb394d34ce48d31c95c3f0e3d2f8b"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-final-20261020/withdrawal-02-owner-suspended.png",
+      "sha256": "a40bfec0326be87d230b35e8c9a97af5c79aa4c27cf38a4e949b8ccff2076149"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-final-20261020/withdrawal-03-owner-restored.png",
+      "sha256": "c334028ec0e8a0e599ad5141f747c896b94eb394d34ce48d31c95c3f0e3d2f8b"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-withdrawal-ios-build-20261020.log",
+      "sha256": "2b5dba9cf15dcee969819e0ca5e4e39e5d4bd6f463a1ba3e5377ae34d9937b68"
+    }
+  ]
+}

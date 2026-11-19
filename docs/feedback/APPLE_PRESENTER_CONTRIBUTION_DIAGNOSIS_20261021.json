@@ -1,0 +1,90 @@
+{
+  "apple_source": "a30b692",
+  "status": "OPEN_PRODUCER_DIAGNOSIS; no demonstrated Apple filtering defect",
+  "current_checkpoint": {
+    "active": true,
+    "presence": "presenter",
+    "playback": "paused",
+    "broadcast_dj_moments": 1,
+    "timeline_dj_moments": 1,
+    "timeline_playback_observed": 1,
+    "native_UI_agrees": true,
+    "later_UI": "idle after external Session transition; agent did not start/end Session"
+  },
+  "recent_producer_complete_final_summary_counts": [
+    {
+      "tracks_observed": 9,
+      "moments_published": 2
+    },
+    {
+      "tracks_observed": 12,
+      "moments_published": 3
+    },
+    {
+      "tracks_observed": 39,
+      "moments_published": 8
+    }
+  ],
+  "validation": "Four new private timeline pages passed existing real Swift contract decoder/entry validation, using already-built tests. No rebuild.",
+  "limits": [
+    "Counts do not prove uninterrupted playback duration or required cadence.",
+    "Current paused state does not explain historical sparse publication.",
+    "Presenter must retain exact-source, owner, playback freshness and publication admission guards.",
+    "No fix, new producer fixture, deployment or playback effect completed."
+  ],
+  "core_owner": "Existing owner notified with metadata; producer planner/ledger/qualified-fact/publication diagnosis pending.",
+  "private_evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/active.json",
+      "sha256": "f270c7fb22d34b71cf4c6c2a6afc298a8a6be4c39aa07d31496d956a0096a1f9"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/capabilities.json",
+      "sha256": "3ea78c4911f85270b74d5b6e1916317db1692538ea69210d1494e5af5d2651d0"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/client-log-metadata.json",
+      "sha256": "51f78c1d6601f9ed2d3ebc631035945f952aeb661282a59c2751179fe4c37d21"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/recent-sessions.json",
+      "sha256": "47b13f06333bd3acd16f925445222a0182467e3f0c8bbfec6578b466c2d5b5a5"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/recent-timeline-0.json",
+      "sha256": "a5633f8f5e092fe782095914ae648dadf203737992a701d1f5a362e6b3597eb9"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/recent-timeline-1.json",
+      "sha256": "ba936c19c4a609f9401933c692caf4c6a07a379aaefd6ec6e49c7855aba4691b"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/recent-timeline-2.json",
+      "sha256": "ba25f448f2a9755edc992d8f659efd76562e83b7a71b307def851a08e9fb52c6"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/summary.json",
+      "sha256": "02d2cac05e70369ce53a9349cf0589f6a584c0e1b0158a0a5b3617a63df821ee"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/timeline.json",
+      "sha256": "8456618c3287ab26f2916e5566da3bba6a3f869c85b014f351da9d144138c90d"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/recent-timeline-0-validation.log",
+      "sha256": "39110f6b441348b6b7fffca6c4f1dbd281a3049b1a31ba95675b102d89acd3da"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/recent-timeline-1-validation.log",
+      "sha256": "638fe8ebb959a49649d33174d676c6d7cc86dbc4ac1db31c01fd6761f76a06e0"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/timeline-validation.log",
+      "sha256": "c68cd5b4d07f5f973095996aa0b2f708b9d29f75d0270c20a39ec23d0ddee692"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-presenter-contributions-20261021/recent-timeline-2-validation.log",
+      "sha256": "638fe8ebb959a49649d33174d676c6d7cc86dbc4ac1db31c01fd6761f76a06e0"
+    }
+  ]
+}

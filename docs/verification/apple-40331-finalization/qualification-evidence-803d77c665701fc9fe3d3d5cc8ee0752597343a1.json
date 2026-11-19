@@ -1,0 +1,53 @@
+{
+  "commit_sha": "803d77c665701fc9fe3d3d5cc8ee0752597343a1",
+  "integrity": {
+    "algorithm": "sha256-canonical-json",
+    "digest": "12340bffd6b45c7aaa24d2124cf656e69892d15997da1b45240c3f576764dc9d"
+  },
+  "kind": "durable_qualification_evidence",
+  "published_at": "2026-10-18T08:07:30Z",
+  "qualification": {
+    "outcome": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+    "profile": "post_merge_release_evidence",
+    "required_checks": {
+      "post_merge_build_validation": "PASS",
+      "post_merge_ci": "PASS",
+      "post_merge_coverage": "PASS",
+      "post_merge_governance": "PASS",
+      "post_merge_lint": "PASS",
+      "post_merge_static_analysis": "PASS",
+      "post_merge_tests": "PASS",
+      "required_checks": "PASS",
+      "software_assurance": "PASS",
+      "trusted_delivery": "PASS",
+      "verification": "PASS",
+      "workflow_integrity": "PASS"
+    }
+  },
+  "record_id": "pcvantol/djconnect-app@803d77c665701fc9fe3d3d5cc8ee0752597343a1:post-merge-release-evidence",
+  "redaction": {
+    "included_data": "formal allowlisted decision fields only",
+    "policy_version": 1,
+    "status": "REDACTED"
+  },
+  "release_identifier": "internal-ha-803d77c665701fc9fe3d3d5cc8ee0752597343a1",
+  "repository": "pcvantol/djconnect-app",
+  "repository_role": "active_source",
+  "retention_class": "LONG_TERM",
+  "revision": 1,
+  "schema_version": 1,
+  "source_evidence_digest": "21416c51402d0a79e15f16b0e04283c6c9e39e39f4fa2269e54f421105d27edf",
+  "source_revision": "ebbb35f038a7a3c7d46c12660968bcd50eb67580",
+  "supplemental_evidence": [
+    {
+      "kind": "coverage_artifact_digest",
+      "sha256": "0b17c421ae0e11568fea58bd730149bb5ada183ca58a14dd0c7351e86a99d3e0"
+    }
+  ],
+  "workflow_references": {
+    "post_merge_run_ids": [
+      "39109669813"
+    ],
+    "producer_run_id": "39110224530"
+  }
+}
