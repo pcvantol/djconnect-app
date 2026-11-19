@@ -1,7 +1,7 @@
 # DJ Persona avatar — first Apple graphics slice
 
-Owner: [Apple #127](https://github.com/pcvantol/djconnect-app/issues/127).
-Canonical design: [Core #1209](https://github.com/pcvantol/djconnect/issues/1209),
+Owner: [Apple #127](https://github.com/djconnect-music-dj/djconnect-app/issues/127).
+Canonical design: [Core #1209](https://github.com/djconnect-music-dj/djconnect/issues/1209),
 including the later headphone/full-ring refinement of 18 October 2026.
 
 ## Admitted scope

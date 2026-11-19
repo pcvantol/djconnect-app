@@ -575,7 +575,7 @@ PASS; downloaded formal JSON hash/integrity/redaction validated against the
 exact canonical policy. Separate Finalization publication is being reconciled. See the
 [Finalization snapshot](docs/history/prompts/2026-10-10-apple-session-conversation-history-finalization.md),
 [native evidence](docs/verification/SESSION_CONVERSATION_HISTORY_NATIVE_EVIDENCE.md)
-and [owning #87](https://github.com/pcvantol/djconnect-app/issues/87).
+and [owning #87](https://github.com/djconnect-music-dj/djconnect-app/issues/87).
 The unchanged optional TDE observe workflow failed because its Python3.9
 runtime is below the published TDE1.1.1 minimum3.11; that assessment is NOT_RUN,
 not a technical qualification PASS. No new capability, Store/TestFlight,
@@ -597,13 +597,13 @@ en interne SHA-evidence
 zijn PASS. Deze afzonderlijke Finalization-documenten verzoenen de bronstatus,
 het oorspronkelijke WIP en de aanvullende productafhankelijkheden. Het definitieve protected-merge-, publicatie- en cleanup-readback voor
 dit documentpakket wordt na uitvoering in owning
-[#87](https://github.com/pcvantol/djconnect-app/issues/87) geregistreerd.
+[#87](https://github.com/djconnect-music-dj/djconnect-app/issues/87) geregistreerd.
 Native iPhone/iPad/Mac met werkelijke pinned producer→owner transport→state→
 SwiftUI, beide spelersituaties, zes netwerkgevallen, 408 reguliere tests,
 vijf talen en onafhankelijke technische/UX reviews slagen. Bewijs en grenzen:
 [Finalization-record](docs/history/prompts/2026-10-08-apple-moment-first-session-finalization.md),
 [assessment](docs/APPLE_MOMENT_FIRST_SESSION_ASSESSMENT.md) en
-[owning #87](https://github.com/pcvantol/djconnect-app/issues/87).
+[owning #87](https://github.com/djconnect-music-dj/djconnect-app/issues/87).
 
 Gespreks-/historieaanvulling6061498264 is afhankelijk van nog te leveren
 Core-contracten, geregistreerd in [#1101 comment6064346207](https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6064346207)

@@ -1,7 +1,7 @@
 # Apple Governance Adoption
 
 This repository adopts the DJConnect AI-Native Engineering Operating System
-**version 2.2** from `pcvantol/djconnect`,
+**version 2.2** from `djconnect-music-dj/djconnect`,
 `docs/governance/PLATFORM_ARCHITECT_SYSTEM_INSTRUCTIONS.md`.
 
 The central method is referenced, never copied. This repository owns Apple

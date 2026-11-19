@@ -1,7 +1,7 @@
 # VibeScape on Apple platforms
 
-Owning work: [Apple177](https://github.com/pcvantol/djconnect-app/issues/177),
-[Core1271](https://github.com/pcvantol/djconnect/issues/1271).
+Owning work: [Apple177](https://github.com/djconnect-music-dj/djconnect-app/issues/177),
+[Core1271](https://github.com/djconnect-music-dj/djconnect/issues/1271).
 
 VibeScape is available in standard Apple release builds. On iPhone, iPad and
 Mac it appears alongside Flow and Horizon in an active Session. On Watch it is

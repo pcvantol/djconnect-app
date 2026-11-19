@@ -167,13 +167,13 @@ en interne SHA-evidence
 zijn PASS. Deze afzonderlijke Finalization-documenten verzoenen de bronstatus,
 het oorspronkelijke WIP en de aanvullende productafhankelijkheden. Het definitieve protected-merge-, publicatie- en cleanup-readback voor
 dit documentpakket wordt na uitvoering in owning
-[#87](https://github.com/pcvantol/djconnect-app/issues/87) geregistreerd.
+[#87](https://github.com/djconnect-music-dj/djconnect-app/issues/87) geregistreerd.
 Native iPhone/iPad/Mac met werkelijke pinned producer→owner transport→state→
 SwiftUI, beide spelersituaties, zes netwerkgevallen, 408 reguliere tests,
 vijf talen en onafhankelijke technische/UX reviews slagen. Bewijs en grenzen:
 [Finalization-record](docs/history/prompts/2026-10-08-apple-moment-first-session-finalization.md),
 [assessment](docs/APPLE_MOMENT_FIRST_SESSION_ASSESSMENT.md) en
-[owning #87](https://github.com/pcvantol/djconnect-app/issues/87).
+[owning #87](https://github.com/djconnect-music-dj/djconnect-app/issues/87).
 
 Gespreks-/historieaanvulling6061498264 is afhankelijk van nog te leveren
 Core-contracten, geregistreerd in [#1101 comment6064346207](https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6064346207)

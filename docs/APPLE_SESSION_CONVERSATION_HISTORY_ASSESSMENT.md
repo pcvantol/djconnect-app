@@ -69,7 +69,7 @@ Exact pins, hashes, actual/failed receipts and retained recovery:
 [Finalization snapshot](history/prompts/2026-10-10-apple-session-conversation-history-finalization.md),
 [native evidence](verification/SESSION_CONVERSATION_HISTORY_NATIVE_EVIDENCE.md),
 [portable receipts](verification/paired-owner-live/qualification.json),
-[owning #87](https://github.com/pcvantol/djconnect-app/issues/87).
+[owning #87](https://github.com/djconnect-music-dj/djconnect-app/issues/87).
 
 No installation/Store/TestFlight/HA authority follows from source merge.
 Separate Finalization requires its own reviewed exact-publication gate.

@@ -1,6 +1,6 @@
 # VibeScape: four Session-character worlds, v1
 
-Owner authority: [Apple #177](https://github.com/pcvantol/djconnect-app/issues/177),
+Owner authority: [Apple #177](https://github.com/djconnect-music-dj/djconnect-app/issues/177),
 [approved extension](https://github.com/pcvantol/djconnect-app/issues/177#issuecomment-6576638276),
 [approved references](https://github.com/pcvantol/djconnect-app/issues/177#issuecomment-6576772333),
 [Core counterpart](https://github.com/pcvantol/djconnect/issues/1271#issuecomment-6576658339).
