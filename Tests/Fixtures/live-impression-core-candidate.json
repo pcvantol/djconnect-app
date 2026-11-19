@@ -1,0 +1,309 @@
+{
+  "moment": {
+    "moment_id": "moment-99c98f7602034531a2d5b3ffc2958769",
+    "session_id": "session-79e948fbac8447718349474082ef0ba9",
+    "created_at": "2026-11-19T21:42:41.421525+00:00",
+    "type": "live_impression",
+    "live_impression": {
+      "event": {
+        "artist": "Nora Vale 1",
+        "city": "Fixture City",
+        "date": "2020-06-02",
+        "date_precision": "day",
+        "event_id": "event-fixture",
+        "relationship": "same_artist",
+        "venue": "Fixture Hall"
+      },
+      "photos": [
+        {
+          "alt_text": {
+            "de": "Nora Vale 1 \u2014 Fixture Hall",
+            "en": "Nora Vale 1 \u2014 Fixture Hall",
+            "es": "Nora Vale 1 \u2014 Fixture Hall",
+            "fr": "Nora Vale 1 \u2014 Fixture Hall",
+            "nl": "Nora Vale 1 \u2014 Fixture Hall"
+          },
+          "author": "Fixture Photographer",
+          "caption": "Nora Vale 1 performed at Fixture Hall, Fixture City, 2020-06-02.",
+          "credit": "Fixture Photographer \u00b7 CC BY-SA 4.0",
+          "height": 768,
+          "license": "CC-BY-SA-4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "photo_id": "photo-fixture",
+          "revision": "12f3972dcc3dd251adf5892363fc0b71dca570dbdb04457c51e21c31c8669157",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Nora_Vale_concert_fixture.png",
+          "width": 1024
+        }
+      ],
+      "schema_version": 1
+    },
+    "knowledge_intent": {
+      "type": "live_impression",
+      "goal": "Share one qualified current-track fact."
+    },
+    "presentation_intent": {
+      "source_session_mood": "energy",
+      "dj_persona": "home_dj",
+      "tone_of_voice": "warm and conversational",
+      "energy_level": "energy",
+      "delivery_style": "short contextual music story",
+      "voice_style": "persona-guided",
+      "visual_theme": "music-context",
+      "importance": "normal",
+      "maximum_duration_seconds": 40,
+      "delivery_channels": [
+        "owner"
+      ],
+      "visibility": "owner_only"
+    },
+    "title": "Een avond in Fixture Hall",
+    "summary": "Nora Vale 1 speelde in Fixture Hall. De foto bewaart die avond.",
+    "content": "Nora Vale 1 speelde in Fixture Hall. De foto bewaart die avond. In Fixture City stond de artiest op 2 juni 2020 op het podium. Dit opgeslagen verhaal en deze foto gaan over dat optreden, ook wanneer er een ander nummer speelt.",
+    "artwork": null,
+    "actions": [],
+    "visibility": "owner_only",
+    "delivery_channels": [
+      "owner"
+    ],
+    "importance": "normal",
+    "source_references": [
+      "https://commons.wikimedia.org/wiki/File:Nora_Vale_concert_fixture.png"
+    ],
+    "generation_metadata": {
+      "provider": "MusicBrainz",
+      "validated": "true",
+      "realization": "qualified_ha_narration_v1"
+    },
+    "source_attribution": {
+      "provider": "MusicBrainz",
+      "url": "https://musicbrainz.org/artist/00000000-0000-0000-0000-000000000001",
+      "license": "CC0-1.0"
+    },
+    "sources": [
+      {
+        "license": "CC-BY-SA-4.0",
+        "provider": "Wikimedia Commons",
+        "title": "Original concert fixture",
+        "url": "https://commons.wikimedia.org/wiki/File:Nora_Vale_concert_fixture.png"
+      }
+    ],
+    "playback_item_id": "63bf0397fbdc1fd1f3fbec76"
+  },
+  "history": {
+    "entry_id": "entry-c8c7055b8727571c896cfb949448aedd",
+    "session_id": "session-79e948fbac8447718349474082ef0ba9",
+    "order": 2,
+    "kind": "dj_moment",
+    "occurred_at": "2026-11-19T21:42:41.421525+00:00",
+    "retained_until": "2027-02-17T21:42:41.484528+00:00",
+    "historical_view_only": true,
+    "current_display_allowed": false,
+    "archive_basis": "public_live_impression_v1",
+    "dialogue_subjects": [
+      "Nora Vale 1"
+    ],
+    "live_impression": {
+      "event": {
+        "artist": "Nora Vale 1",
+        "city": "Fixture City",
+        "date": "2020-06-02",
+        "date_precision": "day",
+        "event_id": "event-fixture",
+        "relationship": "same_artist",
+        "venue": "Fixture Hall"
+      },
+      "photos": [
+        {
+          "alt_text": {
+            "de": "Nora Vale 1 \u2014 Fixture Hall",
+            "en": "Nora Vale 1 \u2014 Fixture Hall",
+            "es": "Nora Vale 1 \u2014 Fixture Hall",
+            "fr": "Nora Vale 1 \u2014 Fixture Hall",
+            "nl": "Nora Vale 1 \u2014 Fixture Hall"
+          },
+          "author": "Fixture Photographer",
+          "caption": "Nora Vale 1 performed at Fixture Hall, Fixture City, 2020-06-02.",
+          "credit": "Fixture Photographer \u00b7 CC BY-SA 4.0",
+          "height": 768,
+          "license": "CC-BY-SA-4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "photo_id": "photo-fixture",
+          "revision": "12f3972dcc3dd251adf5892363fc0b71dca570dbdb04457c51e21c31c8669157",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Nora_Vale_concert_fixture.png",
+          "width": 1024
+        }
+      ],
+      "schema_version": 1
+    },
+    "locale": "nl",
+    "moment_id": "moment-99c98f7602034531a2d5b3ffc2958769",
+    "moment_type": "live_impression",
+    "mood": "energy",
+    "persona": "home_dj",
+    "persona_revision": 0,
+    "source_attribution": {
+      "license": "CC0-1.0",
+      "provider": "MusicBrainz",
+      "url": "https://musicbrainz.org/artist/00000000-0000-0000-0000-000000000001"
+    },
+    "sources": [
+      {
+        "license": "CC-BY-SA-4.0",
+        "provider": "Wikimedia Commons",
+        "title": "Original concert fixture",
+        "url": "https://commons.wikimedia.org/wiki/File:Nora_Vale_concert_fixture.png"
+      }
+    ],
+    "summary": "Nora Vale 1 speelde in Fixture Hall. De foto bewaart die avond.",
+    "text": "Nora Vale 1 speelde in Fixture Hall. De foto bewaart die avond. In Fixture City stond de artiest op 2 juni 2020 op het podium. Dit opgeslagen verhaal en deze foto gaan over dat optreden, ook wanneer er een ander nummer speelt.",
+    "title": "Een avond in Fixture Hall",
+    "session_media": {
+      "schema_version": 1,
+      "session_id": "session-79e948fbac8447718349474082ef0ba9",
+      "entry_id": "entry-c8c7055b8727571c896cfb949448aedd",
+      "revision": "not_prepared",
+      "artwork": {
+        "state": "unavailable",
+        "reason": "not_prepared",
+        "current_display_allowed": false,
+        "active_flow_display_allowed": false,
+        "historical_display_allowed": false
+      }
+    },
+    "session_speech": {
+      "schema_version": 1,
+      "reference": {
+        "session_id": "session-79e948fbac8447718349474082ef0ba9",
+        "entry_id": "entry-c8c7055b8727571c896cfb949448aedd"
+      },
+      "source_kind": "retained_dj_contribution",
+      "source_id": "entry-c8c7055b8727571c896cfb949448aedd",
+      "session_id": "session-79e948fbac8447718349474082ef0ba9",
+      "text_revision": "dabc85b4d5eda6425d717c4e",
+      "presentation_revision": "e934be24b49fa4cfe35987f7",
+      "persona": "home_dj",
+      "persona_revision": 0,
+      "mood": "energy",
+      "locale": "nl",
+      "segments": [
+        {
+          "ordinal": 1,
+          "speaker_role": "dj",
+          "text": "Nora Vale 1 speelde in Fixture Hall. De foto bewaart die avond. In Fixture City stond de artiest op 2 juni 2020 op het podium. Dit opgeslagen verhaal en deze foto gaan over dat optreden, ook wanneer er een ander nummer speelt."
+        }
+      ],
+      "style_basis": "accepted_contribution",
+      "state": "available",
+      "reason": null,
+      "manual_allowed": true,
+      "autoplay_eligible": false,
+      "processors": [
+        "local_on_device",
+        "ha_configured"
+      ],
+      "processor_qualification_required": true,
+      "expires_at": "2027-02-17T21:42:41.484528+00:00",
+      "source_expires_at": "2027-02-17T21:42:41.484528+00:00",
+      "attribution": [
+        {
+          "license": "CC-BY-SA-4.0",
+          "provider": "Wikimedia Commons",
+          "title": "Original concert fixture",
+          "url": "https://commons.wikimedia.org/wiki/File:Nora_Vale_concert_fixture.png"
+        }
+      ],
+      "cache_policy": "private,no-store",
+      "moment_type": "live_impression"
+    }
+  },
+  "media": {
+    "schema_version": 3,
+    "session_id": "session-79e948fbac8447718349474082ef0ba9",
+    "moment_id": "moment-99c98f7602034531a2d5b3ffc2958769",
+    "photo_id": "photo-fixture",
+    "revision": "6589c2ed369333e6c948b5d0",
+    "artwork": {
+      "state": "ready",
+      "subject": {
+        "provider": "public_research",
+        "type": "event_photo",
+        "uri": "photo-fixture"
+      },
+      "role": "live_impression",
+      "resolution_basis": "original_bound",
+      "edition_basis": "not_applicable",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Nora_Vale_concert_fixture.png",
+      "attribution": {
+        "provider": "Wikimedia Commons",
+        "mark": "wikimedia_commons",
+        "url": "https://commons.wikimedia.org/wiki/File:Nora_Vale_concert_fixture.png"
+      },
+      "usage_basis": "licensed_event_image_owner_display",
+      "captured_at": "2026-11-19T21:42:41.465703+00:00",
+      "expires_at": "2026-11-19T21:47:41.465703+00:00",
+      "current_display_allowed": true,
+      "active_flow_display_allowed": true,
+      "historical_display_allowed": false,
+      "cache_policy": "no-store",
+      "crop_allowed": false,
+      "upscale_allowed": false,
+      "requires_device_auth": true,
+      "width": 1024,
+      "height": 768,
+      "alt_text": {
+        "de": "Nora Vale 1 \u2014 Fixture Hall",
+        "en": "Nora Vale 1 \u2014 Fixture Hall",
+        "es": "Nora Vale 1 \u2014 Fixture Hall",
+        "fr": "Nora Vale 1 \u2014 Fixture Hall",
+        "nl": "Nora Vale 1 \u2014 Fixture Hall"
+      },
+      "media_revision": "12f3972dcc3dd251adf5892363fc0b71dca570dbdb04457c51e21c31c8669157",
+      "url": "/api/djconnect/v1/session/media/image/session-79e948fbac8447718349474082ef0ba9/cQGoUvyxM5Un8PUZrDlrqZMLD1SvASSo"
+    }
+  },
+  "speech": {
+    "schema_version": 1,
+    "reference": {
+      "session_id": "session-79e948fbac8447718349474082ef0ba9",
+      "moment_id": "moment-99c98f7602034531a2d5b3ffc2958769"
+    },
+    "source_kind": "published_dj_moment",
+    "source_id": "moment-99c98f7602034531a2d5b3ffc2958769",
+    "session_id": "session-79e948fbac8447718349474082ef0ba9",
+    "text_revision": "dabc85b4d5eda6425d717c4e",
+    "presentation_revision": "eaf49f55d5bdf8765eab128b",
+    "persona": "home_dj",
+    "persona_revision": 0,
+    "mood": "energy",
+    "locale": "nl",
+    "segments": [
+      {
+        "ordinal": 1,
+        "speaker_role": "dj",
+        "text": "Nora Vale 1 speelde in Fixture Hall. De foto bewaart die avond. In Fixture City stond de artiest op 2 juni 2020 op het podium. Dit opgeslagen verhaal en deze foto gaan over dat optreden, ook wanneer er een ander nummer speelt."
+      }
+    ],
+    "style_basis": "accepted_contribution",
+    "state": "available",
+    "reason": null,
+    "manual_allowed": true,
+    "autoplay_eligible": false,
+    "processors": [
+      "local_on_device",
+      "ha_configured"
+    ],
+    "processor_qualification_required": true,
+    "expires_at": "2026-11-19T22:12:41.421525+00:00",
+    "source_expires_at": "2026-11-19T22:12:41.421525+00:00",
+    "attribution": [
+      {
+        "license": "CC-BY-SA-4.0",
+        "provider": "Wikimedia Commons",
+        "title": "Original concert fixture",
+        "url": "https://commons.wikimedia.org/wiki/File:Nora_Vale_concert_fixture.png"
+      }
+    ],
+    "cache_policy": "private,no-store",
+    "moment_type": "live_impression"
+  }
+}

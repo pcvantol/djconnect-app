@@ -1753,3 +1753,16 @@
 "ui.displayConsent.inactive" = "Geen scherm verbonden";
 "ui.displayConsent.status_unknown" = "Schermstatus niet beschikbaar";
 "ui.displayConsent.stop_numbered" = "Stop schermdelen op scherm %d";
+
+// Live-impressie
+"ui.live_impression.title" = "Live-impressie";
+"ui.live_impression.read_more" = "Lees verder";
+"ui.live_impression.read_less" = "Minder tonen";
+"ui.live_impression.view_photo" = "Bekijk foto";
+"ui.live_impression.photo_number" = "Foto %d van %d";
+"ui.live_impression.photo_unavailable" = "De foto is tijdelijk niet beschikbaar.";
+"ui.live_impression.zoom_in" = "Inzoomen";
+"ui.live_impression.zoom_out" = "Uitzoomen";
+"ui.live_impression.ask" = "Vraag hierover";
+"ui.live_impression.sources" = "Bronnen";
+"ui.live_impression.photo_withdrawn" = "Deze foto mag niet meer worden getoond.";

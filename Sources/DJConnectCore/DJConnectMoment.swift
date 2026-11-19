@@ -23,6 +23,8 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
     public var settingsConfirmation: DJConnectSettingsConfirmationIdentity? = nil
     public var sources: [DJConnectBulletinSource] = []
     public var musicAnnouncement: DJConnectMusicAnnouncement? = nil
+    public var liveImpression: DJConnectLiveImpression? = nil
+    public var liveSources: [DJConnectLiveImpression.Source] = []
     public var id: String { momentID }
 
     public struct Artwork: Codable, Equatable, Sendable { public var url: String? }
@@ -58,6 +60,7 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         }
     }
     enum CodingKeys: String, CodingKey {
+        case liveImpression = "live_impression"
         case musicAnnouncement = "music_announcement"
         case type, title, summary, content, artwork, actions, sources
         case momentID = "moment_id", sessionID = "session_id", createdAt = "created_at"
@@ -73,6 +76,7 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         createdAt = try c.decode(String.self, forKey: .createdAt)
         type = try c.decode(String.self, forKey: .type)
         musicAnnouncement = try? c.decode(DJConnectMusicAnnouncement.self, forKey: .musicAnnouncement)
+        liveImpression = try? c.decode(DJConnectLiveImpression.self, forKey: .liveImpression)
         content = try c.decode(String.self, forKey: .content)
         presentationIntent = try c.decode(PresentationIntent.self, forKey: .presentationIntent)
         knowledgeIntent = try? c.decode([String: String].self, forKey: .knowledgeIntent)
@@ -96,7 +100,37 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         playbackItemID = try? c.decode(String.self, forKey: .playbackItemID)
         settingsConfirmation = try c.decodeIfPresent(DJConnectSettingsConfirmationIdentity.self, forKey: .settingsConfirmation)
         sources = type == "dj_bulletin" ? try c.decodeIfPresent([DJConnectBulletinSource].self, forKey: .sources) ?? [] : []
+        if type == "live_impression" {
+            liveSources = Array(((try? c.decode([LossyBroadcastValue<DJConnectLiveImpression.Source>].self, forKey: .sources))?.compactMap(\.value) ?? []).prefix(32))
+        }
     }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(momentID, forKey: .momentID)
+        try c.encode(sessionID, forKey: .sessionID)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encode(type, forKey: .type)
+        try c.encode(title, forKey: .title)
+        try c.encode(summary, forKey: .summary)
+        try c.encode(content, forKey: .content)
+        try c.encode(presentationIntent, forKey: .presentationIntent)
+        try c.encode(actions, forKey: .actions)
+        try c.encode(sourceReferences, forKey: .sourceReferences)
+        try c.encodeIfPresent(knowledgeIntent, forKey: .knowledgeIntent)
+        try c.encodeIfPresent(visibility, forKey: .visibility)
+        try c.encodeIfPresent(deliveryChannels, forKey: .deliveryChannels)
+        try c.encodeIfPresent(importance, forKey: .importance)
+        try c.encodeIfPresent(artwork, forKey: .artwork)
+        try c.encodeIfPresent(sourceAttribution, forKey: .sourceAttribution)
+        try c.encodeIfPresent(generationMetadata, forKey: .generationMetadata)
+        try c.encodeIfPresent(playbackItemID, forKey: .playbackItemID)
+        try c.encodeIfPresent(settingsConfirmation, forKey: .settingsConfirmation)
+        try c.encodeIfPresent(musicAnnouncement, forKey: .musicAnnouncement)
+        try c.encodeIfPresent(liveImpression, forKey: .liveImpression)
+        if type == "live_impression" { try c.encode(liveSources, forKey: .sources) }
+        else { try c.encode(sources, forKey: .sources) }
+    }
+
 }
 
 public struct DJConnectSessionPlayback: Codable, Equatable, Sendable {
@@ -240,7 +274,7 @@ public extension DJConnectMoment {
     /// Preserve producer references and both recording attributions without inventing URLs.
     var nativeSourceURLs: [URL] {
         let references = sourceReferences + [sourceAttribution?["url"], sourceAttribution?["url_previous"]].compactMap { $0 }
-            + (isBulletinV1 ? sources.map(\.url) : [])
+            + (isBulletinV1 ? sources.map(\.url) : []) + (isLiveImpressionV1 ? liveSources.map(\.url) : [])
         var seen = Set<String>()
         return references.compactMap { raw in
             guard let url = URL(string: raw), url.scheme == "https", url.host != nil,
@@ -295,6 +329,15 @@ public extension DJConnectBroadcastState {
             return false // Bulletin V1 is an owner phone/tablet/Mac Flow surface.
             #else
             return moment.admitsBulletin(admission, at: date, current: current)
+            #endif
+        }
+        if moment.type == "live_impression" {
+            #if os(watchOS)
+            return false
+            #else
+            guard moment.isLiveImpressionV1, !admission.requiresSpotifyAttribution,
+                  admission.sourceExpiresAt == nil else { return false }
+            return !current || admission.displayExpiresAt.flatMap(nativeDeadline).map { date < $0 } == true
             #endif
         }
         if moment.type == "music_announcement" {

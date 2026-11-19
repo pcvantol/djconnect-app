@@ -1373,7 +1373,7 @@ struct SessionTimelineScreen: View {
         } else { bulletins = [] }
         let current = activeSession?.broadcast.nativeCurrentMoment(at: now)
         let currentBulletinIDs: Set<String>
-        if let current, current.isBulletinV1 { currentBulletinIDs = [current.id] }
+        if let current, current.isBulletinV1 || current.isLiveImpressionV1 { currentBulletinIDs = [current.id] }
         else { currentBulletinIDs = [] }
         return SessionTimelineLiveRow.merge(retained: retained, bulletins: bulletins, at: now,
                                            omittingMomentIDs: currentBulletinIDs)
@@ -1820,7 +1820,14 @@ struct SessionEntryView: View, Equatable {
                     if entry.inputType == "voice" { Label(text("ui.session.history.voice"), systemImage: "mic.fill").font(.caption) }
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
-                        if horizontalPlayback {
+                        if entry.momentType == "live_impression", let impression = entry.liveImpression,
+                           impression.isValid, let model = artworkModel {
+                            LiveImpressionContentView(impression: impression, title: entry.title ?? "",
+                                lead: entry.summary ?? "", story: entry.text ?? "", language: language,
+                                sessionID: entry.sessionID, target: .entry(entry.id), model: model)
+                            Button(DJConnectLocalization.localized(key: "ui.live_impression.ask", language: language), action: askAction)
+                                .frame(minHeight: 44)
+                        } else if horizontalPlayback {
                             HStack(alignment: .top, spacing: 16) {
                                 entryArtwork
                                 playbackDescription
@@ -1841,6 +1848,9 @@ struct SessionEntryView: View, Equatable {
                             }
                         }
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
+                        if entry.momentType == "live_impression" {
+                            Text(DJConnectLocalization.localized(key: "ui.live_impression.sources", language: language)).font(.caption.weight(.semibold))
+                        }
                         ForEach(SessionSourceLinks.groups(urls: sourceURLs.filter { !SessionSourceLinks.isSpotify($0) }, label: sourceLabel)) { group in
                             if group.urls.count == 1, let url = group.urls.first {
                                 Link(group.label, destination: url)

@@ -1114,7 +1114,7 @@ public final class DJConnectClient: Sendable {
         let prepared = result.session_speech
         if settings.snapshot.effective.announcement_output == .textOnly {
             guard !automatic, target == .local, reference.source.kind != "accepted_ask_dj",
-                  manualMomentType == "music_announcement", prepared.momentType == manualMomentType else { throw DJConnectError.invalidResponse }
+                  ["music_announcement", "live_impression"].contains(manualMomentType ?? ""), prepared.momentType == manualMomentType else { throw DJConnectError.invalidResponse }
         }
         if ["unavailable", "withdrawn", "expired"].contains(prepared.state) && !prepared.manualAllowed && prepared.audioReference == nil { return result }
         if processor == .localOnDevice {
@@ -1293,6 +1293,73 @@ public final class DJConnectClient: Sendable {
         request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
         let result = try await sessionArtworkTransport.loadForecast(request, isCurrent: isCurrent)
         guard image.admittedReplyArtworkPath() != nil, await isCurrent() else { throw CancellationError() }
+        return result
+    }
+
+    /// Resolve only the already published original photo. Core v3 does no research or generation.
+    public func prepareLiveImpressionPhoto(sessionID: String, target: DJConnectSessionMedia.Target,
+                                           photo: DJConnectLiveImpression.Photo,
+                                           audience: DJConnectSessionMedia.Audience,
+                                           isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSessionMedia {
+        guard photo.isValid, !sessionID.isEmpty, sessionID.utf8.count <= 128 else { throw DJConnectError.invalidResponse }
+        let key: String
+        let id: String
+        switch target { case .moment(let value): key = "moment_id"; id = value
+        case .entry(let value): key = "entry_id"; id = value }
+        guard !id.isEmpty, id.utf8.count <= 128 else { throw DJConnectError.invalidResponse }
+        struct Request: Encodable {
+            let session_id: String
+            let targets: [[String: String]]
+            let contract_version = 3
+        }
+        var request = try jsonRequest(path: "/api/djconnect/v1/session/media/prepare",
+            payload: Request(session_id: sessionID, targets: [[key: id, "photo_id": photo.photoID]]))
+        request.timeoutInterval = 22
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let data = try await sessionArtworkTransport.prepare(request, isCurrent: isCurrent)
+        struct Outcome: Decodable {
+            struct Item: Decodable {
+                struct State: Decodable {
+                    let state: String; let reason: String?
+                    let current_display_allowed: Bool; let active_flow_display_allowed: Bool; let historical_display_allowed: Bool
+                    let url: String?
+                }
+                let schema_version: Int; let session_id: String; let moment_id: String?; let entry_id: String?; let photo_id: String; let artwork: State
+            }
+            let success: Bool; let contract_version: Int; let session_media: [Item]
+        }
+        let outcome = try decoder.decode(Outcome.self, from: data)
+        guard outcome.success, outcome.contract_version == 3, outcome.session_media.count == 1,
+              let item = outcome.session_media.first, item.schema_version == 3, item.session_id == sessionID, item.photo_id == photo.photoID,
+              item.moment_id == (key == "moment_id" ? id : nil), item.entry_id == (key == "entry_id" ? id : nil) else { throw DJConnectError.invalidResponse }
+        if item.artwork.state == "withdrawn", item.artwork.reason == "source_withdrawn",
+           !item.artwork.current_display_allowed, !item.artwork.active_flow_display_allowed,
+           !item.artwork.historical_display_allowed, item.artwork.url == nil {
+            throw DJConnectLiveImpressionMediaError.withdrawn
+        }
+        struct Response: Decodable { let success: Bool; let contract_version: Int; let session_media: [DJConnectSessionMedia] }
+        let response = try decoder.decode(Response.self, from: data)
+        guard response.success, response.contract_version == 3, response.session_media.count == 1,
+              let media = response.session_media.first,
+              media.admittedLivePhoto(photo, session: sessionID, target: target, audience: audience) != nil else {
+            throw DJConnectError.invalidResponse
+        }
+        return media
+    }
+
+    public func liveImpressionPhoto(_ media: DJConnectSessionMedia, photo: DJConnectLiveImpression.Photo,
+                                    sessionID: String, target: DJConnectSessionMedia.Target,
+                                    audience: DJConnectSessionMedia.Audience,
+                                    isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSessionArtworkImage {
+        guard let grant = media.admittedLivePhoto(photo, session: sessionID, target: target, audience: audience),
+              let path = grant.url else { throw DJConnectError.invalidResponse }
+        var request = try pairedOwnerReadRequest(path: path)
+        request.setValue("image/png, image/jpeg", forHTTPHeaderField: "Accept")
+        let result = try await sessionArtworkTransport.loadLivePhoto(request, photo: photo, isCurrent: isCurrent)
+        guard !Task.isCancelled, await isCurrent(),
+              media.admittedLivePhoto(photo, session: sessionID, target: target, audience: audience) != nil else {
+            throw CancellationError()
+        }
         return result
     }
 

@@ -29,7 +29,7 @@ public struct DJConnectBulletinSource: Codable, Equatable, Sendable {
 
 public extension DJConnectMoment {
     var isSupportedNativeType: Bool {
-        ["track", "artist", "album", "genre", "session", "transition", "silence"].contains(type) || isBulletinV1 || isMusicAnnouncementV1
+        ["track", "artist", "album", "genre", "session", "transition", "silence"].contains(type) || isBulletinV1 || isMusicAnnouncementV1 || isLiveImpressionV1
     }
     /// Version recognition is not display or speech authority. Those continue
     /// to require original display admission and separate owner speech rights/deadlines.
@@ -76,7 +76,7 @@ public extension DJConnectBroadcastState {
             if nativeCurrentMoment(at: date, spotifyAttributionAvailable: true)?.id == momentID { return true }
             return !automatic && nativeFlowMoments(at: date).contains { $0.id == momentID }
         }
-        guard moment.type == "dj_bulletin" else { return true }
+        guard ["dj_bulletin", "live_impression"].contains(moment.type) else { return true }
         if nativeCurrentMoment(at: date)?.id == momentID { return true }
         return !automatic && nativeFlowMoments(at: date).contains { $0.id == momentID }
     }

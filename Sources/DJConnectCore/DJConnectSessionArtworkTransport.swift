@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import ImageIO
+import CryptoKit
 
 /// Immutable decoded pixels. No disk cache, provider URL or credential is retained.
 public struct DJConnectSessionArtworkImage: @unchecked Sendable {
@@ -64,6 +65,20 @@ final class DJConnectSessionArtworkTransport: Sendable {
             await budget.release()
             throw error
         }
+    }
+
+    func loadLivePhoto(_ request: URLRequest, photo: DJConnectLiveImpression.Photo,
+                       isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSessionArtworkImage {
+        try await budget.acquire()
+        do {
+            let (data, mime) = try await responseData(request, using: session,
+                maximumBytes: Self.maximumBytes, allowedMIMEs: ["image/png", "image/jpeg"], isCurrent: isCurrent)
+            let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            guard digest == photo.revision else { throw DJConnectError.invalidResponse }
+            let result = try Self.decode(data, mime: mime, width: photo.width, height: photo.height, maximumPixelSize: 2048)
+            await budget.release()
+            return result
+        } catch { await budget.release(); throw error }
     }
 
     func prepare(_ request: URLRequest, allowsVisualContextReadiness: Bool = false, isCurrent: (@MainActor @Sendable () -> Bool)? = nil) async throws -> Data {
@@ -140,7 +155,7 @@ final class DJConnectSessionArtworkTransport: Sendable {
         return (response.data,response.mime)
     }
 
-    static func decode(_ data: Data, mime: String, width: Int, height: Int) throws -> DJConnectSessionArtworkImage {
+    static func decode(_ data: Data, mime: String, width: Int, height: Int, maximumPixelSize: Int = 512) throws -> DJConnectSessionArtworkImage {
         guard data.count <= maximumBytes, width > 0, height > 0, width <= 4096, height <= 4096,
               width * height <= 16_000_000,
               let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
@@ -154,7 +169,7 @@ final class DJConnectSessionArtworkTransport: Sendable {
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: 512,
+                kCGImageSourceThumbnailMaxPixelSize: maximumPixelSize,
                 kCGImageSourceShouldCacheImmediately: true
               ] as CFDictionary)
         else { throw DJConnectError.invalidResponse }

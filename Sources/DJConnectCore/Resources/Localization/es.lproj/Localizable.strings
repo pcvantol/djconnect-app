@@ -1753,3 +1753,16 @@
 "ui.displayConsent.inactive" = "No hay ninguna pantalla conectada";
 "ui.displayConsent.status_unknown" = "Estado de la pantalla no disponible";
 "ui.displayConsent.stop_numbered" = "Dejar de compartir la pantalla %d";
+
+// Live-impressie
+"ui.live_impression.title" = "Impresión en directo";
+"ui.live_impression.read_more" = "Leer más";
+"ui.live_impression.read_less" = "Mostrar menos";
+"ui.live_impression.view_photo" = "Ver foto";
+"ui.live_impression.photo_number" = "Foto %d de %d";
+"ui.live_impression.photo_unavailable" = "La foto no está disponible temporalmente.";
+"ui.live_impression.zoom_in" = "Ampliar";
+"ui.live_impression.zoom_out" = "Reducir";
+"ui.live_impression.ask" = "Preguntar sobre esto";
+"ui.live_impression.sources" = "Fuentes";
+"ui.live_impression.photo_withdrawn" = "Esta foto ya no se puede mostrar.";
