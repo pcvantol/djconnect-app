@@ -69,9 +69,9 @@ After renewing the Apple Developer Program membership:
 - Confirm app icons, launch screen, welcome screen, About screen, and website
   link match the current DJConnect branding.
 - Confirm the HA integration compatibility line is documented. For this
-  candidate, Apple clients and HA integration use the shared `4.0` line; the
-  native Apple package remains numeric `4.0.0` while the platform identity is
-  `4.0.0-rc.1`.
+  candidate, Apple clients and HA integration use the shared `4.1` line. The
+  native package, public identity and protocol metadata are `4.1.0`; the client
+  accepts HA `4.1.x` and rejects other major/minor lines.
 - Confirm the public macOS release helper works in dry/local mode before the
   first public binary release.
 
