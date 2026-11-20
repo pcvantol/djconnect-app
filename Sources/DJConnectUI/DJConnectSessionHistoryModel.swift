@@ -1522,7 +1522,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
               let session = host.activeDJSession, session.id == moment.sessionID, moment.type != "silence",
               Self.validSelectionIDs([moment.sessionID, moment.id]),
               !contentMomentWasWithdrawn(sessionID: session.id, momentID: moment.id),
-              session.broadcast.nativeCurrentMoment(at: Date()) == moment || session.broadcast.nativeFlowMoments(at: Date()).contains(moment) else { return false }
+              (session.broadcast.nativeCurrentMoment(at: Date()) == moment || session.broadcast.nativeFlowMoments(at: Date()).contains(moment) || host.askDJMoments.currentResult?.moment == moment) else { return false }
         return enqueueText(question, context: .init(sessionID: session.id,
             selectedMoment: .init(sessionID: moment.sessionID, momentID: moment.id)), preservingComposer: true, preservingSelection: true)
     }

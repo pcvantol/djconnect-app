@@ -563,15 +563,60 @@ public actor DJConnectHybridTransport {
         let body = try JSONDecoder().decode(HybridObject.self, from: payload)
         return try await perform(nil, operation: operation.rawValue, payload: body, onOperationID: onOperationID)
     }
+    /// Loaded catalogue/status reads share paired authority and cannot execute a producer.
+    public func readAskDJMoments(_ operation: DJConnectAskDJMoments.Read, payload: Data,
+                                isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> (Data, Int, DJConnectAskDJMoments.Capability) {
+        guard payload.count <= 4096, inFlight < 8, await isCurrent() else { throw DJConnectHybridTransportError.unavailable }
+        inFlight += 1
+        defer { inFlight -= 1 }
+        let epoch = generation, route = try await readyRoute()
+        guard epoch == generation, foreground, !Task.isCancelled, await isCurrent(),
+              let advertised = route.context["ask_dj_moments"],
+              route.context["read_operations"]?.hybridStrings.contains(operation.rawValue) == true else { throw DJConnectHybridTransportError.unavailable }
+        let capability = try JSONDecoder().decode(DJConnectAskDJMoments.Capability.self, from: JSONEncoder().encode(advertised))
+        guard capability.admits(client: identity.clientType) else { throw DJConnectHybridTransportError.unavailable }
+        let object = try JSONDecoder().decode(HybridObject.self, from: payload)
+        let body: HybridObject = ["contract_version": .int(1), "operation": .string(operation.rawValue), "payload": .object(object)]
+        if canUseActions(route) {
+            do {
+                let socket = try await connection(route)
+                guard epoch == generation, foreground, !Task.isCancelled, await isCurrent() else { throw CancellationError() }
+                let result = try await socket.request(type: "djconnect/read", body: body)
+                guard epoch == generation, foreground, !Task.isCancelled, await isCurrent() else { throw CancellationError() }
+                try checkAuthority(try JSONDecoder().decode(HybridObject.self, from: result.0), status: result.1)
+                return (result.0, result.1, capability)
+            } catch is CancellationError { throw CancellationError() }
+            catch DJConnectHybridTransportError.routeWithdrawn { withdrawOrigin(route.url); throw DJConnectHybridTransportError.routeWithdrawn }
+            catch let error as DJConnectHybridTransportError {
+                if case .authority = error { throw error }
+            }
+            catch { /* This fallback is a read, never a second producer execution. */ }
+        }
+        guard epoch == generation, foreground, !Task.isCancelled, await isCurrent() else { throw CancellationError() }
+        let request = try protectedRequest(route.url, path: capability.readPath, body: body)
+        let result = try await wire.http(request)
+        guard epoch == generation, foreground, !Task.isCancelled, await isCurrent() else { throw CancellationError() }
+        try checkAuthority(try JSONDecoder().decode(HybridObject.self, from: result.0), status: result.1)
+        return (result.0, result.1, capability)
+    }
+
+    public func performAskDJMoments(_ operation: DJConnectAskDJMoments.Action, payload: Data,
+                                   isCurrent: @escaping @MainActor @Sendable () -> Bool,
+                                   onOperationID: (@Sendable (String) -> Void)? = nil) async throws -> (Data, Int) {
+        guard payload.count <= 4096, await isCurrent() else { throw DJConnectHybridTransportError.unavailable }
+        let body = try JSONDecoder().decode(HybridObject.self, from: payload)
+        return try await perform(nil, operation: operation.rawValue, payload: body, onOperationID: onOperationID, isCurrent: isCurrent)
+    }
     private func perform(_ request: URLRequest?, operation suppliedOperation: String?, payload suppliedPayload: HybridObject?,
-                         onOperationID: (@Sendable (String) -> Void)?, deadline originalDeadline: DJConnectOperationDeadline? = nil) async throws -> (Data, Int) {
+                         onOperationID: (@Sendable (String) -> Void)?, deadline originalDeadline: DJConnectOperationDeadline? = nil, isCurrent: (@MainActor @Sendable () -> Bool)? = nil) async throws -> (Data, Int) {
         try Task.checkCancellation()
+        if let isCurrent, !(await isCurrent()) { throw CancellationError() }
         guard inFlight < 8 else { throw DJConnectHybridTransportError.capacity }
         inFlight += 1
         defer { inFlight -= 1 }
         let epoch = generation
         let route = try await readyRoute()
-        guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
+        guard epoch == generation, foreground, !Task.isCancelled, await isCurrent?() != false else { throw CancellationError() }
         if let request, Self.isActiveRead(request) { return try await activeRead(request, route: route, epoch: epoch) }
         guard let operation = suppliedOperation ?? request.flatMap(Self.operation(for:)),
               route.context["http_operations"]?.hybridStrings.contains(operation) == true,
@@ -599,7 +644,7 @@ public actor DJConnectHybridTransport {
                 let socket = try await connection(route)
                 try await socket.prepare()
                 try originalDeadline?.check()
-                guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
+                guard epoch == generation, foreground, !Task.isCancelled, await isCurrent?() != false else { throw CancellationError() }
                 possibleSend = true
                 response = try await socket.request(type: "djconnect/operation/execute", body: envelope, timeout: originalDeadline.map { min(120, $0.remaining) })
                 diagnostics.websocketConnected = true; report?(diagnostics)
@@ -615,7 +660,7 @@ public actor DJConnectHybridTransport {
             throw DJConnectHybridTransportError.routeWithdrawn
         }
         if response == nil, !possibleSend {
-            guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
+            guard epoch == generation, foreground, !Task.isCancelled, await isCurrent?() != false else { throw CancellationError() }
             // Once handed to URLSession, even an apparent pre-connect error is conservatively uncertain.
             possibleSend = true
             do {
@@ -628,6 +673,7 @@ public actor DJConnectHybridTransport {
             catch { response = nil }
         }
         try originalDeadline?.check()
+        if let isCurrent, !(await isCurrent()) { throw CancellationError() }
         if let response {
             do { return try accept(response, id: id, operationEpoch: operationEpoch, epoch: epoch, receiptClock: originalDeadline == nil ? nil : route) }
             catch DJConnectHybridTransportError.outcome(let receipt) where ["accepted", "sent_unknown"].contains(receipt.phase) { }
@@ -644,7 +690,7 @@ public actor DJConnectHybridTransport {
         let reconciliationDeadline = originalDeadline?.end ?? min(operationStarted + 300, timing.now() + 120)
         var attempt = 0
         while isConversation || attempt < 3 {
-            guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
+            guard epoch == generation, foreground, !Task.isCancelled, await isCurrent?() != false else { throw CancellationError() }
             let receiptDeadline = receiptEnds[id] ?? receipts[id].map { route.anchor + Double($0.expiresAtMS-route.clock)/1000 } ?? operationStarted + 300
             let deadline = min(reconciliationDeadline, receiptDeadline)
             if isConversation, timing.now() >= deadline { break }
@@ -673,6 +719,7 @@ public actor DJConnectHybridTransport {
                 } else { result = try await wire.http(request) }
                 try originalDeadline?.check()
                 guard !isConversation || timing.now() < deadline else { throw DJConnectHybridTransportError.deliveryUnknown }
+                if let isCurrent, !(await isCurrent()) { throw CancellationError() }
                 return try accept(result, id: id, operationEpoch: operationEpoch, epoch: epoch, receiptClock: originalDeadline == nil ? nil : route)
             } catch let error as DJConnectHybridTransportError {
                 switch error {

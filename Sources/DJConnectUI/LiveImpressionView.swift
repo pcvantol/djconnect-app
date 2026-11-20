@@ -9,6 +9,8 @@ extension DJConnectAppModel {
         case .moment(let id):
             guard let session = activeDJSession, session.id == sessionID,
                   !sessionHistory.contentMomentWasWithdrawn(sessionID: sessionID, momentID: id) else { return false }
+            if let requested = askDJMoments.currentResult?.moment, requested.id == id,
+               requested.sessionID == sessionID, requested.liveImpression == value, requested.isLiveImpressionV1 { return true }
             return ([session.broadcast.nativeCurrentMoment(at: Date(), spotifyAttributionAvailable: spotifyAttributionLogo != nil)].compactMap { $0 }
                 + session.broadcast.nativeFlowMoments(at: Date())).contains { $0.id == id && $0.liveImpression == value && $0.isLiveImpressionV1 }
         case .entry(let id):
@@ -25,6 +27,7 @@ extension DJConnectAppModel {
         switch target {
         case .moment(let id):
             guard let session = activeDJSession, session.id == sessionID else { return nil }
+            if askDJMoments.currentResult?.moment.id == id { return .activeFlow }
             return session.broadcast.nativeCurrentMoment(at: Date())?.id == id ? .current : .activeFlow
         case .entry:
             guard let header = sessionHistory.timelines[sessionID]?.session ?? sessionHistory.sessions.first(where: { $0.id == sessionID }),
@@ -95,16 +98,18 @@ struct LiveImpressionContentView: View {
     let sessionID: String
     let target: DJConnectSessionMedia.Target
     @ObservedObject var model: DJConnectAppModel
+    var currentAvatar: AnyView? = nil
+    var activity: ((AskDJMomentsPresentation.Hold, Bool) -> Void)? = nil
     @State private var selectedPhoto = 0
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: "ui.live_impression." + key, language: language) }
     var body: some View {
-        LiveImpressionStoryView(impression: impression, title: title, lead: lead, story: story, language: language) { photo }
+        LiveImpressionStoryView(impression: impression, title: title, lead: lead, story: story, language: language, avatar: currentAvatar, expansionChanged: { activity?(.expandedText, $0) }) { photo }
     }
     private var photo: some View {
         VStack(alignment: .leading, spacing: 8) {
             if impression.photos.indices.contains(selectedPhoto) {
                 LiveImpressionPhotoView(impression: impression, photo: impression.photos[selectedPhoto],
-                    language: language, sessionID: sessionID, target: target, model: model)
+                    language: language, sessionID: sessionID, target: target, model: model, photoChanged: { activity?(.photo, $0) })
             }
             if impression.photos.count > 1 {
                 HStack {
@@ -129,14 +134,19 @@ struct LiveImpressionStoryView<PhotoContent: View>: View {
     let lead: String
     let story: String
     let language: String
+    var avatar: AnyView? = nil
+    var expansionChanged: ((Bool) -> Void)? = nil
     @ViewBuilder let photo: () -> PhotoContent
     @State private var expanded = false
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: "ui.live_impression." + key, language: language) }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                DJPersonaAvatarView(confirmedMood: nil, language: language)
-                    .frame(width: 28, height: 28).accessibilityHidden(true)
+                if let avatar { avatar }
+                else {
+                    DJPersonaAvatarView(confirmedMood: nil, language: language)
+                        .frame(width: 28, height: 28).accessibilityHidden(true)
+                }
                 Text(text("title")).font(.caption.weight(.semibold)).accessibilityAddTraits(.isHeader)
             }
             LiveImpressionLayout { photo(); narrative }
@@ -151,7 +161,7 @@ struct LiveImpressionStoryView<PhotoContent: View>: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text(expanded ? story : lead).font(.title3).fixedSize(horizontal: false, vertical: true)
             if story != lead {
-                Button(text(expanded ? "read_less" : "read_more")) { expanded.toggle() }
+                Button(text(expanded ? "read_less" : "read_more")) { expanded.toggle(); expansionChanged?(expanded) }
                     .frame(minHeight: 44).accessibilityIdentifier("live-impression-expand")
             }
         }
@@ -191,6 +201,7 @@ private struct LiveImpressionPhotoView: View {
     let target: DJConnectSessionMedia.Target
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
+    let photoChanged: ((Bool) -> Void)?
     @Environment(\.scenePhase) private var phase
     @State private var presentation = LiveImpressionPhotoState()
     @State private var zoom: CGFloat = 1
@@ -206,9 +217,9 @@ private struct LiveImpressionPhotoView: View {
         let audience: DJConnectSessionMedia.Audience?
     }
     init(impression: DJConnectLiveImpression, photo: DJConnectLiveImpression.Photo, language: String,
-         sessionID: String, target: DJConnectSessionMedia.Target, model: DJConnectAppModel) {
+         sessionID: String, target: DJConnectSessionMedia.Target, model: DJConnectAppModel, photoChanged: ((Bool) -> Void)? = nil) {
         self.impression = impression; self.photo = photo; self.language = language
-        self.sessionID = sessionID; self.target = target; self.model = model; history = model.sessionHistory
+        self.sessionID = sessionID; self.target = target; self.model = model; history = model.sessionHistory; self.photoChanged = photoChanged
     }
     private var key: Key { .init(value: impression, photo: photo, owner: history.responseEpoch,
         target: target, sessionID: sessionID, active: phase == .active && model.liveImpressionIsCurrent(impression, sessionID: sessionID, target: target), retry: retry,
@@ -219,6 +230,7 @@ private struct LiveImpressionPhotoView: View {
             isLoading: key.active && presentation.isLoading, allowsRetry: key.active && !presentation.withdrawn, language: language,
             isWithdrawn: presentation.withdrawn,
             open: { zoom = 1; presentation.showsPhoto = true }, retry: { retry = UUID() })
+        .onChange(of: presentation.showsPhoto) { _, visible in photoChanged?(visible) }
         .sheet(isPresented: $presentation.showsPhoto) {
             NavigationStack {
                 ScrollView([.horizontal, .vertical]) {

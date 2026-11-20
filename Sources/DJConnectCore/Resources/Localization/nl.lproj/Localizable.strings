@@ -1766,3 +1766,25 @@
 "ui.live_impression.ask" = "Vraag hierover";
 "ui.live_impression.sources" = "Bronnen";
 "ui.live_impression.photo_withdrawn" = "Deze foto mag niet meer worden getoond.";
+
+// Ask DJ: Moments — native avatarcard presentation.
+"ui.ask_moments.title" = "Ask DJ: Moments";
+"ui.ask_moments.avatar_hint" = "Open de beschikbare Moments. Speelse reacties zijn beschikbaar als extra acties.";
+"ui.ask_moments.close" = "Sluiten";
+"ui.ask_moments.cancel" = "Annuleren";
+"ui.ask_moments.loading_inventory" = "Beschikbare Moments ophalen…";
+"ui.ask_moments.unavailable" = "Moments zijn hier nog niet beschikbaar.";
+"ui.ask_moments.subject" = "Onderwerp";
+"ui.ask_moments.choose" = "Kies een Moment";
+"ui.ask_moments.no_result" = "Ik kon geen goed onderbouwd Moment over dit onderwerp vinden.";
+"ui.ask_moments.temporary" = "Dit lukt nu even niet. Probeer het later nog eens.";
+"ui.ask_moments.denied" = "Dit Moment is niet beschikbaar voor deze sessie.";
+"ui.ask_moments.cancelled" = "Je verzoek is gestopt.";
+"ui.ask_moments.cancel_checking" = "Ik controleer of je verzoek is gestopt…";
+"ui.ask_moments.already_saved" = "Dit Moment is al opgeslagen in je sessie.";
+"ui.ask_moments.accepted_not_saved" = "Dit Moment was al klaar. Het is niet opgeslagen.";
+"ui.ask_moments.not_retained" = "Dit Moment wordt niet opgeslagen.";
+"ui.ask_moments.keep_reading" = "Blijf lezen";
+"ui.ask_moments.release_reading" = "Tijdelijke weergave hervatten";
+"ui.ask_moments.check_status" = "Opnieuw controleren";
+"ui.ask_moments.subject_unavailable" = "Dit onderwerp is niet meer beschikbaar.";

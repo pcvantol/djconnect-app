@@ -291,10 +291,12 @@ extension DJConnectProfileDJSettingsResponse {
             .array([.string($0.session_id), .string($0.generation), .int($0.revision)])
         } ?? .null]
     }
-    public func allowsSpeech(_ target: DJConnectSharedSpeechTarget, manualMomentType: String? = nil) -> Bool {
+    public func allowsSpeech(_ target: DJConnectSharedSpeechTarget, manualMomentType: String? = nil, requestedSpeech: DJConnectSessionSpeech? = nil) -> Bool {
         guard isValid, !requiresSelection else { return false }
         if snapshot.effective.announcement_output == .textOnly {
-            return target == .local && ["music_announcement", "live_impression"].contains(manualMomentType ?? "")
+            return target == .local && (["music_announcement", "live_impression"].contains(manualMomentType ?? "") ||
+                (requestedSpeech?.userRequested == true && requestedSpeech?.manualAllowed == true &&
+                 requestedSpeech?.reference.source.kind != "accepted_ask_dj"))
         }
         if target == .local { return true } // explicit local replay remains valid for speaker-only
         return snapshot.effective.announcement_output != .clientDevice

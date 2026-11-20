@@ -1424,10 +1424,10 @@ public final class DJConnectAppModel: ObservableObject {
     private var profileDJSettingsReadID: UUID?
     private var profileDJSettingsBoundOwner: String?
     private var profileSettingsOwnerFence = DJConnectProfileSettingsOwnerFence()
-    @Published public private(set) var sharedSpeechReference: DJConnectSpeechReference?
+    @Published public private(set) var sharedSpeechReference: DJConnectSpeechReference? { didSet { askDJMoments.observeSpeech(reference: sharedSpeechReference, preparing: sharedSpeechIsPreparing, playing: sharedSpeechIsPlaying) } }
     @Published public private(set) var sharedSpeechDelivery: [String: String] = [:]
-    @Published public private(set) var sharedSpeechIsPlaying = false
-    @Published public private(set) var sharedSpeechIsPreparing = false
+    @Published public private(set) var sharedSpeechIsPlaying = false { didSet { askDJMoments.observeSpeech(reference: sharedSpeechReference, preparing: sharedSpeechIsPreparing, playing: sharedSpeechIsPlaying) } }
+    @Published public private(set) var sharedSpeechIsPreparing = false { didSet { askDJMoments.observeSpeech(reference: sharedSpeechReference, preparing: sharedSpeechIsPreparing, playing: sharedSpeechIsPlaying) } }
 
     private var profileConversationClearRevision = 0
     private var profileConversationHistoryRevision = 0
@@ -5638,6 +5638,30 @@ public final class DJConnectAppModel: ObservableObject {
         return payload
     }
 
+    private var askDJMomentsObservation: AnyCancellable?
+    lazy var askDJMoments: AskDJMomentsController = {
+        let controller = AskDJMomentsController(model: self)
+        askDJMomentsObservation = controller.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
+        return controller
+    }()
+    func askDJMomentsScope() -> AskDJMomentsController.Scope? {
+        guard let scope = currentPersonaScope(), let profile = sessionHistory.authorizedProfileID,
+              let settings = profileDJSettings.response, let session = settings.snapshot.session,
+              session.session_id == scope.sessionID, !profileDJSettings.hasUncertainOperation else { return nil }
+        return .init(profileID: profile, sessionID: scope.sessionID, binding: scope.settingsBinding,
+            settingsGeneration: session.generation, voiceRevision: settings.voice_revision,
+            historyEpoch: scope.epoch, connection: scope.connection, revision: session.revision)
+    }
+    func prepareRequestedMomentPresentation() { stopResponsePlayback(clearText: false) }
+    func stopRequestedMomentSpeech(_ moment: DJConnectMoment) {
+        if sharedSpeechReference == .moment(sessionID: moment.sessionID, momentID: moment.id) { stopResponsePlayback(clearText: false) }
+    }
+    func autoplayRequestedDJMoment(_ result: DJConnectAskDJMoments.Result) {
+        guard askDJMoments.currentResult?.moment.id == result.moment.id, let speech = result.speech else { return }
+        guard speech.automaticStartExpiresAt.flatMap(DJConnectHistoryEntry.date).map({ $0 > Date() }) == true else { return }
+        enqueueAutomaticSpeech(speech, text: result.moment.content)
+    }
+
     var presentsPersonaReactionControl: Bool {
         activePersonaReactionAvailable && currentPersonaScope() != nil && !isDemoMode &&
         profileDJSettings.response?.snapshot.session?.session_id == activeDJSession?.id &&
@@ -5645,7 +5669,7 @@ public final class DJConnectAppModel: ObservableObject {
         profileDJSettings.response?.snapshot.output_choice_confirmed == true
     }
     var canStartPersonaReaction: Bool {
-        presentsPersonaReactionControl && !personaReactions.isActive && !isSendingAskDJText && !isRecordingVoice && voiceStatus != .processing &&
+        presentsPersonaReactionControl && !askDJMoments.hasPriority && !personaReactions.isActive && !isSendingAskDJText && !isRecordingVoice && voiceStatus != .processing &&
         !sharedSpeechIsPreparing && !sharedSpeechIsPlaying && !deviceSpeechPreviewIsPlaying &&
         !profileDJSettings.hasUncertainOperation && profileDJSettings.response?.requiresSelection == false &&
         profileDJSettings.response?.snapshot.activated == true && profileDJSettings.response?.snapshot.accepted_contract_version == 3 &&
@@ -5818,7 +5842,7 @@ public final class DJConnectAppModel: ObservableObject {
             $0.requestEpoch == scope.epoch && !$0.failed && !$0.contextChanged &&
             $0.context.sessionID == scope.sessionID && $0.context.selectedEntry == nil
         }
-        evidence.pending = personaRequestScope == scope && isSendingAskDJText && pending
+        evidence.pending = (personaRequestScope == scope && isSendingAskDJText && pending) || (askDJMoments.hasPriority && askDJMoments.presentation.phase == .pending && !askDJMoments.outcomeUnknown)
         if personaVoiceScope == scope {
             #if canImport(AVFoundation)
             evidence.capturing = voiceRecorder?.isRecording == true
@@ -8291,6 +8315,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func enqueueAutomaticSpeech(_ speech: DJConnectSessionSpeech, text: String) {
+        if askDJMoments.hasPriority && askDJMoments.currentResult?.speech?.reference != speech.reference { return }
         if automaticSpeechOwner != sessionHistory.responseEpoch {
             cancelAutomaticSpeech(); automaticSpeechClaims.removeAll()
             automaticSpeechOwner = sessionHistory.responseEpoch
@@ -8328,6 +8353,8 @@ public final class DJConnectAppModel: ObservableObject {
                 guard item.epoch == sessionHistory.responseEpoch,
                       sharedSpeechSourceIsCurrent(item.speech, text: item.text),
                       momentRemainsAutoplayCurrent(item.speech) else { continue }
+                if askDJMoments.currentResult?.speech == item.speech,
+                   item.speech.automaticStartExpiresAt.flatMap(DJConnectHistoryEntry.date).map({ $0 > Date() }) != true { continue }
                 log(.info, "Automatically preparing new DJ contribution audio")
                 guard let deadline = item.speech.expiresAt.flatMap(DJConnectHistoryEntry.date) else { continue }
                 playSharedDJSpeech(reference: item.speech.reference, acceptedText: item.text, sourceDeadline: deadline,
@@ -8363,18 +8390,19 @@ public final class DJConnectAppModel: ObservableObject {
         // Prepare3 reauthorizes this exact retained entry and synthesizes on demand.
         // An expired/missing previous audio asset is never used as the source grant.
         playSharedDJSpeech(reference: .entry(sessionID: entry.sessionID, entryID: entry.id), acceptedText: text,
-            sourceDeadline: deadline, target: .local, original: nil, manualMomentType: entry.momentType,
+            sourceDeadline: deadline, target: .local, original: sourceBoundRequestedSpeech(entry.sessionSpeech, text: text), manualMomentType: entry.momentType,
             sourceIsCurrent: { [weak self] in self?.retainedSpeechSourceIsCurrent(entry) == true })
     }
 
     private func playSharedDJSpeech(reference: DJConnectSpeechReference, acceptedText: String, sourceDeadline: Date,
         target requestedTarget: DJConnectSharedSpeechTarget, original: DJConnectSessionSpeech?, automatic: Bool = false, manualMomentType: String? = nil, sourceIsCurrent: @escaping @MainActor () -> Bool) {
         let family = automatic ? nil : (manualMomentType ?? original?.momentType)
-        guard sharedDJSpeechAllowed(momentType: family), let settings = profileDJSettings.response, settings.allowsSpeech(requestedTarget, manualMomentType: family), sourceIsCurrent() else { return }
+        let requestedSpeech = automatic ? nil : sourceBoundRequestedSpeech(original, text: acceptedText)
+        guard sharedDJSpeechAllowed(momentType: family, requestedSpeech: requestedSpeech), let settings = profileDJSettings.response, settings.allowsSpeech(requestedTarget, manualMomentType: family, requestedSpeech: requestedSpeech), sourceIsCurrent() else { return }
         let unavailableLocalOverride = deviceSpeechPreferences.enabled && requestedTarget == .both
         // Native output uses the same prepare3 source/settings admission; never
         // speak visible bubble text or bypass it with a legacy preparation.
-        guard let target = DJConnectDeviceSpeechRouting.serverTarget(for: requestedTarget, nativeOverride: deviceSpeechPreferences.enabled, settings: settings, manualMomentType: family) else {
+        guard let target = DJConnectDeviceSpeechRouting.serverTarget(for: requestedTarget, nativeOverride: deviceSpeechPreferences.enabled, settings: settings, manualMomentType: family, requestedSpeech: requestedSpeech) else {
             stopResponsePlayback(clearText: false)
             sharedSpeechReference = reference; sharedSpeechDelivery["local"] = "unavailable"
             return
@@ -8406,7 +8434,7 @@ public final class DJConnectAppModel: ObservableObject {
         sharedSpeechDelivery = [target == .haSpeaker ? "ha_speaker" : "local": "preparing"]
         if unavailableLocalOverride { sharedSpeechDelivery["local"] = "unavailable" }
         func current() -> Bool {
-            sharedDJSpeechAllowed(momentType: family) && epoch == sessionHistory.responseEpoch && isAppInForeground &&
+            sharedDJSpeechAllowed(momentType: family, requestedSpeech: requestedSpeech) && epoch == sessionHistory.responseEpoch && isAppInForeground &&
             deviceSpeechPreferences == preferences &&
             profileDJSettings.response?.binding == settings.binding &&
             profileDJSettings.response?.speechFence == settings.speechFence &&
@@ -8425,7 +8453,7 @@ public final class DJConnectAppModel: ObservableObject {
                     }
                     guard current(), !Task.isCancelled else { throw CancellationError() }
                     return try await $0.prepareSharedDJSpeech(reference: reference, acceptedText: acceptedText, settings: settings,
-                        target: target, automatic: automatic, processor: nativeLocal ? .localOnDevice : .haConfigured, manualMomentType: family)
+                        target: target, automatic: automatic, processor: nativeLocal ? .localOnDevice : .haConfigured, manualMomentType: family, requestedSpeech: requestedSpeech)
                 }
                 guard current(), !Task.isCancelled else { return }
                 sharedSpeechDelivery = result.delivery ?? [:]
@@ -8463,8 +8491,8 @@ public final class DJConnectAppModel: ObservableObject {
                     deviceSpeechRenderer.onPlaybackStateChange = { [weak self] playing in
                         guard let self, self.responsePlaybackCoordinator.isCurrent(ticket),
                               self.isAppInForeground, self.sessionHistory.responseEpoch == epoch else { return }
-                        self.sharedSpeechIsPreparing = false
                         self.sharedSpeechIsPlaying = playing
+                        self.sharedSpeechIsPreparing = false
                         self.sharedSpeechDelivery["local"] = playing ? "playing" : "ready"
                         self.tracePersonaActivity(playing ? "native_output_started" : "native_output_stopped")
                     }
@@ -8495,7 +8523,7 @@ public final class DJConnectAppModel: ObservableObject {
                 guard current(), !Task.isCancelled else { return }
                 let player = try AVAudioPlayer(data: bytes)
                 guard player.prepareToPlay(), current(), player.play() else { throw DJConnectError.invalidResponse }
-                sharedResponseDataPlayer = player; sharedSpeechIsPreparing = false; sharedSpeechIsPlaying = true
+                sharedResponseDataPlayer = player; sharedSpeechIsPlaying = true; sharedSpeechIsPreparing = false
                 sharedSpeechDelivery["local"] = "playing"
                 tracePersonaActivity("ha_output_started")
                 log(.info, "Playing DJ contribution audio from configured Home Assistant provider")
@@ -8517,12 +8545,19 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func momentRemainsAutoplayCurrent(_ speech: DJConnectSessionSpeech) -> Bool {
+        if let result = askDJMoments.currentResult, result.speech == speech {
+            return speech.autoplayEligible
+        }
+        if askDJMoments.hasPriority { return false }
         guard case .moment = speech.reference else { return true }
         return activeDJSession?.broadcast.nativeMomentSpeechIsAdmitted(speech.reference, at: Date(), automatic: true) == true
     }
 
     func sharedSpeechSourceIsCurrent(_ speech: DJConnectSessionSpeech, text: String) -> Bool {
         guard speech.admits(reference: speech.reference, text: text), sessionHistory.hasAuthorizedOwner else { return false }
+        if case .moment(let session, let id) = speech.reference,
+           sessionHistory.contentMomentWasWithdrawn(sessionID: session, momentID: id) { return false }
+        if let result = askDJMoments.currentResult, result.speech == speech, result.moment.content == text { return true }
         switch speech.reference {
         case .moment(let session, let id):
             guard let active = activeDJSession, active.id == session, active.runtimeState == "active",
@@ -8542,12 +8577,16 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var sharedDJSpeechAllowed: Bool { sharedDJSpeechAllowed(momentType: nil) }
-    public func sharedDJSpeechAllowed(momentType: String?) -> Bool {
+    func sourceBoundRequestedSpeech(_ speech: DJConnectSessionSpeech?, text: String) -> DJConnectSessionSpeech? {
+        guard let speech, speech.userRequested == true, sharedSpeechSourceIsCurrent(speech, text: text) else { return nil }
+        return speech
+    }
+    public func sharedDJSpeechAllowed(momentType: String?, requestedSpeech: DJConnectSessionSpeech? = nil) -> Bool {
         if isDemoMode { return true }
         guard let response = profileDJSettings.response else { return false }
         return profileDJSettings.active && ![.idle, .loading, .saving, .unavailable, .uncertain].contains(profileDJSettings.phase) &&
             !response.requiresSelection && (canUseNativeDJSpeechOutput || response.voice_availability.available) &&
-            response.allowsSpeech(.local, manualMomentType: momentType) && !profileDJSettings.hasUncertainOperation
+            response.allowsSpeech(.local, manualMomentType: momentType, requestedSpeech: requestedSpeech) && !profileDJSettings.hasUncertainOperation
     }
 
     private var currentVoiceScope: DJConnectSpeechVoiceScope? {

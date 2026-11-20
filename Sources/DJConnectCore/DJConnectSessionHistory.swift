@@ -226,6 +226,11 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
     public var persona: String?
     public var summary: String?
     public var title: String? = nil
+    private var optionalUserRequested: DJConnectOptionalRequestedMoment? = nil
+    public var userRequested: DJConnectAskDJMoments.Provenance? {
+        get { optionalUserRequested?.value }
+        set { optionalUserRequested = newValue.map { .init(value: $0) } }
+    }
     private var optionalLiveImpression: DJConnectOptionalLiveImpression? = nil
     public var liveImpression: DJConnectLiveImpression? {
         get { optionalLiveImpression?.value }
@@ -310,6 +315,7 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
         SessionHistoryDateParser.shared.date(text)
     }
     enum CodingKeys: String, CodingKey {
+        case optionalUserRequested = "user_requested"
         case title, optionalLiveImpression = "live_impression"
         case optionalSessionSpeech = "session_speech"
         case optionalSessionMedia = "session_media"
@@ -342,6 +348,7 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
         try c.encodeIfPresent(persona, forKey: .persona)
         try c.encodeIfPresent(summary, forKey: .summary)
         try c.encodeIfPresent(title, forKey: .title)
+        try c.encodeIfPresent(optionalUserRequested, forKey: .optionalUserRequested)
         try c.encodeIfPresent(optionalLiveImpression, forKey: .optionalLiveImpression)
         try c.encodeIfPresent(archiveBasis, forKey: .archiveBasis)
         try c.encodeIfPresent(sourceAttribution, forKey: .sourceAttribution)

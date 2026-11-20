@@ -1,0 +1,890 @@
+{
+  "contract_version": 1,
+  "captured_at": "2026-11-20T18:28:01.702216+00:00",
+  "evidence_scope": "declared synthetic public/model fixtures; real owners/SQLite",
+  "capability": {
+    "available": true,
+    "contract_version": 1,
+    "inventory_operation": "ask_dj/moments",
+    "request_operation": "ask_dj/moments/request",
+    "status_operation": "ask_dj/moments/status",
+    "cancel_operation": "ask_dj/moments/cancel",
+    "read_path": "/api/djconnect/v1/transport/read",
+    "operation_path": "/api/djconnect/v1/transport/operation",
+    "owner_only": true,
+    "client_types": [
+      "ios",
+      "macos"
+    ],
+    "language_families": [
+      "en",
+      "nl",
+      "de",
+      "fr",
+      "es"
+    ],
+    "requires_active_session": true,
+    "inventory_has_provider_effects": false,
+    "maximum_pending_per_profile_session": 1,
+    "queue": false,
+    "type_ids": [
+      "recording_story",
+      "work_composers",
+      "artist_story",
+      "album_story",
+      "genre_context",
+      "live_impression",
+      "shared_producer",
+      "producer_recommendation",
+      "album_continuity",
+      "dj_bulletin"
+    ]
+  },
+  "inventory": {
+    "success": true,
+    "contract_version": 1,
+    "session_id": "session-46ca61a5ae514a5591e5e81917e80825",
+    "language": "nl",
+    "title": "Ask DJ: Moments",
+    "types": [
+      {
+        "type_id": "recording_story",
+        "moment_type": "track",
+        "order": 0,
+        "label": {
+          "en": "Recording story",
+          "nl": "Opnameverhaal",
+          "de": "Aufnahmegeschichte",
+          "fr": "Histoire de l\u2019enregistrement",
+          "es": "Historia de la grabaci\u00f3n"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "work_composers",
+        "moment_type": "track",
+        "order": 1,
+        "label": {
+          "en": "The composers",
+          "nl": "De componisten",
+          "de": "Die Komponisten",
+          "fr": "Les compositeurs",
+          "es": "Los compositores"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "artist_story",
+        "moment_type": "artist",
+        "order": 2,
+        "label": {
+          "en": "Artist story",
+          "nl": "Artiestenverhaal",
+          "de": "K\u00fcnstlergeschichte",
+          "fr": "Histoire de l\u2019artiste",
+          "es": "Historia del artista"
+        },
+        "available": true,
+        "reason": null,
+        "reason_text": null,
+        "reason_labels": null,
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "kind": "artist",
+          "title": "Nora Vale 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Nora Vale 1."
+      },
+      {
+        "type_id": "album_story",
+        "moment_type": "album",
+        "order": 3,
+        "label": {
+          "en": "Album story",
+          "nl": "Albumverhaal",
+          "de": "Albumgeschichte",
+          "fr": "Histoire de l\u2019album",
+          "es": "Historia del \u00e1lbum"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "kind": "album",
+          "title": "Albumverhaal",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Albumverhaal."
+      },
+      {
+        "type_id": "genre_context",
+        "moment_type": "genre",
+        "order": 4,
+        "label": {
+          "en": "Genre context",
+          "nl": "Genrecontext",
+          "de": "Genre-Kontext",
+          "fr": "Contexte du genre",
+          "es": "Contexto del g\u00e9nero"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "live_impression",
+        "moment_type": "live_impression",
+        "order": 5,
+        "label": {
+          "en": "Live impression",
+          "nl": "Live-impressie",
+          "de": "Live-Eindruck",
+          "fr": "Impression live",
+          "es": "Impresi\u00f3n en vivo"
+        },
+        "available": true,
+        "reason": null,
+        "reason_text": null,
+        "reason_labels": null,
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "kind": "artist",
+          "title": "Nora Vale 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Nora Vale 1."
+      },
+      {
+        "type_id": "shared_producer",
+        "moment_type": "track",
+        "order": 6,
+        "label": {
+          "en": "A shared producer",
+          "nl": "Een gedeelde producer",
+          "de": "Ein gemeinsamer Produzent",
+          "fr": "Un producteur en commun",
+          "es": "Un productor en com\u00fan"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "producer_recommendation",
+        "moment_type": "recommendation",
+        "order": 7,
+        "label": {
+          "en": "Explore a producer",
+          "nl": "Ontdek een producer",
+          "de": "Einen Produzenten entdecken",
+          "fr": "D\u00e9couvrir un producteur",
+          "es": "Descubrir un productor"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "album_continuity",
+        "moment_type": "track",
+        "order": 8,
+        "label": {
+          "en": "Back to this album",
+          "nl": "Terug naar dit album",
+          "de": "Zur\u00fcck zu diesem Album",
+          "fr": "Retour \u00e0 cet album",
+          "es": "Volver a este \u00e1lbum"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "kind": "album",
+          "title": "Terug naar dit album",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Terug naar dit album."
+      },
+      {
+        "type_id": "dj_bulletin",
+        "moment_type": "dj_bulletin",
+        "order": 9,
+        "label": {
+          "en": "DJ Bulletin",
+          "nl": "DJ Bulletin",
+          "de": "DJ-Bulletin",
+          "fr": "Bulletin du DJ",
+          "es": "Bolet\u00edn del DJ"
+        },
+        "available": false,
+        "reason": "producer_unavailable",
+        "reason_text": "Verhalen zijn nu niet beschikbaar. Probeer het later nog eens.",
+        "reason_labels": {
+          "en": "Stories are currently unavailable. Try again later.",
+          "nl": "Verhalen zijn nu niet beschikbaar. Probeer het later nog eens.",
+          "de": "Geschichten sind gerade nicht verf\u00fcgbar. Versuche es sp\u00e4ter noch einmal.",
+          "fr": "Les histoires sont momentan\u00e9ment indisponibles. R\u00e9essayez plus tard.",
+          "es": "Las historias no est\u00e1n disponibles ahora. Int\u00e9ntalo m\u00e1s tarde."
+        },
+        "history_policy": "publication_metadata_only",
+        "subject": {
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "kind": "session",
+          "title": "Actuele berichten",
+          "subtitle": ""
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Actuele berichten."
+      }
+    ]
+  },
+  "request_envelope": {
+    "contract_version": 1,
+    "operation_id": "01a1fa37-2a13-7000-8000-000000000001",
+    "operation_epoch": "ce6a0ef6d38bbcc36989188b88df3219",
+    "operation": "ask_dj/moments/request",
+    "payload": {
+      "contract_version": 1,
+      "session_id": "session-46ca61a5ae514a5591e5e81917e80825",
+      "type_id": "artist_story",
+      "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS"
+    }
+  },
+  "accepted_http_response": {
+    "success": true,
+    "contract_version": 1,
+    "session_id": "session-46ca61a5ae514a5591e5e81917e80825",
+    "operation_id": "01a1fa37-2a13-7000-8000-000000000001",
+    "type_id": "artist_story",
+    "language": "nl",
+    "state": "accepted",
+    "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Nora Vale 1.",
+    "message": null,
+    "result": {
+      "moment": {
+        "moment_id": "moment-a3e6a149789057ec9a2f4ed2293650ec",
+        "session_id": "session-46ca61a5ae514a5591e5e81917e80825",
+        "created_at": "2026-11-20T18:28:01.685717+00:00",
+        "type": "artist",
+        "user_requested": {
+          "contract_version": 1,
+          "operation_id": "01a1fa37-2a13-7000-8000-000000000001",
+          "type_id": "artist_story",
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "playback_item_id": "63bf0397fbdc1fd1f3fbec76"
+        },
+        "knowledge_intent": {
+          "type": "artist_story",
+          "goal": "Explicit original-subject user request."
+        },
+        "presentation_intent": {
+          "source_session_mood": "energy",
+          "dj_persona": "home_dj",
+          "tone_of_voice": "warm and conversational",
+          "energy_level": "energy",
+          "delivery_style": "short contextual music story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 40,
+          "delivery_channels": [
+            "owner"
+          ],
+          "visibility": "owner_only"
+        },
+        "title": "Nora Vale 1",
+        "summary": "Nora Vale 1",
+        "content": "Bij Paper Lanterns werkte Nora Vale 1 samen met Ada Reed. Zo kijk ik graag even mee achter een naam.",
+        "artwork": null,
+        "actions": [],
+        "visibility": "owner_only",
+        "delivery_channels": [
+          "owner"
+        ],
+        "importance": "normal",
+        "source_references": [
+          "Wikipedia",
+          "MusicBrainz"
+        ],
+        "generation_metadata": {
+          "provider": "MusicBrainz",
+          "validated": "true",
+          "realization": "qualified_ha_narration_v1"
+        },
+        "source_attribution": {
+          "provider": "Wikipedia",
+          "url": "https://nl.wikipedia.org/wiki/Nora_Vale_1",
+          "license": "CC-BY-SA-4.0",
+          "revision_url": "https://nl.wikipedia.org/w/index.php?oldid=1234"
+        },
+        "sources": [
+          {
+            "claim_scope": "fetched_public_music_reference",
+            "content_hash": "7581f12f2270d52074a182ddc57d71c97fdeaa59682a768077bdf46ddbcf12db",
+            "expires_at": "2026-11-20T19:28:01.686406+00:00",
+            "fetched_at": "2026-11-20T18:28:01.686406+00:00",
+            "kind": "source",
+            "language": "nl",
+            "license": "CC-BY-SA-4.0",
+            "provider": "Wikipedia",
+            "revision_url": "https://nl.wikipedia.org/w/index.php?oldid=1234",
+            "title": "Nora Vale 1",
+            "url": "https://nl.wikipedia.org/wiki/Nora_Vale_1",
+            "wikidata_id": "Q1"
+          },
+          {
+            "claim_scope": "fetched_public_music_reference",
+            "content_hash": "7581f12f2270d52074a182ddc57d71c97fdeaa59682a768077bdf46ddbcf12db",
+            "expires_at": "2026-11-20T19:28:01.686839+00:00",
+            "fetched_at": "2026-11-20T18:28:01.686839+00:00",
+            "kind": "source",
+            "language": "en",
+            "license": "CC-BY-SA-4.0",
+            "provider": "Wikipedia",
+            "revision_url": "https://en.wikipedia.org/w/index.php?oldid=1234",
+            "title": "Nora Vale 1",
+            "url": "https://en.wikipedia.org/wiki/Nora_Vale_1",
+            "wikidata_id": "Q1"
+          },
+          {
+            "claim_scope": "fetched_public_music_reference",
+            "content_hash": "5ab6f28366d69d6309bd4685c531b2d1b4863011875f7194188c50fc627bee06",
+            "expires_at": "2026-11-20T18:58:01.678980+00:00",
+            "fetched_at": "2026-11-20T18:28:01.686966+00:00",
+            "kind": "source",
+            "language": "nl",
+            "license": "CC0-1.0",
+            "provider": "MusicBrainz",
+            "revision_url": "",
+            "title": "Nora Vale 1",
+            "url": "https://musicbrainz.org/artist/00000000-0000-0000-0000-000000000001",
+            "wikidata_id": "Q1"
+          }
+        ],
+        "playback_item_id": "63bf0397fbdc1fd1f3fbec76"
+      },
+      "entry_id": "entry-a02d59e6630151f8a17ccfaf07148b42",
+      "retention": "retained",
+      "history_state": "content_retained",
+      "presentation_admission": {
+        "contract_version": 1,
+        "moment_id": "moment-a3e6a149789057ec9a2f4ed2293650ec",
+        "owner_only": true,
+        "display_allowed": true,
+        "expires_at": "2026-11-20T18:33:01.682999+00:00",
+        "requires_spotify_attribution": false,
+        "source_expires_at": "2026-11-20T18:58:01.678960+00:00"
+      },
+      "session_media": [],
+      "session_speech": {
+        "schema_version": 1,
+        "moments": [
+          {
+            "schema_version": 1,
+            "reference": {
+              "session_id": "session-46ca61a5ae514a5591e5e81917e80825",
+              "moment_id": "moment-a3e6a149789057ec9a2f4ed2293650ec"
+            },
+            "source_kind": "published_dj_moment",
+            "source_id": "moment-a3e6a149789057ec9a2f4ed2293650ec",
+            "session_id": "session-46ca61a5ae514a5591e5e81917e80825",
+            "text_revision": "9e8ed27f725daf780ccaa2f4",
+            "presentation_revision": "e05e4ade31d9cbf3001578b4",
+            "persona": "home_dj",
+            "persona_revision": 0,
+            "mood": "energy",
+            "locale": "nl",
+            "segments": [
+              {
+                "ordinal": 1,
+                "speaker_role": "dj",
+                "text": "Bij Paper Lanterns werkte Nora Vale 1 samen met Ada Reed. Zo kijk ik graag even mee achter een naam."
+              }
+            ],
+            "style_basis": "accepted_contribution",
+            "state": "available",
+            "reason": null,
+            "manual_allowed": true,
+            "autoplay_eligible": true,
+            "processors": [
+              "local_on_device",
+              "ha_configured"
+            ],
+            "processor_qualification_required": true,
+            "expires_at": "2026-11-20T18:58:01.678960+00:00",
+            "source_expires_at": "2026-11-20T18:58:01.678960+00:00",
+            "attribution": [
+              {
+                "claim_scope": "fetched_public_music_reference",
+                "content_hash": "7581f12f2270d52074a182ddc57d71c97fdeaa59682a768077bdf46ddbcf12db",
+                "expires_at": "2026-11-20T19:28:01.686406+00:00",
+                "fetched_at": "2026-11-20T18:28:01.686406+00:00",
+                "kind": "source",
+                "language": "nl",
+                "license": "CC-BY-SA-4.0",
+                "provider": "Wikipedia",
+                "revision_url": "https://nl.wikipedia.org/w/index.php?oldid=1234",
+                "title": "Nora Vale 1",
+                "url": "https://nl.wikipedia.org/wiki/Nora_Vale_1",
+                "wikidata_id": "Q1"
+              },
+              {
+                "claim_scope": "fetched_public_music_reference",
+                "content_hash": "7581f12f2270d52074a182ddc57d71c97fdeaa59682a768077bdf46ddbcf12db",
+                "expires_at": "2026-11-20T19:28:01.686839+00:00",
+                "fetched_at": "2026-11-20T18:28:01.686839+00:00",
+                "kind": "source",
+                "language": "en",
+                "license": "CC-BY-SA-4.0",
+                "provider": "Wikipedia",
+                "revision_url": "https://en.wikipedia.org/w/index.php?oldid=1234",
+                "title": "Nora Vale 1",
+                "url": "https://en.wikipedia.org/wiki/Nora_Vale_1",
+                "wikidata_id": "Q1"
+              },
+              {
+                "claim_scope": "fetched_public_music_reference",
+                "content_hash": "5ab6f28366d69d6309bd4685c531b2d1b4863011875f7194188c50fc627bee06",
+                "expires_at": "2026-11-20T18:58:01.678980+00:00",
+                "fetched_at": "2026-11-20T18:28:01.686966+00:00",
+                "kind": "source",
+                "language": "nl",
+                "license": "CC0-1.0",
+                "provider": "MusicBrainz",
+                "revision_url": "",
+                "title": "Nora Vale 1",
+                "url": "https://musicbrainz.org/artist/00000000-0000-0000-0000-000000000001",
+                "wikidata_id": "Q1"
+              }
+            ],
+            "cache_policy": "private,no-store",
+            "automatic_start_expires_at": "2026-11-20T18:28:13.694159+00:00",
+            "user_requested": true,
+            "moment_type": "artist"
+          }
+        ]
+      }
+    },
+    "entry_id": "entry-a02d59e6630151f8a17ccfaf07148b42",
+    "moment_id": "moment-a3e6a149789057ec9a2f4ed2293650ec",
+    "error": null,
+    "operation_receipt": {
+      "contract_version": 1,
+      "operation_id": "01a1fa37-2a13-7000-8000-000000000001",
+      "operation_epoch": "ce6a0ef6d38bbcc36989188b88df3219",
+      "phase": "confirmed",
+      "expires_at_ms": 1795199581683,
+      "result_available": true,
+      "response_status": 200,
+      "error": null
+    },
+    "result_available": true
+  },
+  "status_response": {
+    "success": true,
+    "contract_version": 1,
+    "session_id": "session-46ca61a5ae514a5591e5e81917e80825",
+    "operation_id": "01a1fa37-2a13-7000-8000-000000000001",
+    "type_id": "artist_story",
+    "language": "nl",
+    "state": "accepted",
+    "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Nora Vale 1.",
+    "message": null,
+    "result": {
+      "moment": {
+        "moment_id": "moment-a3e6a149789057ec9a2f4ed2293650ec",
+        "session_id": "session-46ca61a5ae514a5591e5e81917e80825",
+        "created_at": "2026-11-20T18:28:01.685717+00:00",
+        "type": "artist",
+        "user_requested": {
+          "contract_version": 1,
+          "operation_id": "01a1fa37-2a13-7000-8000-000000000001",
+          "type_id": "artist_story",
+          "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+          "playback_item_id": "63bf0397fbdc1fd1f3fbec76"
+        },
+        "knowledge_intent": {
+          "type": "artist_story",
+          "goal": "Explicit original-subject user request."
+        },
+        "presentation_intent": {
+          "source_session_mood": "energy",
+          "dj_persona": "home_dj",
+          "tone_of_voice": "warm and conversational",
+          "energy_level": "energy",
+          "delivery_style": "short contextual music story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 40,
+          "delivery_channels": [
+            "owner"
+          ],
+          "visibility": "owner_only"
+        },
+        "title": "Nora Vale 1",
+        "summary": "Nora Vale 1",
+        "content": "Bij Paper Lanterns werkte Nora Vale 1 samen met Ada Reed. Zo kijk ik graag even mee achter een naam.",
+        "artwork": null,
+        "actions": [],
+        "visibility": "owner_only",
+        "delivery_channels": [
+          "owner"
+        ],
+        "importance": "normal",
+        "source_references": [
+          "Wikipedia",
+          "MusicBrainz"
+        ],
+        "generation_metadata": {
+          "provider": "MusicBrainz",
+          "validated": "true",
+          "realization": "qualified_ha_narration_v1"
+        },
+        "source_attribution": {
+          "provider": "Wikipedia",
+          "url": "https://nl.wikipedia.org/wiki/Nora_Vale_1",
+          "license": "CC-BY-SA-4.0",
+          "revision_url": "https://nl.wikipedia.org/w/index.php?oldid=1234"
+        },
+        "sources": [
+          {
+            "claim_scope": "fetched_public_music_reference",
+            "content_hash": "7581f12f2270d52074a182ddc57d71c97fdeaa59682a768077bdf46ddbcf12db",
+            "expires_at": "2026-11-20T19:28:01.686406+00:00",
+            "fetched_at": "2026-11-20T18:28:01.686406+00:00",
+            "kind": "source",
+            "language": "nl",
+            "license": "CC-BY-SA-4.0",
+            "provider": "Wikipedia",
+            "revision_url": "https://nl.wikipedia.org/w/index.php?oldid=1234",
+            "title": "Nora Vale 1",
+            "url": "https://nl.wikipedia.org/wiki/Nora_Vale_1",
+            "wikidata_id": "Q1"
+          },
+          {
+            "claim_scope": "fetched_public_music_reference",
+            "content_hash": "7581f12f2270d52074a182ddc57d71c97fdeaa59682a768077bdf46ddbcf12db",
+            "expires_at": "2026-11-20T19:28:01.686839+00:00",
+            "fetched_at": "2026-11-20T18:28:01.686839+00:00",
+            "kind": "source",
+            "language": "en",
+            "license": "CC-BY-SA-4.0",
+            "provider": "Wikipedia",
+            "revision_url": "https://en.wikipedia.org/w/index.php?oldid=1234",
+            "title": "Nora Vale 1",
+            "url": "https://en.wikipedia.org/wiki/Nora_Vale_1",
+            "wikidata_id": "Q1"
+          },
+          {
+            "claim_scope": "fetched_public_music_reference",
+            "content_hash": "5ab6f28366d69d6309bd4685c531b2d1b4863011875f7194188c50fc627bee06",
+            "expires_at": "2026-11-20T18:58:01.678980+00:00",
+            "fetched_at": "2026-11-20T18:28:01.686966+00:00",
+            "kind": "source",
+            "language": "nl",
+            "license": "CC0-1.0",
+            "provider": "MusicBrainz",
+            "revision_url": "",
+            "title": "Nora Vale 1",
+            "url": "https://musicbrainz.org/artist/00000000-0000-0000-0000-000000000001",
+            "wikidata_id": "Q1"
+          }
+        ],
+        "playback_item_id": "63bf0397fbdc1fd1f3fbec76"
+      },
+      "entry_id": "entry-a02d59e6630151f8a17ccfaf07148b42",
+      "retention": "retained",
+      "history_state": "content_retained",
+      "presentation_admission": {
+        "contract_version": 1,
+        "moment_id": "moment-a3e6a149789057ec9a2f4ed2293650ec",
+        "owner_only": true,
+        "display_allowed": true,
+        "expires_at": "2026-11-20T18:33:01.682999+00:00",
+        "requires_spotify_attribution": false,
+        "source_expires_at": "2026-11-20T18:58:01.678960+00:00"
+      },
+      "session_media": [],
+      "session_speech": {
+        "schema_version": 1,
+        "moments": [
+          {
+            "schema_version": 1,
+            "reference": {
+              "session_id": "session-46ca61a5ae514a5591e5e81917e80825",
+              "moment_id": "moment-a3e6a149789057ec9a2f4ed2293650ec"
+            },
+            "source_kind": "published_dj_moment",
+            "source_id": "moment-a3e6a149789057ec9a2f4ed2293650ec",
+            "session_id": "session-46ca61a5ae514a5591e5e81917e80825",
+            "text_revision": "9e8ed27f725daf780ccaa2f4",
+            "presentation_revision": "e05e4ade31d9cbf3001578b4",
+            "persona": "home_dj",
+            "persona_revision": 0,
+            "mood": "energy",
+            "locale": "nl",
+            "segments": [
+              {
+                "ordinal": 1,
+                "speaker_role": "dj",
+                "text": "Bij Paper Lanterns werkte Nora Vale 1 samen met Ada Reed. Zo kijk ik graag even mee achter een naam."
+              }
+            ],
+            "style_basis": "accepted_contribution",
+            "state": "available",
+            "reason": null,
+            "manual_allowed": true,
+            "autoplay_eligible": false,
+            "processors": [
+              "local_on_device",
+              "ha_configured"
+            ],
+            "processor_qualification_required": true,
+            "expires_at": "2026-11-20T18:58:01.678960+00:00",
+            "source_expires_at": "2026-11-20T18:58:01.678960+00:00",
+            "attribution": [
+              {
+                "claim_scope": "fetched_public_music_reference",
+                "content_hash": "7581f12f2270d52074a182ddc57d71c97fdeaa59682a768077bdf46ddbcf12db",
+                "expires_at": "2026-11-20T19:28:01.686406+00:00",
+                "fetched_at": "2026-11-20T18:28:01.686406+00:00",
+                "kind": "source",
+                "language": "nl",
+                "license": "CC-BY-SA-4.0",
+                "provider": "Wikipedia",
+                "revision_url": "https://nl.wikipedia.org/w/index.php?oldid=1234",
+                "title": "Nora Vale 1",
+                "url": "https://nl.wikipedia.org/wiki/Nora_Vale_1",
+                "wikidata_id": "Q1"
+              },
+              {
+                "claim_scope": "fetched_public_music_reference",
+                "content_hash": "7581f12f2270d52074a182ddc57d71c97fdeaa59682a768077bdf46ddbcf12db",
+                "expires_at": "2026-11-20T19:28:01.686839+00:00",
+                "fetched_at": "2026-11-20T18:28:01.686839+00:00",
+                "kind": "source",
+                "language": "en",
+                "license": "CC-BY-SA-4.0",
+                "provider": "Wikipedia",
+                "revision_url": "https://en.wikipedia.org/w/index.php?oldid=1234",
+                "title": "Nora Vale 1",
+                "url": "https://en.wikipedia.org/wiki/Nora_Vale_1",
+                "wikidata_id": "Q1"
+              },
+              {
+                "claim_scope": "fetched_public_music_reference",
+                "content_hash": "5ab6f28366d69d6309bd4685c531b2d1b4863011875f7194188c50fc627bee06",
+                "expires_at": "2026-11-20T18:58:01.678980+00:00",
+                "fetched_at": "2026-11-20T18:28:01.686966+00:00",
+                "kind": "source",
+                "language": "nl",
+                "license": "CC0-1.0",
+                "provider": "MusicBrainz",
+                "revision_url": "",
+                "title": "Nora Vale 1",
+                "url": "https://musicbrainz.org/artist/00000000-0000-0000-0000-000000000001",
+                "wikidata_id": "Q1"
+              }
+            ],
+            "cache_policy": "private,no-store",
+            "automatic_start_expires_at": "2026-11-20T18:28:13.694159+00:00",
+            "user_requested": true,
+            "moment_type": "artist"
+          }
+        ]
+      }
+    },
+    "entry_id": "entry-a02d59e6630151f8a17ccfaf07148b42",
+    "moment_id": "moment-a3e6a149789057ec9a2f4ed2293650ec",
+    "error": null
+  },
+  "history_entry": {
+    "entry_id": "entry-a02d59e6630151f8a17ccfaf07148b42",
+    "session_id": "session-46ca61a5ae514a5591e5e81917e80825",
+    "order": 2,
+    "kind": "dj_moment",
+    "occurred_at": "2026-11-20T18:28:01.685717+00:00",
+    "retained_until": "9999-12-31T00:00:00+00:00",
+    "historical_view_only": true,
+    "current_display_allowed": false,
+    "archive_basis": "public_artist_narration_v1",
+    "dialogue_subjects": [
+      {
+        "name": "Nora Vale 1",
+        "role": "Group"
+      }
+    ],
+    "locale": "nl",
+    "moment_id": "moment-a3e6a149789057ec9a2f4ed2293650ec",
+    "moment_type": "artist",
+    "mood": "energy",
+    "persona": "home_dj",
+    "persona_revision": 0,
+    "qualified_fact_attribution": {
+      "license": "CC0-1.0",
+      "provider": "MusicBrainz",
+      "url": "https://musicbrainz.org/artist/00000000-0000-0000-0000-000000000001"
+    },
+    "qualified_fact_text": "Nora Vale 1 is opgericht in 1960-03-04.",
+    "source_attribution": {
+      "license": "CC-BY-SA-4.0",
+      "provider": "Wikipedia",
+      "revision_url": "https://nl.wikipedia.org/w/index.php?oldid=1234",
+      "url": "https://nl.wikipedia.org/wiki/Nora_Vale_1"
+    },
+    "sources": [
+      {
+        "claim_scope": "fetched_public_music_reference",
+        "content_hash": "7581f12f2270d52074a182ddc57d71c97fdeaa59682a768077bdf46ddbcf12db",
+        "expires_at": "2026-11-20T19:28:01.686406+00:00",
+        "fetched_at": "2026-11-20T18:28:01.686406+00:00",
+        "kind": "source",
+        "language": "nl",
+        "license": "CC-BY-SA-4.0",
+        "provider": "Wikipedia",
+        "revision_url": "https://nl.wikipedia.org/w/index.php?oldid=1234",
+        "title": "Nora Vale 1",
+        "url": "https://nl.wikipedia.org/wiki/Nora_Vale_1",
+        "wikidata_id": "Q1"
+      },
+      {
+        "claim_scope": "fetched_public_music_reference",
+        "content_hash": "7581f12f2270d52074a182ddc57d71c97fdeaa59682a768077bdf46ddbcf12db",
+        "expires_at": "2026-11-20T19:28:01.686839+00:00",
+        "fetched_at": "2026-11-20T18:28:01.686839+00:00",
+        "kind": "source",
+        "language": "en",
+        "license": "CC-BY-SA-4.0",
+        "provider": "Wikipedia",
+        "revision_url": "https://en.wikipedia.org/w/index.php?oldid=1234",
+        "title": "Nora Vale 1",
+        "url": "https://en.wikipedia.org/wiki/Nora_Vale_1",
+        "wikidata_id": "Q1"
+      },
+      {
+        "claim_scope": "fetched_public_music_reference",
+        "content_hash": "5ab6f28366d69d6309bd4685c531b2d1b4863011875f7194188c50fc627bee06",
+        "expires_at": "2026-11-20T18:58:01.678980+00:00",
+        "fetched_at": "2026-11-20T18:28:01.686966+00:00",
+        "kind": "source",
+        "language": "nl",
+        "license": "CC0-1.0",
+        "provider": "MusicBrainz",
+        "revision_url": "",
+        "title": "Nora Vale 1",
+        "url": "https://musicbrainz.org/artist/00000000-0000-0000-0000-000000000001",
+        "wikidata_id": "Q1"
+      }
+    ],
+    "summary": "Nora Vale 1",
+    "text": "Bij Paper Lanterns werkte Nora Vale 1 samen met Ada Reed. Zo kijk ik graag even mee achter een naam.",
+    "title": "Nora Vale 1",
+    "user_requested": {
+      "contract_version": 1,
+      "operation_id": "01a1fa37-2a13-7000-8000-000000000001",
+      "playback_item_id": "63bf0397fbdc1fd1f3fbec76",
+      "subject_ref": "00_UYaH5nHZ1HbDcHwDXXbepxzpefpqS",
+      "type_id": "artist_story"
+    }
+  }
+}

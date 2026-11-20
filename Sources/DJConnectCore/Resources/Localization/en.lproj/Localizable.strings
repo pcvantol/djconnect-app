@@ -1766,3 +1766,25 @@
 "ui.live_impression.ask" = "Ask about this";
 "ui.live_impression.sources" = "Sources";
 "ui.live_impression.photo_withdrawn" = "This photo can no longer be displayed.";
+
+// Ask DJ: Moments — native avatarcard presentation.
+"ui.ask_moments.title" = "Ask DJ: Moments";
+"ui.ask_moments.avatar_hint" = "Open the available Moments. Playful reactions are available as additional actions.";
+"ui.ask_moments.close" = "Close";
+"ui.ask_moments.cancel" = "Cancel";
+"ui.ask_moments.loading_inventory" = "Loading available Moments…";
+"ui.ask_moments.unavailable" = "Moments are not available here yet.";
+"ui.ask_moments.subject" = "Subject";
+"ui.ask_moments.choose" = "Choose a Moment";
+"ui.ask_moments.no_result" = "I could not find a well-supported Moment about this subject.";
+"ui.ask_moments.temporary" = "This is temporarily unavailable. Please try again later.";
+"ui.ask_moments.denied" = "This Moment is not available for this session.";
+"ui.ask_moments.cancelled" = "Your request has stopped.";
+"ui.ask_moments.cancel_checking" = "Checking whether your request has stopped…";
+"ui.ask_moments.already_saved" = "This Moment is already saved in your session.";
+"ui.ask_moments.accepted_not_saved" = "This Moment was already ready. It was not saved.";
+"ui.ask_moments.not_retained" = "This Moment will not be saved.";
+"ui.ask_moments.keep_reading" = "Keep reading";
+"ui.ask_moments.release_reading" = "Resume temporary presentation";
+"ui.ask_moments.check_status" = "Check again";
+"ui.ask_moments.subject_unavailable" = "This subject is no longer available.";
