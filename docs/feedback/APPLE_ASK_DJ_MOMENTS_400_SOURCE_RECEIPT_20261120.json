@@ -1,0 +1,418 @@
+{
+  "schema_version": 1,
+  "kind": "apple_ask_dj_moments_source_finalization",
+  "as_of": "20November2026: Ask DJ Moments Source400 qualified; separate governance-only Finalization; AM12 real-model/native-device acceptance OPEN",
+  "source": {
+    "pr": 400,
+    "qualified_head": "9b95eb553b300ef85697e747fa75d1c735263d25",
+    "merged_main": "83e2f03822deac1c52cc1dbedd8623d4a0e09b06",
+    "tree": "439b950ed45c8f398782b5feb81de77c98a8e127",
+    "source_tree_equal": true,
+    "core_companion_pr": 1664,
+    "core_source_main": "948dbb8f7575df76a39e31335953fa53024b0831"
+  },
+  "software_qualification": {
+    "canonical_integrity": "PASS",
+    "ci": 44800859483,
+    "ci_attempt": 1,
+    "coverage_lines": 0.6297631583644184,
+    "coverage_targets": 6,
+    "durable_asset_id": 773075045,
+    "durable_release": "internal-ha-83e2f03822deac1c52cc1dbedd8623d4a0e09b06",
+    "durable_sha256": "65133af677b0e503b01731f0a15437138e02b8fe4c364f5a62224b02b8025484",
+    "evidence_digest": "a3ee5d161d936f6470e49062bb4abf1f67b195f1641b63549b2c4c5035ffe561",
+    "formal": 44802814160,
+    "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+    "main_sha": "83e2f03822deac1c52cc1dbedd8623d4a0e09b06",
+    "original_artifacts": [
+      {
+        "id": 14661148939,
+        "members_sha256": {
+          "coverage-main-sha.txt": "0965a55bac854514f76166c8915fad82eea7b1e88adb76c9f8314e6449f7ad57",
+          "coverage.json": "4571a988165186654c235956104c42316e6a744cf315f890b782e1be9c7ae87c"
+        },
+        "name": "apple-xccov-coverage",
+        "provider_zip_sha256": "68456bc1438e6978d613baff40b689a1763d1c4e676237ddb0b51554acab2724",
+        "run": 44800859483
+      },
+      {
+        "id": 14660574978,
+        "members_sha256": {
+          "post-merge-release-evidence.json": "f0c64e0a552f6b32b2c288a1273c4dc6f8457c165d15d1a9d89247f9e1c04b7a"
+        },
+        "name": "post-merge-release-evidence",
+        "provider_zip_sha256": "be67c59be7d429542bc944668f73f5e2466b6bf797fbcccf2b71a24103d60d46",
+        "run": 44802814160
+      }
+    ],
+    "policy_source_identity": {
+      "original_repository_id": 1258575431,
+      "original_revision": "4877403ba6fc69881439e70d3048da13ecb5576b",
+      "repository": "djconnect-music-dj/.github",
+      "repository_id": 1461539726,
+      "revision": "89a2a8b4c7571965249bed745bf7c5c37a1221f1",
+      "snapshot": "evidence-4877"
+    },
+    "repository": "djconnect-music-dj/djconnect-app",
+    "required_checks": {
+      "post_merge_build_validation": "PASS",
+      "post_merge_ci": "PASS",
+      "post_merge_coverage": "PASS",
+      "post_merge_governance": "PASS",
+      "post_merge_lint": "PASS",
+      "post_merge_static_analysis": "PASS",
+      "post_merge_tests": "PASS",
+      "required_checks": "PASS",
+      "software_assurance": "PASS",
+      "trusted_delivery": "PASS",
+      "verification": "PASS",
+      "workflow_integrity": "PASS"
+    },
+    "schema_version": 1,
+    "validator_sha256": "3fba299f26c75e47804e66218cabea8fd50627bd2a84a1dd294d59009714466f"
+  },
+  "validation": {
+    "swift_full": "1784 tests / 61 suites PASS",
+    "independent_checks": "9/9 PASS",
+    "unsigned_native_builds": "macOS+iOS PASS",
+    "final_filename_focused": "21 PASS",
+    "actual_xcode_focused": "21 passed / 0 failed / 0 skipped; 29 dynamic executions",
+    "native_resource_packets": "7/7 bundled JSON byte-exact against original Core serializer fixtures",
+    "visuals": "Native catalogue snapshots 5 client languages at390/960; independent review; declared fixture content",
+    "earlier_failure": "45f6 native coverage genuinely failed18 missing-bundle issues; fixed by explicit Xcode resource folder and shared test URL helper; original failure retained",
+    "fixture_boundary": "Actual Core producer/Hybrid/SQL/media3/speech3 with declared synthetic research/photo/model; not live-model/editorial acceptance"
+  },
+  "tde_observer": {
+    "assessment_decision": "FAIL",
+    "canonical_validation": {
+      "adapter": "VALID",
+      "analyzer": "VALID",
+      "candidateIdentity": "VALID",
+      "completeness": "COMPLETE",
+      "errors": [],
+      "integrity": "VALID",
+      "repositoryIdentity": "VALID",
+      "schema": "VALID",
+      "status": "VALID",
+      "warnings": []
+    },
+    "findings": 437,
+    "main_sha": "83e2f03822deac1c52cc1dbedd8623d4a0e09b06",
+    "native_coverage_step": "SUCCESS",
+    "provider_zip_sha256": "ed9dddae7fd364416285c127bef77a861e67d9820a61a464d03b80165c8d7f17",
+    "repository_qualification": "FAILED",
+    "scope": "observe-only debtOPEN; noTDEqualifiedclaim; predecessor39a429→437(+8HIGH); criticalcount16 not identityequivalence",
+    "severity": {
+      "CRITICAL": 16,
+      "HIGH": 421
+    },
+    "workflow": 44800859006,
+    "workflow_conclusion": "SUCCESS"
+  },
+  "tde_disposition": "Observe-only maintainability debt OPEN: workflow/coverage SUCCESS does not imply assessment qualification; assessment FAIL/repository FAILED437 findings (421 HIGH/16 CRITICAL), baseline429; no assertion all critical identities unchanged; no waiver or metric-only refactor",
+  "installed_baseline": "UNCHANGED: qualified ordinary4.1.0(40530), Source398; existing four installation proofs, three HA heartbeats and dated iPhone locked runtime follow-up remain historical. Source400 was not installed.",
+  "installed_baseline_receipt": "APPLE_HA_4_1_398_INSTALL_40530_RECEIPT_20261120.json",
+  "product_acceptance": "PARTIAL: AM12 real-model/editorial/native installed interaction/audible/accessibility/provider acceptance OPEN/NOT_RUN; no new installs/deployment/provider operations",
+  "horizon": {
+    "canonical_path": "docs/roadmap/v1/djconnect-platform-v1.json",
+    "snapshot_sha256": "dac621d5a033bedafefb2f5a864868f05843cf65fd1e494f0713b48b559d3ef7",
+    "planning_maintenance_decision": "DJC-DJ-PRESENCE-ROADMAP-DESIGN-V1-20261011",
+    "items": [
+      {
+        "id": "ASK-DJ-MOMENTS::ACCEPTANCE",
+        "title": "Joint AM01–AM12 real model, device, editorial and accessibility acceptance",
+        "lane": "DJC-CORE",
+        "repository": "djconnect-music-dj/djconnect",
+        "status": "Planned",
+        "assignment_status": "OPEN_ACCEPTANCE",
+        "scope": "Existing Interactive DJMoments selected explicitly by user; no parallel engine or install/deploy authority",
+        "acceptance_boundary": "Software/source, actual HA fixture, native/model/editorial/device AM12 acceptance remain separate",
+        "contract_binding": "docs/technical/ASK_DJ_MOMENTS_AVATAR_CONTRACT_V1.md",
+        "source_ids": [
+          "OWNER-ASK-DJ-MOMENTS-6849511889"
+        ],
+        "parent_reference": "PROJ::ROADMAP::INTERACTIVE",
+        "family_reference": "Existing Ask DJ / Knowledge / Planner / Moment / Flow",
+        "prerequisite_groups": [
+          {
+            "mode": "AND",
+            "edge_ids": [
+              "ASK-DJ-MOMENTS-3"
+            ]
+          },
+          {
+            "mode": "AND",
+            "edge_ids": [
+              "ASK-DJ-MOMENTS-4"
+            ]
+          }
+        ],
+        "direct_conditions": [
+          "ASK-DJ-MOMENTS::PRODUCER",
+          "ASK-DJ-MOMENTS::APPLE"
+        ],
+        "direct_edge_ids": [
+          "ASK-DJ-MOMENTS-3",
+          "ASK-DJ-MOMENTS-4"
+        ],
+        "execution_rationale": "Current joint acceptance follow-through after qualified producer/native software; operational admission remains separate"
+      },
+      {
+        "id": "SETTINGS::APPLE::EDITOR",
+        "title": "One Jouw DJ editor and shared Session quick controls",
+        "lane": "DJC-APPLE",
+        "repository": "pcvantol/djconnect-app",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "scope": "One Jouw DJ editor and shared Session quick controls; six shared parameters incl announcement_output; no new owning writer or automatic dispatch",
+        "acceptance_boundary": "Core source, native/installed/audible/hardware and whole-family cleanup distinct; owning consumer evidence required",
+        "contract_binding": "docs/product/PROFILE_SESSION_SETTINGS_CONSOLIDATION_V1.md",
+        "source_ids": [
+          "OWNER-PROFILE-SESSION-SETTINGS-20261016"
+        ],
+        "parent_reference": "PROJ::ROADMAP::P2-REFERENCE",
+        "family_reference": "Existing Profile, active DJ Session and generic configured HA speech",
+        "prerequisite_groups": [
+          {
+            "edge_ids": [
+              "SETTINGS-4"
+            ],
+            "mode": "AND"
+          }
+        ],
+        "direct_conditions": [
+          "SETTINGS::CORE::PRODUCER"
+        ],
+        "direct_edge_ids": [
+          "SETTINGS-4"
+        ],
+        "execution_rationale": "Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required"
+      },
+      {
+        "id": "SETTINGS::PI::ADOPTION",
+        "title": "Pi allowed shared Session settings and legacy disposition",
+        "lane": "DJC-PI",
+        "repository": "pcvantol/djconnect-pi",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "scope": "Pi allowed shared Session settings and legacy disposition; six shared parameters incl announcement_output; no new owning writer or automatic dispatch",
+        "acceptance_boundary": "Core source, native/installed/audible/hardware and whole-family cleanup distinct; owning consumer evidence required",
+        "contract_binding": "docs/product/PROFILE_SESSION_SETTINGS_CONSOLIDATION_V1.md",
+        "source_ids": [
+          "OWNER-PROFILE-SESSION-SETTINGS-20261016"
+        ],
+        "parent_reference": "PROJ::ROADMAP::P2-REFERENCE",
+        "family_reference": "Existing Profile, active DJ Session and generic configured HA speech",
+        "prerequisite_groups": [
+          {
+            "edge_ids": [
+              "SETTINGS-6"
+            ],
+            "mode": "AND"
+          }
+        ],
+        "direct_conditions": [
+          "SETTINGS::CORE::PRODUCER"
+        ],
+        "direct_edge_ids": [
+          "SETTINGS-6"
+        ],
+        "execution_rationale": "Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required"
+      },
+      {
+        "id": "SETTINGS::ESP32::ADOPTION",
+        "title": "ESP32 Assist/voice/settings compatibility and legacy disposition",
+        "lane": "DJC-ESP32",
+        "repository": "pcvantol/djconnect-esp32",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "scope": "ESP32 Assist/voice/settings compatibility and legacy disposition; six shared parameters incl announcement_output; no new owning writer or automatic dispatch",
+        "acceptance_boundary": "Core source, native/installed/audible/hardware and whole-family cleanup distinct; owning consumer evidence required",
+        "contract_binding": "docs/product/PROFILE_SESSION_SETTINGS_CONSOLIDATION_V1.md",
+        "source_ids": [
+          "OWNER-PROFILE-SESSION-SETTINGS-20261016"
+        ],
+        "parent_reference": "PROJ::ROADMAP::P2-REFERENCE",
+        "family_reference": "Existing Profile, active DJ Session and generic configured HA speech",
+        "prerequisite_groups": [
+          {
+            "edge_ids": [
+              "SETTINGS-8"
+            ],
+            "mode": "AND"
+          }
+        ],
+        "direct_conditions": [
+          "SETTINGS::CORE::PRODUCER"
+        ],
+        "direct_edge_ids": [
+          "SETTINGS-8"
+        ],
+        "execution_rationale": "Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required"
+      },
+      {
+        "id": "SETTINGS::VIBECAST::COMPAT",
+        "title": "Shared renderer allowed Session fields without Profile preferences",
+        "lane": "DJC-VIBECAST",
+        "repository": "pcvantol/djconnect-vibecast-receiver",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "scope": "Shared renderer allowed Session fields without Profile preferences; six shared parameters incl announcement_output; no new owning writer or automatic dispatch",
+        "acceptance_boundary": "Core source, native/installed/audible/hardware and whole-family cleanup distinct; owning consumer evidence required",
+        "contract_binding": "docs/product/PROFILE_SESSION_SETTINGS_CONSOLIDATION_V1.md",
+        "source_ids": [
+          "OWNER-PROFILE-SESSION-SETTINGS-20261016"
+        ],
+        "parent_reference": "PROJ::ROADMAP::P2-REFERENCE",
+        "family_reference": "Existing Profile, active DJ Session and generic configured HA speech",
+        "prerequisite_groups": [
+          {
+            "edge_ids": [
+              "SETTINGS-10"
+            ],
+            "mode": "AND"
+          }
+        ],
+        "direct_conditions": [
+          "SETTINGS::CORE::PRODUCER"
+        ],
+        "direct_edge_ids": [
+          "SETTINGS-10"
+        ],
+        "execution_rationale": "Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required"
+      }
+    ],
+    "execution_authority": "No admission or automatic dispatch; acceptance operational authority separate",
+    "direct_edges": [
+      {
+        "id": "ASK-DJ-MOMENTS-3",
+        "producer": "ASK-DJ-MOMENTS::PRODUCER",
+        "consumer": "ASK-DJ-MOMENTS::ACCEPTANCE",
+        "hard_precedence": true,
+        "logical_mode": "AND",
+        "source_ids": [
+          "OWNER-ASK-DJ-MOMENTS-6849511889"
+        ],
+        "kind": "implementation_contract",
+        "phase": "integration_acceptance",
+        "prerequisite_stage": "completion",
+        "required_subset": "Versioned actual producer/native contract; source and joint acceptance separate",
+        "contract_or_evidence": "docs/technical/ASK_DJ_MOMENTS_AVATAR_CONTRACT_V1.md",
+        "reason": "Functional dependency for selected existing Interactive DJMoments; no unrelated global release dependency"
+      },
+      {
+        "id": "ASK-DJ-MOMENTS-4",
+        "producer": "ASK-DJ-MOMENTS::APPLE",
+        "consumer": "ASK-DJ-MOMENTS::ACCEPTANCE",
+        "hard_precedence": true,
+        "logical_mode": "AND",
+        "source_ids": [
+          "OWNER-ASK-DJ-MOMENTS-6849511889"
+        ],
+        "kind": "implementation_contract",
+        "phase": "integration_acceptance",
+        "prerequisite_stage": "completion",
+        "required_subset": "Versioned actual producer/native contract; source and joint acceptance separate",
+        "contract_or_evidence": "docs/technical/ASK_DJ_MOMENTS_AVATAR_CONTRACT_V1.md",
+        "reason": "Functional dependency for selected existing Interactive DJMoments; no unrelated global release dependency"
+      },
+      {
+        "id": "SETTINGS-4",
+        "producer": "SETTINGS::CORE::PRODUCER",
+        "consumer": "SETTINGS::APPLE::EDITOR",
+        "hard_precedence": true,
+        "logical_mode": "AND",
+        "source_ids": [
+          "OWNER-PROFILE-SESSION-SETTINGS-20261016"
+        ],
+        "kind": "implementation_contract",
+        "phase": "implementation",
+        "prerequisite_stage": "completion",
+        "required_subset": "Exact allfive contract and owning acceptance; preparation may proceed without consumer dispatch",
+        "contract_or_evidence": "docs/product/PROFILE_SESSION_SETTINGS_CONSOLIDATION_V1.md",
+        "reason": "Existing Profile/Session consolidation; no full-family completion before migration and consumers"
+      },
+      {
+        "id": "SETTINGS-6",
+        "producer": "SETTINGS::CORE::PRODUCER",
+        "consumer": "SETTINGS::PI::ADOPTION",
+        "hard_precedence": true,
+        "logical_mode": "AND",
+        "source_ids": [
+          "OWNER-PROFILE-SESSION-SETTINGS-20261016"
+        ],
+        "kind": "implementation_contract",
+        "phase": "implementation",
+        "prerequisite_stage": "completion",
+        "required_subset": "Exact allfive contract and owning acceptance; preparation may proceed without consumer dispatch",
+        "contract_or_evidence": "docs/product/PROFILE_SESSION_SETTINGS_CONSOLIDATION_V1.md",
+        "reason": "Existing Profile/Session consolidation; no full-family completion before migration and consumers"
+      },
+      {
+        "id": "SETTINGS-8",
+        "producer": "SETTINGS::CORE::PRODUCER",
+        "consumer": "SETTINGS::ESP32::ADOPTION",
+        "hard_precedence": true,
+        "logical_mode": "AND",
+        "source_ids": [
+          "OWNER-PROFILE-SESSION-SETTINGS-20261016"
+        ],
+        "kind": "implementation_contract",
+        "phase": "implementation",
+        "prerequisite_stage": "completion",
+        "required_subset": "Exact allfive contract and owning acceptance; preparation may proceed without consumer dispatch",
+        "contract_or_evidence": "docs/product/PROFILE_SESSION_SETTINGS_CONSOLIDATION_V1.md",
+        "reason": "Existing Profile/Session consolidation; no full-family completion before migration and consumers"
+      },
+      {
+        "id": "SETTINGS-10",
+        "producer": "SETTINGS::CORE::PRODUCER",
+        "consumer": "SETTINGS::VIBECAST::COMPAT",
+        "hard_precedence": true,
+        "logical_mode": "AND",
+        "source_ids": [
+          "OWNER-PROFILE-SESSION-SETTINGS-20261016"
+        ],
+        "kind": "implementation_contract",
+        "phase": "implementation",
+        "prerequisite_stage": "completion",
+        "required_subset": "Exact allfive contract and owning acceptance; preparation may proceed without consumer dispatch",
+        "contract_or_evidence": "docs/product/PROFILE_SESSION_SETTINGS_CONSOLIDATION_V1.md",
+        "reason": "Existing Profile/Session consolidation; no full-family completion before migration and consumers"
+      }
+    ]
+  },
+  "governance": {
+    "repository_target": "MERGED_RECONCILED effective only after this separate Finalization protected merge and own exact-main CI/coverage/formal12PASS",
+    "predecessor_state": "Source400 MERGED_UNRECONCILED until that condition",
+    "workspace_target": "WORKSPACE_READY only after actual scoped cleanup proof; no premature claim",
+    "historical_checkout": "Original Users mainbce719c422b7a460b304e314a4af34e02ecbc3b5 PRESERVED_HISTORICAL; no reset/rename"
+  },
+  "private_proof_artifacts": [
+    {
+      "name": "source-freeze-resource-fix.json",
+      "sha256": "39018dda5189b882d9774ac36606dd0467caefc773334fed6c43e248d59c7ac4"
+    },
+    {
+      "name": "source-inputs-resource-fix.json",
+      "sha256": "1e2ed22146c64347ba5ed17b847cea6269f72d2fab20704cab6049ec554c8a6b"
+    },
+    {
+      "name": "native-resource-fix-validation.json",
+      "sha256": "e765d7e2e5ed02d6b0f8614bda90f5bde126fa48c858e91c27fc908bc0fe1608"
+    },
+    {
+      "name": "native-resource-after.json",
+      "sha256": "716563c54eeaff8c2798adc4f750a1b9e06f05047b73969f3d6e3b5e5ad5e4a7"
+    },
+    {
+      "name": "native-moments-summary.json",
+      "sha256": "0c987cb3ba609dd38b9b70f435f16fb2e1de92d71a78bce385ee1777094173d3"
+    },
+    {
+      "name": "source-main-tde/semantic-readback.json",
+      "sha256": "846528ca6b91c95da088ccab3155d9e0c11982d7d8c138e0579ffc94c4960cd5"
+    }
+  ],
+  "privacy": "No credentials/device IDs/private data included; original evidence and40530 products/recovery/HA backup retained"
+}

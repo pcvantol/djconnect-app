@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "as_of": "20November2026: Source398 qualified; four ordinary40530 installations; three accepted HA4.1 client heartbeats, locked iPhone runtime follow-up OPEN; dedicated Finalization",
+  "as_of": "21November2026: Source400 plus qualified supplemental QA402; separate governance Final401; AM12 acceptance OPEN",
   "owning_lane": "https://github.com/djconnect-music-dj/djconnect-app/issues/87",
   "baseline": "20November2026: ordinary4.1.0(40530), qualified source2df31d2, installed/read back on iPhone+iPad mini+Mac mini+MacBook; both existing app copies per Mac match full signed bundle. Three genuine existing HA4.1 client heartbeats observed; iPhone launch LOCKED as-of12:16:02UTC, runtime follow-up OPEN. No pairing/consent reset or Watch installation.",
-  "source_head": "2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a; signed installed build40530, separate documentary Finalization",
+  "source_head": "edccef9a18cf36c14165555b0a62013812d03876; QA402 qualified test-only supplement to Source400, not installed; separate Final401",
   "status_semantics": {
     "CLOSED_BOUNDED": "Functionele implementatie/expliciet benoemde bewijslevering afgerond binnen de genoemde bewijsgrens; geen sluiting van parentproduct, bronPR of nativejointacceptatie.",
     "SUPERSEDED": "Vervangen door latere directe ownerbeslissing; niet opnieuw bouwen.",
@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 29,
     "OPEN": 4,
     "PARKED": 1,
-    "PARTIAL": 48,
+    "PARTIAL": 49,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -789,6 +789,14 @@
       "source": "Direct owner installation request20November2026; Source398",
       "evidence": "Source398 reviewedd25a0740a24548ce0e6e577105f18d5a4f0fadf9 -> protected2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a; same treeba98040c93c958b83c2cfc685c8dddc64edaade0. Strict4.1major/minor fence retained; actual model/status/header/query and3.0/4.0/4.2 refusal regressionsPASS. Full1763tests/61suitesPASS;9checksPASS; ownmainCI44731371895/formal44733023306 original coverage/durable integrity and12PASS. Signed ordinaryRelease4.1.0(40530) installed/read back on all4 requested devices, both Mac copies per host fullmanifestmatch; 3 genuine HA4.1 accepted client heartbeats. APPLE_HA_4_1_398_INSTALL_40530_RECEIPT_20261120.json.",
       "remaining": "iPhone installedPASS but launchLocked/no40530 heartbeat as-of2026-11-20T12:16:02Z; user unlock/open follow-up remains OPEN. Live-impressie real-model/editorial/native media interaction/audible/a11y acceptance remains PARTIAL/NOT_RUN. TDE observe FAIL/qualificationFAILED429findings, not quality-qualified. No Watch installation or new manual push enrollment."
+    },
+    {
+      "id": "ask-dj-moments-avatar400-source-20261120",
+      "requirement": "AM01–AM12 native same-card Moments selection, ownership/visibility/media/speech/history fences",
+      "status": "PARTIAL",
+      "source": "Owner issue1101 comment6849511889 and Apple87 comment6849536420; Source400",
+      "evidence": "Source400 9b95eb553b300ef85697e747fa75d1c735263d25 -> protected 83e2f03822deac1c52cc1dbedd8623d4a0e09b06; identical tree439b950. Own CI44800859483 incl actual native coverage and formal44802814160; all12 canonical software checks PASS, durable integrity PASS. Full1784/61,9 checks,2 unsigned native builds; corrected real Xcode21 cases and7 byte-exact packets PASS. See APPLE_ASK_DJ_MOMENTS_400_SOURCE_RECEIPT_20261120.json.",
+      "remaining": "AM12 real-model/editorial/native installed/audible/accessibility/provider acceptance OPEN/NOT_RUN; source not installed. TDE assessment FAIL/qualification FAILED437 findings, observe-only debt OPEN. Existing40530 installed baseline and dated iPhone locked follow-up unchanged."
     }
   ],
   "execution_feedback_40258": {
@@ -934,5 +942,21 @@
     "runtime_smoke": "3/4 observed; iPhoneBLOCKED_LOCKED as-of12:16:02UTC",
     "overall_product_acceptance": "PARTIAL"
   },
-  "historical_as_of_source396": "20November2026: Source396 originally source-qualified; dedicated documentary Finalization; Live-impressie product acceptance remains PARTIAL"
+  "historical_as_of_source396": "20November2026: Source396 originally source-qualified; dedicated documentary Finalization; Live-impressie product acceptance remains PARTIAL",
+  "historical_as_of_before_source400": "20November2026: Source398 qualified; four ordinary40530 installations; three accepted HA4.1 client heartbeats, locked iPhone runtime follow-up OPEN; dedicated Finalization",
+  "ask_dj_moments_source_finalization_20261120": {
+    "receipt": "APPLE_ASK_DJ_MOMENTS_400_SOURCE_RECEIPT_20261120.json",
+    "source_main": "83e2f03822deac1c52cc1dbedd8623d4a0e09b06",
+    "product_acceptance": "PARTIAL; AM12 OPEN",
+    "installed_baseline": "UNCHANGED40530"
+  },
+  "historical_as_of_before_qa402": "20November2026: Ask DJ Moments Source400 qualified; separate governance-only Finalization; AM12 real-model/native-device acceptance OPEN",
+  "ask_dj_moments_qa402_supplement_20261121": {
+    "qa_pr": 402,
+    "qa_main": "edccef9a18cf36c14165555b0a62013812d03876",
+    "receipt": "APPLE_ASK_DJ_MOMENTS_402_QA_RECEIPT_20261121.json",
+    "software": "Own exact-main CI/coverage/formal12PASS; runtime product bytes unchanged",
+    "acceptance": "AM12 OPEN; installed40530 unchanged",
+    "tde": "FAIL/FAILED438; one additional HIGH TEST finding; observe-only debt OPEN"
+  }
 }

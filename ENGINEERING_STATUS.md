@@ -1,3 +1,93 @@
+## 2026-11-21 — Ask DJ Moments supplemental QA402 Finalization
+
+#### Repository Status
+
+Supplemental test-only [#402](https://github.com/djconnect-music-dj/djconnect-app/pull/402), reviewed `d517b16e03ba82e066489ef12d964301306e0662`, merged as `edccef9a18cf36c14165555b0a62013812d03876` with identical tree `f631ed6c49272c7e9ae71881f85970a49f075a05`. Own main CI/coverage44897148514 and formal44898004477: all12 canonical software checks PASS, durable integrity PASS/SHA256 `e7c2fcd84bec567b75300a0c2019b2dff02d82bd4a6ccf8f6109fec9ef338184`. See [QA receipt](docs/feedback/APPLE_ASK_DJ_MOMENTS_402_QA_RECEIPT_20261121.json). Source400's original qualified source and historical receipt remain unchanged below. This governance-only Final401 requires its own normal protected merge and exact-main qualification.
+
+#### Management Summary
+
+The native test waits at most three seconds for the actual expected input action, then observes a full click interval plus100ms for duplicates/cascades. Photo and source retain separate sequential windows. All physical event sequences and original exact assertions remain;310 product inputs are unchanged. Local native focused1 and full1784/61 PASS; actual hosted native coverage and ordinary CI PASS. The400ms external MainActor-stall reproduction observes the old deadline before the correct playful callback and all18 repaired conditions PASS after their complete windows. Original Final635/CI44804481699 failure remains preserved; its callback was not instrumented.
+
+Current valid/complete TDE observation is FAIL/FAILED438 findings (422HIGH,16CRITICAL). Exactly one added HIGH is TEST harness complexity14/threshold11; all437 Source400 findings are unchanged. Root reviewed explicit observe-only debt; no metric-only refactor, suppression, waiver or TDE-qualified claim.
+
+#### Roadmap Position
+
+Source400 plus supplemental QA402 are software-qualified; AM12 real-model/editorial/native installed interaction/audible/accessibility acceptance remains PARTIAL/OPEN. Installed ordinary4.1.0(40530) and its original receipts/recovery remain unchanged. No new installation, deployment or provider operation.
+
+#### Rolling Horizon (Execution Horizon — Next 5 Planned)
+
+Core Final1665 merged `d24cb4ad46015cdc89ae5cbfa866f07a73139663`. Canonical planning snapshot `dac621d5a033bedafefb2f5a864868f05843cf65fd1e494f0713b48b559d3ef7`, `docs/roadmap/v1/djconnect-platform-v1.json`. Fixed owning maintenance order and dependencies remain unchanged; operational admission is separate.
+
+1. **ASK-DJ-MOMENTS::ACCEPTANCE — Joint AM01–AM12 real model, device, editorial and accessibility acceptance** — Planned / OPEN_ACCEPTANCE; direct dependencies ASK-DJ-MOMENTS::PRODUCER, ASK-DJ-MOMENTS::APPLE (ASK-DJ-MOMENTS-3, ASK-DJ-MOMENTS-4). Execution Rationale: Current joint acceptance follow-through after qualified producer/native software; operational admission remains separate; no automatic dispatch.
+2. **SETTINGS::APPLE::EDITOR — One Jouw DJ editor and shared Session quick controls** — Planned / NOT_ISSUED; direct dependencies SETTINGS::CORE::PRODUCER (SETTINGS-4). Execution Rationale: Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required; no automatic dispatch.
+3. **SETTINGS::PI::ADOPTION — Pi allowed shared Session settings and legacy disposition** — Planned / NOT_ISSUED; direct dependencies SETTINGS::CORE::PRODUCER (SETTINGS-6). Execution Rationale: Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required; no automatic dispatch.
+4. **SETTINGS::ESP32::ADOPTION — ESP32 Assist/voice/settings compatibility and legacy disposition** — Planned / NOT_ISSUED; direct dependencies SETTINGS::CORE::PRODUCER (SETTINGS-8). Execution Rationale: Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required; no automatic dispatch.
+5. **SETTINGS::VIBECAST::COMPAT — Shared renderer allowed Session fields without Profile preferences** — Planned / NOT_ISSUED; direct dependencies SETTINGS::CORE::PRODUCER (SETTINGS-10). Execution Rationale: Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required; no automatic dispatch.
+
+#### Blocked Items
+
+AM12 actual-model/editorial/physical installed/audible/a11y acceptance remains OPEN/NOT_RUN. TDE maintainability debt remains OPEN, including the explicitly observed test HIGH. No installed-device acceptance follows from native software evidence.
+
+#### Deferred Items
+
+No new capability, Watch entry, installation/deployment/provider action or parallel intelligence store. QA test changes are inherited from the qualified base; this Finaldiff changes governance/records only.
+
+#### Repository State
+
+Target `MERGED_RECONCILED` becomes effective only after this separate Final401 protected merge and its own exact-main CI/coverage/formal12PASS. Until then Source400/QA402 remain `MERGED_UNRECONCILED`.
+
+#### Workspace State
+
+Clean preserved task checkout. `WORKSPACE_READY` requires actual scoped cleanup guards; otherwise report `NOT_READY` and retain refs. The original Users-main `bce719c422b7a460b304e314a4af34e02ecbc3b5` stays `PRESERVED_HISTORICAL`, without reset/rename. Preserve all old635/source/failure/qualification history and bundles,40530 products/install/recovery and HA backup. No cleanup override or forced branch deletion.
+
+Earlier sections below remain historical snapshots.
+
+## 2026-11-20 — Ask DJ Moments-avatarcard Source400 Finalization
+
+#### Repository Status
+
+Source [#400](https://github.com/djconnect-music-dj/djconnect-app/pull/400) reviewed `9b95eb553b300ef85697e747fa75d1c735263d25` merged as `83e2f03822deac1c52cc1dbedd8623d4a0e09b06`; identical tree `439b950ed45c8f398782b5feb81de77c98a8e127`. Own main CI/coverage44800859483 and formal44802814160, original provider ZIP/durable binding and pinned Apple4877 canonical validator: all12 software checks PASS. Durable SHA256 `65133af677b0e503b01731f0a15437138e02b8fe4c364f5a62224b02b8025484`. See [source receipt](docs/feedback/APPLE_ASK_DJ_MOMENTS_400_SOURCE_RECEIPT_20261120.json). This separate governance-only Finalization requires its own protected merge and exact-main qualification.
+
+#### Management Summary
+
+One existing avatar/current card opens Core's full capability inventory; selected pending and rich results reuse that card and existing Moment/Live media, source, speech and history owners. Original Session/Profile/subject/operation fences, actual visible20s budget and interaction/preparation/audio/a11y holds prevent stale results, duplicate history cards and premature collapse. Double/triple jokes retain their exclusive actions. Core companion [#1664](https://github.com/djconnect-music-dj/djconnect/pull/1664) merged948dbb8.
+
+Full1784tests/61suites,9 checks and both unsigned native builds PASS. Actual Xcode focused21 cases and7 byte-exact bundled Core packets PASS; own-main coverage PASS. Initial45f6 actual native coverage failed18 missing-resource issues; narrow test/project packaging correction9b95 fixed them, preserving original evidence and product runtime bytes. Native catalogue snapshots reviewed in5 client languages at390/960 use declared synthetic research/photo/model fixtures; no real-model/editorial/device acceptance follows.
+
+TDE observe44800859006 workflow/coverage SUCCESS; actual assessment FAIL, repository qualification FAILED437 findings (421 HIGH,16 CRITICAL), versus429 baseline. Eight additional HIGH findings and maintainability debt remain OPEN under existing observe-only policy. No claim all critical identities unchanged, suppression, waiver or TDE-qualified status.
+
+#### Roadmap Position
+
+Generation2 / Interactive DJ Moments. Source integration is qualified; AM12 real-model/editorial/native installed interaction/audible/accessibility/provider acceptance remains PARTIAL/OPEN. No new installation/deployment/provider operation. Installed ordinary4.1.0(40530) baseline and all recovery proofs remain unchanged; its dated3/4 heartbeat and locked iPhone follow-up are historical.
+
+#### Rolling Horizon (Execution Horizon — Next 5 Planned)
+
+Owning Core current planning-maintenance delta20 handoff, same fixed order below; snapshot hash `dac621d5a033bedafefb2f5a864868f05843cf65fd1e494f0713b48b559d3ef7`. This derives current planning nodes rather than historical global Planned rows. No next execution admission is created.
+
+1. **ASK-DJ-MOMENTS::ACCEPTANCE — Joint AM01–AM12 real model, device, editorial and accessibility acceptance** — Planned / OPEN_ACCEPTANCE; direct dependencies ASK-DJ-MOMENTS::PRODUCER, ASK-DJ-MOMENTS::APPLE (ASK-DJ-MOMENTS-3, ASK-DJ-MOMENTS-4). Canonical source: Core `docs/roadmap/v1/djconnect-platform-v1.json`, planning-maintenance delta20 snapshot pinned above. Execution Rationale: Current joint acceptance follow-through after qualified producer/native software; operational admission remains separate; no automatic dispatch.
+2. **SETTINGS::APPLE::EDITOR — One Jouw DJ editor and shared Session quick controls** — Planned / NOT_ISSUED; direct dependencies SETTINGS::CORE::PRODUCER (SETTINGS-4). Canonical source: Core `docs/roadmap/v1/djconnect-platform-v1.json`, planning-maintenance delta20 snapshot pinned above. Execution Rationale: Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required; no automatic dispatch.
+3. **SETTINGS::PI::ADOPTION — Pi allowed shared Session settings and legacy disposition** — Planned / NOT_ISSUED; direct dependencies SETTINGS::CORE::PRODUCER (SETTINGS-6). Canonical source: Core `docs/roadmap/v1/djconnect-platform-v1.json`, planning-maintenance delta20 snapshot pinned above. Execution Rationale: Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required; no automatic dispatch.
+4. **SETTINGS::ESP32::ADOPTION — ESP32 Assist/voice/settings compatibility and legacy disposition** — Planned / NOT_ISSUED; direct dependencies SETTINGS::CORE::PRODUCER (SETTINGS-8). Canonical source: Core `docs/roadmap/v1/djconnect-platform-v1.json`, planning-maintenance delta20 snapshot pinned above. Execution Rationale: Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required; no automatic dispatch.
+5. **SETTINGS::VIBECAST::COMPAT — Shared renderer allowed Session fields without Profile preferences** — Planned / NOT_ISSUED; direct dependencies SETTINGS::CORE::PRODUCER (SETTINGS-10). Canonical source: Core `docs/roadmap/v1/djconnect-platform-v1.json`, planning-maintenance delta20 snapshot pinned above. Execution Rationale: Existing settings consumer follow-through in canonical order; separate issuance and qualification remain required; no automatic dispatch.
+
+#### Blocked Items
+
+AM12 actual model/editorial/native installed/audible/a11y acceptance remains OPEN/NOT_RUN. Existing TDE maintainability debt remains OPEN. The prior40530 dated iPhone locked launch follow-up is preserved, not claimed newly observed.
+
+#### Deferred Items
+
+No MusicOrigin/MusicCanvas producer, Watch entry, new install/deploy/provider action or next capability is issued. No source/runtime/test/project/tool/package input changes in this Finalization.
+
+#### Repository State
+
+Repository State target `MERGED_RECONCILED` is effective ONLY after this Finalization's own protected merge and exact-main CI/coverage/publication12PASS. Until then Source400 is `MERGED_UNRECONCILED`; no premature reconciliation claim.
+
+#### Workspace State
+
+`CLEAN_PRESERVED`; target `WORKSPACE_READY` effective ONLY after scoped cleanup with proof. Preserve source/Final history, fixture/raw failure/qualification evidence,40530 products/install/recovery and HA backup. Failed cherry/reverse-delta guards preserve refs and prevent readiness. Original Users mainbce719c422b7a460b304e314a4af34e02ecbc3b5 remains `PRESERVED_HISTORICAL`, no reset or rename.
+
+Earlier sections below remain historical snapshots.
+
 ## 2026-11-20 — HA4.1 Source398 and ordinary40530 installation Finalization
 
 #### Repository Status
