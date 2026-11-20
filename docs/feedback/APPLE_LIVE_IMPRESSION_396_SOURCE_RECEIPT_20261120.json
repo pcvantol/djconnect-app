@@ -128,38 +128,65 @@
   "planning_horizon_source": {
     "core_sha": "912e1efbd6e9475521779d04f98fd805f0b1f385",
     "path": "docs/roadmap/v1/djconnect-platform-v1.json",
+    "section": "planning_maintenance.nodes / current settings consolidation delta",
     "items": [
       {
-        "id": "PROJ::EVOLUTION::APPLE-PUBLIC",
+        "id": "SETTINGS::APPLE::EDITOR",
+        "title": "One Jouw DJ editor and shared Session quick controls",
         "status": "Planned",
         "assignment_status": "NOT_ISSUED",
-        "authority_verified": false
+        "direct_edge_ids": [
+          "SETTINGS-4"
+        ],
+        "direct_conditions": "SETTINGS::CORE::PRODUCER"
       },
       {
-        "id": "PROJ::EVOLUTION::WINDOWS-PUBLIC",
+        "id": "SETTINGS::PI::ADOPTION",
+        "title": "Pi allowed shared Session settings and legacy disposition",
         "status": "Planned",
         "assignment_status": "NOT_ISSUED",
-        "authority_verified": false
+        "direct_edge_ids": [
+          "SETTINGS-6"
+        ],
+        "direct_conditions": "SETTINGS::CORE::PRODUCER"
       },
       {
-        "id": "PROJ::EVOLUTION::HACS-PUBLIC",
+        "id": "SETTINGS::ESP32::ADOPTION",
+        "title": "ESP32 Assist/voice/settings compatibility and legacy disposition",
         "status": "Planned",
         "assignment_status": "NOT_ISSUED",
-        "authority_verified": false
+        "direct_edge_ids": [
+          "SETTINGS-8"
+        ],
+        "direct_conditions": "SETTINGS::CORE::PRODUCER"
       },
       {
-        "id": "HACS-3.3.0-001",
+        "id": "SETTINGS::VIBECAST::COMPAT",
+        "title": "Shared renderer allowed Session fields without Profile preferences",
         "status": "Planned",
         "assignment_status": "NOT_ISSUED",
-        "authority_verified": false
+        "direct_edge_ids": [
+          "SETTINGS-10"
+        ],
+        "direct_conditions": "SETTINGS::CORE::PRODUCER"
       },
       {
-        "id": "PROJ::EVOLUTION::FW-OTA",
+        "id": "SETTINGS::WEBSITE::COPY",
+        "title": "Six-parameter scope/help and obsolete settings copy audit",
         "status": "Planned",
         "assignment_status": "NOT_ISSUED",
-        "authority_verified": false
+        "direct_edge_ids": [
+          "SETTINGS-12"
+        ],
+        "direct_conditions": "SETTINGS::CORE::PRODUCER"
       }
     ],
-    "admission": "No new selection/dispatch/public release authority; planning references only"
+    "admission": "Planned/NOT_ISSUED only; no new selection, dispatch, writer or public release authority"
+  },
+  "finalization_state_transition": {
+    "predecessor_source396": "MERGED_UNRECONCILED",
+    "qualified_finalization_target": "MERGED_RECONCILED",
+    "target_effective_only_after": "This Finalization own protected merge and original exact-main publication/evidence PASS",
+    "workspace_ready": "Separately gated by verified task-scoped cleanup"
   }
 }

@@ -37,17 +37,19 @@ changes no source/test/tool/app/project/package input and starts no next feature
 
 ### Rolling Horizon (Execution Horizon — Next 5 Planned)
 
-Pinned source: [Core canonical roadmap JSON at912e1ef](https://github.com/djconnect-music-dj/djconnect/blob/912e1efbd6e9475521779d04f98fd805f0b1f385/docs/roadmap/v1/djconnect-platform-v1.json).
-These are the five existing Planned projections, each still NOT_ISSUED with
-unverified admission. They are planning references, not five newly authorized
-jobs. Current authorization covers only this source/Finalization transaction
-and its internal evidence publications. Completed PR396 is excluded.
+Pinned source: [Core canonical roadmap JSON at912e1ef](https://github.com/djconnect-music-dj/djconnect/blob/912e1efbd6e9475521779d04f98fd805f0b1f385/docs/roadmap/v1/djconnect-platform-v1.json),
+current `planning_maintenance.nodes` settings-consolidation delta. The frozen
+global execution-horizon snapshot is historical and does not recommend retired
+Windows work. These five existing Planned consumer projections remain
+NOT_ISSUED; no new jobs, public release authority or admission is created.
+Current authorization covers only source/Finalization and internal evidence
+publications. Completed PR396 is excluded.
 
-1. **PROJ::EVOLUTION::APPLE-PUBLIC — Public distribution: Apple** — Planned, NOT_ISSUED; direct recorded conditions: QUAL::APPLE::INTERNAL-CONSUMERS, AUTH::CORE::APPLE-PUBLIC. Execution Rationale: retain canonical planning order 1; no admission, dispatch or release authorization is inferred.
-2. **PROJ::EVOLUTION::WINDOWS-PUBLIC — Public distribution: Windows** — Planned, NOT_ISSUED; direct recorded conditions: QUAL::WINDOWS::INTERNAL-CONSUMERS, AUTH::CORE::WINDOWS-PUBLIC. Execution Rationale: retain canonical planning order 2; no admission, dispatch or release authorization is inferred.
-3. **PROJ::EVOLUTION::HACS-PUBLIC — Public HACS distribution** — Planned, NOT_ISSUED; direct recorded conditions: QUAL::CORE::HACS-FRESH-CANDIDATE, AUTH::CORE::HACS-PUBLIC. Execution Rationale: retain canonical planning order 3; no admission, dispatch or release authorization is inferred.
-4. **HACS-3.3.0-001 — HACS 3.3.0 release visibility** — Planned, NOT_ISSUED; direct recorded conditions: OBS::CORE::HACS-TAG-METADATA, OBS::CORE::HACS-CACHE-INDEX, OBS::CORE::HACS-UPDATE-PRESENTATION. Execution Rationale: retain canonical planning order 4; no admission, dispatch or release authorization is inferred.
-5. **PROJ::EVOLUTION::FW-OTA — Firmware OTA publication and staged rollback** — Planned, NOT_ISSUED; direct recorded conditions: QUAL::CORE::OTA-CONSUMER, AUTH::CORE::FW-OTA. Execution Rationale: retain canonical planning order 5; no admission, dispatch or release authorization is inferred.
+1. **SETTINGS::APPLE::EDITOR — One Jouw DJ editor and shared Session quick controls** — Planned, NOT_ISSUED; direct recorded condition: SETTINGS::CORE::PRODUCER. Execution Rationale: retain current settings-consolidation delta order 1; no new writer, dispatch or acceptance is inferred.
+2. **SETTINGS::PI::ADOPTION — Pi allowed shared Session settings and legacy disposition** — Planned, NOT_ISSUED; direct recorded condition: SETTINGS::CORE::PRODUCER. Execution Rationale: retain current settings-consolidation delta order 2; no new writer, dispatch or acceptance is inferred.
+3. **SETTINGS::ESP32::ADOPTION — ESP32 Assist/voice/settings compatibility and legacy disposition** — Planned, NOT_ISSUED; direct recorded condition: SETTINGS::CORE::PRODUCER. Execution Rationale: retain current settings-consolidation delta order 3; no new writer, dispatch or acceptance is inferred.
+4. **SETTINGS::VIBECAST::COMPAT — Shared renderer allowed Session fields without Profile preferences** — Planned, NOT_ISSUED; direct recorded condition: SETTINGS::CORE::PRODUCER. Execution Rationale: retain current settings-consolidation delta order 4; no new writer, dispatch or acceptance is inferred.
+5. **SETTINGS::WEBSITE::COPY — Six-parameter scope/help and obsolete settings copy audit** — Planned, NOT_ISSUED; direct recorded condition: SETTINGS::CORE::PRODUCER. Execution Rationale: retain current settings-consolidation delta order 5; no new writer, dispatch or acceptance is inferred.
 
 ### Blocked Items
 
@@ -65,18 +67,21 @@ historical work remain under their existing owners; no new selection is made.
 
 ### Repository State
 
-Repository State: `MERGED_UNRECONCILED` for source396 until this dedicated
-Finalization's own protected merge and original exact-main qualification.
-That bounded completion reconciles source/governance only; product acceptance
-remains PARTIAL and cannot become FeatureDONE from CI or internal publication.
+Repository State: `MERGED_RECONCILED` is this Finalization's target, effective
+**only after its own protected merge and successful original exact-main
+publication/evidence readback**. Until those conditions hold, predecessor
+Source396 remains `MERGED_UNRECONCILED`. This transition reconciles bounded
+source/governance only; product acceptance stays PARTIAL. `WORKSPACE_READY`
+requires the separate verified task-scoped cleanup and is not claimed here.
 
 ### Workspace State
 
 Workspace State: `CLEAN_PRESERVED`; `WORKSPACE_READY` is not yet claimed.
 Only after verified Finalization may task-scoped cleanup retire the objectively
-merged source/Finalization branches and managed checkout. Preserve the older
-Users main (`bce719c`) migration history, unrelated branches and unique evidence;
-never force-reset that legacy main or treat it as current remote qualification.
+merged source/Finalization branches and managed checkout. The older Users main
+(`bce719c`) is `PRESERVED_HISTORICAL`, outside canonical task delivery; no reset
+or rename. Preserve unrelated branches and unique evidence. This historical
+checkout is not current remote qualification.
 
 ---
 
