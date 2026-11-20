@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import DJConnectCore
 #if os(iOS)
 import UIKit
@@ -299,6 +300,9 @@ enum SessionCurrentDJCardState: Equatable {
               authority.sessionID == session.id, broadcast.session.sessionID == session.id,
               authority.revocationScope == "session", !authority.revision.isEmpty else { return .unresolved }
         if let id = authority.currentMomentID {
+            // Older snapshots may still nominate an explicit contribution. Its
+            // placement belongs solely to the requesting controller, never recall.
+            if broadcast.djMoments.contains(where: { $0.id == id && $0.hasUserRequestedProvenance }) { return .compact }
             guard authority.currentSilenceMomentID == nil else { return .unresolved }
             if withdrawn { return .compact }
             // A known existing presentation deadline may end the display before
@@ -393,6 +397,7 @@ struct SessionCurrentDJCard<Avatar: View, Detail: View>: View {
             hasDetail: state == .expanded && !compact,
             heldSize: (state == .unresolved || !mayResize) && remembered.sessionID == sessionID && remembered.size.height > 0 ? remembered.size : nil, mediaFirst: mediaFirst) {
             avatar().opacity(mediaFirst && state == .expanded ? 0 : 1)
+                .allowsHitTesting(!(mediaFirst && state == .expanded))
                 .accessibilityHidden(mediaFirst && state == .expanded)
             if state == .expanded && !compact { detail().transition(.identity) }
         }
@@ -434,6 +439,7 @@ struct NativeSessionMomentsView: View {
     var contributionQuestion: String? = nil
     var requestPlaybackPresentation: ((SessionPlaybackMenu, CGRect) -> Void)? = nil
     @Environment(\.scenePhase) private var scenePhase
+    @State private var requestedRevision = 0
     @State private var artworkFeedback: ArtworkFeedback?
     @State private var artworkActionGeneration = UUID()
     @State private var artworkPausedOverride: Bool?
@@ -469,6 +475,7 @@ struct NativeSessionMomentsView: View {
     }
 
     var body: some View {
+        let _ = requestedRevision
         VStack(alignment: .leading, spacing: 24) {
             SessionCurrentColumns(stacked: true) {
                 // Keep the artwork's asynchronous crossfade outside the timeline's
@@ -496,6 +503,7 @@ struct NativeSessionMomentsView: View {
                 #endif
             }
         }
+        .onReceive(playbackModel?.askDJMoments.objectWillChange.eraseToAnyPublisher() ?? Empty<Void, Never>().eraseToAnyPublisher()) { requestedRevision &+= 1 }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { clearArtworkFeedback() }
         }
@@ -556,16 +564,19 @@ struct NativeSessionMomentsView: View {
         let withdrawn = session.broadcast.nativeDelivery?.currentMomentID.map {
             playbackModel?.sessionHistory.contentMomentWasWithdrawn(sessionID: session.id, momentID: $0) == true
         } ?? false
-        let state = SessionCurrentDJCardState.resolve(session: session, moment: moment,
+        let requested = playbackModel?.askDJMoments
+        let explicitMoment = requested?.currentResult?.moment
+        let displayedMoment = requested?.hasPriority == true ? explicitMoment : moment
+        let state: SessionCurrentDJCardState = requested?.hasPriority == true && !isRecovering && !isLiveUnavailable ? .expanded : SessionCurrentDJCardState.resolve(session: session, moment: moment,
             recovering: isRecovering, unavailable: isLiveUnavailable, withdrawn: withdrawn, at: now)
-        let evidence = playbackModel?.personaEvidence(for: session, admittedMoment: moment, at: now) ?? .init()
+        let evidence = playbackModel?.personaEvidence(for: session, admittedMoment: displayedMoment, at: now) ?? .init()
         return SessionCurrentDJCard(sessionID: session.id, state: state,
             mood: isLiveUnavailable || isRecovering ? nil : session.selectedMood,
-            mediaFirst: moment?.isLiveImpressionV1 == true) {
+            mediaFirst: displayedMoment?.isLiveImpressionV1 == true) {
             let avatar = DJPersonaAvatarView(confirmedMood: isLiveUnavailable || isRecovering ? nil : session.selectedMood, language: language,
                                             activity: DJPersonaActivity.resolve(evidence), speechIsPlaying: evidence.speaking)
                 .frame(width: DJConnectCardAppearance.currentDJAvatarSize, height: DJConnectCardAppearance.currentDJAvatarSize).fixedSize()
-            if let playbackModel { PersonaReactionAvatar(model: playbackModel, avatar: avatar) }
+            if let playbackModel { PersonaReactionAvatar(model: playbackModel, avatar: avatar, singleAction: { playbackModel.askDJMoments.open() }, singleEnabled: playbackModel.askDJMomentsScope() != nil && !playbackModel.askDJMoments.hasPriority, recordsAvatarFrame: displayedMoment?.isLiveImpressionV1 != true) }
             else { avatar }
         } detail: {
             currentCardContent(moment)
@@ -583,6 +594,23 @@ struct NativeSessionMomentsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(text("ui.session.reconnecting")).font(.title2.weight(.semibold))
                     .accessibilityAddTraits(.isHeader)
+            }
+        } else if let model = playbackModel, model.askDJMoments.hasPriority {
+            AskDJMomentsCardContent(controller: model.askDJMoments, language: language) {
+                if let result = model.askDJMoments.currentResult {
+                    let epoch = model.sessionHistory.responseEpoch
+                    let generation = model.askDJMoments.generation
+                    return AnyView(MomentCard(moment: result.moment, kind: kind(result.moment), presentation: nil, language: language,
+                        artworkMedia: result.sessionMedia.first { $0.target == .moment(result.moment.id) }, artworkModel: model,
+                        speech: result.speech, contributionQuestion: contributionQuestion,
+                        usesCurrentAvatar: true, activity: { role, active in model.askDJMoments.hold(role, active, generation: generation) },
+                        contributionAction: {
+                            guard model.askDJMoments.generation == generation,
+                                  model.sessionHistory.exploreContribution(result.moment, expectedEpoch: epoch) else { return }
+                            onContributionQuestion()
+                        })
+                        .djContentDeletion(model: model, target: .init(kind: "moment", sessionID: result.moment.sessionID, targetID: result.moment.id)))
+                } else { return AnyView(EmptyView()) }
             }
         } else if session.runtimeState == "active", session.broadcast.playback?.state == "paused",
                   moment?.isSettingsConfirmation != true {
@@ -608,7 +636,7 @@ struct NativeSessionMomentsView: View {
                 speech: session.broadcast.sessionSpeech.first { $0.reference == .moment(sessionID: session.id, momentID: moment.id) },
                 contributionQuestion: contributionQuestion,
                 titleAccessibilityIdentifier: "session-current-moment-title",
-                contributionAction: {
+                usesCurrentAvatar: true, contributionAction: {
                     guard let model = playbackModel, let actionEpoch,
                           model.sessionHistory.exploreContribution(moment, expectedEpoch: actionEpoch) else { return }
                     DJConnectHaptics.selection(); onContributionQuestion()
@@ -1272,14 +1300,23 @@ struct MomentCard: View {
     var speech: DJConnectSessionSpeech? = nil
     var contributionQuestion: String? = nil
     var titleAccessibilityIdentifier: String? = nil
+    var usesCurrentAvatar = false
+    var activity: ((AskDJMomentsPresentation.Hold, Bool) -> Void)? = nil
     var contributionAction: (() -> Void)? = nil
     private var spotifyURLs: [URL] { moment.nativeSourceURLs.filter(SessionSourceLinks.isSpotify) }
+    private var currentLiveAvatar: AnyView? {
+        guard usesCurrentAvatar, let model = artworkModel else { return nil }
+        return AnyView(PersonaReactionAvatar(model: model,
+            avatar: DJPersonaAvatarView(confirmedMood: nil, language: language).frame(width: 28, height: 28).frame(width: 44, height: 44),
+            singleAction: { model.askDJMoments.open() },
+            singleEnabled: model.askDJMomentsScope() != nil && !model.askDJMoments.hasPriority))
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if moment.isLiveImpressionV1, let impression = moment.liveImpression, let model = artworkModel {
                 LiveImpressionContentView(impression: impression, title: moment.title, lead: moment.summary,
                     story: moment.content, language: language, sessionID: moment.sessionID,
-                    target: .moment(moment.id), model: model)
+                    target: .moment(moment.id), model: model, currentAvatar: currentLiveAvatar, activity: activity)
                 if let contributionAction {
                     Button(DJConnectLocalization.localized(key: "ui.live_impression.ask", language: language), action: contributionAction)
                         .frame(minHeight: 44)
@@ -1324,7 +1361,9 @@ struct MomentCard: View {
             ForEach(moment.nativeSourceURLs.filter { !SessionSourceLinks.isSpotify($0) }, id: \.absoluteString) { url in
                 let source = moment.isBulletinV1 ? moment.sources.first { $0.destination == url } : nil
                 let liveSource = moment.isLiveImpressionV1 ? moment.liveSources.first { $0.destination == url } : nil
-                let label = source?.attributionLabel ?? liveSource?.attributionLabel ?? moment.sourceAttribution?["provider"] ?? url.host ?? ""
+                let researchSource = moment.researchSources.first { $0["url"] == url.absoluteString }
+                let researchLabel = researchSource.map { [$0["title"], $0["provider"], $0["license"]].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ") }
+                let label = source?.attributionLabel ?? liveSource?.attributionLabel ?? researchLabel ?? moment.sourceAttribution?["provider"] ?? url.host ?? ""
                 Link(label, destination: url)
                     .foregroundStyle(.white)
                     .tint(.white)

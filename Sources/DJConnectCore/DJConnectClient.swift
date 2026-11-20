@@ -1087,8 +1087,11 @@ public final class DJConnectClient: Sendable {
 
     public func prepareSharedDJSpeech(reference: DJConnectSpeechReference, acceptedText: String,
         settings: DJConnectProfileDJSettingsResponse, target: DJConnectSharedSpeechTarget = .local,
-        automatic: Bool = false, processor: DJConnectSpeechProcessor = .haConfigured, manualMomentType: String? = nil) async throws -> DJConnectSharedSpeechResult {
-        guard reference.isValid, settings.allowsSpeech(target, manualMomentType: automatic ? nil : manualMomentType),
+        automatic: Bool = false, processor: DJConnectSpeechProcessor = .haConfigured, manualMomentType: String? = nil,
+        requestedSpeech: DJConnectSessionSpeech? = nil) async throws -> DJConnectSharedSpeechResult {
+        let requested = !automatic && requestedSpeech?.userRequested == true &&
+            requestedSpeech?.admits(reference: reference, text: acceptedText) == true ? requestedSpeech : nil
+        guard reference.isValid, settings.allowsSpeech(target, manualMomentType: automatic ? nil : manualMomentType, requestedSpeech: requested),
               processor != .localOnDevice || target == .local,
               !automatic || (target == .local && settings.snapshot.effective.announcement_output.allowsClientAudio) else { throw DJConnectError.invalidResponse }
         struct SharedPrepare: Encodable {
@@ -1114,7 +1117,11 @@ public final class DJConnectClient: Sendable {
         let prepared = result.session_speech
         if settings.snapshot.effective.announcement_output == .textOnly {
             guard !automatic, target == .local, reference.source.kind != "accepted_ask_dj",
-                  ["music_announcement", "live_impression"].contains(manualMomentType ?? ""), prepared.momentType == manualMomentType else { throw DJConnectError.invalidResponse }
+                  (["music_announcement", "live_impression"].contains(manualMomentType ?? "") && prepared.momentType == manualMomentType) ||
+                    (requested != nil && prepared.userRequested == true && prepared.textRevision == requested?.textRevision &&
+                     prepared.presentationRevision == requested?.presentationRevision && prepared.persona == requested?.persona &&
+                     prepared.personaRevision == requested?.personaRevision && prepared.locale == requested?.locale && prepared.attribution == requested?.attribution)
+            else { throw DJConnectError.invalidResponse }
         }
         if ["unavailable", "withdrawn", "expired"].contains(prepared.state) && !prepared.manualAllowed && prepared.audioReference == nil { return result }
         if processor == .localOnDevice {
@@ -1193,6 +1200,51 @@ public final class DJConnectClient: Sendable {
         let bytes = try await speechTransport.data(for: request, audio: true)
         guard prepared.admits(reference: prepared.reference, text: acceptedText) else { throw DJConnectError.invalidResponse }
         return bytes
+    }
+
+    public func askDJMomentsInventory(sessionID: String, isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectAskDJMoments.Inventory {
+        guard let hybridTransport, !sessionID.isEmpty else { throw DJConnectHybridTransportError.unavailable }
+        struct Payload: Encodable { let contract_version = 1; let session_id: String }
+        let (data, status, capability) = try await hybridTransport.readAskDJMoments(.inventory,
+            payload: encoder.encode(Payload(session_id: sessionID)), isCurrent: isCurrent)
+        guard status == 200, data.count <= 128_000 else { throw DJConnectError.invalidResponse }
+        let result = try decoder.decode(DJConnectAskDJMoments.Inventory.self, from: data)
+        guard result.admits(session: sessionID, capability: capability) else { throw DJConnectError.invalidResponse }
+        return result
+    }
+
+    public func requestDJMoment(_ request: DJConnectAskDJMoments.Request,
+                               isCurrent: @escaping @MainActor @Sendable () -> Bool,
+                               onOperationID: @escaping @Sendable (String) -> Void) async throws -> DJConnectAskDJMoments.Response {
+        guard let hybridTransport else { throw DJConnectHybridTransportError.unavailable }
+        let (data, _) = try await hybridTransport.performAskDJMoments(.request, payload: encoder.encode(request),
+            isCurrent: isCurrent, onOperationID: onOperationID)
+        guard data.count <= 256_000 else { throw DJConnectError.invalidResponse }
+        return try decoder.decode(DJConnectAskDJMoments.Response.self, from: data)
+    }
+
+    public func requestedDJMomentStatus(_ request: DJConnectAskDJMoments.Request, operationID: String,
+                                       isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectAskDJMoments.Response {
+        guard let hybridTransport, DJConnectAskDJMoments.operationID(operationID) else { throw DJConnectHybridTransportError.unavailable }
+        struct Payload: Encodable { let contract_version = 1; let session_id, operation_id: String }
+        let (data, _, _) = try await hybridTransport.readAskDJMoments(.status,
+            payload: encoder.encode(Payload(session_id: request.sessionID, operation_id: operationID)), isCurrent: isCurrent)
+        guard data.count <= 256_000 else { throw DJConnectError.invalidResponse }
+        let response = try decoder.decode(DJConnectAskDJMoments.Response.self, from: data)
+        guard response.matches(request, originalID: operationID) else { throw DJConnectError.invalidResponse }
+        return response
+    }
+
+    public func cancelRequestedDJMoment(_ request: DJConnectAskDJMoments.Request, operationID: String,
+                                       isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectAskDJMoments.Response {
+        guard let hybridTransport, DJConnectAskDJMoments.operationID(operationID) else { throw DJConnectHybridTransportError.unavailable }
+        struct Payload: Encodable { let contract_version = 1; let session_id, request_operation_id: String }
+        let (data, _) = try await hybridTransport.performAskDJMoments(.cancel,
+            payload: encoder.encode(Payload(session_id: request.sessionID, request_operation_id: operationID)), isCurrent: isCurrent)
+        guard data.count <= 256_000 else { throw DJConnectError.invalidResponse }
+        let response = try decoder.decode(DJConnectAskDJMoments.Response.self, from: data)
+        guard response.matches(request, originalID: operationID, checksReceipt: false) else { throw DJConnectError.invalidResponse }
+        return response
     }
 
     public func requestPersonaReaction(_ request: DJConnectPersonaReactionRequest, settings: DJConnectProfileDJSettingsResponse,

@@ -1368,10 +1368,14 @@ struct SessionTimelineScreen: View {
         let bulletins: [DJConnectMoment]
         if !filtersTimeline && history.hasAuthorizedOwner && scenePhase == .active {
             bulletins = (activeSession?.broadcast.nativeFlowMoments(at: now) ?? []).filter {
-                $0.isBulletinV1 && !history.contentMomentWasWithdrawn(sessionID: sessionID, momentID: $0.id)
+                $0.isBulletinV1 && !model.askDJMoments.owns($0) && !history.contentMomentWasWithdrawn(sessionID: sessionID, momentID: $0.id)
             }
         } else { bulletins = [] }
-        let current = activeSession?.broadcast.nativeCurrentMoment(at: now)
+        let requested = model.askDJMoments
+        let retained = retained.filter { entry in
+            filtersTimeline || !requested.owns(entry.entry.userRequested, sessionID: entry.entry.sessionID)
+        }
+        let current = requested.hasPriority ? nil : activeSession?.broadcast.nativeCurrentMoment(at: now)
         let currentBulletinIDs: Set<String>
         if let current, current.isBulletinV1 || current.isLiveImpressionV1 { currentBulletinIDs = [current.id] }
         else { currentBulletinIDs = [] }

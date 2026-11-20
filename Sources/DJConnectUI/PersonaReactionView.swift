@@ -11,15 +11,24 @@ import AppKit
 struct PersonaReactionAvatar<Avatar: View>: View {
     @ObservedObject var model: DJConnectAppModel
     let avatar: Avatar
+    var singleAction: (() -> Void)? = nil
+    var singleEnabled = true
+    var recordsAvatarFrame = true
+    @State private var observedFrame = CGRect.zero
     var body: some View {
         Group {
-            if model.presentsPersonaReactionControl {
+            if model.presentsPersonaReactionControl || singleAction != nil {
                 PersonaReactionAvatarInteraction(avatar: avatar, language: model.language,
-                    canStart: model.canStartPersonaReaction, request: { model.requestPersonaReaction($0) })
+                    canStart: model.canStartPersonaReaction, request: { model.requestPersonaReaction($0) },
+                    singleAction: singleAction, singleEnabled: singleEnabled)
             } else { avatar }
         }
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-            model.personaAvatarFrame = frame
+            observedFrame = frame
+            if recordsAvatarFrame { model.personaAvatarFrame = frame }
+        }
+        .onChange(of: recordsAvatarFrame) { _, enabled in
+            if enabled && !observedFrame.isEmpty { model.personaAvatarFrame = observedFrame }
         }
     }
 }
@@ -31,6 +40,16 @@ struct PersonaReactionAvatarInteraction<Avatar: View>: View {
     let language: String
     let canStart: Bool
     let request: (DJConnectPersonaReactionKind) -> Void
+    var singleAction: (() -> Void)? = nil
+    var singleEnabled = true
+    private func activateSingle() {
+        if let singleAction { if singleEnabled { singleAction() } }
+        else if canStart { request(.checkIn) }
+    }
+    private func dispatch(_ kind: DJConnectPersonaReactionKind) {
+        if kind == .checkIn { activateSingle() } else if canStart { request(kind) }
+    }
+    private var interactionHint: String { text(singleAction == nil ? "ui.session.reaction.hint" : "ui.ask_moments.avatar_hint") }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
     var body: some View {
         avatar
@@ -39,23 +58,26 @@ struct PersonaReactionAvatarInteraction<Avatar: View>: View {
                     .padding(5).background(.black.opacity(0.55), in: Circle()).accessibilityHidden(true)
             }
             .contentShape(Rectangle())
-            .overlay { PersonaReactionTapSurface(action: request).accessibilityHidden(true) }
+            .overlay { PersonaReactionTapSurface(action: dispatch).accessibilityHidden(true) }
             .contextMenu {
-                ForEach(DJConnectPersonaReactionKind.allCases, id: \.self) { kind in
-                    Button(text("ui.session.reaction." + kind.rawValue)) { request(kind) }
+                if singleAction != nil {
+                    Button(text("ui.ask_moments.title"), action: activateSingle).disabled(!singleEnabled)
+                }
+                ForEach(DJConnectPersonaReactionKind.allCases.filter { singleAction == nil || $0 != .checkIn }, id: \.self) { kind in
+                    Button(text("ui.session.reaction." + kind.rawValue)) { dispatch(kind) }
                         .disabled(!canStart)
                 }
             }
             .focusable()
             .focusEffectDisabled()
-            .onKeyPress(.return) { request(.checkIn); return .handled }
-            .onKeyPress(.space) { request(.checkIn); return .handled }
+            .onKeyPress(.return) { activateSingle(); return .handled }
+            .onKeyPress(.space) { activateSingle(); return .handled }
             .accessibilityAddTraits(.isButton)
-            .accessibilityHint(text("ui.session.reaction.hint"))
-            .accessibilityAction { request(.checkIn) }
-            .accessibilityAction(named: text("ui.session.reaction.playful")) { request(.playful) }
-            .accessibilityAction(named: text("ui.session.reaction.easter_egg")) { request(.easterEgg) }
-            .help(text("ui.session.reaction.hint"))
+            .accessibilityHint(interactionHint)
+            .accessibilityAction { activateSingle() }
+            .accessibilityAction(named: text("ui.session.reaction.playful")) { dispatch(.playful) }
+            .accessibilityAction(named: text("ui.session.reaction.easter_egg")) { dispatch(.easterEgg) }
+            .help(interactionHint)
     }
 }
 

@@ -380,6 +380,9 @@ targets:
         buildPhase: resources
       - path: Tests/Fixtures/session-artwork-cover-core-5c7ecb79.png
         buildPhase: resources
+      - path: Tests/Fixtures/ask-dj-moments
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: DJConnectCoreMac
       - target: DJConnectUIMac

@@ -289,3 +289,30 @@ private func announcementReceipt() throws -> [String: Any] {
     runtime.sessionID = "other-session"
     #expect(DJConnectWatchFlowRow.latest(history: [entry], session: runtime, at: occurred).isEmpty)
 }
+
+@Test func requestedContributionCannotReappearAsSpontaneousCurrentAfterLocalCollapse() throws {
+    let receipt = try nativeReceipt()
+    let after = try #require(receipt["after"] as? [String: Any])
+    let http = try #require(after["http_initial"] as? [String: Any])
+    var broadcast = try decodeSnapshot(try #require(http["snapshot"]))
+    let first = try #require(broadcast.djMoments.first)
+    let now = try nativeDate(first.createdAt)
+    #expect(broadcast.playback?.state == "playing")
+    #expect(broadcast.nativeCurrentMoment(at: now)?.id == first.id)
+    let fixtureURL = try #require(askDJMomentsFixtureURL("producer-final"))
+    let object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [String: Any])
+    let accepted = try #require(object["accepted_http_response"] as? [String: Any])
+    let result = try #require(accepted["result"] as? [String: Any])
+    let requested = try #require(result["moment"] as? [String: Any])
+    // Deliberately nominate an explicit contribution as an OLD server would.
+    broadcast.djMoments[0].userRequested = try JSONDecoder().decode(DJConnectAskDJMoments.Provenance.self,
+        from: JSONSerialization.data(withJSONObject: try #require(requested["user_requested"])))
+    #expect(broadcast.nativeCurrentMoment(at: now) == nil)
+    let runtimeURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/moment-contract-receipt.json")
+    let raw = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: runtimeURL)) as? [String: Any])
+    var runtime = try JSONDecoder().decode(DJConnectSessionRuntime.self, from: JSONSerialization.data(withJSONObject: try #require(raw["runtime"])))
+    runtime.sessionID = broadcast.session.sessionID; runtime.broadcast = broadcast
+    #expect(SessionCurrentDJCardState.resolve(session: runtime, moment: nil, recovering: false, unavailable: false, at: now) == .compact)
+    let restored = try JSONDecoder().decode(DJConnectBroadcastState.self, from: JSONEncoder().encode(broadcast))
+    #expect(restored.nativeCurrentMoment(at: now.addingTimeInterval(1)) == nil)
+}

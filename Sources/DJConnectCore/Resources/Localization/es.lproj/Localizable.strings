@@ -1766,3 +1766,25 @@
 "ui.live_impression.ask" = "Preguntar sobre esto";
 "ui.live_impression.sources" = "Fuentes";
 "ui.live_impression.photo_withdrawn" = "Esta foto ya no se puede mostrar.";
+
+// Ask DJ: Moments — native avatarcard presentation.
+"ui.ask_moments.title" = "Ask DJ: Moments";
+"ui.ask_moments.avatar_hint" = "Abre los Moments disponibles. Las reacciones divertidas están disponibles como acciones adicionales.";
+"ui.ask_moments.close" = "Cerrar";
+"ui.ask_moments.cancel" = "Cancelar";
+"ui.ask_moments.loading_inventory" = "Cargando los Moments disponibles…";
+"ui.ask_moments.unavailable" = "Los Moments aún no están disponibles aquí.";
+"ui.ask_moments.subject" = "Tema";
+"ui.ask_moments.choose" = "Elige un Moment";
+"ui.ask_moments.no_result" = "No he encontrado un Moment bien documentado sobre este tema.";
+"ui.ask_moments.temporary" = "Ahora mismo no funciona. Inténtalo de nuevo más tarde.";
+"ui.ask_moments.denied" = "Este Moment no está disponible para esta sesión.";
+"ui.ask_moments.cancelled" = "Tu solicitud se ha detenido.";
+"ui.ask_moments.cancel_checking" = "Estoy comprobando si tu solicitud se ha detenido…";
+"ui.ask_moments.already_saved" = "Este Moment ya está guardado en tu sesión.";
+"ui.ask_moments.accepted_not_saved" = "Este Moment ya estaba listo. No se guardó.";
+"ui.ask_moments.not_retained" = "Este Moment no se guardará.";
+"ui.ask_moments.keep_reading" = "Seguir leyendo";
+"ui.ask_moments.release_reading" = "Reanudar la presentación temporal";
+"ui.ask_moments.check_status" = "Volver a comprobar";
+"ui.ask_moments.subject_unavailable" = "Este tema ya no está disponible.";

@@ -456,7 +456,7 @@ struct SharedDJSpeechActions: View {
         else if let speech { model.replaySharedDJSpeech(speech, acceptedText: acceptedText, target: target) }
     }
     var body: some View {
-        if model.sharedDJSpeechAllowed(momentType: retainedEntry?.momentType ?? speech?.momentType), let reference {
+        if model.sharedDJSpeechAllowed(momentType: retainedEntry?.momentType ?? speech?.momentType, requestedSpeech: model.sourceBoundRequestedSpeech(retainedEntry?.sessionSpeech ?? speech, text: acceptedText)), let reference {
             HStack(alignment: .center, spacing: 8) {
                 Spacer(minLength: 0)
                 if model.sharedSpeechReference == reference,

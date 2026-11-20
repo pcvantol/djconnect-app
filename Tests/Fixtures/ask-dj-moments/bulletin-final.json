@@ -1,0 +1,513 @@
+{
+  "contract_version": 1,
+  "captured_at": "2026-11-20T18:28:01.453494+00:00",
+  "evidence_scope": "declared synthetic public/model fixtures; real owners/SQLite",
+  "capability": {
+    "available": true,
+    "contract_version": 1,
+    "inventory_operation": "ask_dj/moments",
+    "request_operation": "ask_dj/moments/request",
+    "status_operation": "ask_dj/moments/status",
+    "cancel_operation": "ask_dj/moments/cancel",
+    "read_path": "/api/djconnect/v1/transport/read",
+    "operation_path": "/api/djconnect/v1/transport/operation",
+    "owner_only": true,
+    "client_types": [
+      "ios",
+      "macos"
+    ],
+    "language_families": [
+      "en",
+      "nl",
+      "de",
+      "fr",
+      "es"
+    ],
+    "requires_active_session": true,
+    "inventory_has_provider_effects": false,
+    "maximum_pending_per_profile_session": 1,
+    "queue": false,
+    "type_ids": [
+      "recording_story",
+      "work_composers",
+      "artist_story",
+      "album_story",
+      "genre_context",
+      "live_impression",
+      "shared_producer",
+      "producer_recommendation",
+      "album_continuity",
+      "dj_bulletin"
+    ]
+  },
+  "inventory": {
+    "success": true,
+    "contract_version": 1,
+    "session_id": "session-e6cdbde904dd456db228d3ec0bf26850",
+    "language": "nl",
+    "title": "Ask DJ: Moments",
+    "types": [
+      {
+        "type_id": "recording_story",
+        "moment_type": "track",
+        "order": 0,
+        "label": {
+          "en": "Recording story",
+          "nl": "Opnameverhaal",
+          "de": "Aufnahmegeschichte",
+          "fr": "Histoire de l\u2019enregistrement",
+          "es": "Historia de la grabaci\u00f3n"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "work_composers",
+        "moment_type": "track",
+        "order": 1,
+        "label": {
+          "en": "The composers",
+          "nl": "De componisten",
+          "de": "Die Komponisten",
+          "fr": "Les compositeurs",
+          "es": "Los compositores"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "artist_story",
+        "moment_type": "artist",
+        "order": 2,
+        "label": {
+          "en": "Artist story",
+          "nl": "Artiestenverhaal",
+          "de": "K\u00fcnstlergeschichte",
+          "fr": "Histoire de l\u2019artiste",
+          "es": "Historia del artista"
+        },
+        "available": true,
+        "reason": null,
+        "reason_text": null,
+        "reason_labels": null,
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi",
+          "kind": "artist",
+          "title": "Nora Vale 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Nora Vale 1."
+      },
+      {
+        "type_id": "album_story",
+        "moment_type": "album",
+        "order": 3,
+        "label": {
+          "en": "Album story",
+          "nl": "Albumverhaal",
+          "de": "Albumgeschichte",
+          "fr": "Histoire de l\u2019album",
+          "es": "Historia del \u00e1lbum"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi",
+          "kind": "album",
+          "title": "Albumverhaal",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Albumverhaal."
+      },
+      {
+        "type_id": "genre_context",
+        "moment_type": "genre",
+        "order": 4,
+        "label": {
+          "en": "Genre context",
+          "nl": "Genrecontext",
+          "de": "Genre-Kontext",
+          "fr": "Contexte du genre",
+          "es": "Contexto del g\u00e9nero"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "live_impression",
+        "moment_type": "live_impression",
+        "order": 5,
+        "label": {
+          "en": "Live impression",
+          "nl": "Live-impressie",
+          "de": "Live-Eindruck",
+          "fr": "Impression live",
+          "es": "Impresi\u00f3n en vivo"
+        },
+        "available": true,
+        "reason": null,
+        "reason_text": null,
+        "reason_labels": null,
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi",
+          "kind": "artist",
+          "title": "Nora Vale 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Nora Vale 1."
+      },
+      {
+        "type_id": "shared_producer",
+        "moment_type": "track",
+        "order": 6,
+        "label": {
+          "en": "A shared producer",
+          "nl": "Een gedeelde producer",
+          "de": "Ein gemeinsamer Produzent",
+          "fr": "Un producteur en commun",
+          "es": "Un productor en com\u00fan"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "producer_recommendation",
+        "moment_type": "recommendation",
+        "order": 7,
+        "label": {
+          "en": "Explore a producer",
+          "nl": "Ontdek een producer",
+          "de": "Einen Produzenten entdecken",
+          "fr": "D\u00e9couvrir un producteur",
+          "es": "Descubrir un productor"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "album_continuity",
+        "moment_type": "track",
+        "order": 8,
+        "label": {
+          "en": "Back to this album",
+          "nl": "Terug naar dit album",
+          "de": "Zur\u00fcck zu diesem Album",
+          "fr": "Retour \u00e0 cet album",
+          "es": "Volver a este \u00e1lbum"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi",
+          "kind": "album",
+          "title": "Terug naar dit album",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Terug naar dit album."
+      },
+      {
+        "type_id": "dj_bulletin",
+        "moment_type": "dj_bulletin",
+        "order": 9,
+        "label": {
+          "en": "DJ Bulletin",
+          "nl": "DJ Bulletin",
+          "de": "DJ-Bulletin",
+          "fr": "Bulletin du DJ",
+          "es": "Bolet\u00edn del DJ"
+        },
+        "available": true,
+        "reason": null,
+        "reason_text": null,
+        "reason_labels": null,
+        "history_policy": "publication_metadata_only",
+        "subject": {
+          "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi",
+          "kind": "session",
+          "title": "Actuele berichten",
+          "subtitle": ""
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Actuele berichten."
+      }
+    ]
+  },
+  "request_envelope": {
+    "contract_version": 1,
+    "operation_id": "01a1fa37-291e-7000-8000-000000000001",
+    "operation_epoch": "0cc0383cf2d86469d3836aff00091721",
+    "operation": "ask_dj/moments/request",
+    "payload": {
+      "contract_version": 1,
+      "session_id": "session-e6cdbde904dd456db228d3ec0bf26850",
+      "type_id": "dj_bulletin",
+      "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi"
+    }
+  },
+  "accepted_http_response": {
+    "success": true,
+    "contract_version": 1,
+    "session_id": "session-e6cdbde904dd456db228d3ec0bf26850",
+    "operation_id": "01a1fa37-291e-7000-8000-000000000001",
+    "type_id": "dj_bulletin",
+    "language": "nl",
+    "state": "accepted",
+    "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Actuele berichten.",
+    "message": null,
+    "result": {
+      "moment": {
+        "moment_id": "moment-9f1fece589400ff118dfcbdba00dfac9",
+        "session_id": "session-e6cdbde904dd456db228d3ec0bf26850",
+        "created_at": "2026-11-20T18:28:01.440898+00:00",
+        "type": "dj_bulletin",
+        "user_requested": {
+          "contract_version": 1,
+          "operation_id": "01a1fa37-291e-7000-8000-000000000001",
+          "type_id": "dj_bulletin",
+          "subject_ref": "2fHC7pZ4hLryDui91tgb0Qqmzk-H5xdi",
+          "playback_item_id": "63bf0397fbdc1fd1f3fbec76"
+        },
+        "knowledge_intent": {
+          "type": "dj_bulletin",
+          "goal": "Share two independently fresh public news developments."
+        },
+        "presentation_intent": {
+          "source_session_mood": "energy",
+          "dj_persona": "home_dj",
+          "tone_of_voice": "warm and conversational",
+          "energy_level": "energy",
+          "delivery_style": "short source-grounded news story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 25,
+          "delivery_channels": [
+            "owner"
+          ],
+          "visibility": "owner_only"
+        },
+        "title": "DJ Bulletin",
+        "summary": "",
+        "content": "Tweakers: Tech publisher announces new processor\n\nNU.nl: Parliament discusses transport funding",
+        "artwork": null,
+        "actions": [],
+        "visibility": "owner_only",
+        "delivery_channels": [
+          "owner"
+        ],
+        "importance": "normal",
+        "source_references": [
+          "fixed_rss_metadata_v1"
+        ],
+        "generation_metadata": {
+          "context_source": "fixed_rss_metadata_v1",
+          "bulletin_schema": "1",
+          "candidate_id": "9f1fece589400ff118dfcbdba00dfac9d4f9e1a8a4f9088376e8ae856af8fd7e"
+        },
+        "sources": [
+          {
+            "provider": "Tweakers",
+            "url": "https://tweakers.net/news/one",
+            "license": "private_feed_headlines_v1",
+            "title": "Tech publisher announces new processor",
+            "published_at": "2026-11-20T18:27:41+00:00"
+          },
+          {
+            "provider": "NU.nl",
+            "url": "https://www.nu.nl/news/one",
+            "license": "private_feed_headlines_v1",
+            "title": "Parliament discusses transport funding",
+            "published_at": "2026-11-20T18:27:41+00:00"
+          }
+        ],
+        "playback_item_id": "63bf0397fbdc1fd1f3fbec76"
+      },
+      "entry_id": "entry-a3ed8b85e37c5fb9ad6bfd8c2037565d",
+      "retention": "not_retained",
+      "history_state": "receipt_only",
+      "presentation_admission": {
+        "contract_version": 1,
+        "moment_id": "moment-9f1fece589400ff118dfcbdba00dfac9",
+        "owner_only": true,
+        "display_allowed": true,
+        "expires_at": "2026-11-20T18:33:01.437876+00:00",
+        "requires_spotify_attribution": false,
+        "source_expires_at": "2026-11-20T20:27:41+00:00"
+      },
+      "session_media": [],
+      "session_speech": {
+        "schema_version": 1,
+        "moments": [
+          {
+            "schema_version": 1,
+            "reference": {
+              "session_id": "session-e6cdbde904dd456db228d3ec0bf26850",
+              "moment_id": "moment-9f1fece589400ff118dfcbdba00dfac9"
+            },
+            "source_kind": "published_dj_moment",
+            "source_id": "moment-9f1fece589400ff118dfcbdba00dfac9",
+            "session_id": "session-e6cdbde904dd456db228d3ec0bf26850",
+            "text_revision": "8170815895b8f86e7d748cd7",
+            "presentation_revision": "efa8a2ba761de28242bde020",
+            "persona": "home_dj",
+            "persona_revision": 0,
+            "mood": "energy",
+            "locale": "nl",
+            "segments": [
+              {
+                "ordinal": 1,
+                "speaker_role": "dj",
+                "text": "Tweakers: Tech publisher announces new processor\n\nNU.nl: Parliament discusses transport funding"
+              }
+            ],
+            "style_basis": "accepted_contribution",
+            "state": "available",
+            "reason": null,
+            "manual_allowed": true,
+            "autoplay_eligible": false,
+            "processors": [
+              "local_on_device",
+              "ha_configured"
+            ],
+            "processor_qualification_required": true,
+            "expires_at": "2026-11-20T20:27:41+00:00",
+            "source_expires_at": "2026-11-20T20:27:41+00:00",
+            "attribution": [
+              {
+                "provider": "Tweakers",
+                "url": "https://tweakers.net/news/one",
+                "license": "private_feed_headlines_v1",
+                "title": "Tech publisher announces new processor",
+                "published_at": "2026-11-20T18:27:41+00:00"
+              },
+              {
+                "provider": "NU.nl",
+                "url": "https://www.nu.nl/news/one",
+                "license": "private_feed_headlines_v1",
+                "title": "Parliament discusses transport funding",
+                "published_at": "2026-11-20T18:27:41+00:00"
+              }
+            ],
+            "cache_policy": "private,no-store",
+            "automatic_start_expires_at": "2026-11-20T18:28:13.446684+00:00",
+            "user_requested": true,
+            "moment_type": "dj_bulletin"
+          }
+        ]
+      }
+    },
+    "entry_id": "entry-a3ed8b85e37c5fb9ad6bfd8c2037565d",
+    "moment_id": "moment-9f1fece589400ff118dfcbdba00dfac9",
+    "error": null,
+    "operation_receipt": {
+      "contract_version": 1,
+      "operation_id": "01a1fa37-291e-7000-8000-000000000001",
+      "operation_epoch": "0cc0383cf2d86469d3836aff00091721",
+      "phase": "confirmed",
+      "expires_at_ms": 1795199581438,
+      "result_available": true,
+      "response_status": 200,
+      "error": null
+    },
+    "result_available": true
+  }
+}

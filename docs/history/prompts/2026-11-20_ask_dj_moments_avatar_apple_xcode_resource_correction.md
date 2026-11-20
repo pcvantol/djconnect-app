@@ -1,0 +1,13 @@
+# Ask DJ: Moments — Apple Xcode test-resource correction, 2026-11-20
+
+Append-only corrective handoff to the [original Source snapshot](2026-11-20_ask_dj_moments_avatar_apple_source.md). Its45f6aacd355b794b1950c2403fdb64b37982318a bytes remain preserved. This record does not rewrite the prior result or claim a new Finalization.
+
+The actual PR400 TDE coverage workflow44795917979 on45f6aacd failed native testing:1784 tests/61 suites,18 missing-fixture issues, TEST FAILED. The package run had passed and unsigned app builds did not exercise the native test target. The built Xcode bundle contained13 older JSONs and zero new final packets. This was an actual packaging/test failure, not a semantic maintainability warning; the old CI success and failed TDE log remain diagnostics, never successor-head qualification.
+
+Bounded correction: declare Tests/Fixtures/ask-dj-moments as a folder resource of DJConnectCoreTests in project.yml/generated pbxproj. A shared test-only URL helper resolves the known package Fixtures/ask-dj-moments and native ask-dj-moments bundle locations; every new caller uses it. Existing IsolatedClientResources references and all unrelated project settings are preserved. Runtime Sources/Apps bytes are unchanged.
+
+Actual qualification: genuine Xcode build-for-testing succeeded. Xcode itself enumerated21 selected Moments identifiers. test-without-building executed exactly those21 named cases, all Passed/0failed/0skipped (including the parameterized runs), recorded in native-moments-focused.xcresult. All seven actual bundled JSON SHA256 values exactly match the immutable Core final packets. The corrected package-focused21 also passed. No zero-test/filter-only success is counted.
+
+Retained proof: /Volumes/Shared Data/tmp/pcvantol/apple-ask-dj-moments-avatar-20261120/native-resource-fix-validation.json; native-resource-before.json; native-resource-after.json; native-moments-summary.json; native-moments-tests.json; native-moments-focused.log/.xcresult; resource-fix-spm-focused.log; pr400-predecessor45-tde-failed.log. Exact corrected commit/tree/input hashes are bound externally after commit. Fresh normal CI/native coverage on that corrected head remains required before Source merge and exact-main publication reconciliation.
+
+The original current-card feature, Core producer/rights contracts, installed40530 baseline, prior qualified rolling records and AM12 OPEN boundaries are unchanged. No install/deploy/provider/pairing/consent action occurred. The already explicit joint owner approval continues to cover this necessary correction within the same Source400 task; no bypass, rerun-as-proof or status manufacture is authorized.

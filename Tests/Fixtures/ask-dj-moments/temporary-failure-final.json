@@ -1,0 +1,378 @@
+{
+  "contract_version": 1,
+  "captured_at": "2026-11-20T18:28:02.280895+00:00",
+  "evidence_scope": "declared synthetic public/model fixtures; real owners/SQLite",
+  "capability": {
+    "available": true,
+    "contract_version": 1,
+    "inventory_operation": "ask_dj/moments",
+    "request_operation": "ask_dj/moments/request",
+    "status_operation": "ask_dj/moments/status",
+    "cancel_operation": "ask_dj/moments/cancel",
+    "read_path": "/api/djconnect/v1/transport/read",
+    "operation_path": "/api/djconnect/v1/transport/operation",
+    "owner_only": true,
+    "client_types": [
+      "ios",
+      "macos"
+    ],
+    "language_families": [
+      "en",
+      "nl",
+      "de",
+      "fr",
+      "es"
+    ],
+    "requires_active_session": true,
+    "inventory_has_provider_effects": false,
+    "maximum_pending_per_profile_session": 1,
+    "queue": false,
+    "type_ids": [
+      "recording_story",
+      "work_composers",
+      "artist_story",
+      "album_story",
+      "genre_context",
+      "live_impression",
+      "shared_producer",
+      "producer_recommendation",
+      "album_continuity",
+      "dj_bulletin"
+    ]
+  },
+  "inventory": {
+    "success": true,
+    "contract_version": 1,
+    "session_id": "session-0a7ca971522d4f9c8f9b5aed6a70817b",
+    "language": "nl",
+    "title": "Ask DJ: Moments",
+    "types": [
+      {
+        "type_id": "recording_story",
+        "moment_type": "track",
+        "order": 0,
+        "label": {
+          "en": "Recording story",
+          "nl": "Opnameverhaal",
+          "de": "Aufnahmegeschichte",
+          "fr": "Histoire de l\u2019enregistrement",
+          "es": "Historia de la grabaci\u00f3n"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "KQi1PDtQSnccEAORTEdYldw2-0OuQkZd",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "work_composers",
+        "moment_type": "track",
+        "order": 1,
+        "label": {
+          "en": "The composers",
+          "nl": "De componisten",
+          "de": "Die Komponisten",
+          "fr": "Les compositeurs",
+          "es": "Los compositores"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "KQi1PDtQSnccEAORTEdYldw2-0OuQkZd",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "artist_story",
+        "moment_type": "artist",
+        "order": 2,
+        "label": {
+          "en": "Artist story",
+          "nl": "Artiestenverhaal",
+          "de": "K\u00fcnstlergeschichte",
+          "fr": "Histoire de l\u2019artiste",
+          "es": "Historia del artista"
+        },
+        "available": true,
+        "reason": null,
+        "reason_text": null,
+        "reason_labels": null,
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "KQi1PDtQSnccEAORTEdYldw2-0OuQkZd",
+          "kind": "artist",
+          "title": "Nora Vale 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Nora Vale 1."
+      },
+      {
+        "type_id": "album_story",
+        "moment_type": "album",
+        "order": 3,
+        "label": {
+          "en": "Album story",
+          "nl": "Albumverhaal",
+          "de": "Albumgeschichte",
+          "fr": "Histoire de l\u2019album",
+          "es": "Historia del \u00e1lbum"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "KQi1PDtQSnccEAORTEdYldw2-0OuQkZd",
+          "kind": "album",
+          "title": "Albumverhaal",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Albumverhaal."
+      },
+      {
+        "type_id": "genre_context",
+        "moment_type": "genre",
+        "order": 4,
+        "label": {
+          "en": "Genre context",
+          "nl": "Genrecontext",
+          "de": "Genre-Kontext",
+          "fr": "Contexte du genre",
+          "es": "Contexto del g\u00e9nero"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "KQi1PDtQSnccEAORTEdYldw2-0OuQkZd",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "live_impression",
+        "moment_type": "live_impression",
+        "order": 5,
+        "label": {
+          "en": "Live impression",
+          "nl": "Live-impressie",
+          "de": "Live-Eindruck",
+          "fr": "Impression live",
+          "es": "Impresi\u00f3n en vivo"
+        },
+        "available": true,
+        "reason": null,
+        "reason_text": null,
+        "reason_labels": null,
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "KQi1PDtQSnccEAORTEdYldw2-0OuQkZd",
+          "kind": "artist",
+          "title": "Nora Vale 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Nora Vale 1."
+      },
+      {
+        "type_id": "shared_producer",
+        "moment_type": "track",
+        "order": 6,
+        "label": {
+          "en": "A shared producer",
+          "nl": "Een gedeelde producer",
+          "de": "Ein gemeinsamer Produzent",
+          "fr": "Un producteur en commun",
+          "es": "Un productor en com\u00fan"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "KQi1PDtQSnccEAORTEdYldw2-0OuQkZd",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "producer_recommendation",
+        "moment_type": "recommendation",
+        "order": 7,
+        "label": {
+          "en": "Explore a producer",
+          "nl": "Ontdek een producer",
+          "de": "Einen Produzenten entdecken",
+          "fr": "D\u00e9couvrir un producteur",
+          "es": "Descubrir un productor"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "KQi1PDtQSnccEAORTEdYldw2-0OuQkZd",
+          "kind": "recording",
+          "title": "Amber Lines 1",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Amber Lines 1."
+      },
+      {
+        "type_id": "album_continuity",
+        "moment_type": "track",
+        "order": 8,
+        "label": {
+          "en": "Back to this album",
+          "nl": "Terug naar dit album",
+          "de": "Zur\u00fcck zu diesem Album",
+          "fr": "Retour \u00e0 cet album",
+          "es": "Volver a este \u00e1lbum"
+        },
+        "available": false,
+        "reason": "capability_unavailable",
+        "reason_text": "Dit type bijdrage is hier niet beschikbaar.",
+        "reason_labels": {
+          "en": "This type of contribution is not available here.",
+          "nl": "Dit type bijdrage is hier niet beschikbaar.",
+          "de": "Diese Art von Beitrag ist hier nicht verf\u00fcgbar.",
+          "fr": "Ce type de contribution n\u2019est pas disponible ici.",
+          "es": "Este tipo de aportaci\u00f3n no est\u00e1 disponible aqu\u00ed."
+        },
+        "history_policy": "original_source_and_profile_policy",
+        "subject": {
+          "subject_ref": "KQi1PDtQSnccEAORTEdYldw2-0OuQkZd",
+          "kind": "album",
+          "title": "Terug naar dit album",
+          "subtitle": "Nora Vale 1"
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Terug naar dit album."
+      },
+      {
+        "type_id": "dj_bulletin",
+        "moment_type": "dj_bulletin",
+        "order": 9,
+        "label": {
+          "en": "DJ Bulletin",
+          "nl": "DJ Bulletin",
+          "de": "DJ-Bulletin",
+          "fr": "Bulletin du DJ",
+          "es": "Bolet\u00edn del DJ"
+        },
+        "available": false,
+        "reason": "producer_unavailable",
+        "reason_text": "Verhalen zijn nu niet beschikbaar. Probeer het later nog eens.",
+        "reason_labels": {
+          "en": "Stories are currently unavailable. Try again later.",
+          "nl": "Verhalen zijn nu niet beschikbaar. Probeer het later nog eens.",
+          "de": "Geschichten sind gerade nicht verf\u00fcgbar. Versuche es sp\u00e4ter noch einmal.",
+          "fr": "Les histoires sont momentan\u00e9ment indisponibles. R\u00e9essayez plus tard.",
+          "es": "Las historias no est\u00e1n disponibles ahora. Int\u00e9ntalo m\u00e1s tarde."
+        },
+        "history_policy": "publication_metadata_only",
+        "subject": {
+          "subject_ref": "KQi1PDtQSnccEAORTEdYldw2-0OuQkZd",
+          "kind": "session",
+          "title": "Actuele berichten",
+          "subtitle": ""
+        },
+        "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Actuele berichten."
+      }
+    ]
+  },
+  "request_envelope": {
+    "contract_version": 1,
+    "operation_id": "01a1fa37-2c65-7000-8000-000000000001",
+    "operation_epoch": "4a65eb73083b9f8e1ab4abd9cfc9a217",
+    "operation": "ask_dj/moments/request",
+    "payload": {
+      "contract_version": 1,
+      "session_id": "session-0a7ca971522d4f9c8f9b5aed6a70817b",
+      "type_id": "artist_story",
+      "subject_ref": "KQi1PDtQSnccEAORTEdYldw2-0OuQkZd"
+    }
+  },
+  "failure_response": {
+    "success": false,
+    "contract_version": 1,
+    "session_id": "session-0a7ca971522d4f9c8f9b5aed6a70817b",
+    "operation_id": "01a1fa37-2c65-7000-8000-000000000001",
+    "type_id": "artist_story",
+    "language": "nl",
+    "state": "temporarily_unavailable",
+    "pending_text": "Ik zoek een goed onderbouwde bijdrage voor je over Nora Vale 1.",
+    "message": "Het zoeken lukt nu even niet. Probeer het later nog eens.",
+    "result": null,
+    "entry_id": null,
+    "moment_id": null,
+    "error": "moment_request_temporarily_unavailable",
+    "operation_receipt": {
+      "contract_version": 1,
+      "operation_id": "01a1fa37-2c65-7000-8000-000000000001",
+      "operation_epoch": "4a65eb73083b9f8e1ab4abd9cfc9a217",
+      "phase": "rejected",
+      "expires_at_ms": 1795199582277,
+      "result_available": true,
+      "response_status": 200,
+      "error": "moment_request_temporarily_unavailable"
+    },
+    "result_available": true
+  }
+}

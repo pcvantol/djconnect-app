@@ -20,6 +20,10 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
     public var sourceAttribution: [String: String]?
     public var generationMetadata: [String: String]?
     public var playbackItemID: String?
+    public var userRequested: DJConnectAskDJMoments.Provenance? = nil
+    private var requestedProvenancePresent = false
+    public var hasUserRequestedProvenance: Bool { userRequested != nil || requestedProvenancePresent }
+    public var researchSources: [[String: String]] = []
     public var settingsConfirmation: DJConnectSettingsConfirmationIdentity? = nil
     public var sources: [DJConnectBulletinSource] = []
     public var musicAnnouncement: DJConnectMusicAnnouncement? = nil
@@ -65,6 +69,7 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         case type, title, summary, content, artwork, actions, sources
         case momentID = "moment_id", sessionID = "session_id", createdAt = "created_at"
         case presentationIntent = "presentation_intent", sourceReferences = "source_references"
+        case userRequested = "user_requested"
         case settingsConfirmation = "settings_confirmation"
         case knowledgeIntent = "knowledge_intent", visibility, deliveryChannels = "delivery_channels", importance
         case sourceAttribution = "source_attribution", generationMetadata = "generation_metadata", playbackItemID = "playback_item_id"
@@ -98,6 +103,11 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         sourceAttribution = try c.decodeIfPresent([String: String].self, forKey: .sourceAttribution)
         generationMetadata = try? c.decode([String: String].self, forKey: .generationMetadata)
         playbackItemID = try? c.decode(String.self, forKey: .playbackItemID)
+        userRequested = try? c.decode(DJConnectAskDJMoments.Provenance.self, forKey: .userRequested)
+        requestedProvenancePresent = userRequested == nil && c.contains(.userRequested) && (try? c.decodeNil(forKey: .userRequested)) != true
+        if type != "dj_bulletin" && type != "live_impression" {
+            researchSources = Array(((try? c.decode([LossyBroadcastValue<[String: String]>].self, forKey: .sources))?.compactMap(\.value) ?? []).prefix(32))
+        }
         settingsConfirmation = try c.decodeIfPresent(DJConnectSettingsConfirmationIdentity.self, forKey: .settingsConfirmation)
         sources = type == "dj_bulletin" ? try c.decodeIfPresent([DJConnectBulletinSource].self, forKey: .sources) ?? [] : []
         if type == "live_impression" {
@@ -105,6 +115,7 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         }
     }
     public func encode(to encoder: Encoder) throws {
+        guard !requestedProvenancePresent else { throw DJConnectError.invalidResponse }
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(momentID, forKey: .momentID)
         try c.encode(sessionID, forKey: .sessionID)
@@ -124,11 +135,13 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         try c.encodeIfPresent(sourceAttribution, forKey: .sourceAttribution)
         try c.encodeIfPresent(generationMetadata, forKey: .generationMetadata)
         try c.encodeIfPresent(playbackItemID, forKey: .playbackItemID)
+        try c.encodeIfPresent(userRequested, forKey: .userRequested)
         try c.encodeIfPresent(settingsConfirmation, forKey: .settingsConfirmation)
         try c.encodeIfPresent(musicAnnouncement, forKey: .musicAnnouncement)
         try c.encodeIfPresent(liveImpression, forKey: .liveImpression)
         if type == "live_impression" { try c.encode(liveSources, forKey: .sources) }
-        else { try c.encode(sources, forKey: .sources) }
+        else if type == "dj_bulletin" { try c.encode(sources, forKey: .sources) }
+        else { try c.encode(researchSources, forKey: .sources) }
     }
 
 }
@@ -275,6 +288,7 @@ public extension DJConnectMoment {
     var nativeSourceURLs: [URL] {
         let references = sourceReferences + [sourceAttribution?["url"], sourceAttribution?["url_previous"]].compactMap { $0 }
             + (isBulletinV1 ? sources.map(\.url) : []) + (isLiveImpressionV1 ? liveSources.map(\.url) : [])
+            + researchSources.compactMap { $0["url"] }
         var seen = Set<String>()
         return references.compactMap { raw in
             guard let url = URL(string: raw), url.scheme == "https", url.host != nil,
@@ -297,7 +311,7 @@ public extension DJConnectBroadcastState {
               let authority = nativeDelivery, authority.schemaVersion == 1,
               authority.sessionID == session.sessionID, authority.revocationScope == "session",
               !authority.revision.isEmpty, authority.currentSilenceMomentID == nil, let id = authority.currentMomentID,
-              let moment = djMoments.first(where: { $0.id == id }),
+              let moment = djMoments.first(where: { $0.id == id }), !moment.hasUserRequestedProvenance,
               moment.isSettingsConfirmation || (playback?.state == "playing" &&
                 (moment.isMusicAnnouncementV1 ? moment.musicAnnouncement?.media_uri == playback?.itemID : moment.playbackItemID == playback?.itemID)),
               admitted(moment, authority: authority, at: date, current: true, spotifyAttributionAvailable: spotifyAttributionAvailable) else { return nil }

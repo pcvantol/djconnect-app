@@ -105,6 +105,8 @@ public struct DJConnectSessionSpeech: Codable, Equatable, Sendable {
     public let sourceExpiresAt: String?
     public let manualAllowed: Bool
     public let autoplayEligible: Bool
+    public var automaticStartExpiresAt: String? = nil
+    public var userRequested: Bool? = nil
     /// Advertised routes permit only an explicit server qualification attempt.
     public let processorQualificationRequired: Bool?
     public let processors: [DJConnectSpeechProcessor]
@@ -119,6 +121,7 @@ public struct DJConnectSessionSpeech: Codable, Equatable, Sendable {
     public var settingsContractVersion: Int? = nil
     public var settingsRevision: [DJConnectJSONValue]? = nil
     enum CodingKeys: String, CodingKey {
+        case userRequested = "user_requested", automaticStartExpiresAt = "automatic_start_expires_at"
         case momentType = "moment_type"
         case reference, persona, locale, segments, state, reason, processor, processors, attribution, notification
         case settingsContractVersion = "settings_contract_version", settingsRevision = "settings_revision"

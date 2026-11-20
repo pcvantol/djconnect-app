@@ -28,8 +28,8 @@ public struct DJConnectDeviceSpeechPreferences: Codable, Equatable, Sendable {
 public enum DJConnectDeviceSpeechRouting {
     public static func serverTarget(for requested: DJConnectSharedSpeechTarget,
                                     nativeOverride: Bool,
-                                    settings: DJConnectProfileDJSettingsResponse, manualMomentType: String? = nil) -> DJConnectSharedSpeechTarget? {
-        guard settings.allowsSpeech(requested, manualMomentType: manualMomentType) else { return nil }
+                                    settings: DJConnectProfileDJSettingsResponse, manualMomentType: String? = nil, requestedSpeech: DJConnectSessionSpeech? = nil) -> DJConnectSharedSpeechTarget? {
+        guard settings.allowsSpeech(requested, manualMomentType: manualMomentType, requestedSpeech: requestedSpeech) else { return nil }
         guard nativeOverride else { return requested }
         return requested == .local ? .local : .haSpeaker
     }
@@ -42,7 +42,7 @@ public enum DJConnectNativeSpeechAdmission {
     public static func admits(_ prepared: DJConnectSessionSpeech, reference: DJConnectSpeechReference,
                               text: String, settings: DJConnectProfileDJSettingsResponse,
                               at now: Date = Date()) -> Bool {
-        settings.allowsSpeech(.local, manualMomentType: prepared.momentType) && prepared.admits(reference: reference, text: text, at: now) &&
+        settings.allowsSpeech(.local, manualMomentType: prepared.momentType, requestedSpeech: prepared) && prepared.admits(reference: reference, text: text, at: now) &&
         prepared.processor == .localOnDevice && prepared.advertisesPreparationAttempt(.localOnDevice) &&
         prepared.processorQualificationRequired == true && prepared.audioState == "renderer_pending" &&
         prepared.audioReference == nil && prepared.effectiveVoice == nil && prepared.voicePreference == nil &&

@@ -1,0 +1,98 @@
+import Foundation
+import Testing
+@testable import DJConnectUI
+
+@Test func requestedMomentPresentationCountsOnlyActuallyVisibleTime() {
+    var state = AskDJMomentsPresentation()
+    let generation = state.choose()
+    let mutation1 = state.request(generation: generation)
+    #expect(mutation1)
+    let mutation2 = state.present(momentID: "original", entryID: "saved-original", generation: generation)
+    #expect(mutation2)
+    state.advance(at: 10_000, generation: generation)
+    #expect(state.momentID == "original")
+    #expect(state.remainingVisibleSeconds == 20)
+    state.visibility(true, at: 10_100, generation: generation)
+    state.advance(at: 10_119, generation: generation)
+    #expect(state.momentID == "original")
+    state.advance(at: 10_120, generation: generation)
+    #expect(state.phase == .idle)
+}
+
+@Test(arguments: [AskDJMomentsPresentation.Hold.reading, .expandedText, .photo, .preparation, .narration, .accessibility, .interaction])
+func requestedMomentActivityHoldsPreserveOriginalVisibleBudget(hold: AskDJMomentsPresentation.Hold) {
+    var state = AskDJMomentsPresentation()
+    let generation = state.choose()
+    let mutation3 = state.request(generation: generation)
+    #expect(mutation3)
+    let mutation4 = state.present(momentID: "original", entryID: nil, generation: generation)
+    #expect(mutation4)
+    state.visibility(true, at: 0, generation: generation)
+    state.hold(hold, active: true, at: 4, generation: generation)
+    state.advance(at: 400, generation: generation)
+    #expect(state.remainingVisibleSeconds == 16)
+    state.hold(hold, active: false, at: 400, generation: generation)
+    state.advance(at: 415, generation: generation)
+    #expect(state.momentID == "original")
+    state.advance(at: 416, generation: generation)
+    #expect(state.phase == .idle)
+}
+
+@Test func requestedMomentOffscreenTimeAndRepeatedAcceptanceCannotResetPresentation() {
+    var state = AskDJMomentsPresentation()
+    let generation = state.choose()
+    let mutation5 = state.request(generation: generation)
+    #expect(mutation5)
+    let mutation6 = state.present(momentID: "original", entryID: "entry-original", generation: generation)
+    #expect(mutation6)
+    state.visibility(true, at: 0, generation: generation)
+    state.visibility(false, at: 3, generation: generation)
+    state.advance(at: 300, generation: generation)
+    #expect(state.remainingVisibleSeconds == 17)
+    let mutation7 = state.present(momentID: "original", entryID: "entry-original", generation: generation)
+    #expect(!mutation7)
+    state.visibility(true, at: 300, generation: generation)
+    state.advance(at: 317, generation: generation)
+    #expect(state.phase == .idle)
+}
+
+@Test func requestedMomentWithdrawalWinsOverEveryHoldAndLateCallbacksStayInert() {
+    var state = AskDJMomentsPresentation()
+    let old = state.choose()
+    let mutation8 = state.request(generation: old)
+    #expect(mutation8)
+    let mutation9 = state.present(momentID: "original", entryID: "saved", generation: old)
+    #expect(mutation9)
+    state.visibility(true, at: 0, generation: old)
+    state.hold(.photo, active: true, at: 1, generation: old)
+    state.advance(at: 2, generation: old, rightsValid: false)
+    #expect(state.phase == .idle)
+    let fresh = state.choose()
+    let mutation10 = state.request(generation: fresh)
+    #expect(mutation10)
+    state.visibility(true, at: 500, generation: old)
+    state.hold(.photo, active: false, at: 500, generation: old)
+    let mutation11 = state.present(momentID: "late", entryID: "old", generation: old)
+    #expect(!mutation11)
+    #expect(state.phase == .pending)
+    let mutation12 = state.present(momentID: "fresh", entryID: "new", generation: fresh)
+    #expect(mutation12)
+    #expect(state.momentID == "fresh")
+}
+
+@Test func requestedMomentAcceptedResultCannotBeReplacedByLateFailure() {
+    var state = AskDJMomentsPresentation()
+    let generation = state.choose()
+    let mutation13 = state.request(generation: generation)
+    #expect(mutation13)
+    let mutation14 = state.present(momentID: "committed", entryID: "durable-original", generation: generation)
+    #expect(mutation14)
+    state.notice(generation: generation)
+    #expect(state.momentID == "committed")
+    let mutation15 = state.request(generation: generation)
+    #expect(!mutation15)
+    let mutation16 = state.present(momentID: "replacement", entryID: "other", generation: generation)
+    #expect(!mutation16)
+    state.advance(at: 10, generation: generation, rightsValid: false)
+    #expect(state.phase == .idle)
+}
