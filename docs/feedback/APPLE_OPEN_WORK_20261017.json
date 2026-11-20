@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "as_of": "20November2026: Source396 originally source-qualified; dedicated documentary Finalization; Live-impressie product acceptance remains PARTIAL",
+  "as_of": "20November2026: Source398 qualified; four ordinary40530 installations; three accepted HA4.1 client heartbeats, locked iPhone runtime follow-up OPEN; dedicated Finalization",
   "owning_lane": "https://github.com/djconnect-music-dj/djconnect-app/issues/87",
   "writer": "Existing sole Apple writer; no second Apple writer, Core/API/receiver mutation or WIP reset",
-  "head": "8668da1fca60596d99e19c58d9d7c88390c8d21e (qualified Source396; this documentary Finalization changes no compiled inputs)",
-  "installed_baseline": "24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.",
+  "head": "2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a",
+  "installed_baseline": "20November2026: ordinary4.1.0(40530), qualified source2df31d2, installed/read back on iPhone+iPad mini+Mac mini+MacBook; both existing app copies per Mac match full signed bundle. Three genuine existing HA4.1 client heartbeats observed; iPhone launch LOCKED as-of12:16:02UTC, runtime follow-up OPEN. No pairing/consent reset or Watch installation.",
   "items": [
     {
       "id": "lan-websocket",
@@ -693,6 +693,14 @@
       "remaining": "Live-model/editorial, full configured native interaction, audible speech and installed/device acceptance remain OPEN/NOT_RUN. No install/deploy/public product release or passive/Watch image scope. Finalization/cleanup are administrative and never imply product acceptance.",
       "topic": "Live-impressie: photo-first original concert story in current and retained Apple Flow",
       "owner": "DJC-APPLE consumer / DJC-CORE producer; joint product acceptance OPEN"
+    },
+    {
+      "id": "ha-4-1-398-install-40530-20261120",
+      "topic": "HA4.1 protocol alignment and owner-requested four-device ordinary installation",
+      "status": "PARTIAL",
+      "owner": "DJC-APPLE",
+      "evidence": "Source398 reviewedd25a0740a24548ce0e6e577105f18d5a4f0fadf9 -> protected2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a; same treeba98040c93c958b83c2cfc685c8dddc64edaade0. Strict4.1major/minor fence retained; actual model/status/header/query and3.0/4.0/4.2 refusal regressionsPASS. Full1763tests/61suitesPASS;9checksPASS; ownmainCI44731371895/formal44733023306 original coverage/durable integrity and12PASS. Signed ordinaryRelease4.1.0(40530) installed/read back on all4 requested devices, both Mac copies per host fullmanifestmatch; 3 genuine HA4.1 accepted client heartbeats. APPLE_HA_4_1_398_INSTALL_40530_RECEIPT_20261120.json.",
+      "remaining": "iPhone installedPASS but launchLocked/no40530 heartbeat as-of2026-11-20T12:16:02Z; user unlock/open follow-up remains OPEN. Live-impressie real-model/editorial/native media interaction/audible/a11y acceptance remains PARTIAL/NOT_RUN. TDE observe FAIL/qualificationFAILED429findings, not quality-qualified. No Watch installation or new manual push enrollment."
     }
   ],
   "qualification": {
@@ -1035,13 +1043,13 @@
     "original_wip": "Both original checkouts now clean main; 18/155 WIP paths preserved in independently hash-verified archives and Git stashes; excluded experiments retained",
     "source_main_ci": "PASS with native coverage; independently verified artifact digests and embedded exact main SHA"
   },
-  "head_role": "Bounded Live-impressie Source396 software/interoperability qualified; documentary Finalization requires its own qualification; no live-model/native installation claim.",
+  "head_role": "Qualified Source398; separate governance-only source/install Finalization",
   "current_qualification": {
-    "source_pr": 396,
-    "source_main": "8668da1fca60596d99e19c58d9d7c88390c8d21e",
-    "source_receipt": "APPLE_LIVE_IMPRESSION_396_SOURCE_RECEIPT_20261120.json",
-    "installation": "NO_NEW_INSTALL",
-    "product_acceptance": "PARTIAL; live-model/editorial, configured native, audible speech and installed/device acceptance OPEN/NOT_RUN"
+    "source_pr": 398,
+    "source_main": "2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a",
+    "source_receipt": "APPLE_HA_4_1_398_INSTALL_40530_RECEIPT_20261120.json",
+    "installation": "4/4 requested devices installed/readback40530; 3/4 HA runtime smoke, iPhoneLOCKED as-of12:16:02UTC",
+    "product_acceptance": "PARTIAL; full Live-impressie acceptance OPEN/NOT_RUN"
   },
   "qualification_40312": {
     "build": "40312",
@@ -1263,5 +1271,22 @@
     "installation": "NO_NEW_INSTALL",
     "product_acceptance": "PARTIAL; Reader nil, qualified producer/adoption and real integration open"
   },
-  "qualification_scope_notice": "Other pre-existing qualification objects remain historical/source-specific; none is relabelled as Source396 installation or product acceptance."
+  "qualification_scope_notice": "Current source398 and installed40530 baseline are above. All earlier work rows, qualification fields and immutable receipts are historical evidence for their own source/build; earlier no-install statements do not describe this new bounded installation. Product acceptance stays partial; TDE is not qualified.",
+  "historical_installed_baseline_before_40530": "24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.",
+  "historical_current_qualification_source396": {
+    "source_pr": 396,
+    "source_main": "8668da1fca60596d99e19c58d9d7c88390c8d21e",
+    "source_receipt": "APPLE_LIVE_IMPRESSION_396_SOURCE_RECEIPT_20261120.json",
+    "installation": "NO_NEW_INSTALL",
+    "product_acceptance": "PARTIAL; live-model/editorial, configured native, audible speech and installed/device acceptance OPEN/NOT_RUN"
+  },
+  "ha_4_1_source_and_install_finalization_20261120": {
+    "receipt": "APPLE_HA_4_1_398_INSTALL_40530_RECEIPT_20261120.json",
+    "source_main": "2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a",
+    "build": "40530",
+    "installation": "4/4 PASS",
+    "runtime_smoke": "3/4 observed; iPhoneBLOCKED_LOCKED as-of12:16:02UTC",
+    "overall_product_acceptance": "PARTIAL"
+  },
+  "historical_as_of_source396": "20November2026: Source396 originally source-qualified; dedicated documentary Finalization; Live-impressie product acceptance remains PARTIAL"
 }

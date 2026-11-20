@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "as_of": "20November2026: Source396 originally source-qualified; dedicated documentary Finalization; Live-impressie product acceptance remains PARTIAL",
+  "as_of": "20November2026: Source398 qualified; four ordinary40530 installations; three accepted HA4.1 client heartbeats, locked iPhone runtime follow-up OPEN; dedicated Finalization",
   "owning_lane": "https://github.com/djconnect-music-dj/djconnect-app/issues/87",
-  "baseline": "24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.",
-  "source_head": "8668da1fca60596d99e19c58d9d7c88390c8d21e; documentary Finalization no compiled input change",
+  "baseline": "20November2026: ordinary4.1.0(40530), qualified source2df31d2, installed/read back on iPhone+iPad mini+Mac mini+MacBook; both existing app copies per Mac match full signed bundle. Three genuine existing HA4.1 client heartbeats observed; iPhone launch LOCKED as-of12:16:02UTC, runtime follow-up OPEN. No pairing/consent reset or Watch installation.",
+  "source_head": "2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a; signed installed build40530, separate documentary Finalization",
   "status_semantics": {
     "CLOSED_BOUNDED": "Functionele implementatie/expliciet benoemde bewijslevering afgerond binnen de genoemde bewijsgrens; geen sluiting van parentproduct, bronPR of nativejointacceptatie.",
     "SUPERSEDED": "Vervangen door latere directe ownerbeslissing; niet opnieuw bouwen.",
@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 29,
     "OPEN": 4,
     "PARKED": 1,
-    "PARTIAL": 47,
+    "PARTIAL": 48,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -781,6 +781,14 @@
       "remaining": "Live-model/editorial, full configured native interaction, audible speech and installed/device acceptance remain OPEN/NOT_RUN. No install/deploy/public product release or passive/Watch image scope. Finalization/cleanup are administrative and never imply product acceptance.",
       "requirement": "Live-impressie photo-first card/detail/history with original photo, credit, replay and original-subject Ask DJ",
       "source": "https://github.com/djconnect-music-dj/djconnect-app/issues/87#issuecomment-6718384458"
+    },
+    {
+      "id": "ha-4-1-398-install-40530-20261120",
+      "requirement": "Strict shared4.1 compatibility and ordinary owner-requested iPhone/iPad mini/MacBook/Mac mini update",
+      "status": "PARTIAL",
+      "source": "Direct owner installation request20November2026; Source398",
+      "evidence": "Source398 reviewedd25a0740a24548ce0e6e577105f18d5a4f0fadf9 -> protected2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a; same treeba98040c93c958b83c2cfc685c8dddc64edaade0. Strict4.1major/minor fence retained; actual model/status/header/query and3.0/4.0/4.2 refusal regressionsPASS. Full1763tests/61suitesPASS;9checksPASS; ownmainCI44731371895/formal44733023306 original coverage/durable integrity and12PASS. Signed ordinaryRelease4.1.0(40530) installed/read back on all4 requested devices, both Mac copies per host fullmanifestmatch; 3 genuine HA4.1 accepted client heartbeats. APPLE_HA_4_1_398_INSTALL_40530_RECEIPT_20261120.json.",
+      "remaining": "iPhone installedPASS but launchLocked/no40530 heartbeat as-of2026-11-20T12:16:02Z; user unlock/open follow-up remains OPEN. Live-impressie real-model/editorial/native media interaction/audible/a11y acceptance remains PARTIAL/NOT_RUN. TDE observe FAIL/qualificationFAILED429findings, not quality-qualified. No Watch installation or new manual push enrollment."
     }
   ],
   "execution_feedback_40258": {
@@ -916,5 +924,15 @@
     "formal": 44701910005,
     "product_acceptance": "PARTIAL",
     "installed_baseline_refreshed": false
-  }
+  },
+  "historical_baseline_before_40530": "24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.",
+  "ha_4_1_source_and_install_finalization_20261120": {
+    "receipt": "APPLE_HA_4_1_398_INSTALL_40530_RECEIPT_20261120.json",
+    "source_main": "2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a",
+    "build": "40530",
+    "installation": "4/4 PASS",
+    "runtime_smoke": "3/4 observed; iPhoneBLOCKED_LOCKED as-of12:16:02UTC",
+    "overall_product_acceptance": "PARTIAL"
+  },
+  "historical_as_of_source396": "20November2026: Source396 originally source-qualified; dedicated documentary Finalization; Live-impressie product acceptance remains PARTIAL"
 }

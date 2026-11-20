@@ -1,0 +1,297 @@
+{
+  "schema_version": 1,
+  "kind": "apple_source_and_ordinary_install_finalization",
+  "as_of": "2026-11-20T12:16:02Z",
+  "source": {
+    "pr": 398,
+    "qualified_head": "d25a0740a24548ce0e6e577105f18d5a4f0fadf9",
+    "merged_main": "2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a",
+    "tree": "ba98040c93c958b83c2cfc685c8dddc64edaade0",
+    "source_tree_equal": true,
+    "change": "Align protocol and public identity with native/HA4.1.0; strict major/minor fence unchanged"
+  },
+  "software_qualification": {
+    "canonical_integrity": "PASS",
+    "ci": 44731371895,
+    "ci_attempt": 1,
+    "coverage_lines": 0.6278681911505277,
+    "coverage_targets": 6,
+    "durable_asset_id": 771686640,
+    "durable_release": "internal-ha-2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a",
+    "durable_sha256": "ffcef9fcbf8bbb6748d5b6a9091db9d721c2ec6d01f54d2a0aff16761d5b2618",
+    "evidence_digest": "f47f29c1066d73003b9c930a0c431e6bb25fffc360f0d2931e891834c0711f7c",
+    "formal": 44733023306,
+    "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+    "main_sha": "2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a",
+    "original_artifacts": [
+      {
+        "id": 14626897936,
+        "members_sha256": {
+          "coverage-main-sha.txt": "ce54d009be68a307ce1436c1eb4cbc4699e58bfa8437a62d6f9646d51ff8921d",
+          "coverage.json": "aecadbece60efc5a22eaf8db7d3e068f010b287c9784a2404d2c7bf142a284c3"
+        },
+        "name": "apple-xccov-coverage",
+        "provider_zip_sha256": "897ab9768dac6576dd0093d3f82f263692ba6799de5c6bb3ac1520eb069029df",
+        "run": 44731371895
+      },
+      {
+        "id": 14627770538,
+        "members_sha256": {
+          "post-merge-release-evidence.json": "505a5bd44ab482fb9dc4507ee82ea98644d8ca21f3b23debd46621531e632a9d"
+        },
+        "name": "post-merge-release-evidence",
+        "provider_zip_sha256": "a333f84265408aba6e82e6da5fff73be8b87a87df217f5bd9b711e017caa6fb9",
+        "run": 44733023306
+      }
+    ],
+    "policy_source_identity": {
+      "original_repository_id": 1258575431,
+      "original_revision": "4877403ba6fc69881439e70d3048da13ecb5576b",
+      "repository": "djconnect-music-dj/.github",
+      "repository_id": 1461539726,
+      "revision": "89a2a8b4c7571965249bed745bf7c5c37a1221f1",
+      "snapshot": "evidence-4877"
+    },
+    "repository": "djconnect-music-dj/djconnect-app",
+    "required_checks": {
+      "post_merge_build_validation": "PASS",
+      "post_merge_ci": "PASS",
+      "post_merge_coverage": "PASS",
+      "post_merge_governance": "PASS",
+      "post_merge_lint": "PASS",
+      "post_merge_static_analysis": "PASS",
+      "post_merge_tests": "PASS",
+      "required_checks": "PASS",
+      "software_assurance": "PASS",
+      "trusted_delivery": "PASS",
+      "verification": "PASS",
+      "workflow_integrity": "PASS"
+    },
+    "schema_version": 1,
+    "validator_sha256": "3fba299f26c75e47804e66218cabea8fd50627bd2a84a1dd294d59009714466f"
+  },
+  "installed_baseline": {
+    "version": "4.1.0",
+    "build": "40530",
+    "configuration": "Release",
+    "installation_result": "4/4 requested devices independently read back",
+    "devices": [
+      "iPhone",
+      "iPad mini",
+      "Mac mini",
+      "MacBook"
+    ],
+    "mac_destinations_per_host": [
+      "/Applications/DJConnect.app",
+      "~/Applications/DJConnect.app"
+    ],
+    "mac_full_bundle_manifest_match": true,
+    "source_input_count": 306,
+    "ios_bundle_manifest_sha256": "afef02306a3a213815652daa4cd4e701ac8512f6e2f8b0e5b14522c456582a92",
+    "mac_bundle_manifest_sha256": "4c69958274ac9490d014b29f274d98cf48e8329cb37e9f1140243f7dda266742",
+    "mac_transfer_zip_sha256": "b95ae415e7ecae9790818aae16ba0d5a535840a22736182d84a1617b0af5b607",
+    "strict_signatures": "PASS",
+    "profiles": "Unexpired, same existing Team; iOS main/widget cover both mobiles; actual Mac main/widget cover both hosts provisioning UDIDs",
+    "mac_architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "mac_minimum_os": "26.0",
+    "mobile_source_binding": "Unique installed build40530 + original build/source/product manifest; devicectl does not expose installed executable source bytes"
+  },
+  "runtime_smoke": {
+    "as_of": "2026-11-20T12:16:02.378694+00:00",
+    "mac_mini": "Launched exact signed binary; genuine existing HA client4.1.0/40530 observed",
+    "macbook": "Launched exact signed binary; genuine existing HA client4.1.0/40530 observed",
+    "ipad_mini": "LaunchPASS and genuine existing HA client4.1.0/40530 observed",
+    "iphone": "Installed/readbackPASS; launchBLOCKED_LOCKED; no new40530 heartbeat at this snapshot",
+    "scope": "Three existing client entries (two Macs and one iPad) report accepted authenticated4.1.0/build40530/protocol4.1.0/backend_available true; no UI/editorial/audio acceptance inferred",
+    "iphone_followup": "OPEN: unlock and open existing app; preserve original Locked receipt; later external readback may supplement this dated snapshot"
+  },
+  "state_preservation": {
+    "existing_pair_rows": 18,
+    "pair_rows_equal_prelaunch_baseline": true,
+    "existing_principal_fingerprints_unchanged": true,
+    "reset_pairing_or_consent": "NOT_PERFORMED",
+    "new_manual_push_enrollment": "NOT_PERFORMED",
+    "Watch_installation": "NOT_REQUESTED_NOT_PERFORMED",
+    "previous_Mac_apps": "Both existing copies per host retained by ordinary helper as recovery",
+    "previous_mobile_app": "Prior40527 TestFlight version recorded; byte-exact40527 local rollback binary not found; old signing/upload receipt and existing40528 archive retained",
+    "signing_environment": "Ordinary Apple Development APS/App Attest development; prior mobile TestFlight40527 production. No APNs/App Attest/native SDK acceptance inferred"
+  },
+  "tde_observer": {
+    "source_main": "2df31d2bbb11ac6b230bb1f49d06cad06bdd4c4a",
+    "workflow": 44731371489,
+    "artifact": 14627115569,
+    "zip_sha256": "21a90696dcaad9f4a37a0c31a0db65e5133f7a640dce4d68272cd5a4fcde1672",
+    "assessment": "FAIL",
+    "qualification": "FAILED",
+    "finding_count": 429,
+    "findings_exact_equal_reviewed_d25a": true,
+    "rules_exact_equal_reviewed_d25a": true,
+    "TDE_qualified": false
+  },
+  "product_acceptance": "PARTIAL: LI01\u2013LI20 real-model/editorial, full native interactions, audible speech, a11y/device media acceptance remain OPEN/NOT_RUN",
+  "horizon": {
+    "core_sha": "616bad88015a8a1bc413781fc49d97532ef7383a",
+    "snapshot_sha256": "6f5128bec03c6904aae673bc2b156234dad992f5b0df2643fe68f06d2b8ef011",
+    "selection": "Owning current Core ENGINEERING_STATUS rolling horizon, independently verified against current delta18 nodes/edges; not first stored Planned or historical global horizon",
+    "items": [
+      {
+        "id": "SETTINGS::APPLE::EDITOR",
+        "title": "One Jouw DJ editor and shared Session quick controls",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "direct_edge_ids": [
+          "SETTINGS-4"
+        ],
+        "direct_conditions": [
+          "SETTINGS::CORE::PRODUCER"
+        ]
+      },
+      {
+        "id": "SETTINGS::PI::ADOPTION",
+        "title": "Pi allowed shared Session settings and legacy disposition",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "direct_edge_ids": [
+          "SETTINGS-6"
+        ],
+        "direct_conditions": [
+          "SETTINGS::CORE::PRODUCER"
+        ]
+      },
+      {
+        "id": "SETTINGS::ESP32::ADOPTION",
+        "title": "ESP32 Assist/voice/settings compatibility and legacy disposition",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "direct_edge_ids": [
+          "SETTINGS-8"
+        ],
+        "direct_conditions": [
+          "SETTINGS::CORE::PRODUCER"
+        ]
+      },
+      {
+        "id": "SETTINGS::VIBECAST::COMPAT",
+        "title": "Shared renderer allowed Session fields without Profile preferences",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "direct_edge_ids": [
+          "SETTINGS-10"
+        ],
+        "direct_conditions": [
+          "SETTINGS::CORE::PRODUCER"
+        ]
+      },
+      {
+        "id": "SETTINGS::WEBSITE::COPY",
+        "title": "Six-parameter scope/help and obsolete settings copy audit",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "direct_edge_ids": [
+          "SETTINGS-12"
+        ],
+        "direct_conditions": [
+          "SETTINGS::CORE::PRODUCER"
+        ]
+      }
+    ]
+  },
+  "governance": {
+    "repository_target": "MERGED_RECONCILED only after this separate Finalization protected merge and its own exact-main CI/publicationPASS",
+    "predecessor_state": "Source398 MERGED_UNRECONCILED until that condition",
+    "workspace_target": "WORKSPACE_READY only after actual scoped cleanup proof; not claimed by this receipt",
+    "historical_original_checkout": "Users mainbce preserved historical; no reset/rename and outside canonical task delivery"
+  },
+  "private_proof_artifacts": [
+    {
+      "name": "ios-proof/signed-product-receipt.json",
+      "sha256": "aed0cd5ac0bea0c0363e197e9a0f096e78ce16d41449c917f51f33106e31e38e"
+    },
+    {
+      "name": "mac-proof/signed-product-receipt.json",
+      "sha256": "34ad538b20074ed827d79ff0dcf25dfc28954071600cbc83f8fcceb26b598bc5"
+    },
+    {
+      "name": "iphone-install.json",
+      "sha256": "c6f686a69fb88cdf8d87054a1d34e8f1a542e31cbed9226008cdff665c57b323"
+    },
+    {
+      "name": "ipad-install.json",
+      "sha256": "6df7f643628a0d68570af8219d00d6ea462a1db2402a0903749068d53bfabf2e"
+    },
+    {
+      "name": "iphone-installed.json",
+      "sha256": "d70c6d4e4d967e971bf9f5506e1c89ee8e8e28e8330c96ed5f0b4838131008f3"
+    },
+    {
+      "name": "ipad-installed.json",
+      "sha256": "dc19b85e70561d98e1a1010e2de1db8bbef4679f91869509012e86931dc92ead"
+    },
+    {
+      "name": "iphone-launch.json",
+      "sha256": "d57055df6d2e3bcf199167476a0898cf5734f4f320aa15aa7aff1593f5bfb4ae"
+    },
+    {
+      "name": "ipad-launch.json",
+      "sha256": "e5ae16aee6bf7981476d7d7e1b1c355b86a44bf5f9452adf94940c259b60a28c"
+    },
+    {
+      "name": "mac-proof/macmini-installation-readback.json",
+      "sha256": "dba32ef08022907ba85ffad4074a47bf299ab17347b423c27c559d48b708b770"
+    },
+    {
+      "name": "mac-proof/macbook-installation-readback.json",
+      "sha256": "064c054d9611c2c799d9dce3e868ac124616ee7608044a0f85ecdf2a619fd381"
+    },
+    {
+      "name": "mac-proof/macmini-launch-readback.json",
+      "sha256": "7442c76e0d62738ad11dc852cf261e588f91c4b1e06fe9c3afdccbb88191caad"
+    },
+    {
+      "name": "mac-proof/macbook-launch-readback.json",
+      "sha256": "605a70e22945fcfe1e061ef4719fb2de19d92ed85a3e73c92cc747456a5ace18"
+    },
+    {
+      "name": "native-clients-readback-20261120T121602Z.json",
+      "sha256": "92643d342f71479a6e8bce48bb4f2cc5d2fe70437d0fcee87bcab7c7be953f96"
+    },
+    {
+      "name": "semantic-readback.json",
+      "sha256": "ebbe690bcd69a4b19c567cf80c318da9deb58b2b5e89eef7038133f6814f4df0"
+    }
+  ],
+  "privacy": "Raw device IDs, private keys/profiles, bearer tokens, paired settings and raw app data are not published; original local proof retained",
+  "source_validation_before_installation": {
+    "source_head": "d25a0740a24548ce0e6e577105f18d5a4f0fadf9",
+    "full_swift": {
+      "tests": 1763,
+      "suites": 61,
+      "result": "PASS",
+      "seconds": 44.372,
+      "log": "swift-full-confirmation.log"
+    },
+    "focused": {
+      "functions": 5,
+      "negative_version_cases": [
+        "3.0.99",
+        "4.0.99",
+        "4.2.0"
+      ],
+      "result": "PASS",
+      "log": "focused-after-timing-failure.log"
+    },
+    "independent_checks": {
+      "result": "9_PASS",
+      "initial_network_environment": "EPERM_LOCAL_LISTEN",
+      "network_rerun": "3_PASS_WITH_NETWORK_ACCESS"
+    },
+    "retained_failed_runs": [
+      "swift.log: nested test macro compile error corrected",
+      "swift-final.log: unchanged deviceSTT 150ms timing expectation, passed focused and full unchanged"
+    ],
+    "installed": "NOT_YET"
+  }
+}
