@@ -225,6 +225,12 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
     public var momentType: String?
     public var persona: String?
     public var summary: String?
+    public var title: String? = nil
+    private var optionalLiveImpression: DJConnectOptionalLiveImpression? = nil
+    public var liveImpression: DJConnectLiveImpression? {
+        get { optionalLiveImpression?.value }
+        set { optionalLiveImpression = newValue.map { .init(value: $0) } }
+    }
     public var archiveBasis: String?
     public var sourceAttribution: [String: String]?
     public var sources: [[String: String]]?
@@ -262,6 +268,10 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
             }
             return true
         case .djMoment:
+            if archiveBasis == "public_live_impression_v1" {
+                return momentType == "live_impression" &&
+                    title?.isEmpty == false && summary?.isEmpty == false && text?.isEmpty == false
+            }
             // These are Core-qualified records of an accepted publication.
             // Recognizing a history basis grants no live, shared or speech authority.
             return ["cc0_normalized_fields_v1", "runtime_authored_direction_v1", "runtime_accepted_settings_v1",
@@ -300,6 +310,7 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
         SessionHistoryDateParser.shared.date(text)
     }
     enum CodingKeys: String, CodingKey {
+        case title, optionalLiveImpression = "live_impression"
         case optionalSessionSpeech = "session_speech"
         case optionalSessionMedia = "session_media"
         case historicalViewOnly = "historical_view_only", currentDisplayAllowed = "current_display_allowed"
@@ -330,6 +341,8 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
         try c.encodeIfPresent(momentType, forKey: .momentType)
         try c.encodeIfPresent(persona, forKey: .persona)
         try c.encodeIfPresent(summary, forKey: .summary)
+        try c.encodeIfPresent(title, forKey: .title)
+        try c.encodeIfPresent(optionalLiveImpression, forKey: .optionalLiveImpression)
         try c.encodeIfPresent(archiveBasis, forKey: .archiveBasis)
         try c.encodeIfPresent(sourceAttribution, forKey: .sourceAttribution)
         try c.encodeIfPresent(sources, forKey: .sources)

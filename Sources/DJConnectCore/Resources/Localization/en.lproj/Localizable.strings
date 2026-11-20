@@ -1753,3 +1753,16 @@
 "ui.displayConsent.inactive" = "No screen connected";
 "ui.displayConsent.status_unknown" = "Screen status unavailable";
 "ui.displayConsent.stop_numbered" = "Stop sharing screen %d";
+
+// Live-impressie
+"ui.live_impression.title" = "Live impression";
+"ui.live_impression.read_more" = "Read more";
+"ui.live_impression.read_less" = "Read less";
+"ui.live_impression.view_photo" = "View photo";
+"ui.live_impression.photo_number" = "Photo %d of %d";
+"ui.live_impression.photo_unavailable" = "The photo is temporarily unavailable.";
+"ui.live_impression.zoom_in" = "Zoom in";
+"ui.live_impression.zoom_out" = "Zoom out";
+"ui.live_impression.ask" = "Ask about this";
+"ui.live_impression.sources" = "Sources";
+"ui.live_impression.photo_withdrawn" = "This photo can no longer be displayed.";

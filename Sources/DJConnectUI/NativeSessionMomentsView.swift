@@ -325,6 +325,7 @@ struct SessionCurrentDJCardLayout: Layout {
     var expansion: CGFloat
     let hasDetail: Bool
     let heldSize: CGSize?
+    var mediaFirst = false
     var animatableData: CGFloat { get { expansion } set { expansion = newValue } }
     struct Cache {
         var sessionID: String
@@ -344,8 +345,8 @@ struct SessionCurrentDJCardLayout: Layout {
         let side = avatar + 2 * inset
         if let width = proposal.width, width.isFinite { cache.fullWidth = max(side, width) }
         if hasDetail, subviews.count > 1 {
-            let detail = subviews[1].sizeThatFits(.init(width: max(0, cache.fullWidth - avatar - 16 - 2 * inset), height: nil))
-            if detail.height.isFinite { cache.expandedHeight = max(avatar, detail.height) + 2 * inset }
+            let detail = subviews[1].sizeThatFits(.init(width: max(0, cache.fullWidth - (mediaFirst ? 0 : avatar + 16) - 2 * inset), height: nil))
+            if detail.height.isFinite { cache.expandedHeight = (mediaFirst ? detail.height : max(avatar, detail.height)) + 2 * inset }
         }
         let fraction = expansion.isFinite ? max(0, min(1, expansion)) : 0
         return CGSize(width: heldSize.map { min(cache.fullWidth, $0.width) } ?? side + (cache.fullWidth - side) * fraction,
@@ -356,10 +357,10 @@ struct SessionCurrentDJCardLayout: Layout {
         let inset = DJConnectCardAppearance.currentDJInset
         let side = DJConnectCardAppearance.currentDJAvatarSize
         avatar.place(at: CGPoint(x: bounds.minX + inset, y: bounds.minY + inset), anchor: .topLeading,
-                     proposal: .init(width: side, height: side))
+                     proposal: .init(width: mediaFirst && hasDetail ? 0 : side, height: mediaFirst && hasDetail ? 0 : side))
         if subviews.count > 1 {
-            subviews[1].place(at: CGPoint(x: bounds.minX + inset + side + 16, y: bounds.minY + inset), anchor: .topLeading,
-                             proposal: .init(width: max(0, cache.fullWidth - side - 16 - 2 * inset), height: nil))
+            subviews[1].place(at: CGPoint(x: bounds.minX + inset + (mediaFirst ? 0 : side + 16), y: bounds.minY + inset), anchor: .topLeading,
+                             proposal: .init(width: max(0, cache.fullWidth - (mediaFirst ? 0 : side + 16) - 2 * inset), height: nil))
         }
     }
 }
@@ -370,6 +371,7 @@ struct SessionCurrentDJCard<Avatar: View, Detail: View>: View {
     let sessionID: String
     let state: SessionCurrentDJCardState
     let mood: String?
+    var mediaFirst = false
     @ViewBuilder let avatar: () -> Avatar
     @ViewBuilder let detail: () -> Detail
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -389,8 +391,9 @@ struct SessionCurrentDJCard<Avatar: View, Detail: View>: View {
     var body: some View {
         SessionCurrentDJCardLayout(sessionID: sessionID, expansion: compact ? 0 : 1,
             hasDetail: state == .expanded && !compact,
-            heldSize: (state == .unresolved || !mayResize) && remembered.sessionID == sessionID && remembered.size.height > 0 ? remembered.size : nil) {
-            avatar()
+            heldSize: (state == .unresolved || !mayResize) && remembered.sessionID == sessionID && remembered.size.height > 0 ? remembered.size : nil, mediaFirst: mediaFirst) {
+            avatar().opacity(mediaFirst && state == .expanded ? 0 : 1)
+                .accessibilityHidden(mediaFirst && state == .expanded)
             if state == .expanded && !compact { detail().transition(.identity) }
         }
         // An offscreen height change makes native lazy scrolling re-estimate
@@ -557,7 +560,8 @@ struct NativeSessionMomentsView: View {
             recovering: isRecovering, unavailable: isLiveUnavailable, withdrawn: withdrawn, at: now)
         let evidence = playbackModel?.personaEvidence(for: session, admittedMoment: moment, at: now) ?? .init()
         return SessionCurrentDJCard(sessionID: session.id, state: state,
-            mood: isLiveUnavailable || isRecovering ? nil : session.selectedMood) {
+            mood: isLiveUnavailable || isRecovering ? nil : session.selectedMood,
+            mediaFirst: moment?.isLiveImpressionV1 == true) {
             let avatar = DJPersonaAvatarView(confirmedMood: isLiveUnavailable || isRecovering ? nil : session.selectedMood, language: language,
                                             activity: DJPersonaActivity.resolve(evidence), speechIsPlaying: evidence.speaking)
                 .frame(width: DJConnectCardAppearance.currentDJAvatarSize, height: DJConnectCardAppearance.currentDJAvatarSize).fixedSize()
@@ -1272,6 +1276,15 @@ struct MomentCard: View {
     private var spotifyURLs: [URL] { moment.nativeSourceURLs.filter(SessionSourceLinks.isSpotify) }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if moment.isLiveImpressionV1, let impression = moment.liveImpression, let model = artworkModel {
+                LiveImpressionContentView(impression: impression, title: moment.title, lead: moment.summary,
+                    story: moment.content, language: language, sessionID: moment.sessionID,
+                    target: .moment(moment.id), model: model)
+                if let contributionAction {
+                    Button(DJConnectLocalization.localized(key: "ui.live_impression.ask", language: language), action: contributionAction)
+                        .frame(minHeight: 44)
+                }
+            } else {
             if let media = artworkMedia, let model = artworkModel {
                 SessionArtworkView(media: media, target: .moment(moment.id), audience: .current, language: language, model: model,
                     showsAttribution: spotifyURLs.isEmpty)
@@ -1295,6 +1308,7 @@ struct MomentCard: View {
                     Text(segment.text).fixedSize(horizontal: false, vertical: true)
                 }
             }
+            }
             if let label = navigationLabel, let openInsight {
                 Button { DJConnectHaptics.selection(); openInsight() } label: { Label(label, systemImage: "waveform.path.ecg") }
                     .tint(djConnectAccent)
@@ -1304,13 +1318,17 @@ struct MomentCard: View {
                 SessionSpotifyAttributionLinks(urls: spotifyURLs)
                 if let model = artworkModel { SharedDJSpeechActions(model: model, speech: speech, acceptedText: moment.content) }
             }
+            if moment.isLiveImpressionV1 {
+                Text(DJConnectLocalization.localized(key: "ui.live_impression.sources", language: language)).font(.caption.weight(.semibold))
+            }
             ForEach(moment.nativeSourceURLs.filter { !SessionSourceLinks.isSpotify($0) }, id: \.absoluteString) { url in
                 let source = moment.isBulletinV1 ? moment.sources.first { $0.destination == url } : nil
-                let label = source?.attributionLabel ?? moment.sourceAttribution?["provider"] ?? url.host ?? ""
+                let liveSource = moment.isLiveImpressionV1 ? moment.liveSources.first { $0.destination == url } : nil
+                let label = source?.attributionLabel ?? liveSource?.attributionLabel ?? moment.sourceAttribution?["provider"] ?? url.host ?? ""
                 Link(label, destination: url)
                     .foregroundStyle(.white)
                     .tint(.white)
-                    .accessibilityLabel(source?.accessibilityLabel ?? label)
+                    .accessibilityLabel(source?.accessibilityLabel ?? liveSource?.accessibilityLabel ?? label)
                     .accessibilityValue(url.absoluteString)
                     .accessibilityIdentifier("moment-source-" + url.absoluteString)
             }

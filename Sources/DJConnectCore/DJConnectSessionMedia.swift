@@ -38,6 +38,7 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
         public let historicalDisplayAllowed: Bool
         public let cachePolicy: String?
         public let cropAllowed: Bool?
+        public let upscaleAllowed: Bool?
         public let requiresDeviceAuth: Bool?
         public let width: Int?
         public let height: Int?
@@ -45,6 +46,7 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
         public let url: String?
         public let mediaRevision: String?
         enum CodingKeys: String, CodingKey {
+            case upscaleAllowed = "upscale_allowed"
             case state, reason, subject, role, attribution, width, height, url
             case resolutionBasis = "resolution_basis", editionBasis = "edition_basis"
             case sourceURL = "source_url", usageBasis = "usage_basis", capturedAt = "captured_at", expiresAt = "expires_at"
@@ -58,11 +60,13 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
     public let sessionID: String
     public let momentID: String?
     public let entryID: String?
+    public let photoID: String?
     /// Equality token only. Neither revision is an ordering clock.
     public let revision: String
     public let artwork: Artwork
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version", sessionID = "session_id", momentID = "moment_id", entryID = "entry_id"
+        case photoID = "photo_id"
         case revision, artwork
     }
 
@@ -130,6 +134,32 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
             if let album = subject.albumURI, Self.spotifySource(album, type: "album") == nil { return nil }
             if artwork.editionBasis == "original_bound", subject.albumURI == nil { return nil }
         default: return nil
+        }
+        return artwork
+    }
+
+    /// Version 3 is scoped to an original licensed event photo, never Spotify artwork.
+    public func admittedLivePhoto(_ photo: DJConnectLiveImpression.Photo, session expectedSession: String,
+                                  target expectedTarget: Target, audience: Audience, at now: Date = Date()) -> Artwork? {
+        guard schemaVersion == 3, sessionID == expectedSession, target == expectedTarget,
+              photoID == photo.photoID, photo.isValid, !revision.isEmpty, revision.utf8.count <= 128,
+              artwork.state == .ready, artwork.role == "live_impression",
+              artwork.usageBasis == "licensed_event_image_owner_display",
+              artwork.subject?.provider == "public_research", artwork.subject?.type == "event_photo",
+              artwork.subject?.uri == photo.photoID, artwork.subject?.albumURI == nil,
+              artwork.mediaRevision == photo.revision, artwork.sourceURL == photo.sourceURL,
+              artwork.width == photo.width, artwork.height == photo.height,
+              artwork.cachePolicy == "no-store", artwork.requiresDeviceAuth == true,
+              artwork.cropAllowed == false, artwork.upscaleAllowed == false,
+              let captured = artwork.capturedAt.flatMap(DJConnectHistoryEntry.date),
+              let expires = artwork.expiresAt.flatMap(DJConnectHistoryEntry.date),
+              captured <= now, expires > now, expires > captured, expires.timeIntervalSince(captured) <= 300.001,
+              let raw = artwork.url, Self.isManagedPath(raw, session: sessionID) else { return nil }
+        switch audience {
+        case .current: guard artwork.currentDisplayAllowed else { return nil }
+        case .activeFlow: guard artwork.activeFlowDisplayAllowed else { return nil }
+        case .history: guard artwork.historicalDisplayAllowed else { return nil }
+        case .reply: return nil
         }
         return artwork
     }

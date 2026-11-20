@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "event": {
+    "event_id": "test-event",
+    "artist": "Fixture artist",
+    "date": "2020-07-12",
+    "date_precision": "day",
+    "venue": "Fixture venue",
+    "city": "Fixture city",
+    "relationship": "same_artist"
+  },
+  "photos": [
+    {
+      "photo_id": "test-photo",
+      "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "caption": "Synthetic contract fixture, not a real concert photograph.",
+      "alt_text": {
+        "nl": "Synthetic contract photo",
+        "en": "Synthetic contract photo",
+        "de": "Synthetic contract photo",
+        "fr": "Synthetic contract photo",
+        "es": "Synthetic contract photo"
+      },
+      "width": 1600,
+      "height": 1000,
+      "source_url": "https://example.org/original-photo",
+      "author": "Fixture author",
+      "credit": "Fixture credit",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    }
+  ]
+}
