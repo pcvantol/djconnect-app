@@ -9,13 +9,18 @@ func askDJMomentsFixtureBundle() -> Bundle {
     Bundle(for: AskDJMomentsFixtureAnchor.self)
     #endif
 }
+func askDJMomentsFixtureURL(_ name: String) -> URL? {
+    let bundle = askDJMomentsFixtureBundle()
+    return bundle.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/ask-dj-moments")
+        ?? bundle.url(forResource: name, withExtension: "json", subdirectory: "ask-dj-moments")
+        ?? bundle.url(forResource: name, withExtension: "json")
+}
 private final class AskDJMomentsFixtureAnchor: NSObject {}
 
 /// Core's actual Hybrid -> producer -> narrator -> SQL -> Flow serializer.
 /// Research/model inputs are synthetic fixtures; these tests make no live/editorial claim.
 private func momentFixture(_ name: String) throws -> [String: Any] {
-    let url = try #require(askDJMomentsFixtureBundle().url(forResource: name, withExtension: "json", subdirectory: "Fixtures/ask-dj-moments")
-        ?? askDJMomentsFixtureBundle().url(forResource: name, withExtension: "json"))
+    let url = try #require(askDJMomentsFixtureURL(name))
     return try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
 }
 private func decodeMomentValue<T: Decodable>(_ value: Any, as: T.Type = T.self) throws -> T {

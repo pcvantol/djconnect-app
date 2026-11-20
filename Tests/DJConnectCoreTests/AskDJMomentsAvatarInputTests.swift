@@ -54,7 +54,7 @@ private struct MomentsNativeInputFixture: View {
 /// This is component input evidence, not installed iPhone/VoiceOver acceptance.
 @Test(.isolatedAppKitResources) @MainActor func momentsLiveMiniAvatarSeparatesSingleDoubleTripleAndPhotoSourceControls() async throws {
     _ = NSApplication.shared
-    let url = try #require(askDJMomentsFixtureBundle().url(forResource: "live-final", withExtension: "json", subdirectory: "Fixtures/ask-dj-moments"))
+    let url = try #require(askDJMomentsFixtureURL("live-final"))
     let fixture = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
     let response = try JSONDecoder().decode(DJConnectAskDJMoments.Response.self,
         from: JSONSerialization.data(withJSONObject: try #require(fixture["accepted_http_response"])))

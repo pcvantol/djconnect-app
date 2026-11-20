@@ -10,8 +10,7 @@ private actor MomentsReadWire: DJConnectHybridWire {
     var contextWaiter: CheckedContinuation<Void, Never>?
     var requests: [URLRequest] = []
     init(pauseContext: Bool = false) throws {
-        let url = try #require(askDJMomentsFixtureBundle().url(forResource: "producer-final", withExtension: "json", subdirectory: "Fixtures/ask-dj-moments")
-            ?? askDJMomentsFixtureBundle().url(forResource: "producer-final", withExtension: "json"))
+        let url = try #require(askDJMomentsFixtureURL("producer-final"))
         let fixture = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
         inventory = try JSONSerialization.data(withJSONObject: try #require(fixture["inventory"]))
         capability = try JSONDecoder().decode(DJConnectJSONValue.self, from: JSONSerialization.data(withJSONObject: try #require(fixture["capability"])))

@@ -299,7 +299,7 @@ private func announcementReceipt() throws -> [String: Any] {
     let now = try nativeDate(first.createdAt)
     #expect(broadcast.playback?.state == "playing")
     #expect(broadcast.nativeCurrentMoment(at: now)?.id == first.id)
-    let fixtureURL = try #require(askDJMomentsFixtureBundle().url(forResource: "producer-final", withExtension: "json", subdirectory: "Fixtures/ask-dj-moments"))
+    let fixtureURL = try #require(askDJMomentsFixtureURL("producer-final"))
     let object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [String: Any])
     let accepted = try #require(object["accepted_http_response"] as? [String: Any])
     let result = try #require(accepted["result"] as? [String: Any])

@@ -10,7 +10,7 @@ import AppKit
 /// Five client chrome locales are not five real-model narration acceptance claims.
 @Test(.isolatedAppKitResources) @MainActor func momentsNativeCatalogueRendersPhoneWideAndAccessibleTypeInFiveClientLocales() async throws {
     _ = NSApplication.shared
-    let url = try #require(askDJMomentsFixtureBundle().url(forResource: "producer-final", withExtension: "json", subdirectory: "Fixtures/ask-dj-moments"))
+    let url = try #require(askDJMomentsFixtureURL("producer-final"))
     let packet = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
     let raw = try JSONSerialization.data(withJSONObject: try #require(packet["inventory"]))
     let inventory = try JSONDecoder().decode(DJConnectAskDJMoments.Inventory.self, from: raw)

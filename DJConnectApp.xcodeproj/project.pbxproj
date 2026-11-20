@@ -262,6 +262,7 @@
 		5C4310E872D908B1E36C568F /* DJConnectWatchPairingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FE6F6D318C7820416C0D8F2 /* DJConnectWatchPairingIntent.swift */; };
 		5C9257329BC30929F684EDE0 /* DJConnectContentDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A9EEEA2A25486A2EAC4D7EF /* DJConnectContentDeletion.swift */; };
 		5CE1C07563186DE660E293C3 /* DJConnectIOSRendezvousTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45EB349393655E6F68D043A0 /* DJConnectIOSRendezvousTests.swift */; };
+		5D76979B999C16A8B89FB018 /* ask-dj-moments in Resources */ = {isa = PBXBuildFile; fileRef = 00BB32709CDDDC486179CC94 /* ask-dj-moments */; };
 		5DA6C7FBFB6D08285CDBC854 /* DJConnectArcadeAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A690A7CCB44B6B0B4C8096C /* DJConnectArcadeAudio.swift */; };
 		5E2CFA0E6184A9045601966C /* DJConnectCoreWatch.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F1FA46912E85C39830ED5792 /* DJConnectCoreWatch.framework */; };
 		5E9DA36ED847DF1CA5E37756 /* TrackInsightMotionClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F85E9409F57B2D3117383DE /* TrackInsightMotionClock.swift */; };
@@ -936,6 +937,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		00BB32709CDDDC486179CC94 /* ask-dj-moments */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "ask-dj-moments"; path = "Tests/Fixtures/ask-dj-moments"; sourceTree = SOURCE_ROOT; };
 		016893CADAA01E3C5DD26999 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		017498F59115FB4D0D9D7D5A /* RendezvousRepairJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousRepairJournal.swift; sourceTree = "<group>"; };
 		01BB0D56200B4372544FB1E6 /* DirectRichResponseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectRichResponseTests.swift; sourceTree = "<group>"; };
@@ -1833,6 +1835,7 @@
 		90E1C52F3360DBF2A3AD17EB /* Fixtures */ = {
 			isa = PBXGroup;
 			children = (
+				00BB32709CDDDC486179CC94 /* ask-dj-moments */,
 				11D50B6EF2985C07280B5D83 /* direct-rich-request-core-r8.json */,
 				08349A5CA702AF46A383143A /* direct-rich-synthetic-responses.json */,
 				8E22F43354EE27FC237C0C0C /* host-wake-core-proxy-reply-v5.json */,
@@ -2480,6 +2483,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5D76979B999C16A8B89FB018 /* ask-dj-moments in Resources */,
 				856D8117CC0B5832E933FD4F /* direct-rich-request-core-r8.json in Resources */,
 				904476471116D8FD2364BFA3 /* direct-rich-synthetic-responses.json in Resources */,
 				3023F6682BEE86B7009C0E39 /* host-wake-core-proxy-reply-v5.json in Resources */,

@@ -20,7 +20,7 @@ private actor MomentsControllerWire: DJConnectHybridWire {
     private(set) var statusCount = 0
     init(lateFailure: Bool) throws {
         self.lateFailure = lateFailure
-        let url = try #require(askDJMomentsFixtureBundle().url(forResource: "producer-final", withExtension: "json", subdirectory: "Fixtures/ask-dj-moments"))
+        let url = try #require(askDJMomentsFixtureURL("producer-final"))
         let value = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
         // Shift the declared fixture's clock as one unit, without changing identity/content.
         let captured = try #require(value["captured_at"] as? String)
@@ -99,7 +99,7 @@ private actor MomentsControllerWire: DJConnectHybridWire {
     let url = try #require(URL(string: "https://paired.example"))
     let hybrid = DJConnectHybridTransport(localURL: nil, remoteURL: url, expectedInstallID: "controller-fixture-install", identity: identity, tokenStore: store, wire: wire)
     let client = DJConnectClient(baseURL: url, identity: identity, tokenStore: store, hybridTransport: hybrid)
-    let fixtureURL = try #require(askDJMomentsFixtureBundle().url(forResource: "producer-final", withExtension: "json", subdirectory: "Fixtures/ask-dj-moments"))
+    let fixtureURL = try #require(askDJMomentsFixtureURL("producer-final"))
     let fixture = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [String: Any])
     let rawInventory = try JSONSerialization.data(withJSONObject: try #require(fixture["inventory"]))
     let inventory = try JSONDecoder().decode(DJConnectAskDJMoments.Inventory.self, from: rawInventory)
