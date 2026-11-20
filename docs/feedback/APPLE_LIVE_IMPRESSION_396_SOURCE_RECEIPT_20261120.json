@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "assignment": "DJC-LIVE-IMPRESSION-V1-20261108",
+  "scope": "BOUNDED_APPLE_SOURCE_AND_SOFTWARE_INTEROPERABILITY_ONLY",
+  "source_pr": "https://github.com/djconnect-music-dj/djconnect-app/pull/396",
+  "reviewed_head": "528ce0be27b61485aefd034c961e5d3f1d98239f",
+  "source_main": "8668da1fca60596d99e19c58d9d7c88390c8d21e",
+  "equal_tree": "c103218c4ed6192feaa8529caa44be258e0474ec",
+  "companion_core": {
+    "pr": "https://github.com/djconnect-music-dj/djconnect/pull/1661",
+    "reviewed_head": "f1b45dbf5363e87986ab5b8bb2354e5682a1995c",
+    "source_main": "912e1efbd6e9475521779d04f98fd805f0b1f385"
+  },
+  "independent_review": {
+    "reviewer_role": "coordinating parent agent, independent of Apple author agent",
+    "reviewed_head": "528ce0be27b61485aefd034c961e5d3f1d98239f",
+    "decision": "GO_REVIEWABLE_SOURCE",
+    "remaining_actionable_p1_p2": 0,
+    "github_approval_requirement": "none in actual branch rules; no formal human approval claimed"
+  },
+  "premerge_validation": {
+    "swift_tests": 1762,
+    "swift_suites": 61,
+    "failures": 0,
+    "explicit_gated_skips": 15,
+    "unsigned_macos": "PASS",
+    "unsigned_ios_including_watch_dependencies": "PASS",
+    "localized_keys": 1579,
+    "locales": [
+      "nl",
+      "en",
+      "de",
+      "fr",
+      "es"
+    ],
+    "normal_check_groups": 9,
+    "native_render_scope": "synthetic production component, compact/wide and large-text; not installed-device acceptance",
+    "initial_hygiene_failure": "Temporary virtualenv path with spaces generated an invalid helper shebang; original failure retained; unchanged27case suite passed with host interpreter"
+  },
+  "source_publication": {
+    "canonical_integrity": "PASS",
+    "ci": 44700356839,
+    "ci_attempt": 1,
+    "coverage_lines": 0.62804701801715,
+    "coverage_targets": 7,
+    "durable_asset_id": 771030589,
+    "durable_release": "internal-ha-8668da1fca60596d99e19c58d9d7c88390c8d21e",
+    "durable_sha256": "75b5a0d9e0c00ae665d68c2aba6febae330c3c5eb30567b1a7af47fafbb837e4",
+    "evidence_digest": "e1bb5301f1abd4f24a08510989989093326214e67d2fb3358a0baa0f9cdce1ec",
+    "formal": 44701910005,
+    "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+    "main_sha": "8668da1fca60596d99e19c58d9d7c88390c8d21e",
+    "original_artifacts": [
+      {
+        "id": 14612448995,
+        "members_sha256": {
+          "coverage-main-sha.txt": "98161fff1e743324e9146d6e143716b2339c55e063466de1474c995ac25ea01f",
+          "coverage.json": "64f5bdea6a4b3da05bf8929934a38bf17c2ea827da4d8da17d59e394d2e32de1"
+        },
+        "name": "apple-xccov-coverage",
+        "provider_zip_sha256": "db7669d1e14df5080bb3a9eda1d5bdfcf1ded375734c9b14172a1b910feede67",
+        "run": 44700356839
+      },
+      {
+        "id": 14613726899,
+        "members_sha256": {
+          "post-merge-release-evidence.json": "aa903e07b49e4624698f768e03209eae0daab90021193edab68e2f53733a543e"
+        },
+        "name": "post-merge-release-evidence",
+        "provider_zip_sha256": "485f48c30c4d271ad9fe979adc31395c93e7a9670ff04f2a0874fddb83c586e7",
+        "run": 44701910005
+      }
+    ],
+    "policy_source_identity": {
+      "original_repository_id": 1258575431,
+      "original_revision": "4877403ba6fc69881439e70d3048da13ecb5576b",
+      "repository": "djconnect-music-dj/.github",
+      "repository_id": 1461539726,
+      "revision": "89a2a8b4c7571965249bed745bf7c5c37a1221f1",
+      "snapshot": "evidence-4877"
+    },
+    "repository": "djconnect-music-dj/djconnect-app",
+    "required_checks": {
+      "post_merge_build_validation": "PASS",
+      "post_merge_ci": "PASS",
+      "post_merge_coverage": "PASS",
+      "post_merge_governance": "PASS",
+      "post_merge_lint": "PASS",
+      "post_merge_static_analysis": "PASS",
+      "post_merge_tests": "PASS",
+      "required_checks": "PASS",
+      "software_assurance": "PASS",
+      "trusted_delivery": "PASS",
+      "verification": "PASS",
+      "workflow_integrity": "PASS"
+    },
+    "schema_version": 1,
+    "validator_sha256": "3fba299f26c75e47804e66218cabea8fd50627bd2a84a1dd294d59009714466f"
+  },
+  "joint_contract": {
+    "state": "PASS",
+    "apple_head": "528ce0be27b61485aefd034c961e5d3f1d98239f",
+    "artifacts_sha256": {
+      "actual-ha-live-tracked-final/http-producer-receipt.json": "e5cd525dfa49064ff216418240125cb2b96bd1863141582388b02bf4c699dbc7",
+      "core-consumer-final-actual-http-fixture.json": "e2f4201e5c6558ff58e6806d643b0b7f8b8c9dffd58340659665c48b1c0dfdf7",
+      "independent_cross_contract.swift": "e17276fc2e4ed4f2c26d3c063903e5f0a090ef584a85a31d9de2def258859fa2",
+      "independent-cross-contract": "3151276864a1a2d57bc89830d6d406e29dad7a69e0ffd5caf4140c2ca1a5cde5",
+      "cross-contract-final-result.log": "20766253d1a1a47fde54eee6d67de570cd124b7a29a337867ab62db5d1d71478",
+      "actual-ha-source-5/scripts/verification/verify_live_impression_http.py": "2937977a48b28cb5d3f8adc485c4ded1039464b4a793955ef10f8b82db0249e9"
+    },
+    "scope": "actual isolated Core HA HTTP/SQL original retained story -> compiled actual Apple decoding/admission/Codable; declared synthetic research/narration/photo",
+    "live_model_editorial_native_install_device_acceptance": "NOT_RUN",
+    "review_artifact_sha256": "ca9315bf5fb5bc4df27deef2a0bc12148f7a9e6091c330054efbe622f1267415",
+    "core_product_source_pin_count": 318,
+    "core_product_source_pin_manifest_sha256": "2106f7011fc8a8146a30c88580bba456a26d21c7ad05ce9202b498808c0e137d"
+  },
+  "authorization_boundary": "Owner explicitly approved source and mandatory documentary Finalization merges and their automatic internal-ha tags/prereleases/assets; no installation or deployment.",
+  "product_acceptance": {
+    "state": "PARTIAL",
+    "live_model_editorial": "NOT_RUN",
+    "full_configured_native_interaction": "NOT_RUN",
+    "audible_speech": "NOT_RUN",
+    "installed_device": "NOT_RUN",
+    "deployment": "NOT_RUN",
+    "signed_or_public_product_release": "NOT_RUN"
+  },
+  "finalization_boundary": "This documentary increment changes no source/test/tool/app/project/package input. Its own independent review, protected merge and exact-main qualification remain required. Workspace cleanup follows verified Finalization; unrelated history/WIP/devices are preserved.",
+  "planning_horizon_source": {
+    "core_sha": "912e1efbd6e9475521779d04f98fd805f0b1f385",
+    "path": "docs/roadmap/v1/djconnect-platform-v1.json",
+    "items": [
+      {
+        "id": "PROJ::EVOLUTION::APPLE-PUBLIC",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "authority_verified": false
+      },
+      {
+        "id": "PROJ::EVOLUTION::WINDOWS-PUBLIC",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "authority_verified": false
+      },
+      {
+        "id": "PROJ::EVOLUTION::HACS-PUBLIC",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "authority_verified": false
+      },
+      {
+        "id": "HACS-3.3.0-001",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "authority_verified": false
+      },
+      {
+        "id": "PROJ::EVOLUTION::FW-OTA",
+        "status": "Planned",
+        "assignment_status": "NOT_ISSUED",
+        "authority_verified": false
+      }
+    ],
+    "admission": "No new selection/dispatch/public release authority; planning references only"
+  }
+}

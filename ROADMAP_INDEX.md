@@ -10,7 +10,17 @@ This index directs repository-local planning. It must not duplicate the
 canonical DJConnect platform roadmap, which remains in
 `djconnect-music-dj/djconnect/PROMPT_INDEX.md` and the Platform Foundation.
 
-## Current Increment
+## Current Increment — 20 November 2026
+
+Live-impressie Apple source PR396 is merged and originally source-qualified;
+this separate documentary Finalization reconciles its verified source evidence.
+The canonical Core design remains issue1533 and producer PR1661. Product
+acceptance stays partial: real-model/editorial, configured native interaction,
+audible speech and installed/device acceptance remain open. See the source
+receipt and current rolling records. No next capability, installation or
+deployment is selected. Older navigation below is historical.
+
+## Historical Current Increment (preserved)
 
 Moment-first native Apple Session and independent Speelt nu were delivered as
 source in [#95](https://github.com/pcvantol/djconnect-app/pull/95). Exact-main

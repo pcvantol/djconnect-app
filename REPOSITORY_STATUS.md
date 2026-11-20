@@ -1,3 +1,85 @@
+## 2026-11-20 — Live-impressie PR396 documentary Finalization
+
+### Repository Status
+
+PR [#396](https://github.com/djconnect-music-dj/djconnect-app/pull/396), reviewed
+`528ce0be27b61485aefd034c961e5d3f1d98239f`, merged as
+`8668da1fca60596d99e19c58d9d7c88390c8d21e`.
+Both source trees are `c103218c4ed6192feaa8529caa44be258e0474ec`.
+Original main CI/coverage44700356839 attempt1 and formal44701910005 succeeded.
+The internal-ha durable asset, exact coverage ZIP/main binding, pinned canonical
+validator and all12 formal checks were independently read back as PASS. See the
+[source receipt](docs/feedback/APPLE_LIVE_IMPRESSION_396_SOURCE_RECEIPT_20261120.json).
+This is the separate documentary Finalization candidate; its own normal review,
+protected merge and exact-main qualification remain required.
+
+### Management Summary
+
+Live-impressie now has the photo-first current/retained Apple presentation and
+strict original-photo identity, source, credit, lease, owner and withdrawal
+handling. Existing speech and original-subject Ask DJ remain the owners.
+Core producer PR1661 merged as `912e1efbd6e9475521779d04f98fd805f0b1f385`.
+Actual isolated HA HTTP/media3/history-restart/speech3 -> compiled Apple
+admission/Codable passed with explicitly synthetic research/photo/narration.
+Local1762 tests/61suites PASS,15gatedskips; unsignedMac/iOS/Watch dependencies
+and1579 localizations PASS. Synthetic native component renders are separate.
+Product acceptance stays PARTIAL: real-model/editorial, configured native
+interaction, audible speech and installed/device acceptance remain NOT_RUN.
+No installation, deployment, signing or public product release was performed.
+Older evidence and installed-baseline fields are retained, not refreshed here.
+
+### Roadmap Position
+
+Generation2 / DJConnect Product Development; active bounded increment:
+Live-impressie V1 source reconciliation, phase FINALIZATION. Canonical content
+and contract remain Core-owned; Apple owns its native consumer. This increment
+changes no source/test/tool/app/project/package input and starts no next feature.
+
+### Rolling Horizon (Execution Horizon — Next 5 Planned)
+
+Pinned source: [Core canonical roadmap JSON at912e1ef](https://github.com/djconnect-music-dj/djconnect/blob/912e1efbd6e9475521779d04f98fd805f0b1f385/docs/roadmap/v1/djconnect-platform-v1.json).
+These are the five existing Planned projections, each still NOT_ISSUED with
+unverified admission. They are planning references, not five newly authorized
+jobs. Current authorization covers only this source/Finalization transaction
+and its internal evidence publications. Completed PR396 is excluded.
+
+1. **PROJ::EVOLUTION::APPLE-PUBLIC — Public distribution: Apple** — Planned, NOT_ISSUED; direct recorded conditions: QUAL::APPLE::INTERNAL-CONSUMERS, AUTH::CORE::APPLE-PUBLIC. Execution Rationale: retain canonical planning order 1; no admission, dispatch or release authorization is inferred.
+2. **PROJ::EVOLUTION::WINDOWS-PUBLIC — Public distribution: Windows** — Planned, NOT_ISSUED; direct recorded conditions: QUAL::WINDOWS::INTERNAL-CONSUMERS, AUTH::CORE::WINDOWS-PUBLIC. Execution Rationale: retain canonical planning order 2; no admission, dispatch or release authorization is inferred.
+3. **PROJ::EVOLUTION::HACS-PUBLIC — Public HACS distribution** — Planned, NOT_ISSUED; direct recorded conditions: QUAL::CORE::HACS-FRESH-CANDIDATE, AUTH::CORE::HACS-PUBLIC. Execution Rationale: retain canonical planning order 3; no admission, dispatch or release authorization is inferred.
+4. **HACS-3.3.0-001 — HACS 3.3.0 release visibility** — Planned, NOT_ISSUED; direct recorded conditions: OBS::CORE::HACS-TAG-METADATA, OBS::CORE::HACS-CACHE-INDEX, OBS::CORE::HACS-UPDATE-PRESENTATION. Execution Rationale: retain canonical planning order 4; no admission, dispatch or release authorization is inferred.
+5. **PROJ::EVOLUTION::FW-OTA — Firmware OTA publication and staged rollback** — Planned, NOT_ISSUED; direct recorded conditions: QUAL::CORE::OTA-CONSUMER, AUTH::CORE::FW-OTA. Execution Rationale: retain canonical planning order 5; no admission, dispatch or release authorization is inferred.
+
+### Blocked Items
+
+No source-qualification failure remains for PR396. Product acceptance still
+requires a bounded real-model/editorial and configured native/device plan;
+those observations are NOT_RUN, not software PASS. Public-route projections
+retain their recorded consumer/manifest/authorization conditions. No missing
+provider, device or release authority is fabricated by this documentation.
+
+### Deferred Items
+
+Installation, deployment, physical/audible acceptance and public product
+publication are outside this transaction's explicit approval. Other lanes and
+historical work remain under their existing owners; no new selection is made.
+
+### Repository State
+
+Repository State: `MERGED_UNRECONCILED` for source396 until this dedicated
+Finalization's own protected merge and original exact-main qualification.
+That bounded completion reconciles source/governance only; product acceptance
+remains PARTIAL and cannot become FeatureDONE from CI or internal publication.
+
+### Workspace State
+
+Workspace State: `CLEAN_PRESERVED`; `WORKSPACE_READY` is not yet claimed.
+Only after verified Finalization may task-scoped cleanup retire the objectively
+merged source/Finalization branches and managed checkout. Preserve the older
+Users main (`bce719c`) migration history, unrelated branches and unique evidence;
+never force-reset that legacy main or treat it as current remote qualification.
+
+---
+
 ## 2026-10-26 — Full Help catalogue source preparation / Source211
 
 Source211 merged reviewed `10c0383d774f43f56d5fb85df303014da0a25028` as
