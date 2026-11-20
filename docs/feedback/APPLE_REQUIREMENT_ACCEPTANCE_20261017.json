@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "as_of": "30October2026: Source239 rich fragment DATA preflight independently originally qualified; one rich push product remains partial; separate documentary Final requires own qualification",
-  "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
+  "as_of": "20November2026: Source396 originally source-qualified; dedicated documentary Finalization; Live-impressie product acceptance remains PARTIAL",
+  "owning_lane": "https://github.com/djconnect-music-dj/djconnect-app/issues/87",
   "baseline": "24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.",
-  "source_head": "a3dcede2f6c79ef446f1037fe65b768df3ec3034; documentary Final no source input change",
+  "source_head": "8668da1fca60596d99e19c58d9d7c88390c8d21e; documentary Finalization no compiled input change",
   "status_semantics": {
     "CLOSED_BOUNDED": "Functionele implementatie/expliciet benoemde bewijslevering afgerond binnen de genoemde bewijsgrens; geen sluiting van parentproduct, bronPR of nativejointacceptatie.",
     "SUPERSEDED": "Vervangen door latere directe ownerbeslissing; niet opnieuw bouwen.",
@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 29,
     "OPEN": 4,
     "PARKED": 1,
-    "PARTIAL": 46,
+    "PARTIAL": 47,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -773,6 +773,14 @@
       "source": "Direct Peter implementation request, 26October2026; PR211",
       "evidence": "Source211 reviewed10c0383/protecteda3dcede2f6c79ef446f1037fe65b768df3ec3034 originally qualified: CI40299814688/formal40301326697; all12 provider/durable joins; canonical native1290/29+86XCT/five skips/zero failures. Full glass catalogue, More, complete-click versus editable-placeholder, native dismissal/focus and three-or-zero withdrawal prepared. Native2iPhone+2iPadPASS; real composer replaces artist by ABBA, no actual Send. APPLE_HELP_CATALOGUE_211_SOURCE_RECEIPT_20261026.json 27October candidate: exact qualified Core1366/Final1367 R5 observation and revision2 EN/NL catalogue client adoption, original clock/context/track guards and manual composer Help preserved. See APPLE_HELP_R5_CLIENT_ADOPTION_20261027.md; source review and separate Final remain pending. Owning-context successor additionally qualifies busy ABA/metadata/capability retirement with1,337software tests and3iPhone+3iPad components; frozen367 remains predecessorHOLD, not relabelled. Exact new whole-source review and delivery still pending. 29October2026 reconciliation: the earlier candidate/review-pending statements above are historical. Source213 reviewed3348c0c44c5224667e28a87a657c63d884426271 -> protected52c31123a3cf4c54f6c23a8889aadbacf1c1f8f6 and separate Final219 reviewed3334a4ab76d3be86fe2cb1fe0eb310ceae8bafd9 -> protectedf36e8a5f45fc66735b410672433776fa78fc765a are merged and originally qualified; all12 required checks PASS. See APPLE_HELP213_SOURCE_FINALIZATION_20261027.json; independent original Final219 closure decision BOUNDED_ORIGINAL_FINAL219_QUALIFIED_JOIN_VERIFIED, formal40440036103. This closes only bounded EN/NL source/documentary delivery, not paired command execution, Mac GUI, installation or push.",
       "remaining": "Bounded EN/NL Source213 and separate Final219 delivery are qualified; do not repeat their review/merge. Still open: paired R5 AppModel and actual Ask DJ execution, requested real app screenshots/native and installed acceptance. Mac GUI is explicitly deferred by Peter. DE/FR/ES42 catalogue leaves remain pending; ordinary Ask DJ remains unrestricted."
+    },
+    {
+      "id": "live-impression-v1-source-20261120",
+      "status": "PARTIAL",
+      "evidence": "Source396 reviewed528ce0be27b61485aefd034c961e5d3f1d98239f -> protected8668da1fca60596d99e19c58d9d7c88390c8d21e; identicaltreec103218c4ed6192feaa8529caa44be258e0474ec; original mainCI/coverage44700356839 and formal44701910005 qualified with canonical/digest/provider binding and12PASS. Local1762/61PASS15gatedskips; unsignedMac/iOS/Watch-deps and1579localizationsPASS. ActualisolatedHAHTTP/media3/historyrestart/speech3 -> compiledApple decoder/admission/CodablePASS with declared syntheticresearch/photo/narration, originalidentities and wrongtargetdenial. APPLE_LIVE_IMPRESSION_396_SOURCE_RECEIPT_20261120.json. Separate documentaryFinalization requires its own protectedmerge/exact-main readback.",
+      "remaining": "Live-model/editorial, full configured native interaction, audible speech and installed/device acceptance remain OPEN/NOT_RUN. No install/deploy/public product release or passive/Watch image scope. Finalization/cleanup are administrative and never imply product acceptance.",
+      "requirement": "Live-impressie photo-first card/detail/history with original photo, credit, replay and original-subject Ask DJ",
+      "source": "https://github.com/djconnect-music-dj/djconnect-app/issues/87#issuecomment-6718384458"
     }
   ],
   "execution_feedback_40258": {
@@ -900,5 +908,13 @@
     "source_original_qualified": true,
     "parent_push_acceptance": "OPEN",
     "one_rich_surface_preserved": true
+  },
+  "live_impression_source_qualification_20261120": {
+    "receipt": "APPLE_LIVE_IMPRESSION_396_SOURCE_RECEIPT_20261120.json",
+    "source_main": "8668da1fca60596d99e19c58d9d7c88390c8d21e",
+    "ci": 44700356839,
+    "formal": 44701910005,
+    "product_acceptance": "PARTIAL",
+    "installed_baseline_refreshed": false
   }
 }

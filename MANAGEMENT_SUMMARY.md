@@ -1,3 +1,90 @@
+## 2026-11-20 — Live-impressie PR396 documentary Finalization
+
+### Repository Status
+
+PR [#396](https://github.com/djconnect-music-dj/djconnect-app/pull/396), reviewed
+`528ce0be27b61485aefd034c961e5d3f1d98239f`, merged as
+`8668da1fca60596d99e19c58d9d7c88390c8d21e`.
+Both source trees are `c103218c4ed6192feaa8529caa44be258e0474ec`.
+Original main CI/coverage44700356839 attempt1 and formal44701910005 succeeded.
+The internal-ha durable asset, exact coverage ZIP/main binding, pinned canonical
+validator and all12 formal checks were independently read back as PASS. See the
+[source receipt](docs/feedback/APPLE_LIVE_IMPRESSION_396_SOURCE_RECEIPT_20261120.json).
+This is the separate documentary Finalization candidate; its own normal review,
+protected merge and exact-main qualification remain required.
+
+### Management Summary
+
+Live-impressie now has the photo-first current/retained Apple presentation and
+strict original-photo identity, source, credit, lease, owner and withdrawal
+handling. Existing speech and original-subject Ask DJ remain the owners.
+Core producer PR1661 merged as `912e1efbd6e9475521779d04f98fd805f0b1f385`.
+Actual isolated HA HTTP/media3/history-restart/speech3 -> compiled Apple
+admission/Codable passed with explicitly synthetic research/photo/narration.
+Local1762 tests/61suites PASS,15gatedskips; unsignedMac/iOS/Watch dependencies
+and1579 localizations PASS. Synthetic native component renders are separate.
+Product acceptance stays PARTIAL: real-model/editorial, configured native
+interaction, audible speech and installed/device acceptance remain NOT_RUN.
+No installation, deployment, signing or public product release was performed.
+Older evidence and installed-baseline fields are retained, not refreshed here.
+
+### Roadmap Position
+
+Generation2 / DJConnect Product Development; active bounded increment:
+Live-impressie V1 source reconciliation, phase FINALIZATION. Canonical content
+and contract remain Core-owned; Apple owns its native consumer. This increment
+changes no source/test/tool/app/project/package input and starts no next feature.
+
+### Rolling Horizon (Execution Horizon — Next 5 Planned)
+
+Pinned source: [Core canonical roadmap JSON at912e1ef](https://github.com/djconnect-music-dj/djconnect/blob/912e1efbd6e9475521779d04f98fd805f0b1f385/docs/roadmap/v1/djconnect-platform-v1.json),
+current `planning_maintenance.nodes` settings-consolidation delta. The frozen
+global execution-horizon snapshot is historical and does not recommend retired
+Windows work. These five existing Planned consumer projections remain
+NOT_ISSUED; no new jobs, public release authority or admission is created.
+Current authorization covers only source/Finalization and internal evidence
+publications. Completed PR396 is excluded.
+
+1. **SETTINGS::APPLE::EDITOR — One Jouw DJ editor and shared Session quick controls** — Planned, NOT_ISSUED; direct recorded condition: SETTINGS::CORE::PRODUCER. Execution Rationale: retain current settings-consolidation delta order 1; no new writer, dispatch or acceptance is inferred.
+2. **SETTINGS::PI::ADOPTION — Pi allowed shared Session settings and legacy disposition** — Planned, NOT_ISSUED; direct recorded condition: SETTINGS::CORE::PRODUCER. Execution Rationale: retain current settings-consolidation delta order 2; no new writer, dispatch or acceptance is inferred.
+3. **SETTINGS::ESP32::ADOPTION — ESP32 Assist/voice/settings compatibility and legacy disposition** — Planned, NOT_ISSUED; direct recorded condition: SETTINGS::CORE::PRODUCER. Execution Rationale: retain current settings-consolidation delta order 3; no new writer, dispatch or acceptance is inferred.
+4. **SETTINGS::VIBECAST::COMPAT — Shared renderer allowed Session fields without Profile preferences** — Planned, NOT_ISSUED; direct recorded condition: SETTINGS::CORE::PRODUCER. Execution Rationale: retain current settings-consolidation delta order 4; no new writer, dispatch or acceptance is inferred.
+5. **SETTINGS::WEBSITE::COPY — Six-parameter scope/help and obsolete settings copy audit** — Planned, NOT_ISSUED; direct recorded condition: SETTINGS::CORE::PRODUCER. Execution Rationale: retain current settings-consolidation delta order 5; no new writer, dispatch or acceptance is inferred.
+
+### Blocked Items
+
+No source-qualification failure remains for PR396. Product acceptance still
+requires a bounded real-model/editorial and configured native/device plan;
+those observations are NOT_RUN, not software PASS. Public-route projections
+retain their recorded consumer/manifest/authorization conditions. No missing
+provider, device or release authority is fabricated by this documentation.
+
+### Deferred Items
+
+Installation, deployment, physical/audible acceptance and public product
+publication are outside this transaction's explicit approval. Other lanes and
+historical work remain under their existing owners; no new selection is made.
+
+### Repository State
+
+Repository State: `MERGED_RECONCILED` is this Finalization's target, effective
+**only after its own protected merge and successful original exact-main
+publication/evidence readback**. Until those conditions hold, predecessor
+Source396 remains `MERGED_UNRECONCILED`. This transition reconciles bounded
+source/governance only; product acceptance stays PARTIAL. `WORKSPACE_READY`
+requires the separate verified task-scoped cleanup and is not claimed here.
+
+### Workspace State
+
+Workspace State: `CLEAN_PRESERVED`; `WORKSPACE_READY` is not yet claimed.
+Only after verified Finalization may task-scoped cleanup retire the objectively
+merged source/Finalization branches and managed checkout. The older Users main
+(`bce719c`) is `PRESERVED_HISTORICAL`, outside canonical task delivery; no reset
+or rename. Preserve unrelated branches and unique evidence. This historical
+checkout is not current remote qualification.
+
+---
+
 ## 2026-10-26 — Full Help catalogue source preparation / Source211
 
 Source211 merged reviewed `10c0383d774f43f56d5fb85df303014da0a25028` as
