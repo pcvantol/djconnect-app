@@ -4,13 +4,17 @@ Status: repository-local planning navigation
 
 Repository: `djconnect-music-dj/djconnect-app`
 
+## Current Increment — Source398 / ordinary40530 Finalization
+
+Source398 is qualified and ordinary4.1.0(40530) installed/read back on all four requested devices. Three genuine HA4.1 client heartbeats are observed; iPhone launch is Locked at12:16:02UTC, with follow-up OPEN. Full Live-impressie product/media/audible acceptance remains PARTIAL. Separate governance Finalization and exact-main qualification plus actual scoped cleanup remain mandatory. No next capability is admitted. See [current source/install receipt](docs/feedback/APPLE_HA_4_1_398_INSTALL_40530_RECEIPT_20261120.json) and the current four rolling records; earlier navigation is historical.
+
 ## Purpose
 
 This index directs repository-local planning. It must not duplicate the
 canonical DJConnect platform roadmap, which remains in
 `djconnect-music-dj/djconnect/PROMPT_INDEX.md` and the Platform Foundation.
 
-## Current Increment — 20 November 2026
+## Historical Increment — Live-impressie Source396 Finalization
 
 Live-impressie Apple source PR396 is merged and originally source-qualified;
 this separate documentary Finalization reconciles its verified source evidence.
