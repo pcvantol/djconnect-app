@@ -1188,9 +1188,36 @@ private func makePairedMusicDNAModel(
     #expect(watchAboutSource.contains("DJConnectApplicationVersion.releaseVersion"))
 }
 
-@Test(.isolatedClientResources) func platformFourReleaseCandidateUsesNativePackageAndPublicProtocolMapping() {
-    #expect(DJConnectApplicationVersion.publicReleaseIdentity == "4.0.0-rc.1")
-    #expect(DJConnectProtocolVersion.current == "4.0.0-rc.1")
+@Test(.isolatedClientResources) func platformFourOneReleaseUsesMatchingPublicAndProtocolMetadata() {
+    #expect(DJConnectApplicationVersion.publicReleaseIdentity == "4.1.0")
+    #expect(DJConnectProtocolVersion.current == "4.1.0")
+}
+
+@MainActor
+@Test(.isolatedClientResources) func currentAppIdentitySendsMatchingProtocolInStatusAndHeaders() throws {
+    let suite = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let model = DJConnectAppModel(defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "fixture-only"), startBackgroundTasks: false)
+    let identity = model.identity
+    #expect(identity.firmware == "4.1.0")
+    #expect(identity.protocolVersion == "4.1.0")
+    #expect(identity.appVersion == DJConnectApplicationVersion.releaseVersion)
+    let client = DJConnectClient(baseURL: try #require(URL(string: "http://version-fixture.local:8123")),
+        identity: identity, tokenStore: DJConnectInMemoryTokenStore(token: "fixture-only"))
+    let status = try client.statusRequest(DJConnectStatusPayload(identity: identity))
+    let statusBody = try #require(status.httpBody)
+    let body = try #require(JSONSerialization.jsonObject(with: statusBody) as? [String: Any])
+    #expect(body["firmware"] as? String == "4.1.0")
+    #expect(body["protocol_version"] as? String == "4.1.0")
+    #expect(body["app_version"] as? String == identity.appVersion)
+    let request = try client.vibeCastRequest()
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Protocol-Version") == "4.1.0")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-App-Version") == identity.appVersion)
+    let url = try #require(request.url)
+    let query = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+    #expect(query.first { $0.name == "protocol_version" }?.value == "4.1.0")
 }
 
 @Test(.isolatedClientResources) func homeAssistantClientRoutesUseCanonicalV1Prefix() throws {
@@ -9175,13 +9202,13 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
             #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer device-secret")
             return (
                 try httpResponse(for: request, statusCode: 200),
-                Data(#"{"success":true,"ha_major_minor":"4.0","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+                Data(#"{"success":true,"ha_major_minor":"4.1","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
             )
         }
         if request.url?.path == "/api/djconnect/v1/command" {
             return (
                 try httpResponse(for: request, statusCode: 200),
-                Data(#"{"success":true,"ha_major_minor":"4.0","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+                Data(#"{"success":true,"ha_major_minor":"4.1","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
             )
         }
         if request.url?.path == "/api/djconnect/v1/music_dna/profile" {
@@ -9312,7 +9339,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
             }
             return (
                 try httpResponse(for: request, statusCode: 200),
-                Data(#"{"success":true,"ha_major_minor":"4.0","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+                Data(#"{"success":true,"ha_major_minor":"4.1","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
             )
         }
         if path == "/api/djconnect/v1/music_dna/profile" {
@@ -9324,7 +9351,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
         if path != "/api/djconnect/v1/pair" {
             return (
                 try httpResponse(for: request, statusCode: 200),
-                Data(#"{"success":true,"ha_major_minor":"4.0","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+                Data(#"{"success":true,"ha_major_minor":"4.1","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
             )
         }
         return (
@@ -10913,7 +10940,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test(.isolatedClientResources) func haVersionOutsideAppMinorRangeDisablesRuntimeControls() throws {
+@Test(.isolatedClientResources, arguments: ["3.0.99", "4.0.99", "4.2.0"]) func haVersionOutsideAppMinorRangeDisablesRuntimeControls(version: String) throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10927,7 +10954,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
         success: true,
         message: nil,
         backendAvailable: true,
-        haVersion: "3.0.99",
+        haVersion: version,
         playback: DJConnectPlayback(trackName: "New Track"),
         devices: [DJConnectOutputDevice(id: "speaker", name: "Speaker", active: true)],
         queue: [DJConnectQueueItem(title: "Queued")],
@@ -10935,9 +10962,9 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     ))
 
     let updateMessage = try #require(model.updateRequiredMessage)
-    #expect(updateMessage.contains("4.0.x"))
-    #expect(updateMessage.contains(">=4.0.0"))
-    #expect(updateMessage.contains("<4.1.0"))
+    #expect(updateMessage.contains("4.1.x"))
+    #expect(updateMessage.contains(">=4.1.0"))
+    #expect(updateMessage.contains("<4.2.0"))
     #expect(model.canUsePlaybackFeatures == false)
     #expect(model.backendAvailable == false)
     #expect(model.playback == nil)
@@ -10959,7 +10986,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     model.apply(commandResponse: DJConnectCommandResponse(
         success: true,
         backendAvailable: true,
-        haVersion: "4.0.99",
+        haVersion: "4.1.99",
         playback: DJConnectPlayback(trackName: "Compatible Track")
     ))
     model.apply(musicBackendSummary: DJConnectMusicBackendSummary(remoteSupported: true))
