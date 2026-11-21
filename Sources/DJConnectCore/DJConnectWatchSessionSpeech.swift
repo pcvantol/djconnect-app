@@ -91,8 +91,27 @@ public struct DJConnectWatchSpeechReplay: Codable, Sendable {
     @Published public private(set) var momentID: String?
     private var task: Task<Void, Never>?
     private let stopOutput: () -> Void
-    private lazy var coordinator = DJConnectAudioPlaybackCoordinator { [weak self] in self?.clear() }
-    public init(stopOutput: @escaping () -> Void) { self.stopOutput = stopOutput }
+    private let now: () -> Date
+    private let waitForExpiry: (@MainActor @Sendable (Date, TimeInterval) async throws -> Void)?
+    private lazy var coordinator = makeCoordinator()
+    public init(stopOutput: @escaping () -> Void) {
+        self.stopOutput = stopOutput
+        now = Date.init
+        waitForExpiry = nil
+    }
+    init(now: @escaping () -> Date,
+         waitForExpiry: @escaping @MainActor @Sendable (Date, TimeInterval) async throws -> Void,
+         stopOutput: @escaping () -> Void) {
+        self.stopOutput = stopOutput
+        self.now = now
+        self.waitForExpiry = waitForExpiry
+    }
+    private func makeCoordinator() -> DJConnectAudioPlaybackCoordinator {
+        if let waitForExpiry {
+            return DJConnectAudioPlaybackCoordinator(now: now, waitForExpiry: waitForExpiry) { [weak self] in self?.clear() }
+        }
+        return DJConnectAudioPlaybackCoordinator(now: now) { [weak self] in self?.clear() }
+    }
     private func clear() {
         task?.cancel(); task = nil
         state = .idle; momentID = nil
@@ -105,13 +124,14 @@ public struct DJConnectWatchSpeechReplay: Codable, Sendable {
                      isCurrent: @escaping @MainActor () -> Bool,
                      start: @escaping @MainActor (DJConnectSessionSpeech, @escaping () -> Void) throws -> Bool) {
         guard preferences.enabled, preferences.isValid, request.settings.allowsSpeech(.local, manualMomentType: request.moment.isMusicAnnouncementV1 ? request.moment.type : nil) else { return }
+        let now = now // Capture the clock function, not the player, in preparation.
         play(id: request.moment.id, prepare: {
             let response = try await prepare()
             let speech = response.session_speech
-            guard response.success, request.source.matches(speech),
+            guard response.success, request.source.matches(speech, at: now()),
                   DJConnectNativeSpeechAdmission.admits(speech, reference: request.reference,
-                    text: request.moment.content, settings: request.settings),
-                  let deadline = speech.playbackDeadline() else { throw DJConnectError.invalidResponse }
+                    text: request.moment.content, settings: request.settings, at: now()),
+                  let deadline = speech.playbackDeadline(at: now()) else { throw DJConnectError.invalidResponse }
             return (deadline, { finished in try start(speech, finished) })
         }, isCurrent: isCurrent)
     }
@@ -120,7 +140,7 @@ public struct DJConnectWatchSpeechReplay: Codable, Sendable {
                      -> (Date, @MainActor (@escaping () -> Void) throws -> Bool),
                      isCurrent: @escaping @MainActor () -> Bool) {
         stop()
-        guard isCurrent(), let ticket = coordinator.begin(deadline: Date().addingTimeInterval(300)) else { return }
+        guard isCurrent(), let ticket = coordinator.begin(deadline: now().addingTimeInterval(300)) else { return }
         state = .preparing; momentID = id
         task = Task { @MainActor [weak self] in
             guard let self else { return }

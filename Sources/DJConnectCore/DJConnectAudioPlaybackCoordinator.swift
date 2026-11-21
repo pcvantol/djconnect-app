@@ -10,10 +10,23 @@ public final class DJConnectAudioPlaybackCoordinator {
     private var deadline: Date?
     private var expiryTask: Task<Void, Never>?
     private let now: () -> Date
+    private let waitForExpiry: @MainActor @Sendable (Date, TimeInterval) async throws -> Void
     private let stopOutput: () -> Void
 
     public init(now: @escaping () -> Date = Date.init, stopOutput: @escaping () -> Void) {
         self.now = now
+        self.waitForExpiry = { _, remaining in try await Task.sleep(for: .seconds(remaining)) }
+        self.stopOutput = stopOutput
+    }
+
+    // Internal deterministic-clock seam. Production keeps the original relative
+    // sleep and every original now() read. Tests also receive the absolute end,
+    // so a sleeper registered after scheduling delay cannot renew the ticket.
+    init(now: @escaping () -> Date,
+         waitForExpiry: @escaping @MainActor @Sendable (Date, TimeInterval) async throws -> Void,
+         stopOutput: @escaping () -> Void) {
+        self.now = now
+        self.waitForExpiry = waitForExpiry
         self.stopOutput = stopOutput
     }
 
@@ -28,8 +41,9 @@ public final class DJConnectAudioPlaybackCoordinator {
         if let deadline {
             let remaining = deadline.timeIntervalSince(now())
             guard remaining > 0, remaining <= 300 else { stop(); return nil }
+            let waitForExpiry = waitForExpiry
             expiryTask = Task { @MainActor [weak self] in
-                do { try await Task.sleep(for: .seconds(remaining)) } catch { return }
+                do { try await waitForExpiry(deadline, remaining) } catch { return }
                 self?.finish(ticket)
             }
         }
@@ -52,8 +66,9 @@ public final class DJConnectAudioPlaybackCoordinator {
         self.deadline = value
         expiryTask?.cancel()
         let remaining = value.timeIntervalSince(now())
+        let waitForExpiry = waitForExpiry
         expiryTask = Task { @MainActor [weak self] in
-            do { try await Task.sleep(for: .seconds(remaining)) } catch { return }
+            do { try await waitForExpiry(value, remaining) } catch { return }
             self?.finish(ticket)
         }
         return true

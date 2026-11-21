@@ -27,20 +27,20 @@ func nativeWatchSettings(_ speech: DJConnectSessionSpeech, output: DJAnnouncemen
     raw["snapshot"] = snapshot
     return try JSONDecoder().decode(DJConnectProfileDJSettingsResponse.self, from: JSONSerialization.data(withJSONObject: raw))
 }
-func nativeWatchSpeechFixture(expiresIn: TimeInterval = 60) throws -> (DJConnectSharedSpeechResult, DJConnectWatchMomentSpeechRequest, DJConnectWatchSessionSnapshot) {
+func nativeWatchSpeechFixture(expiresIn: TimeInterval = 60, at now: Date? = nil) throws -> (DJConnectSharedSpeechResult, DJConnectWatchMomentSpeechRequest, DJConnectWatchSessionSnapshot) {
     let cases = try nativeWatchFixtureCases()
     var response = try #require((cases["live_and_retained"] as? [[String: Any]])?.first?["response"] as? [String: Any])
     var raw = try #require(response["session_speech"] as? [String: Any])
     let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     // Modeled runtime race context only; immutable actual producer fixtures above
     // are separately tested at their original dates, never presented as live grants.
-    let expiry = formatter.string(from: Date().addingTimeInterval(expiresIn))
+    let expiry = formatter.string(from: (now ?? Date()).addingTimeInterval(expiresIn))
     raw["expires_at"] = expiry; raw["source_expires_at"] = expiry; response["session_speech"] = raw
     let result = try JSONDecoder().decode(DJConnectSharedSpeechResult.self, from: JSONSerialization.data(withJSONObject: response))
     let speech = result.session_speech, settings = try nativeWatchSettings(speech)
     let sessionID = try #require(speech.sessionID)
     let momentObject: [String: Any] = ["moment_id": speech.sourceID!, "session_id": sessionID,
-        "created_at": formatter.string(from: Date()), "type": "artist", "title": "DJ", "summary": "",
+        "created_at": formatter.string(from: now ?? Date()), "type": "artist", "title": "DJ", "summary": "",
         "content": speech.segments.map(\.text).joined(), "presentation_intent": ["visibility": "owner_only"],
         "source_attribution": speech.attribution!.first!, "source_references": [], "actions": []]
     let moment = try JSONDecoder().decode(DJConnectMoment.self, from: JSONSerialization.data(withJSONObject: momentObject))
@@ -59,7 +59,7 @@ func nativeWatchSpeechFixture(expiresIn: TimeInterval = 60) throws -> (DJConnect
         selectedPresence: settings.snapshot.effective.presence, selectedPersona: settings.snapshot.effective.persona,
         musicBackend: "fixture", runtimeState: "active", startedAt: moment.createdAt,
         planner: .init(planningHorizonMinutes: 5), broadcast: broadcast)
-    let snapshot = DJConnectWatchSessionSnapshot(settings: settings, session: runtime)
+    let snapshot = DJConnectWatchSessionSnapshot(settings: settings, session: runtime, at: now ?? Date())
     let source = try #require(snapshot.speechSources.first)
     return (result, .init(settings: settings, moment: moment, source: source), snapshot)
 }
@@ -182,17 +182,65 @@ func nativeWatchSpeechFixture(expiresIn: TimeInterval = 60) throws -> (DJConnect
     #expect(player.state == .idle && player.momentID == nil)
 }
 
+/// Explicit modeled time for the short source lifetime. Absolute sleeper ends
+/// are retained even if its Task is first scheduled after the clock advances.
+@MainActor private final class WatchSpeechTestClock {
+    private struct Waiter {
+        let deadline: Date
+        let continuation: CheckedContinuation<Void, any Error>
+    }
+    private(set) var now: Date
+    private var waiters: [UUID: Waiter] = [:]
+    init(now: Date) { self.now = now }
+
+    func advance(to instant: Date) {
+        now = instant
+        let due = waiters.filter { $0.value.deadline <= now }
+        for (id, waiter) in due {
+            waiters.removeValue(forKey: id)
+            waiter.continuation.resume(returning: ())
+        }
+    }
+    func wait(until deadline: Date) async throws {
+        try Task.checkCancellation()
+        if deadline <= now { return }
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+                if Task.isCancelled { continuation.resume(throwing: CancellationError()) }
+                else if deadline <= now { continuation.resume(returning: ()) }
+                else { waiters[id] = Waiter(deadline: deadline, continuation: continuation) }
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in self?.cancel(id) }
+        }
+    }
+    private func cancel(_ id: UUID) {
+        waiters.removeValue(forKey: id)?.continuation.resume(throwing: CancellationError())
+    }
+    func cancelAll() {
+        let pending = waiters.values
+        waiters.removeAll()
+        for waiter in pending { waiter.continuation.resume(throwing: CancellationError()) }
+    }
+}
+
 @Test(.isolatedClientResources) @MainActor func watchNativeSpeechExpiresWithoutRenewalAndRejectsRevisedPrepare() async throws {
-    let (result, request, snapshot) = try nativeWatchSpeechFixture(expiresIn: 0.4)
+    let clock = WatchSpeechTestClock(now: Date())
+    let (result, request, snapshot) = try nativeWatchSpeechFixture(expiresIn: 0.4, at: clock.now)
     var preferences = DJConnectDeviceSpeechPreferences(); preferences.enabled = true
     var starts = 0
-    let player = DJConnectWatchSessionSpeech(stopOutput: {})
-    player.play(request, preferences: preferences, prepare: { result }, isCurrent: { request.matches(snapshot) },
+    let player = DJConnectWatchSessionSpeech(now: { clock.now },
+        waitForExpiry: { deadline, _ in try await clock.wait(until: deadline) }, stopOutput: {})
+    defer { player.stop(); clock.cancelAll() }
+    player.play(request, preferences: preferences, prepare: { result }, isCurrent: { request.matches(snapshot, at: clock.now) },
         start: { _, _ in starts += 1; return true })
     #expect(await watchEventually { player.state == .playing })
+    let originalExpiry = try #require(result.session_speech.expiresAt.flatMap(DJConnectHistoryEntry.date))
+    clock.advance(to: originalExpiry)
     #expect(await watchEventually { player.state == .idle })
-    #expect(starts == 1 && !request.matches(snapshot))
-    let (fresh, intent, _) = try nativeWatchSpeechFixture()
+    #expect(starts == 1 && !request.matches(snapshot, at: clock.now))
+    let (fresh, intent, _) = try nativeWatchSpeechFixture(at: clock.now)
     var raw = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(fresh)) as? [String: Any])
     var speech = try #require(raw["session_speech"] as? [String: Any])
     speech["presentation_revision"] = "replacement-revision"; raw["session_speech"] = speech
