@@ -78,15 +78,35 @@ private struct MomentsNativeInputFixture: View {
                 }
                 try await Task.sleep(for: .milliseconds(40))
             }
+        }
+        func awaitDelivery(_ delivered: () -> Bool) async throws {
+            let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+            while !delivered(), ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(10))
+            }
+        }
+        // A native failure dependency may deliver after an async task's fixed
+        // grace under MainActor load. Wait for the action, then independently
+        // observe a whole click interval so cascaded/duplicate actions fail.
+        func observeNoCascade() async throws {
             try await Task.sleep(for: .seconds(NSEvent.doubleClickInterval + 0.1))
         }
         try await click(try #require(state.regions["photo"]), count: 1)
+        try await awaitDelivery { state.photos == 1 }
+        try await observeNoCascade()
         try await click(try #require(state.regions["source"]), count: 1)
+        try await awaitDelivery { state.sources == 1 }
+        try await observeNoCascade()
         #expect(state.photos == 1 && state.sources == 1)
         #expect(state.opens == 0 && state.jokes.isEmpty)
         let avatar = try #require(state.regions["avatar"])
         #expect(avatar.width >= 44 && avatar.height >= 44)
         try await click(avatar, count: count)
+        try await awaitDelivery {
+            state.opens == (count == 1 ? 1 : 0)
+                && state.jokes == (count == 2 ? [.playful] : count == 3 ? [.easterEgg] : [])
+        }
+        try await observeNoCascade()
         #expect(state.opens == (count == 1 ? 1 : 0))
         #expect(state.jokes == (count == 2 ? [.playful] : count == 3 ? [.easterEgg] : []))
         #expect(state.mounts == 1)
