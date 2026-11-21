@@ -350,14 +350,15 @@ private func currentActivityCache(_ snapshot: DJConnectSessionSurfaceSnapshot, a
           rich.isCurrent(at: now) else { return nil }
     return UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
         .flatMap { DJConnectPassiveSurfaceCache.load(surface: .liveActivity, from: $0, at: now) }
-        .flatMap { cache in
-            cache.projection.binding_id == rich.bindingID && cache.projection.generation == rich.generation &&
-            cache.projection.delivery_sequence == rich.sequence &&
-            (cache.projection.contribution == rich.contribution ||
-                (rich.foregroundProjectionVersion == 3 && cache.projection.schema_version == 3 &&
-                 rich.nowPlaying != nil && rich.contribution == nil)) &&
-            cache.projection.now_playing == rich.nowPlaying ? cache : nil
-        }
+        .flatMap { cache in activityCacheMatches(cache, observation: rich) ? cache : nil }
+}
+private func activityCacheMatches(_ cache: DJConnectPassiveSurfaceCache, observation rich: DJConnectPassiveActivityContent) -> Bool {
+    cache.projection.binding_id == rich.bindingID && cache.projection.generation == rich.generation &&
+        cache.projection.delivery_sequence == rich.sequence &&
+        (cache.projection.contribution == rich.contribution ||
+            (rich.foregroundProjectionVersion == 3 && cache.projection.schema_version == 3 &&
+             rich.nowPlaying != nil && rich.contribution == nil)) &&
+        cache.projection.now_playing == rich.nowPlaying
 }
 private struct ActivityArtworkIdentity: View {
     let snapshot: DJConnectSessionSurfaceSnapshot
@@ -440,6 +441,55 @@ private struct SessionActivityPresentation: View {
 
 // Rich content comes only from the separate passive grant, never the foreground
 // owner Moment cache. Contribution and current music retain independent slots.
+/// Geometry resolves each independent presentation flag once. In particular,
+/// compact spacing still applies when a large/activity presentation also exists.
+private struct PassiveContentGeometry {
+    let spacing: CGFloat
+    let headerSide: CGFloat
+    let playbackSpacing: CGFloat
+    let coverSide: CGFloat
+
+    init(compact: Bool, large: Bool, activity: Bool) {
+        spacing = activity || compact ? 6 : 8
+        headerSide = activity || compact ? 24 : 36
+        playbackSpacing = compact ? 6 : 12
+        if activity { coverSide = 64 }
+        else if large { coverSide = 104 }
+        else if compact { coverSide = 32 }
+        else { coverSide = 56 }
+    }
+}
+
+/// Shared track/album typography preserves the original flag precedence without
+/// repeating it for each Text modifier or deriving content from local facts.
+private struct PassivePlaybackTypography {
+    let titleFont: Font
+    let titleLines: Int
+    let artistFont: Font
+    let artistLines: Int
+    let albumLines: Int
+
+    init(compact: Bool, large: Bool, activity: Bool) {
+        if activity {
+            titleFont = .headline
+            titleLines = 1
+            artistFont = .subheadline
+            albumLines = 1
+        } else if large {
+            titleFont = .title3
+            titleLines = 3
+            artistFont = .callout
+            albumLines = 2
+        } else {
+            titleFont = .subheadline
+            titleLines = compact ? 1 : 2
+            artistFont = .caption
+            albumLines = 2
+        }
+        artistLines = large ? 2 : 1
+    }
+}
+
 private struct PassiveSessionContentView: View {
     let contribution: DJConnectPassiveSession.Contribution?
     let playback: DJConnectPassiveSession.NowPlaying?
@@ -588,68 +638,88 @@ private struct PassiveSessionContentView: View {
     }
 
     private func content(artworkSide: CGFloat?, suppressContribution: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: activity || compact ? 6 : 8) {
-            if showsHeader {
-            HStack(spacing: 8) {
-                SessionSurfaceAvatar(theme: theme, side: activity || compact ? 24 : 36)
-                Text(text("ui.session.title"))
-                    .font((large ? Font.subheadline : .caption).weight(.semibold)).foregroundStyle(.white.opacity(0.85))
-            }
-            }
+        let geometry = PassiveContentGeometry(compact: compact, large: large, activity: activity)
+        return VStack(alignment: .leading, spacing: geometry.spacing) {
+            if showsHeader { sessionHeader(geometry: geometry) }
             if let playback {
-                if let artworkSide {
-                    spaciousPlayback(playback, artworkSide: artworkSide)
-                } else {
-                HStack(alignment: .top, spacing: compact ? 6 : 12) {
-                    if cache?.projection.currentArtwork(slot: "now_playing", at: date) != nil {
-                        cover(slot: "now_playing")
-                            .frame(width: activity ? 64 : large ? 104 : compact ? 32 : 56,
-                                   height: activity ? 64 : large ? 104 : compact ? 32 : 56)
-                    }
-                    VStack(alignment: .leading, spacing: 3) {
-                        if !compact && activity && playbackState != "playing" {
-                            Text(text(!activity || playbackState == "playing" ? "ui.now.playing" : playbackState == "paused" ? "ui.paused" : "ui.playback")).font(.caption2).foregroundStyle(.white.opacity(0.7))
-                        }
-                        if watchActivity {
-                            ViewThatFits(in: .vertical) {
-                                watchTrackText(playback, titleFont: .subheadline, artistFont: .subheadline, lines: 2)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                watchTrackText(playback, titleFont: .caption, artistFont: .caption2, lines: 2)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                watchTrackText(playback, titleFont: .caption, artistFont: .caption2, lines: 1)
-                                    .minimumScaleFactor(0.75)
-                            }
-                        } else {
-                            Text(playback.track).font((activity ? Font.headline : large ? .title3 : .subheadline).weight(.semibold)).lineLimit(activity ? 1 : large ? 3 : compact ? 1 : 2)
-                            Text(playback.artist).font(activity ? .subheadline : large ? .callout : .caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
-                        }
-                        if (large || activity) && !playback.album.isEmpty { Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(activity ? 1 : 2) }
-                        if activity { playbackProgress(playback) }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                }
+                playbackContent(playback, artworkSide: artworkSide, geometry: geometry)
                 credit(playback.attribution)
             }
             if let contribution, !suppressContribution && (!activity || playback == nil || hasResearchCredit) {
-                if playback != nil { Divider().overlay(.white.opacity(0.15)) }
-                HStack(alignment: .top, spacing: 10) {
-                    if !compact, cache?.projection.currentArtwork(slot: "contribution", at: date) != nil {
-                        cover(slot: "contribution").frame(width: 56, height: 56)
-                    }
-                    Text(contribution.text).font(compact ? .caption : .subheadline.weight(.medium))
-                        .lineLimit(hasResearchCredit ? nil : large ? 6 : compact && playback != nil ? 2 : 3)
-                        .accessibilityLabel(contribution.text)
-                }
-                if let researchAttribution { researchCredit(researchAttribution) }
-                else if contribution.usage_basis == "public_artist_narration_v1" { passiveResearchCredit(contribution) }
-                else { credit(contribution.source_attribution) }
+                contributionContent(contribution)
             }
             if (contribution == nil || suppressContribution) && playback == nil {
                 Text(text("surface.session.active")).font(.headline)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func sessionHeader(geometry: PassiveContentGeometry) -> some View {
+        HStack(spacing: 8) {
+            SessionSurfaceAvatar(theme: theme, side: geometry.headerSide)
+            Text(text("ui.session.title"))
+                .font((large ? Font.subheadline : .caption).weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+        }
+    }
+
+    @ViewBuilder private func playbackContent(_ playback: DJConnectPassiveSession.NowPlaying,
+                                              artworkSide: CGFloat?, geometry: PassiveContentGeometry) -> some View {
+        if let artworkSide {
+            spaciousPlayback(playback, artworkSide: artworkSide)
+        } else {
+            HStack(alignment: .top, spacing: geometry.playbackSpacing) {
+                if cache?.projection.currentArtwork(slot: "now_playing", at: date) != nil {
+                    cover(slot: "now_playing").frame(width: geometry.coverSide, height: geometry.coverSide)
+                }
+                playbackDetails(playback)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func playbackDetails(_ playback: DJConnectPassiveSession.NowPlaying) -> some View {
+        let typography = PassivePlaybackTypography(compact: compact, large: large, activity: activity)
+        return VStack(alignment: .leading, spacing: 3) {
+            if !compact && activity && playbackState != "playing" {
+                // This branch is an activity that is not playing; the old
+                // now-playing arm was unreachable under these same conditions.
+                Text(text(playbackState == "paused" ? "ui.paused" : "ui.playback"))
+                    .font(.caption2).foregroundStyle(.white.opacity(0.7))
+            }
+            if watchActivity {
+                ViewThatFits(in: .vertical) {
+                    watchTrackText(playback, titleFont: .subheadline, artistFont: .subheadline, lines: 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    watchTrackText(playback, titleFont: .caption, artistFont: .caption2, lines: 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    watchTrackText(playback, titleFont: .caption, artistFont: .caption2, lines: 1)
+                        .minimumScaleFactor(0.75)
+                }
+            } else {
+                Text(playback.track).font(typography.titleFont.weight(.semibold)).lineLimit(typography.titleLines)
+                Text(playback.artist).font(typography.artistFont).foregroundStyle(.white.opacity(0.85)).lineLimit(typography.artistLines)
+            }
+            if (large || activity) && !playback.album.isEmpty {
+                Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(typography.albumLines)
+            }
+            if activity { playbackProgress(playback) }
+        }
+    }
+
+    @ViewBuilder private func contributionContent(_ contribution: DJConnectPassiveSession.Contribution) -> some View {
+        if playback != nil { Divider().overlay(.white.opacity(0.15)) }
+        HStack(alignment: .top, spacing: 10) {
+            if !compact, cache?.projection.currentArtwork(slot: "contribution", at: date) != nil {
+                cover(slot: "contribution").frame(width: 56, height: 56)
+            }
+            Text(contribution.text).font(compact ? .caption : .subheadline.weight(.medium))
+                .lineLimit(hasResearchCredit ? nil : large ? 6 : compact && playback != nil ? 2 : 3)
+                .accessibilityLabel(contribution.text)
+        }
+        if let researchAttribution { researchCredit(researchAttribution) }
+        else if contribution.usage_basis == "public_artist_narration_v1" { passiveResearchCredit(contribution) }
+        else { credit(contribution.source_attribution) }
     }
     private func watchTrackText(_ playback: DJConnectPassiveSession.NowPlaying, titleFont: Font,
                                 artistFont: Font, lines: Int) -> some View {
