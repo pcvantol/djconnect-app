@@ -5732,27 +5732,13 @@ public final class DJConnectAppModel: ObservableObject {
         personaReactionNotice = nil
         let current: @MainActor () -> Bool = { [weak self] in
             guard let self else { return false }
-            return reactionObservation?.isValid != false && self.currentPersonaScope() == scope && self.activePersonaReactionAvailable && !self.profileDJSettings.hasUncertainOperation &&
-                self.profileDJSettings.response?.voice_revision == voiceRevision && self.deviceSpeechPreferences == preferences &&
-                !self.isSendingAskDJText && !self.isRecordingVoice && self.voiceStatus != .processing &&
-                !self.sharedSpeechIsPreparing && !self.sharedSpeechIsPlaying && !self.deviceSpeechPreviewIsPlaying
+            return self.personaReactionObservationIsCurrent(reactionObservation, scope: scope, voiceRevision: voiceRevision, preferences: preferences)
+                && self.personaReactionOutputIsVacant()
         }
-        let notice: String?
-        switch settings.snapshot.effective.announcement_output {
-        case .textOnly: notice = "ui.session.reaction.text_only"
-        case .haSpeaker: notice = "ui.session.reaction.speaker_unavailable"
-        case .both: notice = "ui.session.reaction.speaker_partial"
-        default: notice = nil
-        }
+        let notice = personaReactionOutputNotice(settings)
         personaReactions.start(.init(request: { [weak self] dispatched in
             guard let self, current() else { throw CancellationError() }
-            return try await self.withHomeAssistantClient(allowsOperationReplay: false) {
-                if request.processor == .haConfigured && settings.snapshot.effective.announcement_output.allowsClientAudio {
-                    try await self.requireHADeviceSpeech(client: $0, language: request.language, target: .local)
-                    guard current(), !Task.isCancelled else { throw CancellationError() }
-                }
-                return try await $0.requestPersonaReaction(request, settings: settings, onOperationID: dispatched)
-            }
+            return try await self.dispatchPersonaReaction(request, settings: settings, current: current, dispatched: dispatched)
         }, cancel: { [weak self] id, reason in
             guard let self else { return }
             try? await self.withHomeAssistantClient(allowsOperationReplay: false) {
@@ -5764,25 +5750,65 @@ public final class DJConnectAppModel: ObservableObject {
             return try await self.playPersonaReaction(reaction, request: request, settings: settings,
                                                      preferences: preferences, current: current, observed: observed)
         }, stop: { [weak self] reason in self?.stopPersonaReactionOutput(reason) }, failure: { [weak self] in
-            guard let self else { return }
-            let notice = DJConnectVisualNotice(text: self.localized(key: "ui.session.reaction.unavailable"), systemImage: "sparkles")
-            self.personaReactionNotice = notice
-            self.personaReactionNoticeTask?.cancel()
-            self.personaReactionNoticeTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(3))
-                guard !Task.isCancelled, self?.personaReactionNotice?.id == notice.id else { return }
-                self?.personaReactionNotice = nil
-            }
+            self?.presentPersonaReactionFailure()
         }, notice: notice, admittedFeedback: { DJConnectHaptics.success() }, observe: { [weak self] result in
             guard let self, current(), !Task.isCancelled else { throw CancellationError() }
-            let observation = try await self.withHomeAssistantClient(allowsOperationReplay: false) {
-                try await $0.observePersonaReaction(result)
-            }
-            guard current(), !Task.isCancelled else { await observation.close(); throw CancellationError() }
+            let observation = try await self.openPersonaReactionObservation(result, current: current)
             reactionObservation = observation
             return observation
         }))
         if personaReactions.isActive { DJConnectHaptics.selection() }
+    }
+
+    private func personaReactionObservationIsCurrent(_ reactionObservation: DJConnectPersonaReactionObservation?,
+        scope: PersonaObservationScope, voiceRevision: String, preferences: DJConnectDeviceSpeechPreferences) -> Bool {
+        reactionObservation?.isValid != false && currentPersonaScope() == scope && activePersonaReactionAvailable && !profileDJSettings.hasUncertainOperation &&
+                profileDJSettings.response?.voice_revision == voiceRevision && deviceSpeechPreferences == preferences
+    }
+
+    private func personaReactionOutputIsVacant() -> Bool {
+        !isSendingAskDJText && !isRecordingVoice && voiceStatus != .processing &&
+        !sharedSpeechIsPreparing && !sharedSpeechIsPlaying && !deviceSpeechPreviewIsPlaying
+    }
+
+    private func personaReactionOutputNotice(_ settings: DJConnectProfileDJSettingsResponse) -> String? {
+        switch settings.snapshot.effective.announcement_output {
+        case .textOnly: return "ui.session.reaction.text_only"
+        case .haSpeaker: return "ui.session.reaction.speaker_unavailable"
+        case .both: return "ui.session.reaction.speaker_partial"
+        default: return nil
+        }
+    }
+
+    private func dispatchPersonaReaction(_ request: DJConnectPersonaReactionRequest, settings: DJConnectProfileDJSettingsResponse,
+        current: @escaping @MainActor () -> Bool, dispatched: @escaping @Sendable (String) -> Void) async throws -> DJConnectPersonaReactionResult {
+        return try await self.withHomeAssistantClient(allowsOperationReplay: false) {
+            if request.processor == .haConfigured && settings.snapshot.effective.announcement_output.allowsClientAudio {
+                try await self.requireHADeviceSpeech(client: $0, language: request.language, target: .local)
+                guard current(), !Task.isCancelled else { throw CancellationError() }
+            }
+            return try await $0.requestPersonaReaction(request, settings: settings, onOperationID: dispatched)
+        }
+    }
+
+    private func presentPersonaReactionFailure() {
+        let notice = DJConnectVisualNotice(text: localized(key: "ui.session.reaction.unavailable"), systemImage: "sparkles")
+        personaReactionNotice = notice
+        personaReactionNoticeTask?.cancel()
+        personaReactionNoticeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled, self?.personaReactionNotice?.id == notice.id else { return }
+            self?.personaReactionNotice = nil
+        }
+    }
+
+    private func openPersonaReactionObservation(_ result: DJConnectPersonaReactionResult,
+        current: @escaping @MainActor () -> Bool) async throws -> DJConnectPersonaReactionObservation {
+        let observation = try await self.withHomeAssistantClient(allowsOperationReplay: false) {
+            try await $0.observePersonaReaction(result)
+        }
+        guard current(), !Task.isCancelled else { await observation.close(); throw CancellationError() }
+        return observation
     }
     private func stopPersonaReactionOutput(_ reason: DJConnectPersonaReactionCancellation) {
         #if canImport(AVFoundation)
@@ -5826,19 +5852,34 @@ public final class DJConnectAppModel: ObservableObject {
             throw CancellationError()
         }
         if request.processor == .localOnDevice {
-            var started = false, finished = false
-            personaReactionRenderer.onPlaybackStateChange = { playing in
-                if playing { started = true }; observed(playing)
-            }
-            personaReactionRenderer.onPlaybackFinished = { finished = $0 }
-            guard personaReactionRenderer.speak(reaction.text, locale: Self.speechLocaleIdentifier(for: reaction.locale),
-                                               preferences: preferences, completion: {}) else { return false }
-            while personaReactionRenderer.isSpeaking {
-                guard current(), !Task.isCancelled else { throw CancellationError() }
-                try await Task.sleep(for: .milliseconds(100))
-            }
-            return started && finished
+            return try await playNativePersonaReaction(reaction, preferences: preferences, current: current, observed: observed)
         }
+        return try await playHAPersonaReaction(reaction, request: request, settings: settings, current: current, observed: observed)
+        #else
+        return false
+        #endif
+    }
+
+    #if canImport(AVFoundation)
+    private func playNativePersonaReaction(_ reaction: DJConnectPersonaReaction, preferences: DJConnectDeviceSpeechPreferences,
+        current: @escaping @MainActor () -> Bool, observed: @escaping @MainActor (Bool) -> Void) async throws -> Bool {
+        var started = false, finished = false
+        personaReactionRenderer.onPlaybackStateChange = { playing in
+            if playing { started = true }; observed(playing)
+        }
+        personaReactionRenderer.onPlaybackFinished = { finished = $0 }
+        guard personaReactionRenderer.speak(reaction.text, locale: Self.speechLocaleIdentifier(for: reaction.locale),
+                                           preferences: preferences, completion: {}) else { return false }
+        while personaReactionRenderer.isSpeaking {
+            guard current(), !Task.isCancelled else { throw CancellationError() }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        return started && finished
+    }
+
+    private func playHAPersonaReaction(_ reaction: DJConnectPersonaReaction, request: DJConnectPersonaReactionRequest,
+        settings: DJConnectProfileDJSettingsResponse, current: @escaping @MainActor () -> Bool,
+        observed: @escaping @MainActor (Bool) -> Void) async throws -> Bool {
         let bytes = try await withHomeAssistantClient(allowsOperationReplay: false) {
             try await self.requireHADeviceSpeech(client: $0, language: request.language, target: .local)
             guard current(), !Task.isCancelled, reaction.deadline.map({ $0 > Date() }) == true else { throw CancellationError() }
@@ -5855,10 +5896,8 @@ public final class DJConnectAppModel: ObservableObject {
         }
         observed(false); personaReactionPlayer = nil
         return true
-        #else
-        return false
-        #endif
     }
+    #endif
 
     private func currentPersonaScope() -> PersonaObservationScope? {
         guard isAppInForeground, sessionHistory.hasAuthorizedOwner, isConnected,
@@ -5882,17 +5921,37 @@ public final class DJConnectAppModel: ObservableObject {
         var evidence = DJPersonaActivity.Evidence()
         guard let scope = currentPersonaScope(), scope.sessionID == session.id else { return evidence }
         evidence.authorized = true
+        evidence.pending = pendingPersonaEvidence(scope: scope)
+        applyPersonaVoiceEvidence(&evidence, scope: scope)
+        applyPersonaSpeechEvidence(&evidence, scope: scope, now: now)
+        evidence.announcementID = observedPersonaAnnouncementID(admittedMoment, session: session, scope: scope)
+        applyPersonaReactionEvidence(&evidence, scope: scope)
+        evidence.explicitReply = evidence.explicitReply || conversationHasPersonaEvidence(scope: scope, session: session, now: now)
+        return evidence
+    }
+
+    private func pendingPersonaEvidence(scope: PersonaObservationScope) -> Bool {
         let pending = sessionHistory.pendingTurns.contains {
-            $0.requestEpoch == scope.epoch && !$0.failed && !$0.contextChanged &&
-            $0.context.sessionID == scope.sessionID && $0.context.selectedEntry == nil
+            Self.pendingPersonaTurnMatches($0, scope: scope)
         }
-        evidence.pending = (personaRequestScope == scope && isSendingAskDJText && pending) || (askDJMoments.hasPriority && askDJMoments.presentation.phase == .pending && !askDJMoments.outcomeUnknown)
+        return (personaRequestScope == scope && isSendingAskDJText && pending) || (askDJMoments.hasPriority && askDJMoments.presentation.phase == .pending && !askDJMoments.outcomeUnknown)
+    }
+
+    private static func pendingPersonaTurnMatches(_ turn: DJConnectSessionHistoryModel.PendingTurn, scope: PersonaObservationScope) -> Bool {
+        turn.requestEpoch == scope.epoch && !turn.failed && !turn.contextChanged &&
+        turn.context.sessionID == scope.sessionID && turn.context.selectedEntry == nil
+    }
+
+    private func applyPersonaVoiceEvidence(_ evidence: inout DJPersonaActivity.Evidence, scope: PersonaObservationScope) {
         if personaVoiceScope == scope {
             #if canImport(AVFoundation)
             evidence.capturing = voiceRecorder?.isRecording == true
             #endif
             evidence.pending = evidence.pending || voiceStatus == .processing
         }
+    }
+
+    private func applyPersonaSpeechEvidence(_ evidence: inout DJPersonaActivity.Evidence, scope: PersonaObservationScope, now: Date) {
         if let observation = personaSpeechObservation, observation.scope == scope, observation.deadline > now {
             evidence.pending = evidence.pending || sharedSpeechIsPreparing
             #if canImport(AVFoundation)
@@ -5900,24 +5959,32 @@ public final class DJConnectAppModel: ObservableObject {
             #endif
             if case .moment(_, let id) = observation.reference { evidence.spokenMomentID = id }
         }
-        if let moment = admittedMoment, (session.selectedPresence != .musicOnly || moment.isSettingsConfirmation), moment.sessionID == scope.sessionID,
+    }
+
+    private func observedPersonaAnnouncementID(_ admittedMoment: DJConnectMoment?, session: DJConnectSessionRuntime,
+        scope: PersonaObservationScope) -> String? {
+        guard let moment = admittedMoment, (session.selectedPresence != .musicOnly || moment.isSettingsConfirmation), moment.sessionID == scope.sessionID,
            session.broadcast.nativeDelivery?.currentMomentID == moment.id,
            session.broadcast.nativeDelivery?.currentSilenceMomentID == nil,
-           DJPersonaActivity.isObservedAnnouncement(moment) {
-            evidence.announcementID = moment.id
-        }
+           DJPersonaActivity.isObservedAnnouncement(moment) else { return nil }
+        return moment.id
+    }
+
+    private func applyPersonaReactionEvidence(_ evidence: inout DJPersonaActivity.Evidence, scope: PersonaObservationScope) {
         if personaReactionScope == scope && personaReactions.isActive {
             evidence.pending = evidence.pending || personaReactions.preparing
             if personaReactions.speaking { evidence.speaking = true; evidence.spokenMomentID = nil }
             evidence.explicitReply = personaReactions.reaction != nil
         }
-        evidence.explicitReply = evidence.explicitReply || (personaReplyScope == scope &&
+    }
+
+    private func conversationHasPersonaEvidence(scope: PersonaObservationScope, session: DJConnectSessionRuntime, now: Date) -> Bool {
+        personaReplyScope == scope &&
             personaReplyMomentID == session.broadcast.nativeDelivery?.currentMomentID &&
             personaReplySilenceMomentID == session.broadcast.nativeDelivery?.currentSilenceMomentID &&
             liveConversationPresentations.values.contains {
                 $0.epoch == scope.epoch && $0.sessionID == scope.sessionID && ($0.deadline == nil || $0.deadline! > now)
-            })
-        return evidence
+            }
     }
 
     func beginProfileConversationText(text: String, clientMessageID: String) -> UUID? {
@@ -5957,24 +6024,29 @@ public final class DJConnectAppModel: ObservableObject {
         let ids = Set(frozen.compactMap(\.resultSetID))
         let epoch = sessionHistory.responseEpoch
         if let result = response.resultSet {
-            guard ids.isEmpty || ids == [result.resultSetID],
-                  let proposed = conversationPresentationDeadline(response, now: now), proposed > now else {
-                if !result.resultSetID.isEmpty, result.resultSetID.count <= 256 {
-                    recordConversationResultLease(id: result.resultSetID, deadline: .distantPast, epoch: epoch)
-                }
-                return .distantPast
-            }
-            var deadline = proposed
-            if let original = conversationResultLeases[result.resultSetID], original.epoch == epoch {
-                deadline = min(original.deadline, proposed)
-            }
-            recordConversationResultLease(id: result.resultSetID, deadline: deadline, epoch: epoch)
-            return deadline
+            return resolveCurrentConversationResultDeadline(response, result: result, ids: ids, now: now, epoch: epoch)
         }
         guard !frozen.isEmpty else { return nil }
         let known = ids.compactMap { conversationResultLeases[$0] }
         guard known.count == ids.count, !known.isEmpty, known.allSatisfy({ $0.epoch == epoch }) else { return .distantPast }
         return known.map(\.deadline).min()
+    }
+
+    private func resolveCurrentConversationResultDeadline(_ response: DJConnectAskDJMessageResponse, result: DJConnectResultSet,
+        ids: Set<String>, now: Date, epoch: UUID) -> Date {
+        guard ids.isEmpty || ids == [result.resultSetID],
+              let proposed = conversationPresentationDeadline(response, now: now), proposed > now else {
+            if !result.resultSetID.isEmpty, result.resultSetID.count <= 256 {
+                recordConversationResultLease(id: result.resultSetID, deadline: .distantPast, epoch: epoch)
+            }
+            return .distantPast
+        }
+        var deadline = proposed
+        if let original = conversationResultLeases[result.resultSetID], original.epoch == epoch {
+            deadline = min(original.deadline, proposed)
+        }
+        recordConversationResultLease(id: result.resultSetID, deadline: deadline, epoch: epoch)
+        return deadline
     }
 
     private func recordConversationResultLease(id: String, deadline: Date, epoch: UUID) {
@@ -6027,6 +6099,16 @@ public final class DJConnectAppModel: ObservableObject {
             liveConversationPresentations[incoming.id] = .init(epoch: sessionHistory.responseEpoch, deadline: deadline, message: rendered,
                 isPrivateEphemeral: response.isPrivateEphemeralResponse, questionID: fallback, sessionID: sessionID)
         }
+        scheduleConversationPresentationExpiry(deadline)
+        recordPersonaConversationReply(sessionID: sessionID)
+        personaRequestScope = nil
+        if voiceStatus == .processing { personaVoiceScope = nil }
+        isSendingAskDJText = false; askDJErrorMessage = nil
+        djResponseText = userFacingDJResponseText(response.assistantMessage?.text ?? response.djText ?? response.text) ?? ""
+        return true
+    }
+
+    private func scheduleConversationPresentationExpiry(_ deadline: Date?) {
         if let deadline, deadline <= Date() {
             withdrawLiveConversationPresentations()
         } else if let deadline {
@@ -6037,6 +6119,9 @@ public final class DJConnectAppModel: ObservableObject {
                 self.withdrawLiveConversationPresentations()
             }
         }
+    }
+
+    private func recordPersonaConversationReply(sessionID: String?) {
         let currentScope = currentPersonaScope()
         if currentScope != nil, (personaRequestScope == currentScope || (personaVoiceScope == currentScope && voiceStatus == .processing)),
            sessionID == activeDJSession?.id, !liveConversationPresentations.isEmpty {
@@ -6044,11 +6129,6 @@ public final class DJConnectAppModel: ObservableObject {
             personaReplyMomentID = activeDJSession?.broadcast.nativeDelivery?.currentMomentID
             personaReplySilenceMomentID = activeDJSession?.broadcast.nativeDelivery?.currentSilenceMomentID
         }
-        personaRequestScope = nil
-        if voiceStatus == .processing { personaVoiceScope = nil }
-        isSendingAskDJText = false; askDJErrorMessage = nil
-        djResponseText = userFacingDJResponseText(response.assistantMessage?.text ?? response.djText ?? response.text) ?? ""
-        return true
     }
     @discardableResult func applyProfileConversationHistory(_ response: DJConnectAskDJHistoryResponse) -> Bool {
         guard response.historyRevision >= profileConversationHistoryRevision,
@@ -6138,43 +6218,66 @@ public final class DJConnectAppModel: ObservableObject {
         // A retry withdraws the previous private rendering before reading again.
         momentTrackInsight = nil
         defer { if momentInsightGeneration == request { isLoadingMomentTrackInsight = false } }
-        let valid = { self.momentInsightGeneration == request && self.momentTrackInsightTarget == reference
-            && self.sessionHistory.responseEpoch == epoch && self.musicDiscoveryPushCoalescingKey() == source
-            && self.isAppInForeground && self.pairingStatus == .paired && self.isRuntimeCompatible && !self.isOfflineModeActive
-            && self.activeDJSession?.id == reference.sessionID
-            && self.activeDJSession?.runtimeState == "active" && self.currentMomentInsightStyle == style
-            && self.momentInsightDeadline.map({ $0 > Date() }) == true && !Task.isCancelled }
+        let scope = MomentInsightReadScope(request: request, epoch: epoch, source: source, style: style, reference: reference)
+        let valid = { self.momentInsightTransportIsCurrent(scope) && self.momentInsightSourceIsCurrent(scope) }
         do {
             let detail = try await withHomeAssistantClient(allowsOperationReplay: false) {
                 try await $0.momentTrackInsight(reference, language: self.language, mood: self.confirmedSessionMoodInt)
             }
             guard valid() else { return false }
-            guard momentInsightMediaIdentity == nil || momentInsightMediaIdentity == detail.subject.mediaIdentity else {
-                withdrawMomentTrackInsight(key: "ui.session.insight.unavailable", retryAllowed: false); return false
-            }
-            guard let originalDeadline = momentInsightDeadline else { return false }
-            let deadline = min(originalDeadline, started.addingTimeInterval(detail.subject.expiresIn))
-            guard deadline > Date() else {
-                withdrawMomentTrackInsight(key: "ui.session.insight.expired", retryAllowed: false); return false
-            }
-            momentInsightDeadline = deadline
-            momentInsightMediaIdentity = detail.subject.mediaIdentity
-            momentTrackInsight = detail.insight
-            scheduleMomentInsightExpiry()
-            return true
+            return acceptMomentInsightDetail(detail, started: started)
         } catch {
             guard valid() else { return false }
-            if Self.isCancellation(error) { return false }
-            if case let DJConnectError.server(status, _) = error, status == 403 || status == 410 {
-                withdrawMomentTrackInsight(key: "ui.session.insight.expired", retryAllowed: false)
-            } else if (error as? DJConnectError)?.invalidatesSessionAuthority == true {
-                dismissMomentTrackInsight()
-                _ = sessionHistory.withdrawAuthority(for: error)
-            } else {
-                momentTrackInsightErrorMessage = localized(key: "ui.session.insight.unavailable")
-            }
-            return false
+            return handleMomentInsightFailure(error)
         }
+    }
+
+    private struct MomentInsightReadScope {
+        let request: UUID
+        let epoch: UUID
+        let source: String
+        let style: String
+        let reference: DJConnectMomentInsightReference
+    }
+
+    private func momentInsightTransportIsCurrent(_ scope: MomentInsightReadScope) -> Bool {
+        momentInsightGeneration == scope.request && momentTrackInsightTarget == scope.reference &&
+            sessionHistory.responseEpoch == scope.epoch && musicDiscoveryPushCoalescingKey() == scope.source &&
+            isAppInForeground && pairingStatus == .paired && isRuntimeCompatible && !isOfflineModeActive
+    }
+
+    private func momentInsightSourceIsCurrent(_ scope: MomentInsightReadScope) -> Bool {
+        activeDJSession?.id == scope.reference.sessionID && activeDJSession?.runtimeState == "active" &&
+            currentMomentInsightStyle == scope.style && momentInsightDeadline.map({ $0 > Date() }) == true && !Task.isCancelled
+    }
+
+    private func acceptMomentInsightDetail(_ detail: DJConnectMomentInsightDetail, started: Date) -> Bool {
+        guard momentInsightMediaIdentity == nil || momentInsightMediaIdentity == detail.subject.mediaIdentity else {
+            withdrawMomentTrackInsight(key: "ui.session.insight.unavailable", retryAllowed: false); return false
+        }
+        guard let originalDeadline = momentInsightDeadline else { return false }
+        let deadline = min(originalDeadline, started.addingTimeInterval(detail.subject.expiresIn))
+        guard deadline > Date() else {
+            withdrawMomentTrackInsight(key: "ui.session.insight.expired", retryAllowed: false); return false
+        }
+        momentInsightDeadline = deadline
+        momentInsightMediaIdentity = detail.subject.mediaIdentity
+        momentTrackInsight = detail.insight
+        scheduleMomentInsightExpiry()
+        return true
+    }
+
+    private func handleMomentInsightFailure(_ error: Error) -> Bool {
+        if Self.isCancellation(error) { return false }
+        if case let DJConnectError.server(status, _) = error, status == 403 || status == 410 {
+            withdrawMomentTrackInsight(key: "ui.session.insight.expired", retryAllowed: false)
+        } else if (error as? DJConnectError)?.invalidatesSessionAuthority == true {
+            dismissMomentTrackInsight()
+            _ = sessionHistory.withdrawAuthority(for: error)
+        } else {
+            momentTrackInsightErrorMessage = localized(key: "ui.session.insight.unavailable")
+        }
+        return false
     }
 
     public func dismissMomentTrackInsight() {
@@ -6266,13 +6369,28 @@ public final class DJConnectAppModel: ObservableObject {
         let epoch = sessionHistory.responseEpoch, source = musicDiscoveryPushCoalescingKey()
         let playbackID = Self.playbackAutoInsightIdentity(playback), requestedLanguage = language
         defer { isLoadingTrackInsight = false }
+        let scope = OpenInsightReadScope(epoch: epoch, source: source, playbackID: playbackID, requestedLanguage: requestedLanguage, renewing: renewing)
         await performTrackInsightRefresh(open: false, forceRefresh: false, canAccept: {
-            self.isAppInForeground && self.hasPlayingNow && self.canStartTrackInsightAnalysis
-                && self.sessionHistory.responseEpoch == epoch && self.musicDiscoveryPushCoalescingKey() == source
-                && Self.playbackAutoInsightIdentity(self.playback) == playbackID && self.language == requestedLanguage
-                && self.momentTrackInsightTarget == nil
-                && (!renewing || self.isPlaying)
+            self.openInsightOwnerIsCurrent(scope) && self.openInsightMediaIsCurrent(scope)
         }, renewingObservation: renewing)
+    }
+
+    private struct OpenInsightReadScope {
+        let epoch: UUID
+        let source: String
+        let playbackID: String?
+        let requestedLanguage: String
+        let renewing: Bool
+    }
+
+    private func openInsightOwnerIsCurrent(_ scope: OpenInsightReadScope) -> Bool {
+        isAppInForeground && hasPlayingNow && canStartTrackInsightAnalysis &&
+            sessionHistory.responseEpoch == scope.epoch && musicDiscoveryPushCoalescingKey() == scope.source
+    }
+
+    private func openInsightMediaIsCurrent(_ scope: OpenInsightReadScope) -> Bool {
+        Self.playbackAutoInsightIdentity(playback) == scope.playbackID && language == scope.requestedLanguage &&
+            momentTrackInsightTarget == nil && (!scope.renewing || isPlaying)
     }
 
     @discardableResult
@@ -6308,90 +6426,137 @@ public final class DJConnectAppModel: ObservableObject {
         let recording = playback?.uri
         let readClock = currentInsightReadClock
         let requestedAt = readClock.wallNow(), requestInstant = readClock.monotonicNow()
+        let scope = CurrentInsightReadScope(owner: owner, connection: connection, source: source,
+            observation: observation, selectedLanguage: selectedLanguage, settingsGeneration: settingsGeneration,
+            sessionStyle: sessionStyle, profileStyle: profileStyle, selectedSession: selectedSession, selectedMood: selectedMood)
         let originalContext: @MainActor @Sendable () -> Bool = {
             !Task.isCancelled && canAccept() && (self.isAppInForeground || self.isDemoMode)
-                && self.sessionHistory.responseEpoch == owner && self.musicDiscoveryPushCoalescingKey() == source
-                && self.sessionBroadcastGeneration == connection && self.currentInsightObservation.generation == observation
-                && self.language == selectedLanguage && self.activeDJSession?.id == selectedSession
-                && self.confirmedSessionMoodInt == selectedMood && self.momentTrackInsightTarget == nil
-                && self.currentInsightSettingsGeneration == settingsGeneration
-                && self.activeDJSession.map(CurrentInsightSessionStyle.init) == sessionStyle
-                && self.profileDJSettings.response.map(CurrentInsightProfileStyle.init) == profileStyle
+                && self.currentInsightObservationMatches(scope) && self.currentInsightSettingsMatch(scope)
         }
         do {
             let insight: TrackInsight
             var qualifiedSubject: DJConnectCurrentInsightSubject?
             var qualifiedDeadline: ContinuousClock.Instant?
-            if isDemoMode {
-                insight = try await DemoTrackInsightService(
-                    tracks: DemoTrackInsightService.localizedDefaultTracks(language: language)
-                )
-                .insight(for: playback)
-            } else {
-                guard canUsePlaybackFeatures else {
-                    throw DJConnectError.invalidConfiguration(
-                        localized(key: "appModel.pair.with.home.assistant.before.using.track.insight")
-                    )
-                }
-                let payload = DJConnectTrackInsightRequest(
-                    // This screen asks for the server's current recording.
-                    // Catalog hints select the legacy explicit-title route and
-                    // prevent the server's qualified current-knowledge join.
-                    // Playback stays local for the original completion fence.
-                    clientType: identity.clientType.rawValue,
-                    forceRefresh: forceRefresh,
-                    locale: language,
-                    mood: confirmedSessionMoodInt,
-                    musicDNAKey: askDJMusicDNAKey,
-                    includeVisualProfile: true,
-                    includeRawResponse: true
-                )
-                let result = try await withHomeAssistantClient { client in
-                    if let detail = try await client.currentTrackInsight(payload, isCurrent: originalContext) { return (detail.insight, Optional(detail.subject)) }
-                    guard originalContext(), !renewingObservation else { throw CancellationError() }
-                    return (try await client.trackInsight(payload), Optional<DJConnectCurrentInsightSubject>.none)
-                }
-                insight = result.0
-                if let subject = result.1 {
-                    let returnedAt = readClock.wallNow()
-                    guard let recording, let deadline = subject.deadline(recording: recording, requestedAt: requestedAt, at: returnedAt) else {
-                        throw DJConnectError.trackInsightUnavailable(code: "track_insight_context_changed", message: nil)
-                    }
-                    let returnedInstant = readClock.monotonicNow()
-                    let originalDeadline = min(requestInstant.advanced(by: .seconds(subject.expiresIn)),
-                        returnedInstant.advanced(by: .seconds(deadline.timeIntervalSince(returnedAt))))
-                    guard returnedInstant >= requestInstant, returnedInstant < originalDeadline else { return false }
-                    qualifiedSubject = subject; qualifiedDeadline = originalDeadline
-                }
+            let result = try await readCurrentInsight(forceRefresh: forceRefresh, renewingObservation: renewingObservation, originalContext: originalContext)
+            insight = result.0
+            if let subject = result.1 {
+                guard let deadline = try originalCurrentInsightDeadline(subject, recording: recording, requestedAt: requestedAt,
+                    requestInstant: requestInstant, readClock: readClock) else { return false }
+                qualifiedSubject = subject; qualifiedDeadline = deadline
             }
-            guard originalContext() else { return false }
-            if let deadline = qualifiedDeadline {
-                guard readClock.monotonicNow() < deadline else { return false }
-            }
-            applyTrackInsight(insight, open: open)
-            if let subject = qualifiedSubject, let deadline = qualifiedDeadline {
-                currentInsightProof = (subject, observation, settingsGeneration, deadline)
-                currentInsightExpiryTask = Task { [weak self] in
-                    do { try await ContinuousClock().sleep(until: deadline) } catch { return }
-                    guard let self, self.currentInsightProof?.subject == subject,
-                          self.currentInsightProof?.generation == observation,
-                          self.currentInsightProof?.deadline == deadline else { return }
-                    self.clearCurrentInsightProof(); self.currentTrackInsight = nil
-                    self.clearTrackInsightWidgetSnapshot(reason: "Current observation expired")
-                }
-            }
-            return true
-        } catch let error as DJConnectError {
-            guard originalContext(), !Self.isCancellation(error) else { return false }
-            if !renewingObservation { trackInsightErrorMessage = trackInsightErrorMessage(for: error) }
-            log(.warning, "Track Insight failed: \(trackInsightFailureLogDetails(for: error))")
-            return false
+            return applyCurrentInsightRead(insight, open: open, subject: qualifiedSubject, deadline: qualifiedDeadline,
+                scope: scope, readClock: readClock, originalContext: originalContext)
         } catch {
-            guard originalContext(), !Self.isCancellation(error) else { return false }
-            if !renewingObservation { trackInsightErrorMessage = trackInsightErrorMessage(for: error) }
-            log(.warning, "Track Insight failed: \(trackInsightFailureLogDetails(for: error))")
-            return false
+            return handleCurrentInsightFailure(error, originalContext: originalContext, renewingObservation: renewingObservation)
         }
+    }
+
+    private struct CurrentInsightReadScope {
+        let owner: UUID
+        let connection: UUID
+        let source: String
+        let observation: UUID
+        let selectedLanguage: String
+        let settingsGeneration: UUID
+        let sessionStyle: CurrentInsightSessionStyle?
+        let profileStyle: CurrentInsightProfileStyle?
+        let selectedSession: String?
+        let selectedMood: Int?
+    }
+
+    private func currentInsightObservationMatches(_ scope: CurrentInsightReadScope) -> Bool {
+        sessionHistory.responseEpoch == scope.owner && musicDiscoveryPushCoalescingKey() == scope.source &&
+            sessionBroadcastGeneration == scope.connection && currentInsightObservation.generation == scope.observation
+    }
+
+    private func currentInsightSettingsMatch(_ scope: CurrentInsightReadScope) -> Bool {
+        language == scope.selectedLanguage && activeDJSession?.id == scope.selectedSession &&
+            confirmedSessionMoodInt == scope.selectedMood && momentTrackInsightTarget == nil &&
+            currentInsightSettingsGeneration == scope.settingsGeneration &&
+            activeDJSession.map(CurrentInsightSessionStyle.init) == scope.sessionStyle &&
+            profileDJSettings.response.map(CurrentInsightProfileStyle.init) == scope.profileStyle
+    }
+
+    private func readCurrentInsight(forceRefresh: Bool, renewingObservation: Bool,
+        originalContext: @escaping @MainActor @Sendable () -> Bool) async throws -> (TrackInsight, DJConnectCurrentInsightSubject?) {
+        if isDemoMode {
+            return (try await DemoTrackInsightService(
+                tracks: DemoTrackInsightService.localizedDefaultTracks(language: language)
+            )
+            .insight(for: playback), nil)
+        }
+        guard canUsePlaybackFeatures else {
+            throw DJConnectError.invalidConfiguration(
+                localized(key: "appModel.pair.with.home.assistant.before.using.track.insight")
+            )
+        }
+        let payload = DJConnectTrackInsightRequest(
+            // This screen asks for the server's current recording.
+            // Catalog hints select the legacy explicit-title route and
+            // prevent the server's qualified current-knowledge join.
+            // Playback stays local for the original completion fence.
+            clientType: identity.clientType.rawValue,
+            forceRefresh: forceRefresh,
+            locale: language,
+            mood: confirmedSessionMoodInt,
+            musicDNAKey: askDJMusicDNAKey,
+            includeVisualProfile: true,
+            includeRawResponse: true
+        )
+        let result = try await withHomeAssistantClient { client in
+            if let detail = try await client.currentTrackInsight(payload, isCurrent: originalContext) { return (detail.insight, Optional(detail.subject)) }
+            guard originalContext(), !renewingObservation else { throw CancellationError() }
+            return (try await client.trackInsight(payload), Optional<DJConnectCurrentInsightSubject>.none)
+        }
+        return result
+    }
+
+    private func originalCurrentInsightDeadline(_ subject: DJConnectCurrentInsightSubject, recording: String?, requestedAt: Date,
+        requestInstant: ContinuousClock.Instant, readClock: CurrentInsightReadClock) throws -> ContinuousClock.Instant? {
+        let returnedAt = readClock.wallNow()
+        guard let recording, let deadline = subject.deadline(recording: recording, requestedAt: requestedAt, at: returnedAt) else {
+            throw DJConnectError.trackInsightUnavailable(code: "track_insight_context_changed", message: nil)
+        }
+        let returnedInstant = readClock.monotonicNow()
+        let originalDeadline = min(requestInstant.advanced(by: .seconds(subject.expiresIn)),
+            returnedInstant.advanced(by: .seconds(deadline.timeIntervalSince(returnedAt))))
+        guard returnedInstant >= requestInstant, returnedInstant < originalDeadline else { return nil }
+        return originalDeadline
+    }
+
+    private func applyCurrentInsightRead(_ insight: TrackInsight, open: Bool, subject: DJConnectCurrentInsightSubject?,
+        deadline: ContinuousClock.Instant?, scope: CurrentInsightReadScope, readClock: CurrentInsightReadClock,
+        originalContext: @MainActor @Sendable () -> Bool) -> Bool {
+        guard originalContext() else { return false }
+        if let deadline = deadline {
+            guard readClock.monotonicNow() < deadline else { return false }
+        }
+        applyTrackInsight(insight, open: open)
+        if let subject = subject, let deadline = deadline {
+            retainCurrentInsightProof(subject, observation: scope.observation, settingsGeneration: scope.settingsGeneration, deadline: deadline)
+        }
+        return true
+    }
+
+    private func retainCurrentInsightProof(_ subject: DJConnectCurrentInsightSubject, observation: UUID,
+        settingsGeneration: UUID, deadline: ContinuousClock.Instant) {
+        currentInsightProof = (subject, observation, settingsGeneration, deadline)
+        currentInsightExpiryTask = Task { [weak self] in
+            do { try await ContinuousClock().sleep(until: deadline) } catch { return }
+            guard let self, self.currentInsightProof?.subject == subject,
+                  self.currentInsightProof?.generation == observation,
+                  self.currentInsightProof?.deadline == deadline else { return }
+            self.clearCurrentInsightProof(); self.currentTrackInsight = nil
+            self.clearTrackInsightWidgetSnapshot(reason: "Current observation expired")
+        }
+    }
+
+    private func handleCurrentInsightFailure(_ error: Error, originalContext: @MainActor @Sendable () -> Bool,
+        renewingObservation: Bool) -> Bool {
+        guard originalContext(), !Self.isCancellation(error) else { return false }
+        if !renewingObservation { trackInsightErrorMessage = trackInsightErrorMessage(for: error) }
+        log(.warning, "Track Insight failed: \(trackInsightFailureLogDetails(for: error))")
+        return false
     }
 
     public func retryAskDJMessage(_ message: DJConnectAskDJMessage) {
@@ -13230,77 +13395,43 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func trackInsightErrorMessage(for error: Error) -> String {
-        guard let djConnectError = error as? DJConnectError else {
+        guard let error = error as? DJConnectError else {
             return localized(key: "appModel.track.insight.is.unavailable.for.this.track")
         }
+        return renderTrackInsightFailure(ClientFailurePresentation.make(error).insightCopy)
+    }
 
-        switch djConnectError {
-        case let .trackInsightUnavailable(code, message):
-            let normalizedCode = code?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            if normalizedCode == "invalid_client_type" || normalizedCode == "client_type_mismatch" {
-                return trackInsightClientTypeMessage()
-            }
-            if normalizedCode == "no_track_playing" {
-                return localized(key: "appModel.start.playback.before.opening.track.insight")
-            }
-            if normalizedCode == "rate_limited" {
-                return localized(key: "appModel.track.insight.rate.limited.try.again.later")
-            }
-            if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                if isClientTypeErrorText(message) {
-                    return trackInsightClientTypeMessage()
-                }
-                return userFacingTrackInsightErrorText(message) ?? message
-            }
-            return localized(key: "appModel.track.insight.is.unavailable.for.this.track")
-        case let .routeMissing(message):
-            return userFacingTrackInsightErrorText(message)
-                ?? localized(key: "appModel.track.insight.is.not.available.in.this.home.assistant")
-        case let .notConfigured(message):
-            return userFacingTrackInsightErrorText(message)
-                ?? localized(key: "appModel.finish.the.djconnect.setup.in.home.assistant.before.using")
-        case let .backendUnavailable(message):
-            return userFacingTrackInsightErrorText(message)
-                ?? localized(key: "appModel.the.music.backend.in.home.assistant.is.not.available")
-        case .clientTypeMismatch:
-            return trackInsightClientTypeMessage()
-        case let .profile(_, _, message):
-            return userFacingTrackInsightErrorText(message)
-                ?? localized(key: "appModel.track.insight.is.unavailable.for.this.track")
-        case let .server(statusCode, message):
-            if statusCode == 404 {
-                return localized(key: "appModel.start.playback.before.opening.track.insight")
-            }
-            if statusCode == 429 {
-                return localized(key: "appModel.track.insight.rate.limited.try.again.later")
-            }
-            if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                if isClientTypeErrorText(message) {
-                    return trackInsightClientTypeMessage()
-                }
-                return userFacingTrackInsightErrorText(message) ?? message
-            }
-            return localized(key: "appModel.home.assistant.could.not.create.track.insight.http.value", arguments: statusCode)
-        case let .decodingFailed(_, _, message):
-            if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return localized(key: "appModel.home.assistant.returned.an.unexpected.track.insight.response")
-            }
-            return localized(key: "appModel.home.assistant.returned.an.unreadable.track.insight.response")
-        case let .network(message):
-            return localized(key: "appModel.home.assistant.is.unreachable.for.track.insight.value", arguments: message)
-        case .authStale, .missingToken:
-            return localized(key: "appModel.pair.with.home.assistant.again.before.using.track.insight")
-        case .invalidResponse:
-            return localized(key: "appModel.home.assistant.returned.an.invalid.track.insight.response")
-        case .payloadTooLarge:
-            return localized(key: "appModel.home.assistant.returned.an.unexpected.track.insight.response")
-        case let .invalidConfiguration(message):
-            return message
-        case let .pairingFailed(message):
-            return message ?? localized(key: "appModel.pair.with.home.assistant.before.using.track.insight")
-        case let .versionMismatch(mismatch):
-            return mismatch.message ?? localized(key: "appModel.update.the.djconnect.app.or.home.assistant.integration.before")
+    private func renderTrackInsightFailure(_ copy: ClientFailurePresentation.InsightCopy) -> String {
+        switch copy {
+        case let .producer(code, message): return producerTrackInsightErrorMessage(code: code, message: message)
+        case let .http(status, message): return httpTrackInsightErrorMessage(status: status, message: message)
+        case let .parsed(message, fallback): return userFacingTrackInsightErrorText(message) ?? localized(key: fallback)
+        case .clientType: return trackInsightClientTypeMessage()
+        case let .localized(key): return localized(key: key)
+        case let .network(message): return localized(key: "appModel.home.assistant.is.unreachable.for.track.insight.value", arguments: message)
+        case let .verbatim(message): return message
+        case let .optionalMessage(message, fallback): return message ?? localized(key: fallback)
         }
+    }
+
+    private func producerTrackInsightErrorMessage(code: String?, message: String?) -> String {
+        let normalizedCode = code?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalizedCode == "invalid_client_type" || normalizedCode == "client_type_mismatch" { return trackInsightClientTypeMessage() }
+        if normalizedCode == "no_track_playing" { return localized(key: "appModel.start.playback.before.opening.track.insight") }
+        if normalizedCode == "rate_limited" { return localized(key: "appModel.track.insight.rate.limited.try.again.later") }
+        return producerTrackInsightMessage(message, fallback: localized(key: "appModel.track.insight.is.unavailable.for.this.track"))
+    }
+
+    private func httpTrackInsightErrorMessage(status: Int, message: String?) -> String {
+        if status == 404 { return localized(key: "appModel.start.playback.before.opening.track.insight") }
+        if status == 429 { return localized(key: "appModel.track.insight.rate.limited.try.again.later") }
+        return producerTrackInsightMessage(message, fallback: localized(key: "appModel.home.assistant.could.not.create.track.insight.http.value", arguments: status))
+    }
+
+    private func producerTrackInsightMessage(_ message: String?, fallback: @autoclosure () -> String) -> String {
+        guard let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return fallback() }
+        if isClientTypeErrorText(message) { return trackInsightClientTypeMessage() }
+        return userFacingTrackInsightErrorText(message) ?? message
     }
 
     private func userFacingTrackInsightErrorText(_ text: String?) -> String? {
@@ -13319,27 +13450,20 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Spotify authorization needs refresh for Track Insight: \(text)")
             return localized(key: "appModel.refresh.the.spotify.connection.in.home.assistant")
         }
-        if normalized.contains("no_track_playing")
-            || normalized.contains("no currently playing track")
-            || normalized.contains("no current track")
-            || normalized.contains("no track playing")
-            || normalized.contains("nothing is playing") {
+        if Self.matchesInsightErrorAlias(normalized, contains: ["no_track_playing", "no currently playing track", "no current track", "no track playing", "nothing is playing"]) {
             return localized(key: "appModel.start.playback.before.opening.track.insight")
         }
-        if normalized.contains("backend_unavailable")
-            || normalized.contains("playback_backend_unavailable")
-            || normalized.contains("music backend")
-            || normalized == "backend unavailable"
-            || normalized == "playback backend unavailable" {
+        if Self.matchesInsightErrorAlias(normalized, contains: ["backend_unavailable", "playback_backend_unavailable", "music backend"], exact: ["backend unavailable", "playback backend unavailable"]) {
             return localized(key: "appModel.the.music.backend.in.home.assistant.is.not.available")
         }
-        if normalized.contains("not_configured")
-            || normalized.contains("not configured")
-            || normalized.contains("setup flow")
-            || normalized.contains("config flow") {
+        if Self.matchesInsightErrorAlias(normalized, contains: ["not_configured", "not configured", "setup flow", "config flow"]) {
             return localized(key: "appModel.finish.the.djconnect.setup.in.home.assistant.before.using")
         }
         return text
+    }
+
+    private static func matchesInsightErrorAlias(_ normalized: String, contains: [String], exact: [String] = []) -> Bool {
+        contains.contains { normalized.contains($0) } || exact.contains(normalized)
     }
 
     private func upsertAskDJHistoryMessage(
@@ -17877,7 +18001,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard let error = error as? DJConnectError else {
             return "failed"
         }
-        return watchProxyFailurePresentation(error).code
+        return ClientFailurePresentation.make(error).code
     }
 
     private func publishWatchDemoSession(forceDelivery: Bool = false) {
@@ -18229,167 +18353,26 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private struct WatchProxyFailurePresentation {
-        let code: String
-        let message: String
-        let diagnostic: String
-
-        static let unrecognized = Self(code: "failed", message: "iPhone kon Home Assistant niet bereiken.", diagnostic: "failed")
-    }
-
-    private static func watchProxyFailurePresentation(_ error: DJConnectError) -> WatchProxyFailurePresentation {
-        switch error {
-        case .backendUnavailable, .routeMissing, .network, .server, .decodingFailed, .invalidResponse:
-            return transportWatchProxyFailurePresentation(error)
-        case .authStale, .notConfigured, .missingToken, .pairingFailed, .clientTypeMismatch:
-            return pairingWatchProxyFailurePresentation(error)
-        case .versionMismatch, .invalidConfiguration:
-            return configurationWatchProxyFailurePresentation(error)
-        case .trackInsightUnavailable, .payloadTooLarge, .profile:
-            return capabilityWatchProxyFailurePresentation(error)
-        }
-    }
-
-    private static func transportWatchProxyFailurePresentation(_ error: DJConnectError) -> WatchProxyFailurePresentation {
-        switch error {
-        case let .backendUnavailable(message):
-            return .init(code: "backend_unavailable", message: "Home Assistant gaf geen antwoord.", diagnostic: "backend unavailable\(message.map { ": \($0)" } ?? "")")
-        case let .routeMissing(message):
-            return .init(code: "route_missing", message: "Ask DJ niet bereikbaar.", diagnostic: "route missing\(message.map { ": \($0)" } ?? "")")
-        case let .network(message):
-            return .init(code: "network", message: "Ask DJ niet bereikbaar.", diagnostic: "network: \(message)")
-        case let .server(statusCode, message):
-            return .init(code: "server", message: "Home Assistant gaf geen antwoord.", diagnostic: "server HTTP \(statusCode)\(message.map { ": \($0)" } ?? "")")
-        case let .decodingFailed(statusCode, endpoint, message):
-            return .init(code: "server", message: "Home Assistant gaf geen antwoord.", diagnostic: "decode failed HTTP \(statusCode) \(endpoint)\(message.map { ": \($0)" } ?? "")")
-        case .invalidResponse:
-            return .init(code: "server", message: "Home Assistant gaf geen antwoord.", diagnostic: "invalid response")
-        default: return .unrecognized
-        }
-    }
-
-    private static func pairingWatchProxyFailurePresentation(_ error: DJConnectError) -> WatchProxyFailurePresentation {
-        switch error {
-        case let .authStale(statusCode, message):
-            return .init(code: "auth_stale", message: "Koppel opnieuw via iPhone.", diagnostic: "auth stale HTTP \(statusCode)\(message.map { ": \($0)" } ?? "")")
-        case let .notConfigured(message):
-            return .init(code: "not_configured", message: "Ask DJ niet bereikbaar.", diagnostic: "not configured\(message.map { ": \($0)" } ?? "")")
-        case .missingToken:
-            return .init(code: "missing_token", message: "Koppel opnieuw via iPhone.", diagnostic: "missing DJConnect bearer token")
-        case let .pairingFailed(message):
-            return .init(code: "pairing_failed", message: message ?? "Koppelen via iPhone is nog niet klaar.", diagnostic: "pairing pending\(message.map { ": \($0)" } ?? "")")
-        case let .clientTypeMismatch(message, expectedClientType, receivedClientType):
-            return .init(code: "client_type_mismatch", message: message ?? "Verkeerd app-type gekozen in Home Assistant.", diagnostic: "client type mismatch expected=\(expectedClientType ?? "?") received=\(receivedClientType ?? "?")\(message.map { ": \($0)" } ?? "")")
-        default: return .unrecognized
-        }
-    }
-
-    private static func configurationWatchProxyFailurePresentation(_ error: DJConnectError) -> WatchProxyFailurePresentation {
-        switch error {
-        case let .versionMismatch(mismatch):
-            return .init(code: "version_mismatch", message: mismatch.message ?? "Werk DJConnect bij.", diagnostic: "version mismatch HA \(mismatch.haMajorMinor ?? "?") app \(mismatch.firmwareMajorMinor ?? "?")")
-        case let .invalidConfiguration(message):
-            return .init(code: "invalid_configuration", message: message, diagnostic: "invalid configuration: \(message)")
-        default: return .unrecognized
-        }
-    }
-
-    private static func capabilityWatchProxyFailurePresentation(_ error: DJConnectError) -> WatchProxyFailurePresentation {
-        switch error {
-        case let .trackInsightUnavailable(code, message):
-            return .init(code: "track_insight_unavailable", message: "Track Insight is niet beschikbaar voor dit nummer.", diagnostic: "track insight unavailable\(code.map { " \($0)" } ?? "")\(message.map { ": \($0)" } ?? "")")
-        case let .payloadTooLarge(limitBytes, actualBytes):
-            return .init(code: "payload_too_large", message: "Home Assistant gaf te veel data terug.", diagnostic: "payload too large limit=\(limitBytes) actual=\(actualBytes.map(String.init) ?? "unknown")")
-        case let .profile(code, statusCode, message):
-            return .init(code: "profile_error", message: message ?? "Profielinstellingen ontbreken in Home Assistant.", diagnostic: "profile \(code.rawValue) HTTP \(statusCode)\(message.map { ": \($0)" } ?? "")")
-        default: return .unrecognized
-        }
-    }
-
     private static func watchProxyUserMessage(for error: Error) -> String {
         guard let error = error as? DJConnectError else {
             return "iPhone kon Home Assistant niet bereiken."
         }
-        return watchProxyFailurePresentation(error).message
+        return ClientFailurePresentation.make(error).message
     }
 
     private static func describe(_ error: DJConnectError) -> String {
-        watchProxyFailurePresentation(error).diagnostic
+        ClientFailurePresentation.make(error).diagnostic
     }
 
     private static func trackInsightFailureCode(for error: Error) -> String {
-        guard let error = error as? DJConnectError else {
-            return "unknown"
-        }
-        switch error {
-        case let .trackInsightUnavailable(code, _):
-            return trimmedNonEmpty(code) ?? "track_insight_unavailable"
-        case .backendUnavailable:
-            return "backend_unavailable"
-        case .authStale:
-            return "auth_stale"
-        case .routeMissing:
-            return "route_missing"
-        case .versionMismatch:
-            return "version_mismatch"
-        case .notConfigured:
-            return "not_configured"
-        case .server:
-            return "server"
-        case .decodingFailed:
-            return "decoding_failed"
-        case .network:
-            return "network"
-        case .invalidResponse:
-            return "invalid_response"
-        case .invalidConfiguration:
-            return "invalid_configuration"
-        case .missingToken:
-            return "missing_token"
-        case .pairingFailed:
-            return "pairing_failed"
-        case .clientTypeMismatch:
-            return "client_type_mismatch"
-        case .payloadTooLarge:
-            return "payload_too_large"
-        case let .profile(code, _, _):
-            return code.rawValue
-        }
+        guard let error = error as? DJConnectError else { return "unknown" }
+        return ClientFailurePresentation.make(error).insightCode
     }
 
     private static func trackInsightFailureMessage(for error: Error) -> String {
         let message: String?
-        if let error = error as? DJConnectError {
-            switch error {
-            case let .backendUnavailable(value),
-                 let .routeMissing(value),
-                 let .notConfigured(value),
-                 let .trackInsightUnavailable(_, value):
-                message = value
-            case let .authStale(_, value),
-                 let .server(_, value),
-                 let .decodingFailed(_, _, value),
-                 let .pairingFailed(value),
-                 let .clientTypeMismatch(value, _, _):
-                message = value
-            case let .network(value):
-                message = value
-            case let .profile(_, _, value):
-                message = value
-            case let .invalidConfiguration(value):
-                message = value
-            case .versionMismatch:
-                message = "version_mismatch"
-            case .invalidResponse:
-                message = "invalid_response"
-            case .missingToken:
-                message = "missing_token"
-            case let .payloadTooLarge(limitBytes, actualBytes):
-                message = "payload_too_large limit=\(limitBytes) actual=\(actualBytes.map(String.init) ?? "unknown")"
-            }
-        } else {
-            message = error.localizedDescription
-        }
+        if let error = error as? DJConnectError { message = ClientFailurePresentation.make(error).insightDiagnosticMessage }
+        else { message = error.localizedDescription }
         return (trimmedNonEmpty(message) ?? "none").replacingOccurrences(of: "\n", with: "\\n")
     }
 
@@ -18408,17 +18391,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private static func trackInsightFailureHTTPStatus(for error: Error) -> String? {
-        guard let error = error as? DJConnectError else {
-            return nil
-        }
-        switch error {
-        case let .authStale(statusCode, _),
-             let .server(statusCode, _),
-             let .decodingFailed(statusCode, _, _):
-            return String(statusCode)
-        default:
-            return nil
-        }
+        guard let error = error as? DJConnectError else { return nil }
+        return ClientFailurePresentation.make(error).httpStatus
     }
 
     private static func isCancellation(_ error: Error) -> Bool {
