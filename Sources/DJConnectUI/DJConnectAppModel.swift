@@ -16110,13 +16110,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func sharedHybridTransport() -> DJConnectHybridTransport? {
-        guard !isDemoMode, pairingStatus == .paired,
-              let install = defaults.string(forKey: haInstallIDKey), !install.isEmpty else { return nil }
-        let remote = Self.normalizedHomeAssistantURL(from: haRemoteURL)
-        let local = hasEvaluatedLocalNetwork && !isLocalNetworkAvailable && remote != nil
-            ? nil : Self.normalizedHomeAssistantURL(from: localHomeAssistantURL())
-        guard local.map({ DJConnectHybridTransport.trustedOrigin($0) || DJConnectHybridTransport.isLocalTransportCandidate($0) }) == true
-            || remote.map(DJConnectHybridTransport.trustedOrigin) == true else { return nil }
+        guard let configuration = hybridTransportConfigurationIfEligible() else { return nil }
+        let install = configuration.install, local = configuration.local, remote = configuration.remote
         let key = [local?.absoluteString ?? "", remote?.absoluteString ?? "", install, identity.deviceID].joined(separator: "|")
         if hybridTransportKey == key, let hybridTransport { return hybridTransport }
         if let old = hybridTransport { Task { await old.lifecycle(foreground: false) } }
@@ -16124,25 +16119,40 @@ public final class DJConnectAppModel: ObservableObject {
             identity: identity, tokenStore: tokenStore, wire: DJConnectHybridURLWire(session: urlSession),
             report: { [weak self] snapshot in Task { @MainActor in
                 guard let self, self.hybridTransportKey == key else { return }
-                self.hybridConnectionDiagnostics = snapshot
-                let previous = self.lastHybridRouteState
-                self.lastHybridRouteState = snapshot.state
-                if previous != snapshot.state {
-                    self.invalidateActiveVoiceInventory()
-                    if self.activeVoiceMenuOpen, [.localReady, .remoteReady].contains(snapshot.state) {
-                        Task { await self.refreshActiveVoiceOptions() }
-                    }
-                }
-                if previous != nil, previous != snapshot.state,
-                   [.localReady, .remoteReady].contains(snapshot.state), self.sessionBroadcastTransport != nil {
-                    self.stopSessionBroadcast(); self.startSessionBroadcastIfNeeded()
-                }
-                self.fastPathDiagnostics = DJConnectFastPathDiagnostics(fastPathTransport: snapshot.transportName ?? "offline",
-                    websocketConnected: snapshot.websocketConnected, lastCapabilityRefresh: Date(),
-                    websocketCommands: snapshot.websocketConnected ? ["djconnect/read", "djconnect/operation/execute", "djconnect/operation/status"] : [])
+                self.applyHybridTransportReport(snapshot)
             } })
         hybridTransportKey = key; hybridTransport = transport
         return transport
+    }
+
+    private func hybridTransportConfigurationIfEligible() -> (install: String, local: URL?, remote: URL?)? {
+        guard !isDemoMode, pairingStatus == .paired,
+              let install = defaults.string(forKey: haInstallIDKey), !install.isEmpty else { return nil }
+        let remote = Self.normalizedHomeAssistantURL(from: haRemoteURL)
+        let local = hasEvaluatedLocalNetwork && !isLocalNetworkAvailable && remote != nil
+            ? nil : Self.normalizedHomeAssistantURL(from: localHomeAssistantURL())
+        guard local.map({ DJConnectHybridTransport.trustedOrigin($0) || DJConnectHybridTransport.isLocalTransportCandidate($0) }) == true
+            || remote.map(DJConnectHybridTransport.trustedOrigin) == true else { return nil }
+        return (install, local, remote)
+    }
+
+    private func applyHybridTransportReport(_ snapshot: DJConnectHybridDiagnostics) {
+        hybridConnectionDiagnostics = snapshot
+        let previous = lastHybridRouteState
+        lastHybridRouteState = snapshot.state
+        if previous != snapshot.state {
+            invalidateActiveVoiceInventory()
+            if activeVoiceMenuOpen, [.localReady, .remoteReady].contains(snapshot.state) {
+                Task { await refreshActiveVoiceOptions() }
+            }
+        }
+        if previous != nil, previous != snapshot.state,
+           [.localReady, .remoteReady].contains(snapshot.state), sessionBroadcastTransport != nil {
+            stopSessionBroadcast(); startSessionBroadcastIfNeeded()
+        }
+        fastPathDiagnostics = DJConnectFastPathDiagnostics(fastPathTransport: snapshot.transportName ?? "offline",
+            websocketConnected: snapshot.websocketConnected, lastCapabilityRefresh: Date(),
+            websocketCommands: snapshot.websocketConnected ? ["djconnect/read", "djconnect/operation/execute", "djconnect/operation/status"] : [])
     }
 
     private func updateFastPathDiagnostics(from client: DJConnectClient) async {
@@ -16168,14 +16178,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     func withHomeAssistantClient<T: Sendable>(allowsOperationReplay: Bool = true, notifiesTransportFailure: Bool = true, _ operation: (DJConnectClient) async throws -> T) async throws -> T {
-        let remoteURL = Self.normalizedHomeAssistantURL(from: haRemoteURL)
-        let localURL = hasEvaluatedLocalNetwork && !isLocalNetworkAvailable && remoteURL != nil
-            ? nil : (Self.normalizedHomeAssistantURL(from: localHomeAssistantURL())
-                ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL))
-        guard localURL != nil || remoteURL != nil else {
-            throw DJConnectError.network(message: localized(key: "appModel.enter.your.home.assistant.url.for.example.192.168"))
-        }
-
+        let routes = try homeAssistantClientRoutes()
+        let localURL = routes.localURL, remoteURL = routes.remoteURL
         let localFastPath = localURL.flatMap { webSocketFastPathIfLocal($0) }
         let hybrid = sharedHybridTransport()
         let configuration = transportConfiguration(allowsRemoteHTTPFallback: identity.clientType != .watchos)
@@ -16233,6 +16237,18 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func homeAssistantClientRoutes() throws -> (localURL: URL?, remoteURL: URL?) {
+        let remoteURL = Self.normalizedHomeAssistantURL(from: haRemoteURL)
+        let localURL = hasEvaluatedLocalNetwork && !isLocalNetworkAvailable && remoteURL != nil
+            ? nil : (Self.normalizedHomeAssistantURL(from: localHomeAssistantURL())
+                ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL))
+        guard localURL != nil || remoteURL != nil else {
+            throw DJConnectError.network(message: localized(key: "appModel.enter.your.home.assistant.url.for.example.192.168"))
+        }
+
+        return (localURL, remoteURL)
+    }
+
     func recordConnectionMode(_ mode: DJConnectHAConnectionMode, baseURL: URL?) {
         if mode == .local { localTransportProbeAfter = nil }
         else if mode == .remote && localTransportProbeAfter == nil {
@@ -16274,42 +16290,50 @@ public final class DJConnectAppModel: ObservableObject {
                 guard let self else {
                     return
                 }
-                let didChange = self.isDeviceNetworkAvailable != isDeviceNetwork
-                    || self.isLocalNetworkAvailable != isLocalNetwork
-                    || !self.hasEvaluatedDeviceNetwork
-                    || !self.hasEvaluatedLocalNetwork
-                guard didChange else {
-                    return
-                }
-                self.hasEvaluatedDeviceNetwork = true
-                self.hasEvaluatedLocalNetwork = true
-                self.isDeviceNetworkAvailable = isDeviceNetwork
-                self.isLocalNetworkAvailable = isLocalNetwork
-                self.updateNowPlayingPollTimer()
-                self.updatePlaybackProgressTimer()
-                self.localTransportProbeAfter = nil
-                if isDeviceNetwork, self.isAppInForeground, self.pairingStatus == .paired, !self.isDemoMode {
-                    self.schedulePairedRefresh(reason: "Network change status refresh completed", allowThrottle: false,
-                                               refreshCollections: false, runFollowUpRefresh: false)
-                }
-                if isLocalNetwork {
-                    self.log(.info, "Local network available")
-                    if self.pairingMessage?.localizedCaseInsensitiveContains("WiFi") == true
-                        || self.pairingMessage?.localizedCaseInsensitiveContains("Wi-Fi") == true
-                        || self.pairingMessage?.localizedCaseInsensitiveContains("LAN") == true {
-                        self.pairingMessage = nil
-                    }
-                    self.schedulePairingWait()
-                } else {
-                    self.log(.warning, "Local network unavailable")
-                    if !self.isDemoMode, self.pairingStatus == .unpaired,
-                       let message = self.localNetworkRequirementMessage {
-                        self.pairingMessage = message
-                    }
-                }
+                self.applyNetworkAvailability(isDeviceNetwork: isDeviceNetwork, isLocalNetwork: isLocalNetwork)
             }
         }
         networkMonitor.start(queue: networkMonitorQueue)
+    }
+
+    private func applyNetworkAvailability(isDeviceNetwork: Bool, isLocalNetwork: Bool) {
+        let didChange = isDeviceNetworkAvailable != isDeviceNetwork
+            || isLocalNetworkAvailable != isLocalNetwork
+            || !hasEvaluatedDeviceNetwork
+            || !hasEvaluatedLocalNetwork
+        guard didChange else {
+            return
+        }
+        hasEvaluatedDeviceNetwork = true
+        hasEvaluatedLocalNetwork = true
+        isDeviceNetworkAvailable = isDeviceNetwork
+        isLocalNetworkAvailable = isLocalNetwork
+        updateNowPlayingPollTimer()
+        updatePlaybackProgressTimer()
+        localTransportProbeAfter = nil
+        if isDeviceNetwork, isAppInForeground, pairingStatus == .paired, !isDemoMode {
+            schedulePairedRefresh(reason: "Network change status refresh completed", allowThrottle: false,
+                                       refreshCollections: false, runFollowUpRefresh: false)
+        }
+        applyPairingNetworkAvailability(isLocalNetwork)
+    }
+
+    private func applyPairingNetworkAvailability(_ isLocalNetwork: Bool) {
+        if isLocalNetwork {
+            log(.info, "Local network available")
+            if pairingMessage?.localizedCaseInsensitiveContains("WiFi") == true
+                || pairingMessage?.localizedCaseInsensitiveContains("Wi-Fi") == true
+                || pairingMessage?.localizedCaseInsensitiveContains("LAN") == true {
+                pairingMessage = nil
+            }
+            schedulePairingWait()
+        } else {
+            log(.warning, "Local network unavailable")
+            if !isDemoMode, pairingStatus == .unpaired,
+               let message = localNetworkRequirementMessage {
+                pairingMessage = message
+            }
+        }
     }
 
     var isAppInForegroundForTests: Bool {
@@ -16361,23 +16385,11 @@ public final class DJConnectAppModel: ObservableObject {
         }
         switch type {
         case "watch_demo_text_request":
-            guard let data = message["data"] as? Data, data.count <= 20_000,
-                  let request = try? JSONDecoder().decode(DJConnectWatchDemoTextRequest.self, from: data),
-                  let reply = handleDemoWatchText(request),
-                  let encoded = try? JSONEncoder().encode(reply) else { return }
-            let response: [String: Any] = ["type": "watch_demo_text_reply", "data": encoded]
-            if WCSession.default.isReachable {
-                WCSession.default.sendMessage(response, replyHandler: nil, errorHandler: { @Sendable _ in })
-            }
-            // The matching request ID makes a duplicate foreground/background reply harmless.
-            WCSession.default.transferUserInfo(response)
-            publishWatchDemoSession(forceDelivery: true)
+            receiveWatchDemoTextRequest(message)
         case "watch_demo_snapshot_request":
             publishWatchDemoSession(forceDelivery: true)
         case "watch_diagnostic_batch":
-            guard let data = message["data"] as? Data, data.count <= 32_000,
-                  let batch = try? JSONDecoder().decode(DJConnectWatchDiagnosticBatch.self, from: data) else { return }
-            receiveWatchDiagnosticBatch(batch)
+            receiveWatchDiagnosticMessage(message)
         case "watch_proxy_register":
             registerWatchProxy(message)
         case "watch_proxy_ha_request":
@@ -16385,27 +16397,55 @@ public final class DJConnectAppModel: ObservableObject {
         case "watch_proxy_voice_chunk":
             handleWatchVoiceChunk(message)
         case DJConnectWatchDemoSession.playbackMessageType:
-            guard let id = message["session_id"] as? String, let command = message["command"] as? String else { return }
-            let value = (message["value"] as? Data).flatMap { try? JSONDecoder().decode(DJConnectCommandValue.self, from: $0) }
-            _ = handleDemoWatchPlayback(.init(sessionID: id, command: command, value: value))
+            receiveWatchDemoPlaybackMessage(message)
         case DJConnectWatchDemoSession.choiceMessageType:
-            guard isDemoMode, let id = message["session_id"] as? String,
-                  id.hasPrefix("demo-active-"), activeDJSession?.id == id,
-                  let field = message["field"] as? String, let choice = DJConnectWatchDemoSession.Choice(rawValue: field),
-                  let value = message["value"] as? String else { return }
-            let epoch = sessionHistory.responseEpoch
-            switch choice {
-            case .mood:
-                Task { await changeActiveSessionMood(value, expectedSessionID: id, expectedEpoch: epoch) }
-            case .persona:
-                guard let persona = DJConnectSessionPersonaValue(rawValue: value) else { return }
-                Task { await changeActiveSessionPersona(persona, expectedSessionID: id, expectedEpoch: epoch) }
-            case .presence:
-                guard let presence = DJConnectSessionPresenceValue(rawValue: value) else { return }
-                selectActiveSessionPresence(presence, expectedSessionID: id, expectedEpoch: epoch)
-            }
+            receiveWatchDemoChoiceMessage(message)
         default:
             break
+        }
+    }
+
+    private func receiveWatchDemoTextRequest(_ message: [String: Any]) {
+        guard let data = message["data"] as? Data, data.count <= 20_000,
+              let request = try? JSONDecoder().decode(DJConnectWatchDemoTextRequest.self, from: data),
+              let reply = handleDemoWatchText(request),
+              let encoded = try? JSONEncoder().encode(reply) else { return }
+        let response: [String: Any] = ["type": "watch_demo_text_reply", "data": encoded]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(response, replyHandler: nil, errorHandler: { @Sendable _ in })
+        }
+        // The matching request ID makes a duplicate foreground/background reply harmless.
+        WCSession.default.transferUserInfo(response)
+        publishWatchDemoSession(forceDelivery: true)
+    }
+
+    private func receiveWatchDiagnosticMessage(_ message: [String: Any]) {
+        guard let data = message["data"] as? Data, data.count <= 32_000,
+              let batch = try? JSONDecoder().decode(DJConnectWatchDiagnosticBatch.self, from: data) else { return }
+        receiveWatchDiagnosticBatch(batch)
+    }
+
+    private func receiveWatchDemoPlaybackMessage(_ message: [String: Any]) {
+        guard let id = message["session_id"] as? String, let command = message["command"] as? String else { return }
+        let value = (message["value"] as? Data).flatMap { try? JSONDecoder().decode(DJConnectCommandValue.self, from: $0) }
+        _ = handleDemoWatchPlayback(.init(sessionID: id, command: command, value: value))
+    }
+
+    private func receiveWatchDemoChoiceMessage(_ message: [String: Any]) {
+        guard isDemoMode, let id = message["session_id"] as? String,
+              id.hasPrefix("demo-active-"), activeDJSession?.id == id,
+              let field = message["field"] as? String, let choice = DJConnectWatchDemoSession.Choice(rawValue: field),
+              let value = message["value"] as? String else { return }
+        let epoch = sessionHistory.responseEpoch
+        switch choice {
+        case .mood:
+            Task { await changeActiveSessionMood(value, expectedSessionID: id, expectedEpoch: epoch) }
+        case .persona:
+            guard let persona = DJConnectSessionPersonaValue(rawValue: value) else { return }
+            Task { await changeActiveSessionPersona(persona, expectedSessionID: id, expectedEpoch: epoch) }
+        case .presence:
+            guard let presence = DJConnectSessionPresenceValue(rawValue: value) else { return }
+            selectActiveSessionPresence(presence, expectedSessionID: id, expectedEpoch: epoch)
         }
     }
 
@@ -16436,27 +16476,9 @@ public final class DJConnectAppModel: ObservableObject {
         if let intentID, DJConnectWatchPairingIntent(deviceID: deviceID, identifier: intentID, pairCode: pairCode) == nil { return }
         let prior = watchProxyRegistration
         let sameReceiver = prior?.identity.deviceID == deviceID && prior?.pairingIntentID == intentID && prior?.pairCode == pairCode
-        // 40493 stored the HA QR code over the receiver code. Recover only an
-        // already-confirmed, exact same device+intent; the existing bearer must
-        // still pass the ordinary Core status read before completion is replayed.
-        var recoveredSetup: DJConnectWatchPairingSetup?
-        if let prior, let oldIdentifier = prior.pairingIntentID, let intentID,
-           let stored = DJConnectWatchPairingIntent(deviceID: prior.identity.deviceID, identifier: oldIdentifier, pairCode: prior.pairCode),
-           let receiver = DJConnectWatchPairingIntent(deviceID: deviceID, identifier: intentID, pairCode: pairCode) {
-            recoveredSetup = DJConnectWatchPairingSetup.recoverLegacyConfirmed(receiver: receiver, stored: stored,
-                separatedCode: prior.homeAssistantPairCode, confirmed: prior.paired,
-                hasStoredToken: defaults.string(forKey: watchProxyDeviceTokenKey)?.isEmpty == false)
-        }
+        let recoveredSetup = recoverWatchProxySeparatedSetup(prior: prior, deviceID: deviceID, intentID: intentID, pairCode: pairCode)
         let recoverSeparatedCodes = recoveredSetup != nil
-        if let previous = watchProxyRegistration,
-           previous.identity.deviceID != identity.deviceID || previous.pairingIntentID != intentID || previous.pairCode != pairCode {
-            // Preserve an already-established same-Watch bearer on upgrade only.
-            // A pending/reset/replacement setup cannot adopt this legacy path.
-            let establishedUpgrade = previous.identity.deviceID == identity.deviceID && previous.pairCode == pairCode &&
-                previous.paired && message["paired"] as? Bool == true && previous.pairingIntentID == nil && intentID != nil
-            if establishedUpgrade || recoverSeparatedCodes { invalidateWatchProxyPairingWork() }
-            else { clearWatchProxyPairingState() }
-        }
+        invalidateReplacedWatchProxyRegistration(identity: identity, intentID: intentID, pairCode: pairCode, message: message, recoverSeparatedCodes: recoverSeparatedCodes)
         // The Watch can retain its paired flag after the iPhone loses its proxy token.
         let hasProxyToken = defaults.string(forKey: watchProxyDeviceTokenKey)?.isEmpty == false
         watchProxyRegistration = DJConnectWatchProxyRegistration(
@@ -16471,6 +16493,41 @@ public final class DJConnectAppModel: ObservableObject {
         startPendingWatchProxyPairingIfPossible()
         resumeWatchProxySetupIfNeeded()
         log(.info, "Watch proxy registered \(Self.redactedDJConnectDeviceID(deviceID))")
+    }
+
+    private func recoverWatchProxySeparatedSetup(prior: DJConnectWatchProxyRegistration?, deviceID: String,
+        intentID: String?, pairCode: String) -> DJConnectWatchPairingSetup? {
+        // 40493 stored the HA QR code over the receiver code. Recover only an
+        // already-confirmed, exact same device+intent; the existing bearer must
+        // still pass the ordinary Core status read before completion is replayed.
+        var recoveredSetup: DJConnectWatchPairingSetup?
+        if let prior, let oldIdentifier = prior.pairingIntentID, let intentID,
+           let stored = DJConnectWatchPairingIntent(deviceID: prior.identity.deviceID, identifier: oldIdentifier, pairCode: prior.pairCode),
+           let receiver = DJConnectWatchPairingIntent(deviceID: deviceID, identifier: intentID, pairCode: pairCode) {
+            recoveredSetup = DJConnectWatchPairingSetup.recoverLegacyConfirmed(receiver: receiver, stored: stored,
+                separatedCode: prior.homeAssistantPairCode, confirmed: prior.paired,
+                hasStoredToken: defaults.string(forKey: watchProxyDeviceTokenKey)?.isEmpty == false)
+        }
+        return recoveredSetup
+    }
+
+    private func invalidateReplacedWatchProxyRegistration(identity: DJConnectIdentity, intentID: String?,
+        pairCode: String, message: [String: Any], recoverSeparatedCodes: Bool) {
+        if let previous = watchProxyRegistration,
+           previous.identity.deviceID != identity.deviceID || previous.pairingIntentID != intentID || previous.pairCode != pairCode {
+            // Preserve an already-established same-Watch bearer on upgrade only.
+            // A pending/reset/replacement setup cannot adopt this legacy path.
+            let establishedUpgrade = isEstablishedWatchProxyUpgrade(previous, identity: identity,
+                pairCode: pairCode, message: message, intentID: intentID)
+            if establishedUpgrade || recoverSeparatedCodes { invalidateWatchProxyPairingWork() }
+            else { clearWatchProxyPairingState() }
+        }
+    }
+
+    private func isEstablishedWatchProxyUpgrade(_ previous: DJConnectWatchProxyRegistration,
+        identity: DJConnectIdentity, pairCode: String, message: [String: Any], intentID: String?) -> Bool {
+         previous.identity.deviceID == identity.deviceID && previous.pairCode == pairCode &&
+                previous.paired && message["paired"] as? Bool == true && previous.pairingIntentID == nil && intentID != nil
     }
 
     private func restoreWatchProxyRegistration() {
@@ -16530,11 +16587,8 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set(Self.redactedURL(baseURL), forKey: watchProxyHomeAssistantURLKey)
         let originalOrigin = Self.redactedURL(baseURL)
         let isCurrent = { [self] in
-            !Task.isCancelled && isAppInForeground && watchProxyPairingGeneration == generation &&
-            watchProxyRegistration?.identity.deviceID == registration.identity.deviceID &&
-            watchProxyRegistration?.pairingIntentID == intentID && watchProxyRegistration?.pairCode == registration.pairCode &&
-            watchProxyRegistration?.homeAssistantPairCode == pairCode &&
-            defaults.string(forKey: watchProxyHomeAssistantURLKey) == originalOrigin
+            isWatchPairingSubmissionCurrent(registration: registration, intentID: intentID,
+                pairCode: pairCode, generation: generation, originalOrigin: originalOrigin)
         }
         guard isCurrent() else { return }
         let tokenStore = DJConnectInMemoryTokenStore()
@@ -16546,52 +16600,76 @@ public final class DJConnectAppModel: ObservableObject {
                 haLocalURL: Self.redactedURL(baseURL),
                 assistPipelineID: assistPipelineID.isEmpty ? nil : assistPipelineID
             ))
-            guard let token = try tokenStore.loadToken(), !token.isEmpty else {
-                return
-            }
-            guard isCurrent() else { return }
-            defaults.set(token, forKey: watchProxyDeviceTokenKey)
-            defaults.set(Self.redactedURL(baseURL), forKey: watchProxyHomeAssistantURLKey)
-            persistWatchPairingContract(response)
-            apply(musicBackendSummary: response.musicBackendSummary)
-            remoteSupported = response.remoteSupported ?? remoteSupported
-            watchPairingMessage = localized(key: "appModel.home.assistant.recognized.apple.watch.finish.setup.in.home")
-            pairingFlowTarget = .appleWatch
-            if pairingStatus != .paired { pairingStatus = .waitingForHomeAssistantCompletion }
-            isShowingPairingSuccess = false
-            isPairingScreenDismissed = false
-            pairingMessage = watchPairingMessage
-            try await waitForWatchProxyPairingCompletion(
-                client: client,
-                registration: registration,
-                response: response,
-                token: token,
-                baseURL: baseURL,
-                pairCode: pairCode
-            )
-            log(.info, "Watch proxy paired through iPhone for \(Self.redactedDJConnectDeviceID(registration.identity.deviceID))")
+            try await acceptWatchPairingSubmission(response, client: client, tokenStore: tokenStore,
+                registration: registration, baseURL: baseURL, pairCode: pairCode, isCurrent: isCurrent)
         } catch let error as DJConnectError {
             guard isCurrent() else { return }
-            if case .pairingFailed = error {
-                watchPairingMessage = localized(key: "appModel.home.assistant.did.not.accept.the.apple.watch.pair")
-                pairingMessage = watchPairingMessage
-            } else if case .versionMismatch = error {
-                sendWatchProxyMessage([
-                    "type": "watch_proxy_ready",
-                    "device_id": registration.identity.deviceID,
-                    "client_type": registration.identity.clientType.rawValue,
-                    "message": Self.watchProxyUserMessage(for: error)
-                ])
-            } else {
-                if case .authStale = error {
-                    clearWatchProxyPairingState()
-                } else if case .notConfigured = error {
-                    clearWatchProxyPairingState()
-                }
-                log(.debug, "Watch proxy pairing pending: \(Self.describe(error))")
-            }
+            handleWatchPairingSubmissionFailure(error, registration: registration)
         } catch {
             log(.debug, "Watch proxy pairing pending: \(error.localizedDescription)")
+        }
+    }
+
+    private func acceptWatchPairingSubmission(_ response: DJConnectPairingResponse, client: DJConnectClient,
+        tokenStore: DJConnectInMemoryTokenStore, registration: DJConnectWatchProxyRegistration,
+        baseURL: URL, pairCode: String, isCurrent: () -> Bool) async throws {
+        guard let token = try tokenStore.loadToken(), !token.isEmpty else {
+            return
+        }
+        guard isCurrent() else { return }
+        applyPendingWatchPairing(response, token: token, baseURL: baseURL)
+        try await waitForWatchProxyPairingCompletion(
+            client: client,
+            registration: registration,
+            response: response,
+            token: token,
+            baseURL: baseURL,
+            pairCode: pairCode
+        )
+        log(.info, "Watch proxy paired through iPhone for \(Self.redactedDJConnectDeviceID(registration.identity.deviceID))")
+    }
+
+    private func isWatchPairingSubmissionCurrent(registration: DJConnectWatchProxyRegistration, intentID: String,
+        pairCode: String, generation: UUID, originalOrigin: String) -> Bool {
+            !Task.isCancelled && isAppInForeground && watchProxyPairingGeneration == generation &&
+            watchProxyRegistration?.identity.deviceID == registration.identity.deviceID &&
+            watchProxyRegistration?.pairingIntentID == intentID && watchProxyRegistration?.pairCode == registration.pairCode &&
+            watchProxyRegistration?.homeAssistantPairCode == pairCode &&
+            defaults.string(forKey: watchProxyHomeAssistantURLKey) == originalOrigin
+    }
+
+    private func applyPendingWatchPairing(_ response: DJConnectPairingResponse, token: String, baseURL: URL) {
+        defaults.set(token, forKey: watchProxyDeviceTokenKey)
+        defaults.set(Self.redactedURL(baseURL), forKey: watchProxyHomeAssistantURLKey)
+        persistWatchPairingContract(response)
+        apply(musicBackendSummary: response.musicBackendSummary)
+        remoteSupported = response.remoteSupported ?? remoteSupported
+        watchPairingMessage = localized(key: "appModel.home.assistant.recognized.apple.watch.finish.setup.in.home")
+        pairingFlowTarget = .appleWatch
+        if pairingStatus != .paired { pairingStatus = .waitingForHomeAssistantCompletion }
+        isShowingPairingSuccess = false
+        isPairingScreenDismissed = false
+        pairingMessage = watchPairingMessage
+    }
+
+    private func handleWatchPairingSubmissionFailure(_ error: DJConnectError, registration: DJConnectWatchProxyRegistration) {
+        if case .pairingFailed = error {
+            watchPairingMessage = localized(key: "appModel.home.assistant.did.not.accept.the.apple.watch.pair")
+            pairingMessage = watchPairingMessage
+        } else if case .versionMismatch = error {
+            sendWatchProxyMessage([
+                "type": "watch_proxy_ready",
+                "device_id": registration.identity.deviceID,
+                "client_type": registration.identity.clientType.rawValue,
+                "message": Self.watchProxyUserMessage(for: error)
+            ])
+        } else {
+            if case .authStale = error {
+                clearWatchProxyPairingState()
+            } else if case .notConfigured = error {
+                clearWatchProxyPairingState()
+            }
+            log(.debug, "Watch proxy pairing pending: \(Self.describe(error))")
         }
     }
 
@@ -16610,12 +16688,8 @@ public final class DJConnectAppModel: ObservableObject {
         let operationID = UUID(), generation = watchProxyPairingGeneration
         let originalOrigin = Self.redactedURL(baseURL)
         let isCurrent = { [self] in
-            isAppInForeground && watchProxyPairingGeneration == generation &&
-            watchProxyRegistration?.identity.deviceID == registration.identity.deviceID &&
-            watchProxyRegistration?.pairingIntentID == intentID && watchProxyRegistration?.pairCode == registration.pairCode &&
-            watchProxyRegistration?.homeAssistantPairCode == pairCode &&
-            defaults.string(forKey: watchProxyDeviceTokenKey) == token &&
-            defaults.string(forKey: watchProxyHomeAssistantURLKey) == originalOrigin
+            isWatchPairingReadbackCurrent(registration: registration, intentID: intentID, pairCode: pairCode,
+                token: token, generation: generation, originalOrigin: originalOrigin)
         }
         watchProxySetupReadbackInFlight = operationID
         defer { if watchProxySetupReadbackInFlight == operationID { watchProxySetupReadbackInFlight = nil } }
@@ -16625,79 +16699,109 @@ public final class DJConnectAppModel: ObservableObject {
                 try await Task.sleep(for: .seconds(delay))
             }
             guard !Task.isCancelled, isCurrent() else { return }
-            do {
-                let completed = try await DJConnectWatchPairingReadback.perform(isCurrent: isCurrent, read: {
-                _ = try await client.postStatus(DJConnectStatusPayload(
-                    identity: registration.identity,
-                    haPairingStatus: .paired,
-                    language: currentRequestLocale,
-                    logLevel: logLevel,
-                    localAudioSupported: false,
-                    voiceSupported: true,
-                    haLocalURL: response.haLocalURL ?? Self.redactedURL(baseURL),
-                    voiceEnabled: voiceEnabled,
-                    wakewordEnabled: false,
-                    wakewordPhrase: "",
-                    wakewordStatus: "\(wakeWordStatus)",
-                    mood: confirmedSessionMoodInt,
-                    musicDNAKey: askDJMusicDNAKey
-                ))
-                }, commit: {
-                    var updated = registration
-                    updated.paired = true
-                    updated.homeAssistantPairCode = pairCode
-                    watchProxyRegistration = updated
-                    persistWatchProxyRegistration()
-                    watchPairingAttemptActive = false
-                    watchPairingMessage = localized(key: "appModel.apple.watch.paired.with.home.assistant")
-                    // Completing the Watch registration cannot pair the iPhone's
-                    // independent identity, or send its status with the Watch bearer.
-                    pairingStatus = (try? tokenStore.loadToken())?.isEmpty == false ? .paired : .unpaired
-                    pairingFlowTarget = .appleWatch
-                    isShowingPairingSuccess = true
-                    isPairingScreenDismissed = false
-                    pairingMessage = watchPairingMessage
-                    sendWatchProxyMessage([
-                        "type": "watch_proxy_pair_result",
-                        "device_id": registration.identity.deviceID,
-                        "pairing_intent_id": intentID,
-                        "pair_code": setup.receiver.pairCode,
-                        "device_token": token,
-                        "ha_base_url": response.haLocalURL ?? Self.redactedURL(baseURL),
-                        "connection_mode": haConnectionMode.rawValue,
-                        "remote_supported": remoteSupported,
-                        "music_backend": musicBackendSummary.musicBackend ?? "",
-                        "music_backend_name": musicBackendSummary.displayName,
-                        "music_backend_available": musicBackendSummary.musicBackendAvailable ?? true,
-                        "music_backend_revision": musicBackendSummary.musicBackendRevision ?? 0,
-                        "music_backend_error": musicBackendSummary.musicBackendError ?? "",
-                        "music_target_player_name": musicBackendSummary.musicTargetPlayer?.name ?? "",
-                        "assist_pipeline_id": response.assistPipelineID ?? assistPipelineID,
-                        "api_base": response.apiBase ?? "",
-                        "voice_path": response.voicePath ?? "",
-                        "status_path": response.statusPath ?? "",
-                        "event_path": response.eventPath ?? "",
-                        "ask_dj_supported": response.askDJSupported ?? true,
-                        "ask_dj_voice_supported": response.askDJVoiceSupported ?? true,
-                        "ask_dj_audio_response_supported": response.askDJAudioResponseSupported ?? true
-                    ])
-                })
-                guard completed else { return }
-            } catch let error as DJConnectError {
-                guard !Task.isCancelled, isCurrent() else { return }
-                if isWaitingForHomeAssistantCompletion(error) {
-                    watchPairingMessage = localized(key: "appModel.waiting.for.setup.to.be.completed.in.home.assistant")
-                    pairingMessage = watchPairingMessage
-                    log(.debug, "Waiting for Home Assistant Watch setup completion: \(Self.describe(error))")
-                    continue
-                }
-                throw error
+            switch try await pollWatchPairingCompletion(client: client, registration: registration,
+                response: response, token: token, baseURL: baseURL, pairCode: pairCode,
+                intentID: intentID, setup: setup, isCurrent: isCurrent) {
+            case .completed, .withdrawn: return
+            case .pending: continue
             }
-            return
         }
         guard !Task.isCancelled, isCurrent() else { return }
         watchPairingMessage = localized(key: "appModel.not.completed.in.home.assistant.yet.finish.setup.there")
         pairingMessage = watchPairingMessage
+    }
+
+    private enum WatchPairingPollOutcome { case completed, pending, withdrawn }
+
+    private func pollWatchPairingCompletion(client: DJConnectClient, registration: DJConnectWatchProxyRegistration,
+        response: DJConnectPairingResponse, token: String, baseURL: URL, pairCode: String,
+        intentID: String, setup: DJConnectWatchPairingSetup, isCurrent: @escaping () -> Bool) async throws -> WatchPairingPollOutcome {
+        do {
+            let completed = try await DJConnectWatchPairingReadback.perform(isCurrent: isCurrent, read: {
+            _ = try await client.postStatus(DJConnectStatusPayload(
+                identity: registration.identity,
+                haPairingStatus: .paired,
+                language: currentRequestLocale,
+                logLevel: logLevel,
+                localAudioSupported: false,
+                voiceSupported: true,
+                haLocalURL: response.haLocalURL ?? Self.redactedURL(baseURL),
+                voiceEnabled: voiceEnabled,
+                wakewordEnabled: false,
+                wakewordPhrase: "",
+                wakewordStatus: "\(wakeWordStatus)",
+                mood: confirmedSessionMoodInt,
+                musicDNAKey: askDJMusicDNAKey
+            ))
+            }, commit: {
+                commitWatchPairingReadback(registration: registration, response: response, token: token,
+                    baseURL: baseURL, pairCode: pairCode, intentID: intentID, setup: setup)
+            })
+            guard completed else { return .withdrawn }
+        } catch let error as DJConnectError {
+            guard !Task.isCancelled, isCurrent() else { return .withdrawn }
+            if isWaitingForHomeAssistantCompletion(error) {
+                watchPairingMessage = localized(key: "appModel.waiting.for.setup.to.be.completed.in.home.assistant")
+                pairingMessage = watchPairingMessage
+                log(.debug, "Waiting for Home Assistant Watch setup completion: \(Self.describe(error))")
+                return .pending
+            }
+            throw error
+        }
+        return .completed
+    }
+
+    private func isWatchPairingReadbackCurrent(registration: DJConnectWatchProxyRegistration, intentID: String,
+        pairCode: String, token: String, generation: UUID, originalOrigin: String) -> Bool {
+            isAppInForeground && watchProxyPairingGeneration == generation &&
+            watchProxyRegistration?.identity.deviceID == registration.identity.deviceID &&
+            watchProxyRegistration?.pairingIntentID == intentID && watchProxyRegistration?.pairCode == registration.pairCode &&
+            watchProxyRegistration?.homeAssistantPairCode == pairCode &&
+            defaults.string(forKey: watchProxyDeviceTokenKey) == token &&
+            defaults.string(forKey: watchProxyHomeAssistantURLKey) == originalOrigin
+    }
+
+    private func commitWatchPairingReadback(registration: DJConnectWatchProxyRegistration,
+        response: DJConnectPairingResponse, token: String, baseURL: URL, pairCode: String,
+        intentID: String, setup: DJConnectWatchPairingSetup) {
+        var updated = registration
+        updated.paired = true
+        updated.homeAssistantPairCode = pairCode
+        watchProxyRegistration = updated
+        persistWatchProxyRegistration()
+        watchPairingAttemptActive = false
+        watchPairingMessage = localized(key: "appModel.apple.watch.paired.with.home.assistant")
+        // Completing the Watch registration cannot pair the iPhone's
+        // independent identity, or send its status with the Watch bearer.
+        pairingStatus = (try? tokenStore.loadToken())?.isEmpty == false ? .paired : .unpaired
+        pairingFlowTarget = .appleWatch
+        isShowingPairingSuccess = true
+        isPairingScreenDismissed = false
+        pairingMessage = watchPairingMessage
+        sendWatchProxyMessage([
+            "type": "watch_proxy_pair_result",
+            "device_id": registration.identity.deviceID,
+            "pairing_intent_id": intentID,
+            "pair_code": setup.receiver.pairCode,
+            "device_token": token,
+            "ha_base_url": response.haLocalURL ?? Self.redactedURL(baseURL),
+            "connection_mode": haConnectionMode.rawValue,
+            "remote_supported": remoteSupported,
+            "music_backend": musicBackendSummary.musicBackend ?? "",
+            "music_backend_name": musicBackendSummary.displayName,
+            "music_backend_available": musicBackendSummary.musicBackendAvailable ?? true,
+            "music_backend_revision": musicBackendSummary.musicBackendRevision ?? 0,
+            "music_backend_error": musicBackendSummary.musicBackendError ?? "",
+            "music_target_player_name": musicBackendSummary.musicTargetPlayer?.name ?? "",
+            "assist_pipeline_id": response.assistPipelineID ?? assistPipelineID,
+            "api_base": response.apiBase ?? "",
+            "voice_path": response.voicePath ?? "",
+            "status_path": response.statusPath ?? "",
+            "event_path": response.eventPath ?? "",
+            "ask_dj_supported": response.askDJSupported ?? true,
+            "ask_dj_voice_supported": response.askDJVoiceSupported ?? true,
+            "ask_dj_audio_response_supported": response.askDJAudioResponseSupported ?? true
+        ])
     }
 
     /// The HA wizard may finish minutes after the initial pairing POST. Resume
@@ -16874,11 +16978,9 @@ public final class DJConnectAppModel: ObservableObject {
             return DJConnectWatchProxyResponse(success: false, error: "missing_token", message: "Watch is not paired with Home Assistant.")
         }
         do {
+            let policy = watchProxyTransportPolicy(request)
             let encoded = try await withWatchProxyHomeAssistantClient(identity: registration.identity, token: token,
-                historyContractVersion: [.sessionFlow, .sessionFlowArtwork, .askDJMessage, .askDJTextOutcome, .replaySessionSpeech].contains(request.operation) ? sessionHistory.historyContractVersion : 1,
-                allowsOperationReplay: !request.isAskDJTextSubmission && request.operation != .watchWidgetAuthorize && request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech && request.operation != .replaySessionSpeech &&
-                    request.operation != .startSession && request.operation != .endSession &&
-                    request.operation != .updateSessionOnlyMood && request.operation != .sessionFlowArtwork && request.operation != .voice) { client in
+                historyContractVersion: policy.historyContractVersion, allowsOperationReplay: policy.allowsOperationReplay) { client in
                 try await self.performWatchProxyOperation(request, client: client)
             }
             let limit = request.operation == .replaySessionSpeech ? DJConnectWatchProxyRequests.maximumReplayBytes : 42_000
@@ -16887,23 +16989,39 @@ public final class DJConnectAppModel: ObservableObject {
         } catch let rejection as DJConnectProfileDJSettingsFailure {
             return DJConnectWatchProxyResponse(success: false, payload: try? JSONEncoder().encode(rejection), error: "settings_rejected")
         } catch let error as DJConnectError {
-            if [.watchWidgetAuthorize, .watchWidgetRead, .watchWidgetImage].contains(request.operation) {
-                switch error {
-                case .profile, .invalidResponse, .decodingFailed, .routeMissing, .versionMismatch:
-                    return DJConnectWatchProxyResponse(success: false, error: "watch_widget_invalidated")
-                default: break
-                }
-            }
-            if case .authStale = error,
-               watchProxyRegistration?.identity.deviceID == registration.identity.deviceID,
-               watchProxyRegistration?.pairingIntentID == registration.pairingIntentID,
-               defaults.string(forKey: watchProxyDeviceTokenKey) == token {
-                clearWatchProxyPairingState()
-            }
-            return DJConnectWatchProxyResponse(success: false, error: Self.watchProxyErrorCode(for: error), message: Self.watchProxyUserMessage(for: error))
+            return watchProxyFailureResponse(error, request: request, registration: registration, token: token)
         } catch {
             return DJConnectWatchProxyResponse(success: false, error: Self.watchProxyErrorCode(for: error), message: Self.watchProxyUserMessage(for: error))
         }
+    }
+
+    private func watchProxyTransportPolicy(_ request: DJConnectWatchProxyRequest)
+        -> (historyContractVersion: Int, allowsOperationReplay: Bool) {
+        let historyContractVersion = [.sessionFlow, .sessionFlowArtwork, .askDJMessage, .askDJTextOutcome, .replaySessionSpeech].contains(request.operation) ? sessionHistory.historyContractVersion : 1
+        let nonReplayOperations: [DJConnectWatchProxyOperation] = [
+            .watchWidgetAuthorize, .updateProfileDJSettings, .prepareSessionSpeech, .replaySessionSpeech,
+            .startSession, .endSession, .updateSessionOnlyMood, .sessionFlowArtwork, .voice
+        ]
+        let allowsOperationReplay = !request.isAskDJTextSubmission && !nonReplayOperations.contains(request.operation)
+        return (historyContractVersion, allowsOperationReplay)
+    }
+
+    private func watchProxyFailureResponse(_ error: DJConnectError, request: DJConnectWatchProxyRequest,
+        registration: DJConnectWatchProxyRegistration, token: String) -> DJConnectWatchProxyResponse {
+        if [.watchWidgetAuthorize, .watchWidgetRead, .watchWidgetImage].contains(request.operation) {
+            switch error {
+            case .profile, .invalidResponse, .decodingFailed, .routeMissing, .versionMismatch:
+                return DJConnectWatchProxyResponse(success: false, error: "watch_widget_invalidated")
+            default: break
+            }
+        }
+        if case .authStale = error,
+           watchProxyRegistration?.identity.deviceID == registration.identity.deviceID,
+           watchProxyRegistration?.pairingIntentID == registration.pairingIntentID,
+           defaults.string(forKey: watchProxyDeviceTokenKey) == token {
+            clearWatchProxyPairingState()
+        }
+        return DJConnectWatchProxyResponse(success: false, error: Self.watchProxyErrorCode(for: error), message: Self.watchProxyUserMessage(for: error))
     }
 
     private static func watchFlowThumbnail(_ image: CGImage) throws -> Data {
@@ -17470,10 +17588,8 @@ public final class DJConnectAppModel: ObservableObject {
               payload.deviceID == client.identity.deviceID,
               let token = try client.tokenStore.loadToken(), !token.isEmpty else { throw DJConnectError.invalidResponse }
         let isStillCurrent = { [self] in
-            !Task.isCancelled && pairingStatus == .paired && sessionHistory.responseEpoch == epoch &&
-                watchProxyPairingGeneration == generation && localHomeAssistantURL() == localRoute && haRemoteURL == remoteRoute &&
-                watchProxyRegistration?.paired == true && watchProxyRegistration?.identity.deviceID == payload.deviceID &&
-                defaults.string(forKey: watchProxyDeviceTokenKey) == token
+            isWatchPushRegistrationCurrent(epoch: epoch, generation: generation,
+                localRoute: localRoute, remoteRoute: remoteRoute, watchID: payload.deviceID, token: token)
         }
         guard isStillCurrent() else { throw CancellationError() }
         let response = try await client.registerPushNotifications(payload)
@@ -17487,6 +17603,19 @@ public final class DJConnectAppModel: ObservableObject {
         guard Self.isMissingBootstrapProof(reason), payload.bootstrapProof?.isEmpty != false else {
             return try encoder.encode(response)
         }
+        return try await recoverWatchPushBootstrap(payload, client: client, response: response, encoder: encoder, isStillCurrent: isStillCurrent)
+    }
+
+    private func isWatchPushRegistrationCurrent(epoch: UUID, generation: UUID, localRoute: String,
+        remoteRoute: String, watchID: String, token: String) -> Bool {
+            !Task.isCancelled && pairingStatus == .paired && sessionHistory.responseEpoch == epoch &&
+                watchProxyPairingGeneration == generation && localHomeAssistantURL() == localRoute && haRemoteURL == remoteRoute &&
+                watchProxyRegistration?.paired == true && watchProxyRegistration?.identity.deviceID == watchID &&
+                defaults.string(forKey: watchProxyDeviceTokenKey) == token
+    }
+
+    private func recoverWatchPushBootstrap(_ payload: DJConnectPushRegistrationRequest, client: DJConnectClient,
+        response: DJConnectCommandResponse, encoder: JSONEncoder, isStillCurrent: @escaping () -> Bool) async throws -> Data {
         let status = try await client.postPairingCompletionStatus(.init(identity: client.identity))
         guard isStillCurrent() else { throw CancellationError() }
         guard let installID = status.haInstallID, !installID.isEmpty,
@@ -17587,36 +17716,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard let error = error as? DJConnectError else {
             return "failed"
         }
-        switch error {
-        case .versionMismatch:
-            return "version_mismatch"
-        case .authStale:
-            return "auth_stale"
-        case .backendUnavailable:
-            return "backend_unavailable"
-        case .routeMissing:
-            return "route_missing"
-        case .network:
-            return "network"
-        case .notConfigured:
-            return "not_configured"
-        case .missingToken:
-            return "missing_token"
-        case .invalidConfiguration:
-            return "invalid_configuration"
-        case .pairingFailed:
-            return "pairing_failed"
-        case .clientTypeMismatch:
-            return "client_type_mismatch"
-        case .trackInsightUnavailable:
-            return "track_insight_unavailable"
-        case .payloadTooLarge:
-            return "payload_too_large"
-        case .profile:
-            return "profile_error"
-        case .server, .decodingFailed, .invalidResponse:
-            return "server"
-        }
+        return watchProxyFailurePresentation(error).code
     }
 
     private func publishWatchDemoSession(forceDelivery: Bool = false) {
@@ -17968,69 +18068,92 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private struct WatchProxyFailurePresentation {
+        let code: String
+        let message: String
+        let diagnostic: String
+
+        static let unrecognized = Self(code: "failed", message: "iPhone kon Home Assistant niet bereiken.", diagnostic: "failed")
+    }
+
+    private static func watchProxyFailurePresentation(_ error: DJConnectError) -> WatchProxyFailurePresentation {
+        switch error {
+        case .backendUnavailable, .routeMissing, .network, .server, .decodingFailed, .invalidResponse:
+            return transportWatchProxyFailurePresentation(error)
+        case .authStale, .notConfigured, .missingToken, .pairingFailed, .clientTypeMismatch:
+            return pairingWatchProxyFailurePresentation(error)
+        case .versionMismatch, .invalidConfiguration:
+            return configurationWatchProxyFailurePresentation(error)
+        case .trackInsightUnavailable, .payloadTooLarge, .profile:
+            return capabilityWatchProxyFailurePresentation(error)
+        }
+    }
+
+    private static func transportWatchProxyFailurePresentation(_ error: DJConnectError) -> WatchProxyFailurePresentation {
+        switch error {
+        case let .backendUnavailable(message):
+            return .init(code: "backend_unavailable", message: "Home Assistant gaf geen antwoord.", diagnostic: "backend unavailable\(message.map { ": \($0)" } ?? "")")
+        case let .routeMissing(message):
+            return .init(code: "route_missing", message: "Ask DJ niet bereikbaar.", diagnostic: "route missing\(message.map { ": \($0)" } ?? "")")
+        case let .network(message):
+            return .init(code: "network", message: "Ask DJ niet bereikbaar.", diagnostic: "network: \(message)")
+        case let .server(statusCode, message):
+            return .init(code: "server", message: "Home Assistant gaf geen antwoord.", diagnostic: "server HTTP \(statusCode)\(message.map { ": \($0)" } ?? "")")
+        case let .decodingFailed(statusCode, endpoint, message):
+            return .init(code: "server", message: "Home Assistant gaf geen antwoord.", diagnostic: "decode failed HTTP \(statusCode) \(endpoint)\(message.map { ": \($0)" } ?? "")")
+        case .invalidResponse:
+            return .init(code: "server", message: "Home Assistant gaf geen antwoord.", diagnostic: "invalid response")
+        default: return .unrecognized
+        }
+    }
+
+    private static func pairingWatchProxyFailurePresentation(_ error: DJConnectError) -> WatchProxyFailurePresentation {
+        switch error {
+        case let .authStale(statusCode, message):
+            return .init(code: "auth_stale", message: "Koppel opnieuw via iPhone.", diagnostic: "auth stale HTTP \(statusCode)\(message.map { ": \($0)" } ?? "")")
+        case let .notConfigured(message):
+            return .init(code: "not_configured", message: "Ask DJ niet bereikbaar.", diagnostic: "not configured\(message.map { ": \($0)" } ?? "")")
+        case .missingToken:
+            return .init(code: "missing_token", message: "Koppel opnieuw via iPhone.", diagnostic: "missing DJConnect bearer token")
+        case let .pairingFailed(message):
+            return .init(code: "pairing_failed", message: message ?? "Koppelen via iPhone is nog niet klaar.", diagnostic: "pairing pending\(message.map { ": \($0)" } ?? "")")
+        case let .clientTypeMismatch(message, expectedClientType, receivedClientType):
+            return .init(code: "client_type_mismatch", message: message ?? "Verkeerd app-type gekozen in Home Assistant.", diagnostic: "client type mismatch expected=\(expectedClientType ?? "?") received=\(receivedClientType ?? "?")\(message.map { ": \($0)" } ?? "")")
+        default: return .unrecognized
+        }
+    }
+
+    private static func configurationWatchProxyFailurePresentation(_ error: DJConnectError) -> WatchProxyFailurePresentation {
+        switch error {
+        case let .versionMismatch(mismatch):
+            return .init(code: "version_mismatch", message: mismatch.message ?? "Werk DJConnect bij.", diagnostic: "version mismatch HA \(mismatch.haMajorMinor ?? "?") app \(mismatch.firmwareMajorMinor ?? "?")")
+        case let .invalidConfiguration(message):
+            return .init(code: "invalid_configuration", message: message, diagnostic: "invalid configuration: \(message)")
+        default: return .unrecognized
+        }
+    }
+
+    private static func capabilityWatchProxyFailurePresentation(_ error: DJConnectError) -> WatchProxyFailurePresentation {
+        switch error {
+        case let .trackInsightUnavailable(code, message):
+            return .init(code: "track_insight_unavailable", message: "Track Insight is niet beschikbaar voor dit nummer.", diagnostic: "track insight unavailable\(code.map { " \($0)" } ?? "")\(message.map { ": \($0)" } ?? "")")
+        case let .payloadTooLarge(limitBytes, actualBytes):
+            return .init(code: "payload_too_large", message: "Home Assistant gaf te veel data terug.", diagnostic: "payload too large limit=\(limitBytes) actual=\(actualBytes.map(String.init) ?? "unknown")")
+        case let .profile(code, statusCode, message):
+            return .init(code: "profile_error", message: message ?? "Profielinstellingen ontbreken in Home Assistant.", diagnostic: "profile \(code.rawValue) HTTP \(statusCode)\(message.map { ": \($0)" } ?? "")")
+        default: return .unrecognized
+        }
+    }
+
     private static func watchProxyUserMessage(for error: Error) -> String {
         guard let error = error as? DJConnectError else {
             return "iPhone kon Home Assistant niet bereiken."
         }
-        switch error {
-        case let .versionMismatch(mismatch):
-            return mismatch.message ?? "Werk DJConnect bij."
-        case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
-            return "Home Assistant gaf geen antwoord."
-        case .payloadTooLarge:
-            return "Home Assistant gaf te veel data terug."
-        case .trackInsightUnavailable:
-            return "Track Insight is niet beschikbaar voor dit nummer."
-        case .network, .routeMissing, .notConfigured:
-            return "Ask DJ niet bereikbaar."
-        case .authStale, .missingToken:
-            return "Koppel opnieuw via iPhone."
-        case let .invalidConfiguration(message):
-            return message
-        case let .pairingFailed(message):
-            return message ?? "Koppelen via iPhone is nog niet klaar."
-        case let .clientTypeMismatch(message, _, _):
-            return message ?? "Verkeerd app-type gekozen in Home Assistant."
-        case let .profile(_, _, message):
-            return message ?? "Profielinstellingen ontbreken in Home Assistant."
-        }
+        return watchProxyFailurePresentation(error).message
     }
 
     private static func describe(_ error: DJConnectError) -> String {
-        switch error {
-        case let .backendUnavailable(message):
-            "backend unavailable\(message.map { ": \($0)" } ?? "")"
-        case let .authStale(statusCode, message):
-            "auth stale HTTP \(statusCode)\(message.map { ": \($0)" } ?? "")"
-        case let .routeMissing(message):
-            "route missing\(message.map { ": \($0)" } ?? "")"
-        case let .versionMismatch(mismatch):
-            "version mismatch HA \(mismatch.haMajorMinor ?? "?") app \(mismatch.firmwareMajorMinor ?? "?")"
-        case let .notConfigured(message):
-            "not configured\(message.map { ": \($0)" } ?? "")"
-        case let .server(statusCode, message):
-            "server HTTP \(statusCode)\(message.map { ": \($0)" } ?? "")"
-        case let .decodingFailed(statusCode, endpoint, message):
-            "decode failed HTTP \(statusCode) \(endpoint)\(message.map { ": \($0)" } ?? "")"
-        case let .network(message):
-            "network: \(message)"
-        case .invalidResponse:
-            "invalid response"
-        case let .invalidConfiguration(message):
-            "invalid configuration: \(message)"
-        case .missingToken:
-            "missing DJConnect bearer token"
-        case let .pairingFailed(message):
-            "pairing pending\(message.map { ": \($0)" } ?? "")"
-        case let .clientTypeMismatch(message, expectedClientType, receivedClientType):
-            "client type mismatch expected=\(expectedClientType ?? "?") received=\(receivedClientType ?? "?")\(message.map { ": \($0)" } ?? "")"
-        case let .trackInsightUnavailable(code, message):
-            "track insight unavailable\(code.map { " \($0)" } ?? "")\(message.map { ": \($0)" } ?? "")"
-        case let .payloadTooLarge(limitBytes, actualBytes):
-            "payload too large limit=\(limitBytes) actual=\(actualBytes.map(String.init) ?? "unknown")"
-        case let .profile(code, statusCode, message):
-            "profile \(code.rawValue) HTTP \(statusCode)\(message.map { ": \($0)" } ?? "")"
-        }
+        watchProxyFailurePresentation(error).diagnostic
     }
 
     private static func trackInsightFailureCode(for error: Error) -> String {
