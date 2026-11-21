@@ -547,36 +547,13 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         do {
             let caps = try await host.withHomeAssistantClient { try await $0.sessionHistoryCapabilities() }
             guard captured == epoch, host.canRefreshSessionHistory, !Task.isCancelled else { return }
-            if historyContractVersion != caps.historyContractVersion {
-                // A cursor and its cached projection cannot cross representations.
-                suspend(preservingVoicePreference: true, cancelPreparation: false)
-                historyContractVersion = caps.historyContractVersion
-                historyNeedsUpgrade = false
-                captured = epoch
-            }
-            artworkAvailable = caps.artworkAvailable
-            replyArtworkAvailable = caps.replyArtworkAvailable
-            summaryAvailable = caps.summaryAvailable
-            deletionAvailable = caps.deletionAvailable
-            bulkDeletionAvailable = caps.bulkDeletionAvailable
-            contentDeletionAvailable = caps.contentDeletionAvailable
-            available = caps.available; searchAvailable = caps.searchAvailable; momentInsightAvailable = caps.momentInsightAvailable
-            if available && !profileScopeActive {
-                while host.isSendingAskDJText || host.isRecordingVoice || host.voiceStatus == .processing {
-                    try await Task.sleep(for: .milliseconds(50))
-                    guard captured == epoch, host.canRefreshSessionHistory, !Task.isCancelled else { return }
-                }
-                profileScopeActive = true
-                host.enterProfileConversationScope()
-            }
+            acceptHistoryCapabilities(caps, captured: &captured)
+            guard try await enterPreparedProfileScope(host: host, captured: captured) else { return }
             if available { await refreshConversation() }
             guard captured == epoch, host.canRefreshSessionHistory, available, ownerScope != nil else { return }
             contributionExploration = caps.contributionExploration
         } catch {
-            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
-            guard captured == epoch else { return }
-            if withdrawAuthority(for: error) { return }
-            listErrorKey = "ui.session.history.unavailable"
+            handlePreparationFailure(error, captured: captured)
         }
     }
 
@@ -887,24 +864,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
               contentDeletionJournal[record.scope]?.request == record.request,
               receipt.admits(scope: record.prepared, request: record.request, owner: record.owner) else { return false }
         acceptedContentDeletionReceipts[record.scope] = receipt
-        for moment in record.prepared.affected_moments {
-            withdrawnContentMoments.insert(record.scope + "\u{0}" + moment.session_id + "\u{0}" + moment.moment_id)
-        }
-        let activeID = host.activeDJSession?.id
-        let affected = Set(receipt.affected_entries.map {
-            DJConnectSessionEntryReference(sessionID: $0.session_id, entryID: $0.entry_id)
-        })
-        // Remove only acknowledged content immediately. Server-retained unavailable
-        // placeholders, if any, are supplied by the subsequent authoritative read.
-        func unaffected(_ entries: [DJConnectHistoryEntry]) -> [DJConnectHistoryEntry] {
-            entries.filter { !affected.contains($0.reference) }
-        }
-        for id in Array(timelines.keys) { timelines[id]?.entries = unaffected(timelines[id]?.entries ?? []) }
-        historicalMatches = historicalMatches.mapValues(unaffected)
-        searchMatches = unaffected(searchMatches)
-        if let selectedEntry, affected.contains(selectedEntry) { self.selectedEntry = nil }
-        if let openTarget, affected.contains(openTarget) { self.openTarget = nil }
-        host.withdrawDeletedContentPresentation(receipt, target: record.prepared.target)
+        let activeID = retireAcknowledgedContent(record, receipt: receipt, host: host)
         fenceContentDeletionReadback(cancelPreparation: true)
         contentRemovalRevision = UUID()
         contentDeletionReadback = (record.owner, archiveResponseEpoch)
@@ -1088,41 +1048,11 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             }
             guard captured == epoch, host.canRefreshSessionHistory, !Task.isCancelled,
                   timelines[ref.sessionID]?.entries.contains(original) == true, original.isRetained() else { return }
-            guard let media = response.first(where: { $0.target == .entry(ref.entryID) }) else {
-                artworkFailed.insert(ref); return
-            }
-            func patch(_ rows: [DJConnectHistoryEntry]) -> [DJConnectHistoryEntry] {
-                rows.map { row in
-                    guard row.reference == ref else { return row }
-                    var copy = row; copy.sessionMedia = media; return copy
-                }
-            }
-            if var timeline = timelines[ref.sessionID] {
-                timeline.entries = patch(timeline.entries); timelines[ref.sessionID] = timeline
-            }
-            historicalMatches = historicalMatches.mapValues(patch)
-            searchMatches = patch(searchMatches)
-            let audience: DJConnectSessionMedia.Audience = media.entryAudience
-            if media.admittedArtwork(session: ref.sessionID, target: .entry(ref.entryID), audience: audience) == nil {
-                artworkFailed.insert(ref)
-            }
+            applyPreparedArtwork(response, ref: ref)
         } catch {
             guard captured == epoch, !Task.isCancelled, host.canRefreshSessionHistory,
                   timelines[ref.sessionID]?.entries.contains(original) == true else { return }
-            // Failed revalidation must not leave the old image shown.
-            // Clear only this still-matching target; preserve text and any newer grant.
-            func clear(_ rows: [DJConnectHistoryEntry]) -> [DJConnectHistoryEntry] {
-                rows.map { row in
-                    guard row.reference == ref else { return row }
-                    var copy = row; copy.sessionMedia = nil; return copy
-                }
-            }
-            if var timeline = timelines[ref.sessionID] {
-                timeline.entries = clear(timeline.entries); timelines[ref.sessionID] = timeline
-            }
-            historicalMatches = historicalMatches.mapValues(clear)
-            searchMatches = clear(searchMatches)
-            artworkFailed.insert(ref)
+            clearFailedArtwork(ref)
         }
     }
 
@@ -1147,22 +1077,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         defer { if generation == listGeneration { listLoading = false } }
         do {
             let page = try await host.withHomeAssistantClient { try await $0.savedSessions(cursor: cursor) }
-            guard captured == epoch, ownerScope == owner, generation == listGeneration else { return false }
-            guard cursor == nil || listRevision == page.revision.value else { throw DJConnectError.invalidResponse }
-            guard cursor == nil || page.nextCursor != cursor else { throw DJConnectError.invalidResponse }
-            let old = cursor == nil ? [] : sessions
-            sessions = mergeSessions(old, page.sessions.filter { $0.readOnly })
-            listRevision = page.revision.value; listNextCursor = page.nextCursor
-            return true
+            return try acceptSessionsPage(page, cursor: cursor, captured: captured, owner: owner, generation: generation)
         } catch {
-            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return false }
-            guard captured == epoch, generation == listGeneration else { return false }
-            if requireHistoryUpgrade(for: error) { return false }
-            if withdrawAuthority(for: error) { return false }
-            // Keep the last confirmed readonly list on a transient read failure.
-            // Authority withdrawal above still removes all private projections.
-            listErrorKey = errorKey(error)
-            return false
+            return handleSessionsReadFailure(error, captured: captured, generation: generation)
         }
     }
 
@@ -1184,31 +1101,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             let page = try await host.withHomeAssistantClient {
                 try await $0.sessionTimeline(sessionID: sessionID, cursor: cursor, window: window, anchorEntryID: anchorEntryID, limit: limit)
             }
-            guard captured == epoch, ownerScope == owner, timelineGenerations[sessionID] == generation else { return false }
-            guard cursor == nil || timelines[sessionID]?.revision == page.revision.value else { throw DJConnectError.invalidResponse }
-            var previous = cursor == nil && window == nil && !preserveLoadedEntries ? [] : timelines[sessionID]?.entries ?? []
-            if window != nil, let lower = page.scannedOrderMin, let upper = page.scannedOrderMax {
-                previous.removeAll { $0.order >= lower && $0.order <= upper }
-            }
-            let entries = try mergeEntries(previous, page.entries.filter { $0.isRetained() })
-            let nextCursor = window != nil && timelines[sessionID]?.revision == page.revision.value ? timelines[sessionID]?.nextCursor : page.nextCursor
-            timelines[sessionID] = Timeline(session: page.session, entries: entries, nextCursor: nextCursor,
-                                            revision: page.revision.value, loading: false, errorKey: nil, windowed: window != nil)
-            return true
+            return try acceptTimelinePage(page, sessionID: sessionID, cursor: cursor, window: window, preserveLoadedEntries: preserveLoadedEntries, captured: captured, owner: owner, generation: generation)
         } catch {
-            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return false }
-            guard captured == epoch, timelineGenerations[sessionID] == generation else { return false }
-            if requireHistoryUpgrade(for: error) {
-                timelines[sessionID] = Timeline(errorKey: "ui.session.history.update_required")
-                return false
-            }
-            if withdrawAuthority(for: error) { return false }
-            // A failed read cannot revoke already confirmed retained entries.
-            // Explicit owner withdrawal above still removes every private row.
-            var retained = timelines[sessionID] ?? Timeline()
-            retained.entries.removeAll { !$0.isRetained() }
-            retained.loading = false; retained.errorKey = errorKey(error)
-            timelines[sessionID] = retained
+            handleTimelineReadFailure(error, sessionID: sessionID, captured: captured, generation: generation)
         }
         return false
     }
@@ -1290,31 +1185,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         defer { if timelineNavigations[sessionID] == generation { timelineNavigations[sessionID] = nil } }
         do {
             let response = try await host.withHomeAssistantClient { try await resolve($0) }
-            guard !Task.isCancelled, isCurrent(), captured == epoch, ownerScope == owner, generation == navigationGeneration,
-                  timelineGenerations[sessionID] == generation, response.entry.isRetained() else { return false }
-            var timeline = timelines[sessionID] ?? Timeline()
-            if navigate && timeline.revision != response.session.revision.value { timeline.entries = [] }
-            timeline.session = response.session; timeline.revision = response.session.revision.value
-            timeline.entries = try mergeEntries(timeline.entries, [response.entry])
-            timeline.loading = false
-            timelines[sessionID] = timeline
-            if navigate { openTarget = response.entry.reference }
-            return true
+            return try acceptOpenSession(response, sessionID: sessionID, navigate: navigate, isCurrent: isCurrent, captured: captured, owner: owner, generation: generation)
         } catch {
-            guard !Task.isCancelled, isCurrent(), captured == epoch, ownerScope == owner,
-                  generation == navigationGeneration, timelineGenerations[sessionID] == generation else { return false }
-            if requireHistoryUpgrade(for: error) { return false }
-            if withdrawAuthority(for: error) { return false }
-            if let entryID {
-                timelines[sessionID] = nil
-                let reference = DJConnectSessionEntryReference(sessionID: sessionID, entryID: entryID)
-                searchMatches.removeAll { $0.reference == reference }
-                historicalMatches = historicalMatches.mapValues { $0.filter { $0.reference != reference } }
-                clearSearchResults(); searchErrorKey = errorKey(error)
-            }
-            if navigate { openTarget = nil }
-            navigationErrorKey = errorKey(error)
-            return false
+            return handleOpenSessionFailure(error, sessionID: sessionID, entryID: entryID, navigate: navigate, isCurrent: isCurrent, captured: captured, owner: owner, generation: generation)
         }
     }
 
@@ -1347,83 +1220,124 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         archiveSearchQuery = query
         let generation = archiveSearchGeneration, captured = epoch, capturedOwner = ownerScope
         func current() -> Bool {
-            generation == archiveSearchGeneration && captured == epoch && ownerScope == capturedOwner && !Task.isCancelled
-                && available && searchAvailable && !historyNeedsUpgrade && self.host?.canRefreshSessionHistory == true
+            archiveSearchIsCurrent(generation: generation, captured: captured, owner: capturedOwner)
         }
         guard let host else { return }
         func headerMatches(_ session: DJConnectSavedSession) -> Bool {
-            let status = session.lifecycleStatus == "INTERRUPTED"
-                ? DJConnectLocalization.localized(key: "ui.session.history.interrupted", language: host.language) : ""
-            return (SessionArchiveSummary.text(session, language: host.language) + " " + status).localizedStandardContains(query)
+            archiveHeaderMatches(session, query: query, host: host)
         }
         if host.isDemoMode {
-            archiveSearchSessions = sessions.filter { session in
-                headerMatches(session) || (timelines[session.id]?.entries ?? []).contains { entry in
-                    entry.isRetained() && [entry.text, entry.playback?.title, entry.playback?.artist, entry.playback?.album]
-                        .compactMap { $0 }.joined(separator: " ").localizedStandardContains(query)
-                }
-            }
-            for session in archiveSearchSessions where !headerMatches(session) {
-                for entry in timelines[session.id]?.entries ?? [] where entry.isRetained() {
-                    if let date = DJConnectHistoryEntry.date(entry.retainedUntil) { expires = min(expires, date) }
-                }
-            }
+            searchDemoArchives(query: query, headerMatches: headerMatches, expires: &expires)
             archiveSearchReuse = (epoch, ownerScope, started, expires, deadline)
             archiveSearchComplete = true
             return
         }
-        guard available, searchAvailable, !historyNeedsUpgrade, let owner = capturedOwner, !owner.isEmpty,
-              host.canRefreshSessionHistory else {
+        guard archiveSearchIsAdmitted(owner: capturedOwner, host: host) else {
             archiveSearchErrorKey = "ui.session.history.unavailable"; return
         }
         archiveSearchLoading = true
         defer { if generation == archiveSearchGeneration { archiveSearchLoading = false } }
         do {
-            try await Task.sleep(for: .milliseconds(300))
-            guard current() else { return }
-            var listCursor: String?, listRevision: String?
-            var listCursors = Set<String>(), seenSessions = Set<String>()
-            repeat {
-                let page = try await host.withHomeAssistantClient { try await $0.savedSessions(cursor: listCursor) }
-                guard current() else { return }
-                guard listRevision == nil || listRevision == page.revision.value else { throw DJConnectError.invalidResponse }
-                listRevision = page.revision.value
-                for session in page.sessions where session.readOnly && seenSessions.insert(session.id).inserted {
-                    var matches = headerMatches(session)
-                    if !matches {
-                        var cursor: String?, revision: String?
-                        var cursors = Set<String>()
-                        repeat {
-                            let result = try await host.withHomeAssistantClient {
-                                try await $0.searchSession(sessionID: session.id, query: query, cursor: cursor)
-                            }
-                            guard current() else { return }
-                            guard revision == nil || revision == result.revision.value else { throw DJConnectError.invalidResponse }
-                            revision = result.revision.value
-                            let retained = result.matches.filter { $0.isRetained() }
-                            matches = !retained.isEmpty
-                            for entry in retained {
-                                if let date = DJConnectHistoryEntry.date(entry.retainedUntil) { expires = min(expires, date) }
-                            }
-                            if matches || result.complete { break }
-                            guard let next = result.nextCursor, cursors.insert(next).inserted else { throw DJConnectError.invalidResponse }
-                            cursor = next
-                        } while true
-                    }
-                    guard current() else { return }
-                    if matches { archiveSearchSessions.append(session) }
-                }
-                guard let next = page.nextCursor else { break }
-                guard listCursors.insert(next).inserted else { throw DJConnectError.invalidResponse }
-                listCursor = next
-            } while true
-            guard current() else { return }
-            archiveSearchReuse = (captured, capturedOwner, started, expires, deadline)
-            archiveSearchComplete = true
+            try await performArchiveSearch(host: host, query: query, current: current, headerMatches: headerMatches, expires: &expires, captured: captured, owner: capturedOwner, started: started, deadline: deadline)
         } catch {
-            guard current(), !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
-            if requireHistoryUpgrade(for: error) || withdrawAuthority(for: error) { return }
-            archiveSearchErrorKey = errorKey(error)
+            handleArchiveSearchFailure(error, current: current)
+        }
+    }
+
+    private func archiveSearchIsCurrent(generation: UUID, captured: UUID, owner: String?) -> Bool {
+        generation == archiveSearchGeneration && captured == epoch && ownerScope == owner && !Task.isCancelled
+            && available && searchAvailable && !historyNeedsUpgrade && self.host?.canRefreshSessionHistory == true
+    }
+
+    private func archiveHeaderMatches(_ session: DJConnectSavedSession, query: String, host: DJConnectAppModel) -> Bool {
+        let status = session.lifecycleStatus == "INTERRUPTED"
+            ? DJConnectLocalization.localized(key: "ui.session.history.interrupted", language: host.language) : ""
+        return (SessionArchiveSummary.text(session, language: host.language) + " " + status).localizedStandardContains(query)
+    }
+
+    private func searchDemoArchives(query: String, headerMatches: (DJConnectSavedSession) -> Bool, expires: inout Date) {
+        archiveSearchSessions = sessions.filter { session in
+            headerMatches(session) || (timelines[session.id]?.entries ?? []).contains { entry in
+                entry.isRetained() && [entry.text, entry.playback?.title, entry.playback?.artist, entry.playback?.album]
+                    .compactMap { $0 }.joined(separator: " ").localizedStandardContains(query)
+            }
+        }
+        for session in archiveSearchSessions where !headerMatches(session) {
+            for entry in timelines[session.id]?.entries ?? [] where entry.isRetained() {
+                if let date = DJConnectHistoryEntry.date(entry.retainedUntil) { expires = min(expires, date) }
+            }
+        }
+    }
+
+    private func searchArchivePages(host: DJConnectAppModel, query: String, current: () -> Bool,
+                                    headerMatches: (DJConnectSavedSession) -> Bool, expires: inout Date) async throws -> Bool {
+        var list = ArchiveListReadProgress()
+        var seenSessions = Set<String>()
+        repeat {
+            let page = try await host.withHomeAssistantClient { try await $0.savedSessions(cursor: list.cursor) }
+            guard current() else { return false }
+            try list.acceptRevision(page.revision.value)
+            for session in page.sessions where session.readOnly && seenSessions.insert(session.id).inserted {
+                guard let matches = try await archiveSessionMatches(session, host: host, query: query,
+                    current: current, headerMatches: headerMatches, expires: &expires) else { return false }
+                guard current() else { return false }
+                if matches { archiveSearchSessions.append(session) }
+            }
+            if try !list.advance(to: page.nextCursor) { break }
+        } while true
+        return true
+    }
+
+    private func archiveSessionMatches(_ session: DJConnectSavedSession, host: DJConnectAppModel, query: String,
+                                       current: () -> Bool, headerMatches: (DJConnectSavedSession) -> Bool,
+                                       expires: inout Date) async throws -> Bool? {
+        if headerMatches(session) { return true }
+        var cursor: String?, revision: String?
+        var cursors = Set<String>()
+        repeat {
+            let result = try await host.withHomeAssistantClient {
+                try await $0.searchSession(sessionID: session.id, query: query, cursor: cursor)
+            }
+            guard current() else { return nil }
+            guard revision == nil || revision == result.revision.value else { throw DJConnectError.invalidResponse }
+            revision = result.revision.value
+            let retained = result.matches.filter { $0.isRetained() }
+            let matches = !retained.isEmpty
+            limitArchiveReuseExpiry(retained, expires: &expires)
+            if matches || result.complete { return matches }
+            guard let next = result.nextCursor, cursors.insert(next).inserted else { throw DJConnectError.invalidResponse }
+            cursor = next
+        } while true
+    }
+
+    private func archiveSearchIsAdmitted(owner: String?, host: DJConnectAppModel) -> Bool {
+        guard available, searchAvailable, !historyNeedsUpgrade, let owner, !owner.isEmpty,
+              host.canRefreshSessionHistory else { return false }
+        return true
+    }
+
+    /// Cursor and revision bookkeeping for this one server list traversal only.
+    private struct ArchiveListReadProgress {
+        var cursor: String?
+        private var revision: String?
+        private var cursors = Set<String>()
+
+        mutating func acceptRevision(_ value: String) throws {
+            guard revision == nil || revision == value else { throw DJConnectError.invalidResponse }
+            revision = value
+        }
+
+        mutating func advance(to next: String?) throws -> Bool {
+            guard let next else { return false }
+            guard cursors.insert(next).inserted else { throw DJConnectError.invalidResponse }
+            cursor = next
+            return true
+        }
+    }
+
+    private func limitArchiveReuseExpiry(_ retained: [DJConnectHistoryEntry], expires: inout Date) {
+        for entry in retained {
+            if let date = DJConnectHistoryEntry.date(entry.retainedUntil) { expires = min(expires, date) }
         }
     }
 
@@ -1463,18 +1377,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         defer { if generation == searchGeneration { searchLoading = false } }
         do {
             let page = try await host.withHomeAssistantClient { try await $0.searchSession(sessionID: sessionID, query: query, cursor: cursor) }
-            guard captured == epoch, ownerScope == owner, generation == searchGeneration, !Task.isCancelled else { return }
-            guard cursor == nil || (searchRevision == page.revision.value && page.nextCursor != cursor) else { throw DJConnectError.invalidResponse }
-            searchMatches = try mergeEntries(cursor == nil ? [] : searchMatches, page.matches.filter { $0.isRetained() })
-            searchRevision = page.revision.value; acceptedSearchQuery = query; acceptedSearchSessionID = sessionID
-            searchNextCursor = page.nextCursor; searchComplete = page.complete
-            searchTotal = page.totalCount; searchErrorKey = nil
+            try acceptSearchPage(page, sessionID: sessionID, query: query, cursor: cursor, captured: captured, owner: owner, generation: generation)
         } catch {
-            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
-            guard captured == epoch, ownerScope == owner, generation == searchGeneration, !Task.isCancelled else { return }
-            if requireHistoryUpgrade(for: error) { return }
-            if withdrawAuthority(for: error) { return }
-            clearSearchResults(); searchErrorKey = errorKey(error)
+            handleSearchReadFailure(error, captured: captured, owner: owner, generation: generation)
         }
     }
 
@@ -1637,28 +1542,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             try await accept(response, fallback: turn.localMessageID, requestContext: turn.context, historicalGeneration: archives)
             pendingTurns.removeAll { $0.id == turn.id }
         } catch {
-            guard captured == epoch, ownerScope == turn.ownerScope,
-                  pendingTurns.contains(where: { $0.id == turn.id }) else { return }
-            if withdrawAuthority(for: error) { return }
-            if case DJConnectHybridTransportError.outcome(let receipt) = error, receipt.phase == "confirmed" {
-                pendingTurns.removeAll { $0.id == turn.id }
-                host.confirmProfileConversationText(id: turn.localMessageID)
-                host.setProfileConversationSending(false)
-                let retained = await refreshConversation()
-                guard captured == epoch, ownerScope == turn.ownerScope else { return }
-                if !retained || !host.askDJMessages.contains(where: { $0.role == .dj && $0.clientMessageID == turn.id }) {
-                    host.showRetainedAskDJAnswerUnavailable()
-                }
-                return
-            }
-            if let index = pendingTurns.firstIndex(where: { $0.id == turn.id }) {
-                pendingTurns[index].failed = true
-                pendingTurns[index].contextChanged = isConflict(error)
-                pendingTurns[index].deliveryUncertain = error is DJConnectHybridTransportError
-                pendingTurns[index].failureKey = Self.conversationErrorKey(error)
-            }
-            host.failProfileConversationText(id: turn.localMessageID,
-                errorKey: Self.conversationErrorKey(error))
+            await handleSubmissionFailure(error, turn: turn, captured: captured, host: host)
         }
     }
 
@@ -1757,10 +1641,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         conversationMessageContexts.merge(response.messageContexts) { _, incoming in incoming }
         retainLiveResponse(response)
         host.autoplayAcceptedDJResponse(response.base)
-        let matches = historicalGeneration == nil || historicalGeneration == archiveGeneration
-            ? response.historicalMatches : response.historicalMatches.filter { $0.sessionID == host.activeDJSession?.id }
-        for message in response.base.messages where message.role != .user { historicalMatches[message.id] = matches }
-        if let id = response.base.assistantMessage?.id { historicalMatches[id] = matches }
+        retainAcceptedHistoricalMatches(response, historicalGeneration: historicalGeneration, host: host)
         if let sessionID = response.conversation.context.sessionID {
             await loadTimeline(sessionID, window: .tail)
             guard acceptedEpoch == epoch else { throw CancellationError() }
@@ -1770,6 +1651,257 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                 guard acceptedEpoch == epoch else { throw CancellationError() }
             }
         }
+    }
+
+    private func handleArchiveSearchFailure(_ error: Error, current: () -> Bool) {
+        guard current(), !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
+        if requireHistoryUpgrade(for: error) || withdrawAuthority(for: error) { return }
+        archiveSearchErrorKey = errorKey(error)
+    }
+
+    private func acceptSessionsPage(_ page: DJConnectSessionHistoryPage, cursor: String?, captured: UUID, owner: String, generation: UUID) throws -> Bool {
+        guard captured == epoch, ownerScope == owner, generation == listGeneration else { return false }
+        guard cursor == nil || listRevision == page.revision.value else { throw DJConnectError.invalidResponse }
+        guard cursor == nil || page.nextCursor != cursor else { throw DJConnectError.invalidResponse }
+        let old = cursor == nil ? [] : sessions
+        sessions = mergeSessions(old, page.sessions.filter { $0.readOnly })
+        listRevision = page.revision.value; listNextCursor = page.nextCursor
+        return true
+    }
+
+    private func handleSessionsReadFailure(_ error: Error, captured: UUID, generation: UUID) -> Bool {
+        guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return false }
+        guard captured == epoch, generation == listGeneration else { return false }
+        if requireHistoryUpgrade(for: error) { return false }
+        if withdrawAuthority(for: error) { return false }
+        // Keep the last confirmed readonly list on a transient read failure.
+        // Authority withdrawal above still removes all private projections.
+        listErrorKey = errorKey(error)
+        return false
+    }
+
+    private func acceptTimelinePage(_ page: DJConnectSessionTimelinePage, sessionID: String, cursor: String?, window: DJConnectHistoryWindow?, preserveLoadedEntries: Bool, captured: UUID, owner: String, generation: UUID) throws -> Bool {
+        guard captured == epoch, ownerScope == owner, timelineGenerations[sessionID] == generation else { return false }
+        guard cursor == nil || timelines[sessionID]?.revision == page.revision.value else { throw DJConnectError.invalidResponse }
+        let entries = try timelineEntries(for: page, sessionID: sessionID, cursor: cursor, window: window, preserveLoadedEntries: preserveLoadedEntries)
+        let nextCursor = window != nil && timelines[sessionID]?.revision == page.revision.value ? timelines[sessionID]?.nextCursor : page.nextCursor
+        timelines[sessionID] = Timeline(session: page.session, entries: entries, nextCursor: nextCursor,
+                                        revision: page.revision.value, loading: false, errorKey: nil, windowed: window != nil)
+        return true
+    }
+
+    private func handleTimelineReadFailure(_ error: Error, sessionID: String, captured: UUID, generation: UUID) {
+        guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
+        guard captured == epoch, timelineGenerations[sessionID] == generation else { return }
+        if requireHistoryUpgrade(for: error) {
+            timelines[sessionID] = Timeline(errorKey: "ui.session.history.update_required")
+            return
+        }
+        if withdrawAuthority(for: error) { return }
+        // A failed read cannot revoke already confirmed retained entries.
+        // Explicit owner withdrawal above still removes every private row.
+        var retained = timelines[sessionID] ?? Timeline()
+        retained.entries.removeAll { !$0.isRetained() }
+        retained.loading = false; retained.errorKey = errorKey(error)
+        timelines[sessionID] = retained
+    }
+
+    private func acceptOpenSession(_ response: DJConnectSessionOpenResponse, sessionID: String, navigate: Bool, isCurrent: () -> Bool, captured: UUID, owner: String, generation: UUID) throws -> Bool {
+        guard !Task.isCancelled, isCurrent(), captured == epoch, ownerScope == owner, generation == navigationGeneration,
+              timelineGenerations[sessionID] == generation, response.entry.isRetained() else { return false }
+        var timeline = timelines[sessionID] ?? Timeline()
+        if navigate && timeline.revision != response.session.revision.value { timeline.entries = [] }
+        timeline.session = response.session; timeline.revision = response.session.revision.value
+        timeline.entries = try mergeEntries(timeline.entries, [response.entry])
+        timeline.loading = false
+        timelines[sessionID] = timeline
+        if navigate { openTarget = response.entry.reference }
+        return true
+    }
+
+    private func handleOpenSessionFailure(_ error: Error, sessionID: String, entryID: String?, navigate: Bool, isCurrent: () -> Bool, captured: UUID, owner: String, generation: UUID) -> Bool {
+        guard !Task.isCancelled, isCurrent(), captured == epoch, ownerScope == owner,
+              generation == navigationGeneration, timelineGenerations[sessionID] == generation else { return false }
+        if requireHistoryUpgrade(for: error) { return false }
+        if withdrawAuthority(for: error) { return false }
+        if let entryID {
+            timelines[sessionID] = nil
+            let reference = DJConnectSessionEntryReference(sessionID: sessionID, entryID: entryID)
+            searchMatches.removeAll { $0.reference == reference }
+            historicalMatches = historicalMatches.mapValues { $0.filter { $0.reference != reference } }
+            clearSearchResults(); searchErrorKey = errorKey(error)
+        }
+        if navigate { openTarget = nil }
+        navigationErrorKey = errorKey(error)
+        return false
+    }
+
+    private func acceptSearchPage(_ page: DJConnectSessionSearchPage, sessionID: String, query: String, cursor: String?, captured: UUID, owner: String, generation: UUID) throws {
+        guard captured == epoch, ownerScope == owner, generation == searchGeneration, !Task.isCancelled else { return }
+        guard cursor == nil || (searchRevision == page.revision.value && page.nextCursor != cursor) else { throw DJConnectError.invalidResponse }
+        searchMatches = try mergeEntries(cursor == nil ? [] : searchMatches, page.matches.filter { $0.isRetained() })
+        searchRevision = page.revision.value; acceptedSearchQuery = query; acceptedSearchSessionID = sessionID
+        searchNextCursor = page.nextCursor; searchComplete = page.complete
+        searchTotal = page.totalCount; searchErrorKey = nil
+    }
+
+    private func handleSearchReadFailure(_ error: Error, captured: UUID, owner: String, generation: UUID) {
+        guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
+        guard captured == epoch, ownerScope == owner, generation == searchGeneration, !Task.isCancelled else { return }
+        if requireHistoryUpgrade(for: error) { return }
+        if withdrawAuthority(for: error) { return }
+        clearSearchResults(); searchErrorKey = errorKey(error)
+    }
+
+    private func performArchiveSearch(host: DJConnectAppModel, query: String, current: () -> Bool, headerMatches: (DJConnectSavedSession) -> Bool, expires: inout Date, captured: UUID, owner: String?, started: Date, deadline: ContinuousClock.Instant) async throws {
+        try await Task.sleep(for: .milliseconds(300))
+        guard current() else { return }
+        guard try await searchArchivePages(host: host, query: query, current: current,
+                                          headerMatches: headerMatches, expires: &expires) else { return }
+        guard current() else { return }
+        archiveSearchReuse = (captured, owner, started, expires, deadline)
+        archiveSearchComplete = true
+    }
+
+    private func timelineEntries(for page: DJConnectSessionTimelinePage, sessionID: String, cursor: String?, window: DJConnectHistoryWindow?, preserveLoadedEntries: Bool) throws -> [DJConnectHistoryEntry] {
+        var previous = cursor == nil && window == nil && !preserveLoadedEntries ? [] : timelines[sessionID]?.entries ?? []
+        if window != nil, let lower = page.scannedOrderMin, let upper = page.scannedOrderMax {
+            previous.removeAll { $0.order >= lower && $0.order <= upper }
+        }
+        return try mergeEntries(previous, page.entries.filter { $0.isRetained() })
+    }
+
+    private func acceptHistoryCapabilities(_ caps: DJConnectSessionHistoryCapabilities, captured: inout UUID) {
+        if historyContractVersion != caps.historyContractVersion {
+            // A cursor and its cached projection cannot cross representations.
+            suspend(preservingVoicePreference: true, cancelPreparation: false)
+            historyContractVersion = caps.historyContractVersion
+            historyNeedsUpgrade = false
+            captured = epoch
+        }
+        artworkAvailable = caps.artworkAvailable
+        replyArtworkAvailable = caps.replyArtworkAvailable
+        summaryAvailable = caps.summaryAvailable
+        deletionAvailable = caps.deletionAvailable
+        bulkDeletionAvailable = caps.bulkDeletionAvailable
+        contentDeletionAvailable = caps.contentDeletionAvailable
+        available = caps.available; searchAvailable = caps.searchAvailable; momentInsightAvailable = caps.momentInsightAvailable
+    }
+
+    private func enterPreparedProfileScope(host: DJConnectAppModel, captured: UUID) async throws -> Bool {
+        if available && !profileScopeActive {
+            while host.isSendingAskDJText || host.isRecordingVoice || host.voiceStatus == .processing {
+                try await Task.sleep(for: .milliseconds(50))
+                guard captured == epoch, host.canRefreshSessionHistory, !Task.isCancelled else { return false }
+            }
+            profileScopeActive = true
+            host.enterProfileConversationScope()
+        }
+        return true
+    }
+
+    private func retireAcknowledgedContent(_ record: PendingContentDeletion, receipt: DJConnectContentDeleteReceipt, host: DJConnectAppModel) -> String? {
+        for moment in record.prepared.affected_moments {
+            withdrawnContentMoments.insert(record.scope + "\u{0}" + moment.session_id + "\u{0}" + moment.moment_id)
+        }
+        let activeID = host.activeDJSession?.id
+        let affected = Set(receipt.affected_entries.map {
+            DJConnectSessionEntryReference(sessionID: $0.session_id, entryID: $0.entry_id)
+        })
+        // Remove only acknowledged content immediately. Server-retained unavailable
+        // placeholders, if any, are supplied by the subsequent authoritative read.
+        func unaffected(_ entries: [DJConnectHistoryEntry]) -> [DJConnectHistoryEntry] {
+            entries.filter { !affected.contains($0.reference) }
+        }
+        for id in Array(timelines.keys) { timelines[id]?.entries = unaffected(timelines[id]?.entries ?? []) }
+        historicalMatches = historicalMatches.mapValues(unaffected)
+        searchMatches = unaffected(searchMatches)
+        if let selectedEntry, affected.contains(selectedEntry) { self.selectedEntry = nil }
+        if let openTarget, affected.contains(openTarget) { self.openTarget = nil }
+        host.withdrawDeletedContentPresentation(receipt, target: record.prepared.target)
+        return activeID
+    }
+
+    private func applyPreparedArtwork(_ response: [DJConnectSessionMedia], ref: DJConnectSessionEntryReference) {
+        guard let media = response.first(where: { $0.target == .entry(ref.entryID) }) else {
+            artworkFailed.insert(ref); return
+        }
+        func patch(_ rows: [DJConnectHistoryEntry]) -> [DJConnectHistoryEntry] {
+            rows.map { row in
+                guard row.reference == ref else { return row }
+                var copy = row; copy.sessionMedia = media; return copy
+            }
+        }
+        if var timeline = timelines[ref.sessionID] {
+            timeline.entries = patch(timeline.entries); timelines[ref.sessionID] = timeline
+        }
+        historicalMatches = historicalMatches.mapValues(patch)
+        searchMatches = patch(searchMatches)
+        let audience: DJConnectSessionMedia.Audience = media.entryAudience
+        if media.admittedArtwork(session: ref.sessionID, target: .entry(ref.entryID), audience: audience) == nil {
+            artworkFailed.insert(ref)
+        }
+    }
+
+    private func clearFailedArtwork(_ ref: DJConnectSessionEntryReference) {
+        // Failed revalidation must not leave the old image shown.
+        // Clear only this still-matching target; preserve text and any newer grant.
+        func clear(_ rows: [DJConnectHistoryEntry]) -> [DJConnectHistoryEntry] {
+            rows.map { row in
+                guard row.reference == ref else { return row }
+                var copy = row; copy.sessionMedia = nil; return copy
+            }
+        }
+        if var timeline = timelines[ref.sessionID] {
+            timeline.entries = clear(timeline.entries); timelines[ref.sessionID] = timeline
+        }
+        historicalMatches = historicalMatches.mapValues(clear)
+        searchMatches = clear(searchMatches)
+        artworkFailed.insert(ref)
+    }
+
+    private func handleSubmissionFailure(_ error: Error, turn: PendingTurn, captured: UUID, host: DJConnectAppModel) async {
+        guard captured == epoch, ownerScope == turn.ownerScope,
+              pendingTurns.contains(where: { $0.id == turn.id }) else { return }
+        if withdrawAuthority(for: error) { return }
+        if case DJConnectHybridTransportError.outcome(let receipt) = error, receipt.phase == "confirmed" {
+            await reconcileConfirmedSubmission(turn, captured: captured, host: host)
+            return
+        }
+        if let index = pendingTurns.firstIndex(where: { $0.id == turn.id }) {
+            pendingTurns[index].failed = true
+            pendingTurns[index].contextChanged = isConflict(error)
+            pendingTurns[index].deliveryUncertain = error is DJConnectHybridTransportError
+            pendingTurns[index].failureKey = Self.conversationErrorKey(error)
+        }
+        host.failProfileConversationText(id: turn.localMessageID,
+            errorKey: Self.conversationErrorKey(error))
+    }
+
+    private func retainAcceptedHistoricalMatches(_ response: DJConnectSessionConversationResponse, historicalGeneration: UUID?, host: DJConnectAppModel) {
+        let matches = historicalGeneration == nil || historicalGeneration == archiveGeneration
+            ? response.historicalMatches : response.historicalMatches.filter { $0.sessionID == host.activeDJSession?.id }
+        for message in response.base.messages where message.role != .user { historicalMatches[message.id] = matches }
+        if let id = response.base.assistantMessage?.id { historicalMatches[id] = matches }
+    }
+
+    private func reconcileConfirmedSubmission(_ turn: PendingTurn, captured: UUID, host: DJConnectAppModel) async {
+            pendingTurns.removeAll { $0.id == turn.id }
+            host.confirmProfileConversationText(id: turn.localMessageID)
+            host.setProfileConversationSending(false)
+            let retained = await refreshConversation()
+            guard captured == epoch, ownerScope == turn.ownerScope else { return }
+            if !retained || !host.askDJMessages.contains(where: { $0.role == .dj && $0.clientMessageID == turn.id }) {
+                host.showRetainedAskDJAnswerUnavailable()
+            }
+            return
+    }
+
+    private func handlePreparationFailure(_ error: Error, captured: UUID) {
+        guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
+        guard captured == epoch else { return }
+        if withdrawAuthority(for: error) { return }
+        listErrorKey = "ui.session.history.unavailable"
     }
 
     private func currentContext() -> DJConnectConversationContext {
