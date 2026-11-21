@@ -174,60 +174,104 @@ import Foundation
         task = Task { [weak self] in
             guard let self else { return }
             defer { if epoch == captured { task = nil } }
-            let current: @MainActor @Sendable () -> Bool = {
-                !Task.isCancelled && self.epoch == captured && self.scope == scope && self.candidate == candidate && admission.isCurrent()
-            }
-            do {
-                guard current(), ContinuousClock.now < started.advanced(by: .seconds(30)) else { throw CancellationError() }
-                let contextBytes = try JSONSerialization.data(withJSONObject: ["contract_version": 3,
-                    "device_id": request.deviceID, "client_type": request.clientType,
-                    "session_id": scope.sessionID, "operation_id": operation])
-                uncertainOperationID = operation
-                let raw = try await client.nativeSurfacePushV3POST("context", bytes: contextBytes, isCurrent: current)
-                let context = try DJConnectSurfacePushV3Data.decodeContext(raw, matchingOperation: operation)
-                guard current(), let mapped = admission.bounds(context, started),
-                      mapped.submit <= mapped.purpose,
-                      mapped.submit <= started.advanced(by: .milliseconds(context.contextRemainingAtOriginalStartMS)),
-                      mapped.purpose <= started.advanced(by: .milliseconds(context.purposeRemainingAtOriginalStartMS)) else { throw CancellationError() }
-                let previous = pins[context.purposeReference]
-                guard previous.map({ $0.epoch == captured && $0.expiry == context.purposeExpiryMS }) ?? (pins.count < 128) else { throw CancellationError() }
-                let deadline = min(previous?.deadline ?? mapped.purpose, mapped.purpose)
-                let pin = Pin(epoch: captured, expiry: context.purposeExpiryMS, deadline: deadline)
-                pins[context.purposeReference] = pin
-                guard current(), ContinuousClock.now < min(mapped.submit, deadline) else { throw CancellationError() }
-                guard var body = try JSONSerialization.jsonObject(with: request.bytes) as? [String: Any] else { throw DJConnectError.invalidResponse }
-                body["contract_version"] = 3; body["context_handle"] = context.contextHandle
-                let bytes = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
-                phase = .registering; uncertainOperationID = operation
-                let reply = try await client.nativeSurfacePushV3POST("register", bytes: bytes, isCurrent: {
-                    current() && ContinuousClock.now < min(mapped.submit, deadline)
-                })
-                guard current(), ContinuousClock.now < min(mapped.submit, deadline) else { throw CancellationError() }
-                guard case .confirmed(let confirmed) = try DJConnectSurfacePushV3Data.decodeRegistration(reply, matchingContext: context),
-                      confirmed.receipt.platform == candidate.platform else { throw DJConnectError.invalidResponse }
-                let value = try JSONDecoder().decode(DJConnectSurfacePushResponse.self, from: reply)
-                guard let receipt = value.registration, let read = value.background_read,
-                      expected == nil || (receipt.coordinate.registration_id == expected?.registration_id &&
-                        receipt.coordinate.generation == expected?.generation &&
-                        expected!.revision < Int.max && receipt.coordinate.revision == expected!.revision + 1) else { throw DJConnectError.invalidResponse }
-                guard current() else { throw CancellationError() }
-                registered = Registered(candidate: candidate, admission: admission, pin: pin,
-                    receipt: receipt, read: read, client: client)
-                coordinate = receipt.coordinate; uncertainOperationID = nil; phase = .registered
-                expiryTask = Task { [weak self] in
-                    do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
-                    guard let self, self.epoch == captured else { return }
-                    self.withdrawLocally()
-                }
-            } catch {
-                guard epoch == captured else { return }
-                registered = nil
-                // A failed context can also lose first-purpose history; don't
-                // create a new original UUID from another polling callback.
-                phase = uncertainOperationID != nil ? .uncertain : .withdrawn
-            }
+            await performRegistration(client: client, scope: scope, candidate: candidate, admission: admission,
+                                      request: request, operation: operation, started: started, captured: captured, expected: expected)
         }
     }
+    private func performRegistration(client: DJConnectClient, scope: Scope, candidate: Candidate, admission: Admission,
+                                     request: DJConnectSurfacePushRequest, operation: String, started: ContinuousClock.Instant,
+                                     captured: UUID, expected: DJConnectSurfacePushCoordinate?) async {
+        let current: @MainActor @Sendable () -> Bool = {
+            !Task.isCancelled && self.epoch == captured && self.scope == scope && self.candidate == candidate && admission.isCurrent()
+        }
+        do {
+            let prepared = try await prepareRegistrationContext(client: client, scope: scope, admission: admission,
+                request: request, operation: operation, started: started, captured: captured, current: current)
+            let context = prepared.context, mapped = prepared.bounds, deadline = prepared.pin.deadline, pin = prepared.pin
+            guard current(), ContinuousClock.now < min(mapped.submit, deadline) else { throw CancellationError() }
+            let reply = try await sendRegistration(request, context: context, operation: operation, client: client,
+                current: current, submit: mapped.submit, deadline: deadline)
+            try acceptRegistrationReply(reply, context: context, candidate: candidate, admission: admission,
+                pin: pin, client: client, current: current, submit: mapped.submit, expected: expected, captured: captured)
+        } catch {
+            guard epoch == captured else { return }
+            registered = nil
+            // A failed context can also lose first-purpose history; don't
+            // create a new original UUID from another polling callback.
+            phase = uncertainOperationID != nil ? .uncertain : .withdrawn
+        }
+    }
+    private struct PreparedRegistrationContext {
+        let context: DJConnectSurfacePushV3Data.Context
+        let bounds: (purpose: ContinuousClock.Instant, submit: ContinuousClock.Instant)
+        let pin: Pin
+    }
+
+    private func prepareRegistrationContext(client: DJConnectClient, scope: Scope, admission: Admission,
+                                            request: DJConnectSurfacePushRequest, operation: String, started: ContinuousClock.Instant,
+                                            captured: UUID, current: @escaping @MainActor @Sendable () -> Bool) async throws -> PreparedRegistrationContext {
+        guard current(), ContinuousClock.now < started.advanced(by: .seconds(30)) else { throw CancellationError() }
+        let contextBytes = try JSONSerialization.data(withJSONObject: ["contract_version": 3,
+            "device_id": request.deviceID, "client_type": request.clientType,
+            "session_id": scope.sessionID, "operation_id": operation])
+        uncertainOperationID = operation
+        let raw = try await client.nativeSurfacePushV3POST("context", bytes: contextBytes, isCurrent: current)
+        let context = try DJConnectSurfacePushV3Data.decodeContext(raw, matchingOperation: operation)
+        guard current(), let mapped = admission.bounds(context, started),
+              mapped.submit <= mapped.purpose,
+              mapped.submit <= started.advanced(by: .milliseconds(context.contextRemainingAtOriginalStartMS)),
+              mapped.purpose <= started.advanced(by: .milliseconds(context.purposeRemainingAtOriginalStartMS)) else { throw CancellationError() }
+        let previous = pins[context.purposeReference]
+        guard previous.map({ $0.epoch == captured && $0.expiry == context.purposeExpiryMS }) ?? (pins.count < 128) else { throw CancellationError() }
+        let deadline = min(previous?.deadline ?? mapped.purpose, mapped.purpose)
+        let pin = Pin(epoch: captured, expiry: context.purposeExpiryMS, deadline: deadline)
+        pins[context.purposeReference] = pin
+        return .init(context: context, bounds: mapped, pin: pin)
+    }
+
+    private func sendRegistration(_ request: DJConnectSurfacePushRequest, context: DJConnectSurfacePushV3Data.Context,
+                                  operation: String, client: DJConnectClient, current: @escaping @MainActor @Sendable () -> Bool,
+                                  submit: ContinuousClock.Instant, deadline: ContinuousClock.Instant) async throws -> Data {
+        guard var body = try JSONSerialization.jsonObject(with: request.bytes) as? [String: Any] else { throw DJConnectError.invalidResponse }
+        body["contract_version"] = 3; body["context_handle"] = context.contextHandle
+        let bytes = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
+        phase = .registering; uncertainOperationID = operation
+        return try await client.nativeSurfacePushV3POST("register", bytes: bytes, isCurrent: {
+            current() && ContinuousClock.now < min(submit, deadline)
+        })
+    }
+
+    private func acceptRegistrationReply(_ reply: Data, context: DJConnectSurfacePushV3Data.Context, candidate: Candidate,
+                                         admission: Admission, pin: Pin, client: DJConnectClient,
+                                         current: @escaping @MainActor @Sendable () -> Bool, submit: ContinuousClock.Instant,
+                                         expected: DJConnectSurfacePushCoordinate?, captured: UUID) throws {
+        let deadline = pin.deadline
+        guard current(), ContinuousClock.now < min(submit, deadline) else { throw CancellationError() }
+        let (receipt, read) = try decodeRegistrationReceipt(reply, context: context, candidate: candidate, expected: expected)
+        guard current() else { throw CancellationError() }
+        registered = Registered(candidate: candidate, admission: admission, pin: pin,
+            receipt: receipt, read: read, client: client)
+        coordinate = receipt.coordinate; uncertainOperationID = nil; phase = .registered
+        expiryTask = Task { [weak self] in
+            do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
+            guard let self, self.epoch == captured else { return }
+            self.withdrawLocally()
+        }
+    }
+
+    private func decodeRegistrationReceipt(_ reply: Data, context: DJConnectSurfacePushV3Data.Context,
+                                           candidate: Candidate, expected: DJConnectSurfacePushCoordinate?) throws
+        -> (receipt: DJConnectSurfacePushReceipt, read: DJConnectSurfaceBackgroundRead) {
+        guard case .confirmed(let confirmed) = try DJConnectSurfacePushV3Data.decodeRegistration(reply, matchingContext: context),
+              confirmed.receipt.platform == candidate.platform else { throw DJConnectError.invalidResponse }
+        let value = try JSONDecoder().decode(DJConnectSurfacePushResponse.self, from: reply)
+        guard let receipt = value.registration, let read = value.background_read,
+              expected == nil || (receipt.coordinate.registration_id == expected?.registration_id &&
+                receipt.coordinate.generation == expected?.generation &&
+                expected!.revision < Int.max && receipt.coordinate.revision == expected!.revision + 1) else { throw DJConnectError.invalidResponse }
+        return (receipt, read)
+    }
+
     private func cancelReads() {
         readGeneration = UUID(); statusGeneration = UUID()
         readTask?.cancel(); readTask = nil; statusTask?.cancel(); statusTask = nil

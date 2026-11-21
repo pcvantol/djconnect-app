@@ -196,26 +196,54 @@ public actor RendezvousSubmissionJournal {
             capability = nil; envelope = nil; clientData = nil; request = nil; requestHash = nil
         }
         func validate() throws {
-            func require(_ valid: Bool) throws { if !valid { throw Failure.invalidData } }
+            try validateClock()
+            try validateIdentity()
+            if [.accepted, .uncertain, .expired].contains(phase) {
+                try validateTerminalPhase()
+                return
+            }
+            try validateActivePhase()
+            guard let capability, let envelope, let clientData else { throw Failure.invalidData }
+            try validateMaterial(capability: capability, envelope: envelope, clientData: clientData)
+            try validateClientData(clientData, envelope: envelope)
+            if phase == .prepared || phase == .submitting {
+                try validatePreparedRequest(capability: capability, envelope: envelope, clientData: clientData)
+            } else { try require(request == nil && requestHash == nil) }
+        }
+
+        private func require(_ valid: Bool) throws { if !valid { throw Failure.invalidData } }
+
+        private func validateClock() throws {
             try require(version == 1 && context.count == 32 && started >= 0 && observed >= started &&
                 deadline > started && deadline-started <= 120000 && deadline <= 9_007_199_254_740_991)
+        }
+
+        private func validateIdentity() throws {
             try require(DJConnectRendezvousSubmitChallenge.canonicalKeyID(key) &&
                 DJConnectRendezvousQR.canonicalToken(thumbprint) && DJConnectRendezvousQR.canonicalToken(challenge))
             try require((1...2_147_483_647).contains(generation) && transaction.range(of:
                 #"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"#,
                 options: .regularExpression) != nil && transaction.utf8.count == 36)
-            if [.accepted, .uncertain, .expired].contains(phase) {
-                try require(reservation == nil && capability == nil && envelope == nil && clientData == nil && request == nil && requestHash == nil)
-                if phase == .expired { try require(observed >= deadline) }
-                else { try require(observed < deadline) }
-                return
-            }
+        }
+
+        private func validateTerminalPhase() throws {
+            try require(reservation == nil && capability == nil && envelope == nil && clientData == nil && request == nil && requestHash == nil)
+            if phase == .expired { try require(observed >= deadline) }
+            else { try require(observed < deadline) }
+        }
+
+        private func validateActivePhase() throws {
             try require(observed < deadline)
             try require((phase == .signing || phase == .submitting) == (reservation != nil))
-            guard let capability, let envelope, let clientData else { throw Failure.invalidData }
+        }
+
+        private func validateMaterial(capability: String, envelope: String, clientData: Data) throws {
             try require(DJConnectRendezvousQR.canonicalToken(capability) && !envelope.isEmpty &&
                         envelope.utf8.count <= 8192 && envelope.utf8.allSatisfy({$0 < 128}) &&
                         !clientData.isEmpty && clientData.count <= 2048)
+        }
+
+        private func validateClientData(_ clientData: Data, envelope: String) throws {
             let fields = try RendezvousFlatJSON.parse(clientData, maximumBytes: 2048)
             guard case let .string(nonce)? = fields["challenge"], DJConnectRendezvousQR.canonicalToken(nonce) else { throw Failure.invalidData }
             let digest = RendezvousSubmissionJournal.encode(Data(SHA256.hash(data: Data(envelope.utf8))))
@@ -224,17 +252,18 @@ public actor RendezvousSubmissionJournal {
                 "generation":.integer(generation), "browser_key_thumbprint":.string(thumbprint),
                 "expires_at":.integer(deadline), "key_id":.string(key), "challenge_id":.string(challenge),
                 "challenge":.string(nonce), "envelope_digest":.string(digest)])
-            if phase == .prepared || phase == .submitting {
-                guard let request, let requestHash else { throw Failure.invalidData }
-                try require(request.count <= 32768 && Data(SHA256.hash(data:request)) == requestHash)
-                let body = try RendezvousFlatJSON.parse(request, maximumBytes: 32768)
-                guard case let .string(proof)? = body["assertion"], let bytes = RendezvousSubmissionJournal.decode(proof) else { throw Failure.invalidData }
-                try require(!bytes.isEmpty && bytes.count <= 4096)
-                try require(body == ["v":.string("djc-rendezvous/1"), "transaction_id":.string(transaction),
-                    "generation":.integer(generation), "qr_capability":.string(capability), "key_id":.string(key),
-                    "challenge_id":.string(challenge), "client_data":.string(RendezvousSubmissionJournal.encode(clientData)),
-                    "assertion":.string(proof), "destination_envelope":.string(envelope)])
-            } else { try require(request == nil && requestHash == nil) }
+        }
+
+        private func validatePreparedRequest(capability: String, envelope: String, clientData: Data) throws {
+            guard let request, let requestHash else { throw Failure.invalidData }
+            try require(request.count <= 32768 && Data(SHA256.hash(data:request)) == requestHash)
+            let body = try RendezvousFlatJSON.parse(request, maximumBytes: 32768)
+            guard case let .string(proof)? = body["assertion"], let bytes = RendezvousSubmissionJournal.decode(proof) else { throw Failure.invalidData }
+            try require(!bytes.isEmpty && bytes.count <= 4096)
+            try require(body == ["v":.string("djc-rendezvous/1"), "transaction_id":.string(transaction),
+                "generation":.integer(generation), "qr_capability":.string(capability), "key_id":.string(key),
+                "challenge_id":.string(challenge), "client_data":.string(RendezvousSubmissionJournal.encode(clientData)),
+                "assertion":.string(proof), "destination_envelope":.string(envelope)])
         }
     }
 }

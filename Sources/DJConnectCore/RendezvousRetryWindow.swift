@@ -98,16 +98,37 @@ public struct RendezvousRetryWindow: Codable, Sendable {
         notBeforeMS = try c.decode(Int64.self, forKey: .notBeforeMS)
         lastObservedMS = try c.decode(Int64.self, forKey: .lastObservedMS)
         lastCompletionMS = try c.decodeIfPresent(Int64.self, forKey: .lastCompletionMS)
+        try validateDecodedTimeline()
+        try validateInitialReservationState()
+        try validateStartedReservationState()
+        try validateCompletionHistory()
+        try validateElapsedBackoffs()
+        try validateReservedCallBackoff()
+        try validatePendingCallBackoff()
+    }
+
+    private func validateDecodedTimeline() throws {
         guard startedAtMS >= 0, deadlineMS > startedAtMS,
               deadlineMS - startedAtMS <= 120_000,
               (0...3).contains(callsStarted), lastObservedMS >= startedAtMS,
-              notBeforeMS >= startedAtMS,
-              !(isClosed && reservation != nil),
-              !(callsStarted == 0 && (reservation != nil || isClosed || notBeforeMS != startedAtMS)),
-              !(callsStarted > 0 && !isClosed && reservation == nil && notBeforeMS <= startedAtMS),
+              notBeforeMS >= startedAtMS else { throw Failure.invalidState }
+    }
+
+    private func validateInitialReservationState() throws {
+        guard !(isClosed && reservation != nil),
+              !(callsStarted == 0 && (reservation != nil || isClosed || notBeforeMS != startedAtMS)) else {
+            throw Failure.invalidState
+        }
+    }
+
+    private func validateStartedReservationState() throws {
+        guard !(callsStarted > 0 && !isClosed && reservation == nil && notBeforeMS <= startedAtMS),
               !(callsStarted == 3 && !isClosed && reservation == nil) else {
             throw Failure.invalidState
         }
+    }
+
+    private func validateCompletionHistory() throws {
         if let completion = lastCompletionMS {
             guard completion >= startedAtMS, completion <= lastObservedMS,
                   callsStarted > 0 else { throw Failure.invalidState }
@@ -116,6 +137,9 @@ public struct RendezvousRetryWindow: Codable, Sendable {
               !(reservation != nil && ((callsStarted == 1) != (lastCompletionMS == nil))) else {
             throw Failure.invalidState
         }
+    }
+
+    private func validateElapsedBackoffs() throws {
         // Even the fastest possible calls must have spent the preceding 2s/5s
         // backoffs. Check both the current call and the last completed call;
         // validating only the next delay would admit a forged earlier history.
@@ -132,6 +156,9 @@ public struct RendezvousRetryWindow: Codable, Sendable {
                 throw Failure.invalidState
             }
         }
+    }
+
+    private func validateReservedCallBackoff() throws {
         if reservation != nil {
             guard lastObservedMS >= notBeforeMS else { throw Failure.invalidState }
             if callsStarted == 1 {
@@ -142,6 +169,9 @@ public struct RendezvousRetryWindow: Codable, Sendable {
                       notBeforeMS - completion >= delay else { throw Failure.invalidState }
             }
         }
+    }
+
+    private func validatePendingCallBackoff() throws {
         if !isClosed, reservation == nil, callsStarted > 0 {
             guard let completion = lastCompletionMS else { throw Failure.invalidState }
             let delay: Int64 = callsStarted == 1 ? 2_000 : 5_000
