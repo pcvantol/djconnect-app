@@ -125,6 +125,25 @@ public final class DJConnectClient: Sendable {
         let originalToken = try loadedToken()
         let ownerBody = try JSONSerialization.data(withJSONObject: ["contract_version": 1,
             "identity": ["device_id": identity.deviceID, "client_type": identity.clientType.rawValue]])
+        try await validateSelectedDisplayInstallation(ownerBody: ownerBody, originalToken: originalToken,
+            expectedInstallationID: expectedInstallationID, pairedLocalOrigin: pairedLocalOrigin, isCurrent: isCurrent)
+        var request = try authenticatedRequest(path: "/api/djconnect/v1/display/owner/context")
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = ownerBody
+        guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
+        let data = try await sessionArtworkTransport.prepare(request, isCurrent: {
+            isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
+        })
+        try Task.checkCancellation()
+        guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
+        let context = try decoder.decode(DJConnectDisplayOwnerContext.self, from: data)
+        guard context.isAdmissible else { throw DJConnectError.invalidResponse }
+        return context
+    }
+
+    private func validateSelectedDisplayInstallation(ownerBody: Data, originalToken: String, expectedInstallationID: String,
+                                                     pairedLocalOrigin: URL?, isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws {
         var installationRequest = try authenticatedRequest(path: "/api/djconnect/v1/transport/context")
         installationRequest.httpMethod = "POST"
         installationRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -142,19 +161,6 @@ public final class DJConnectClient: Sendable {
               installation["operation_epoch"]?.hybridString?.isEmpty == false,
               installation["server_time_ms"]?.hybridInt != nil,
               try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
-        var request = try authenticatedRequest(path: "/api/djconnect/v1/display/owner/context")
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = ownerBody
-        guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
-        let data = try await sessionArtworkTransport.prepare(request, isCurrent: {
-            isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
-        })
-        try Task.checkCancellation()
-        guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
-        let context = try decoder.decode(DJConnectDisplayOwnerContext.self, from: data)
-        guard context.isAdmissible else { throw DJConnectError.invalidResponse }
-        return context
     }
 
     /// Stop only the displayed Core connection. A fresh paired read fences route,
@@ -1091,9 +1097,55 @@ public final class DJConnectClient: Sendable {
         requestedSpeech: DJConnectSessionSpeech? = nil) async throws -> DJConnectSharedSpeechResult {
         let requested = !automatic && requestedSpeech?.userRequested == true &&
             requestedSpeech?.admits(reference: reference, text: acceptedText) == true ? requestedSpeech : nil
-        guard reference.isValid, settings.allowsSpeech(target, manualMomentType: automatic ? nil : manualMomentType, requestedSpeech: requested),
-              processor != .localOnDevice || target == .local,
-              !automatic || (target == .local && settings.snapshot.effective.announcement_output.allowsClientAudio) else { throw DJConnectError.invalidResponse }
+        try validateSharedSpeechRequest(reference: reference, settings: settings, target: target, automatic: automatic,
+            processor: processor, manualMomentType: manualMomentType, requested: requested)
+        let result = try await dispatchSharedSpeechPrepare(reference: reference, target: target, automatic: automatic, processor: processor)
+        guard result.success, result.session_speech.reference == reference else { throw DJConnectError.invalidResponse }
+        let prepared = result.session_speech
+        try validateTextOnlySharedSpeech(prepared, reference: reference, settings: settings, target: target,
+            automatic: automatic, manualMomentType: manualMomentType, requested: requested)
+        if ["unavailable", "withdrawn", "expired"].contains(prepared.state) && !prepared.manualAllowed && prepared.audioReference == nil { return result }
+        if processor == .localOnDevice {
+            guard DJConnectNativeSpeechAdmission.admits(prepared, reference: reference, text: acceptedText, settings: settings) else { throw DJConnectError.invalidResponse }
+            return result
+        }
+        try validateConfiguredSharedSpeech(prepared, reference: reference, acceptedText: acceptedText, settings: settings)
+        return result
+    }
+
+    private func validateConfiguredSharedSpeech(_ prepared: DJConnectSessionSpeech, reference: DJConnectSpeechReference,
+                                                acceptedText: String, settings: DJConnectProfileDJSettingsResponse) throws {
+        guard prepared.admits(reference: reference, text: acceptedText), prepared.audioState == "ready",
+              prepared.settingsContractVersion == 3, prepared.settingsRevision == settings.speechFence,
+              prepared.effectiveVoice?.hasQualifiedSelection == true,
+              prepared.effectiveVoice?.processor == .haConfigured,
+              speechLocaleMatches(prepared.effectiveVoice?.locale, prepared.locale),
+              prepared.audioReference?.isValid == true else { throw DJConnectError.invalidResponse }
+        if settings.snapshot.effective.voice.kind == .providerVoice {
+            guard prepared.effectiveVoice?.engine == settings.snapshot.effective.voice.provider_id,
+                  prepared.effectiveVoice?.voiceID == settings.snapshot.effective.voice.voice_id else { throw DJConnectError.invalidResponse }
+        }
+    }
+
+    private func validateTextOnlySharedSpeech(_ prepared: DJConnectSessionSpeech, reference: DJConnectSpeechReference,
+                                              settings: DJConnectProfileDJSettingsResponse, target: DJConnectSharedSpeechTarget,
+                                              automatic: Bool, manualMomentType: String?, requested: DJConnectSessionSpeech?) throws {
+        if settings.snapshot.effective.announcement_output == .textOnly {
+            guard !automatic, target == .local, reference.source.kind != "accepted_ask_dj",
+                  (["music_announcement", "live_impression"].contains(manualMomentType ?? "") && prepared.momentType == manualMomentType) ||
+                    matchesExplicitSharedSpeech(prepared, requested: requested)
+            else { throw DJConnectError.invalidResponse }
+        }
+    }
+
+    private func matchesExplicitSharedSpeech(_ prepared: DJConnectSessionSpeech, requested: DJConnectSessionSpeech?) -> Bool {
+        (requested != nil && prepared.userRequested == true && prepared.textRevision == requested?.textRevision &&
+                     prepared.presentationRevision == requested?.presentationRevision && prepared.persona == requested?.persona &&
+                     prepared.personaRevision == requested?.personaRevision && prepared.locale == requested?.locale && prepared.attribution == requested?.attribution)
+    }
+
+    private func dispatchSharedSpeechPrepare(reference: DJConnectSpeechReference, target: DJConnectSharedSpeechTarget,
+                                             automatic: Bool, processor: DJConnectSpeechProcessor) async throws -> DJConnectSharedSpeechResult {
         struct SharedPrepare: Encodable {
             let contract_version = 3
             let processor: DJConnectSpeechProcessor
@@ -1113,32 +1165,15 @@ public final class DJConnectClient: Sendable {
             request.httpBody = try encoder.encode(DJConnectSpeechIdentifiedRequest(clientType: identity.clientType, deviceID: identity.deviceID, payload: payload))
             result = try await decodedResponse(for: request, using: sessionProjectionSession)
         }
-        guard result.success, result.session_speech.reference == reference else { throw DJConnectError.invalidResponse }
-        let prepared = result.session_speech
-        if settings.snapshot.effective.announcement_output == .textOnly {
-            guard !automatic, target == .local, reference.source.kind != "accepted_ask_dj",
-                  (["music_announcement", "live_impression"].contains(manualMomentType ?? "") && prepared.momentType == manualMomentType) ||
-                    (requested != nil && prepared.userRequested == true && prepared.textRevision == requested?.textRevision &&
-                     prepared.presentationRevision == requested?.presentationRevision && prepared.persona == requested?.persona &&
-                     prepared.personaRevision == requested?.personaRevision && prepared.locale == requested?.locale && prepared.attribution == requested?.attribution)
-            else { throw DJConnectError.invalidResponse }
-        }
-        if ["unavailable", "withdrawn", "expired"].contains(prepared.state) && !prepared.manualAllowed && prepared.audioReference == nil { return result }
-        if processor == .localOnDevice {
-            guard DJConnectNativeSpeechAdmission.admits(prepared, reference: reference, text: acceptedText, settings: settings) else { throw DJConnectError.invalidResponse }
-            return result
-        }
-        guard prepared.admits(reference: reference, text: acceptedText), prepared.audioState == "ready",
-              prepared.settingsContractVersion == 3, prepared.settingsRevision == settings.speechFence,
-              prepared.effectiveVoice?.hasQualifiedSelection == true,
-              prepared.effectiveVoice?.processor == .haConfigured,
-              speechLocaleMatches(prepared.effectiveVoice?.locale, prepared.locale),
-              prepared.audioReference?.isValid == true else { throw DJConnectError.invalidResponse }
-        if settings.snapshot.effective.voice.kind == .providerVoice {
-            guard prepared.effectiveVoice?.engine == settings.snapshot.effective.voice.provider_id,
-                  prepared.effectiveVoice?.voiceID == settings.snapshot.effective.voice.voice_id else { throw DJConnectError.invalidResponse }
-        }
         return result
+    }
+
+    private func validateSharedSpeechRequest(reference: DJConnectSpeechReference, settings: DJConnectProfileDJSettingsResponse,
+                                              target: DJConnectSharedSpeechTarget, automatic: Bool, processor: DJConnectSpeechProcessor,
+                                              manualMomentType: String?, requested: DJConnectSessionSpeech?) throws {
+        guard reference.isValid, settings.allowsSpeech(target, manualMomentType: automatic ? nil : manualMomentType, requestedSpeech: requested),
+              processor != .localOnDevice || target == .local,
+              !automatic || (target == .local && settings.snapshot.effective.announcement_output.allowsClientAudio) else { throw DJConnectError.invalidResponse }
     }
 
     public func speechVoiceOptions() async throws -> DJConnectSpeechVoiceOptions {
@@ -1151,12 +1186,8 @@ public final class DJConnectClient: Sendable {
     public func prepareSpeech(_ original: DJConnectSessionSpeech, acceptedText: String,
                               processor: DJConnectSpeechProcessor, preference: DJConnectVoicePreference = .default,
                               voiceOptions: DJConnectSpeechVoiceOptions? = nil, selectedVoiceID: String? = nil) async throws -> DJConnectSessionSpeech {
-        guard original.admits(reference: original.reference, text: acceptedText), original.advertisesPreparationAttempt(processor),
-              preference == .default || voiceOptions?.admitsGender(preference, voiceID: selectedVoiceID) == true,
-              selectedVoiceID == nil || (processor == .haConfigured && voiceOptions?.supportsVoice(selectedVoiceID!) == true)
-        else { throw DJConnectError.invalidResponse }
-        let request = try speechJSONRequest(path: "prepare", payload: DJConnectSpeechPrepareRequest(
-            reference: original.reference, processor: processor, voice_preference: preference, voice_id: selectedVoiceID))
+        let request = try speechPreparationRequest(original, acceptedText: acceptedText, processor: processor,
+            preference: preference, voiceOptions: voiceOptions, selectedVoiceID: selectedVoiceID)
         let response = try decoder.decode(DJConnectSpeechResponse.self, from: await speechTransport.data(for: request))
         let prepared = response.session_speech
         guard response.success, prepared.schemaVersion == 1, prepared.reference == original.reference, prepared.notification?.isValid ?? true else { throw DJConnectError.invalidResponse }
@@ -1164,17 +1195,14 @@ public final class DJConnectClient: Sendable {
             guard prepared.processors.isEmpty, prepared.segments.isEmpty, prepared.audioReference == nil else { throw DJConnectError.invalidResponse }
             return prepared
         }
-        guard prepared.admits(reference: original.reference, text: acceptedText),
-              prepared.advertisesPreparationAttempt(processor),
-              (original.processorQualificationRequired != true || prepared.processorQualificationRequired == true),
-              prepared.textRevision == original.textRevision, prepared.presentationRevision == original.presentationRevision,
-              prepared.persona == original.persona, prepared.personaRevision == original.personaRevision,
-              prepared.locale == original.locale, prepared.attribution == original.attribution,
-              let expiry = prepared.expiresAt.flatMap(DJConnectHistoryEntry.date),
-              let originalExpiry = original.expiresAt.flatMap(DJConnectHistoryEntry.date),
-              expiry <= originalExpiry, expiry.timeIntervalSinceNow <= 300.001,
-              processor == .localOnDevice ? prepared.audioState == "renderer_pending" : prepared.audioState == "ready"
-        else { throw DJConnectError.invalidResponse }
+        try validatePreparedSpeechBinding(prepared, original: original, acceptedText: acceptedText, processor: processor)
+        try validatePreparedSpeechVoice(prepared, processor: processor, preference: preference,
+            voiceOptions: voiceOptions, selectedVoiceID: selectedVoiceID)
+        return prepared
+    }
+
+    private func validatePreparedSpeechVoice(_ prepared: DJConnectSessionSpeech, processor: DJConnectSpeechProcessor,
+                                             preference: DJConnectVoicePreference, voiceOptions: DJConnectSpeechVoiceOptions?, selectedVoiceID: String?) throws {
         if processor == .haConfigured {
             guard prepared.effectiveVoice?.processor == processor, speechLocaleMatches(prepared.effectiveVoice?.locale, prepared.locale),
                   preference == .default || prepared.effectiveVoice?.gender == preference.rawValue,
@@ -1187,7 +1215,32 @@ public final class DJConnectClient: Sendable {
         } else {
             guard prepared.audioReference == nil, prepared.effectiveVoice == nil, prepared.voicePreference == preference else { throw DJConnectError.invalidResponse }
         }
-        return prepared
+    }
+
+    private func validatePreparedSpeechBinding(_ prepared: DJConnectSessionSpeech, original: DJConnectSessionSpeech,
+                                               acceptedText: String, processor: DJConnectSpeechProcessor) throws {
+        guard prepared.admits(reference: original.reference, text: acceptedText),
+              prepared.advertisesPreparationAttempt(processor),
+              (original.processorQualificationRequired != true || prepared.processorQualificationRequired == true),
+              prepared.textRevision == original.textRevision, prepared.presentationRevision == original.presentationRevision,
+              prepared.persona == original.persona, prepared.personaRevision == original.personaRevision,
+              prepared.locale == original.locale, prepared.attribution == original.attribution,
+              let expiry = prepared.expiresAt.flatMap(DJConnectHistoryEntry.date),
+              let originalExpiry = original.expiresAt.flatMap(DJConnectHistoryEntry.date),
+              expiry <= originalExpiry, expiry.timeIntervalSinceNow <= 300.001,
+              processor == .localOnDevice ? prepared.audioState == "renderer_pending" : prepared.audioState == "ready"
+        else { throw DJConnectError.invalidResponse }
+    }
+
+    private func speechPreparationRequest(_ original: DJConnectSessionSpeech, acceptedText: String, processor: DJConnectSpeechProcessor,
+                                           preference: DJConnectVoicePreference, voiceOptions: DJConnectSpeechVoiceOptions?, selectedVoiceID: String?) throws -> URLRequest {
+        guard original.admits(reference: original.reference, text: acceptedText), original.advertisesPreparationAttempt(processor),
+              preference == .default || voiceOptions?.admitsGender(preference, voiceID: selectedVoiceID) == true,
+              selectedVoiceID == nil || (processor == .haConfigured && voiceOptions?.supportsVoice(selectedVoiceID!) == true)
+        else { throw DJConnectError.invalidResponse }
+        let request = try speechJSONRequest(path: "prepare", payload: DJConnectSpeechPrepareRequest(
+            reference: original.reference, processor: processor, voice_preference: preference, voice_id: selectedVoiceID))
+        return request
     }
 
     public func speechAudio(_ prepared: DJConnectSessionSpeech, acceptedText: String) async throws -> Data {
@@ -1582,6 +1635,11 @@ public final class DJConnectClient: Sendable {
               page.entries.count <= 50, page.entries.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid(historyContractVersion: historyContractVersion) }) else {
             throw DJConnectError.invalidResponse
         }
+        try validateTimelineWindow(page, window: window, limit: limit)
+        return page
+    }
+
+    private func validateTimelineWindow(_ page: DJConnectSessionTimelinePage, window: DJConnectHistoryWindow?, limit: Int) throws {
         if window != nil {
             guard page.windowLimit == limit, page.scanComplete != nil, page.nextCursor == nil else { throw DJConnectError.invalidResponse }
             if !page.entries.isEmpty {
@@ -1589,7 +1647,6 @@ public final class DJConnectClient: Sendable {
                       page.entries.allSatisfy({ $0.order >= lower && $0.order <= upper }) else { throw DJConnectError.invalidResponse }
             }
         }
-        return page
     }
 
     public func searchSession(sessionID: String, query: String, cursor: String? = nil) async throws -> DJConnectSessionSearchPage {
@@ -2242,14 +2299,32 @@ public final class DJConnectClient: Sendable {
             guard let envelope else {
                 return nil
             }
-            if envelope.error == "backend_unavailable"
-                || envelope.error == "playback_backend_unavailable"
-                || envelope.backendAvailable == false {
+            if Self.isBackendUnavailable(envelope) {
                 return .backendUnavailable(message: message)
             }
             return nil
         }
 
+        if let typed = classifyTypedStatusFailure(statusCode: statusCode, envelope: envelope, message: message) { return typed }
+
+        // A typed backend failure can carry an upstream device/resource 404.
+        // It does not mean that the Home Assistant API route is absent.
+        if Self.isBackendUnavailable(envelope) {
+            return .backendUnavailable(message: message)
+        }
+
+        if statusCode == 404 {
+            return .routeMissing(message: message)
+        }
+
+        if envelope?.error == "not_configured" {
+            return .notConfigured(message: message)
+        }
+
+        return .server(statusCode: statusCode, message: message)
+    }
+
+    private func classifyTypedStatusFailure(statusCode: Int, envelope: DJConnectErrorEnvelope?, message: String?) -> DJConnectError? {
         if statusCode == 426 || envelope?.error == "version_mismatch" {
             return .versionMismatch(
                 DJConnectVersionMismatch(
@@ -2279,21 +2354,11 @@ public final class DJConnectClient: Sendable {
             return .authStale(statusCode: statusCode, message: message)
         }
 
-        // A typed backend failure can carry an upstream device/resource 404.
-        // It does not mean that the Home Assistant API route is absent.
-        if envelope?.error == "backend_unavailable" || envelope?.error == "playback_backend_unavailable" || envelope?.backendAvailable == false {
-            return .backendUnavailable(message: message)
-        }
+        return nil
+    }
 
-        if statusCode == 404 {
-            return .routeMissing(message: message)
-        }
-
-        if envelope?.error == "not_configured" {
-            return .notConfigured(message: message)
-        }
-
-        return .server(statusCode: statusCode, message: message)
+    private static func isBackendUnavailable(_ envelope: DJConnectErrorEnvelope?) -> Bool {
+        envelope?.error == "backend_unavailable" || envelope?.error == "playback_backend_unavailable" || envelope?.backendAvailable == false
     }
 
     private static func redactedResponseBodyMessage(from body: Data) -> String? {
@@ -2352,24 +2417,44 @@ public final class DJConnectClient: Sendable {
                                           acceptingStatuses: Set<Int> = [], rejectsRedirects: Bool = false) async throws -> (Data, Int) {
         var selectedLegacyDeadline: DJConnectOperationDeadline?
         if let hybridTransport, DJConnectHybridTransport.operation(for: request) != nil || DJConnectHybridTransport.isActiveRead(request) {
-            do {
-                if DJConnectHybridTransport.isAskDJText(request) {
-                    switch try await hybridTransport.dispatchAskDJ(request, legacyOrigin: baseURL) {
-                    case .response(let data, let status):
-                        if !acceptingStatuses.contains(status), let error = classify(statusCode: status, body: data) { throw error }
-                        return (data, status)
-                    case .legacy(let deadline): selectedLegacyDeadline = deadline
-                    }
-                } else {
-                    let (data, status) = try await hybridTransport.perform(request)
-                    if !acceptingStatuses.contains(status), let error = classify(statusCode: status, body: data) { throw error }
-                    return (data, status)
-                }
-            } catch DJConnectHybridTransportError.authority(let code) {
-                if ["unauthorized", "pairing_revoked"].contains(code) { throw DJConnectError.authStale(statusCode: 401, message: code) }
-                throw DJConnectError.profile(code: .profileAccessDenied, statusCode: 403, message: code)
+            switch try await dispatchHybridData(request, transport: hybridTransport, acceptingStatuses: acceptingStatuses) {
+            case .response(let data, let status): return (data, status)
+            case .legacy(let deadline): selectedLegacyDeadline = deadline
             }
         }
+        let (data, response) = try await dispatchLegacyData(request, requestSession: requestSession,
+            selectedLegacyDeadline: selectedLegacyDeadline, rejectsRedirects: rejectsRedirects)
+        return try acceptHTTPData(data, response: response, request: request, requestSession: requestSession,
+                                  acceptingStatuses: acceptingStatuses, rejectsRedirects: rejectsRedirects)
+    }
+
+    private enum HybridDataResult: Sendable {
+        case response(Data, Int)
+        case legacy(DJConnectOperationDeadline)
+    }
+
+    private func dispatchHybridData(_ request: URLRequest, transport: DJConnectHybridTransport,
+                                    acceptingStatuses: Set<Int>) async throws -> HybridDataResult {
+        do {
+            let data: Data, status: Int
+            if DJConnectHybridTransport.isAskDJText(request) {
+                switch try await transport.dispatchAskDJ(request, legacyOrigin: baseURL) {
+                case .response(let value, let code): data = value; status = code
+                case .legacy(let deadline): return .legacy(deadline)
+                }
+            } else {
+                (data, status) = try await transport.perform(request)
+            }
+            if !acceptingStatuses.contains(status), let error = classify(statusCode: status, body: data) { throw error }
+            return .response(data, status)
+        } catch DJConnectHybridTransportError.authority(let code) {
+            if ["unauthorized", "pairing_revoked"].contains(code) { throw DJConnectError.authStale(statusCode: 401, message: code) }
+            throw DJConnectError.profile(code: .profileAccessDenied, statusCode: 403, message: code)
+        }
+    }
+
+    private func dispatchLegacyData(_ request: URLRequest, requestSession: URLSession?,
+                                    selectedLegacyDeadline: DJConnectOperationDeadline?, rejectsRedirects: Bool) async throws -> (Data, URLResponse) {
         let (data, response): (Data, URLResponse)
         do {
             if DJConnectHybridTransport.isAskDJText(request) || request.url?.path.hasSuffix("/api/djconnect/v1/ask") == true {
@@ -2386,6 +2471,11 @@ public final class DJConnectClient: Sendable {
             throw DJConnectError.network(message: error.localizedDescription)
         }
 
+        return (data, response)
+    }
+
+    private func acceptHTTPData(_ data: Data, response: URLResponse, request: URLRequest, requestSession: URLSession?,
+                                acceptingStatuses: Set<Int>, rejectsRedirects: Bool) throws -> (Data, Int) {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw DJConnectError.invalidResponse
         }
@@ -2537,29 +2627,30 @@ public final class DJConnectClient: Sendable {
             let beforeDispatch = error as? DJConnectWebSocketPreDispatchFailure
             let error = beforeDispatch?.error ?? error
             if error is CancellationError || (error as? URLError)?.code == .cancelled { throw CancellationError() }
-            // A rejected operation is an authoritative answer, not a transport
-            // failure. Replaying it over HTTP can duplicate a write or hide a
-            // Profile/authentication rejection.
-            if let error = error as? DJConnectError {
-                switch error {
-                case .routeMissing:
-                    return nil // Protocol contract: unsupported before business dispatch.
-                case .network, .invalidResponse:
-                    guard replaySafe || beforeDispatch != nil else { throw DJConnectHybridTransportError.deliveryUnknown }
-                    return nil
-                default:
-                    throw error
-                }
-            }
-            if error is URLError {
-                guard replaySafe || beforeDispatch != nil else { throw DJConnectHybridTransportError.deliveryUnknown }
-                return nil
-            }
-            // A conformer may expose POSIX/decoding/SDK errors directly. Do
-            // not let the outer origin coordinator replay an uncertain write.
-            if !replaySafe && beforeDispatch == nil { throw DJConnectHybridTransportError.deliveryUnknown }
-            throw error
+            try admitWebSocketHTTPFallback(error, replaySafe: replaySafe, wasBeforeDispatch: beforeDispatch != nil)
+            return nil
         }
+    }
+
+    /// Authoritative replies never replay. Only known network failures may
+    /// fall back, after replay-safe or proven pre-dispatch admission.
+    private func admitWebSocketHTTPFallback(_ error: Error, replaySafe: Bool, wasBeforeDispatch: Bool) throws {
+        let isNetworkFailure: Bool
+        if let error = error as? DJConnectError {
+            switch error {
+            case .routeMissing:
+                return // Unsupported before business dispatch, per the original protocol.
+            case .network, .invalidResponse:
+                isNetworkFailure = true
+            default:
+                throw error
+            }
+        } else {
+            isNetworkFailure = error is URLError
+        }
+        guard replaySafe || wasBeforeDispatch else { throw DJConnectHybridTransportError.deliveryUnknown }
+        if isNetworkFailure { return }
+        throw error // Preserve direct POSIX/decoding/SDK errors when replay policy permits them.
     }
 
     private func jsonRequest<T: Encodable>(path: String, payload: T) throws -> URLRequest {
@@ -2640,16 +2731,18 @@ public final class DJConnectClient: Sendable {
 
     private static func errorCode(for error: DJConnectError) -> String {
         switch error {
+        case .backendUnavailable, .routeMissing, .server, .decodingFailed, .network, .invalidResponse: return transportErrorCode(error)
+        case .authStale, .versionMismatch, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch: return setupErrorCode(error)
+        case .trackInsightUnavailable, .payloadTooLarge, .profile: return contentErrorCode(error)
+        }
+    }
+
+    private static func transportErrorCode(_ error: DJConnectError) -> String {
+        switch error {
         case .backendUnavailable:
             return "backend_unavailable"
-        case .authStale:
-            return "auth_stale"
         case .routeMissing:
             return "route_missing"
-        case .versionMismatch:
-            return "version_mismatch"
-        case .notConfigured:
-            return "not_configured"
         case .server:
             return "server"
         case .decodingFailed:
@@ -2658,6 +2751,18 @@ public final class DJConnectClient: Sendable {
             return "network"
         case .invalidResponse:
             return "invalid_response"
+        default: return "unknown"
+        }
+    }
+
+    private static func setupErrorCode(_ error: DJConnectError) -> String {
+        switch error {
+        case .authStale:
+            return "auth_stale"
+        case .versionMismatch:
+            return "version_mismatch"
+        case .notConfigured:
+            return "not_configured"
         case .invalidConfiguration:
             return "invalid_configuration"
         case .missingToken:
@@ -2666,12 +2771,19 @@ public final class DJConnectClient: Sendable {
             return "pairing_failed"
         case .clientTypeMismatch:
             return "client_type_mismatch"
+        default: return "unknown"
+        }
+    }
+
+    private static func contentErrorCode(_ error: DJConnectError) -> String {
+        switch error {
         case let .trackInsightUnavailable(code, _):
             return code ?? "track_insight_unavailable"
         case .payloadTooLarge:
             return "payload_too_large"
         case let .profile(code, _, _):
             return code.rawValue
+        default: return "unknown"
         }
     }
 
@@ -2720,12 +2832,34 @@ public final class DJConnectClient: Sendable {
     }
 }
 
+/// Shared wire-policy checks; concrete decoders keep their original fields and
+/// decode order, while every caller retains its own routes/surface/version rules.
+private protocol PassiveSurfaceOwnerPolicy {
+    var version: Int { get }
+    var owner_only: Bool { get }
+    var authentication: String { get }
+    var max_cache_seconds: Int { get }
+    var read_side_effects: Bool { get }
+    var background_delivery: Bool { get }
+    var watch_replication: Bool { get }
+}
+
+private extension PassiveSurfaceOwnerPolicy {
+    func validatesOwnerAuthentication() -> Bool {
+        version == 1 && owner_only && authentication == "paired_device_bearer"
+    }
+
+    func validatesReadOnlyCachePolicy() -> Bool {
+        max_cache_seconds == 120 && !read_side_effects && !background_delivery && !watch_replication
+    }
+}
+
 // MARK: - Explicit passive Session presentation (frozen v1)
 public extension DJConnectClient {
     func passiveSurfaceAvailable() async throws -> Bool { try await passiveSurfaceProjectionVersion() != nil }
     func passiveSurfaceProjectionVersion(retainedWidget: Bool = false) async throws -> Int? {
         struct Capability: Decodable {
-            struct Descriptor: Decodable {
+            struct Descriptor: Decodable, PassiveSurfaceOwnerPolicy {
                 struct RetainedLatest: Decodable {
                     let surface: String
                     let projection_version: Int
@@ -2746,6 +2880,15 @@ public extension DJConnectClient {
                 let projection_versions: [Int]?
                 let default_projection_version: Int?
                 let retained_latest: RetainedLatest?
+
+                func validatesOwnerSurfaceContract() -> Bool {
+                    validatesOwnerAuthentication() &&
+                        authorize_path == "/api/djconnect/v1/session/surface/authorize" &&
+                        read_path == "/api/djconnect/v1/session/surface/read" &&
+                        Set(surfaces).isSuperset(of: Set(DJConnectPassiveSurface.allCases.map(\.rawValue))) &&
+                        Set(surfaces).isSubset(of: ["widget", "live_activity", "watch_widget"]) && explicit_consent_required &&
+                        validatesReadOnlyCachePolicy()
+                }
             }
             let success: Bool
             let passive_session_surface: Descriptor?
@@ -2753,12 +2896,7 @@ public extension DJConnectClient {
         let request = try sessionHistoryReadRequest(route: "capabilities")
         let response = try decoder.decode(Capability.self, from: await sessionArtworkTransport.prepare(request))
         guard response.success, let c = response.passive_session_surface else { return nil }
-        guard c.version == 1 && c.owner_only && c.authentication == "paired_device_bearer" &&
-            c.authorize_path == "/api/djconnect/v1/session/surface/authorize" &&
-            c.read_path == "/api/djconnect/v1/session/surface/read" &&
-            Set(c.surfaces).isSuperset(of: Set(DJConnectPassiveSurface.allCases.map(\.rawValue))) &&
-            Set(c.surfaces).isSubset(of: ["widget", "live_activity", "watch_widget"]) && c.explicit_consent_required &&
-            c.max_cache_seconds == 120 && !c.read_side_effects && !c.background_delivery && !c.watch_replication else { return nil }
+        guard c.validatesOwnerSurfaceContract() else { return nil }
         if let versions = c.projection_versions {
             guard c.default_projection_version == 1, versions.contains(1) else { return nil }
             if retainedWidget {
@@ -2823,11 +2961,16 @@ public extension DJConnectClient {
     func watchWidgetAvailable() async throws -> Bool {
         guard identity.clientType == .watchos else { return false }
         struct Capabilities: Decodable {
-            struct Descriptor: Decodable {
+            struct Descriptor: Decodable, PassiveSurfaceOwnerPolicy {
                 struct Watch: Decodable {
                     let scope: String; let surface: String; let client_type: String
                     let contract_version: Int; let projection_version: Int
                     let explicit_consent_required: Bool; let locked_display_required: Bool; let background_delivery: Bool
+
+                    func validatesReadOnlyWatchWidget() -> Bool {
+                        scope == "paired_watch_widget_v1" && surface == "watch_widget" && client_type == "watchos" &&
+                            contract_version == 1 && projection_version == 1 && explicit_consent_required && locked_display_required && !background_delivery
+                    }
                 }
                 let version: Int; let owner_only: Bool; let authentication: String
                 let max_cache_seconds: Int; let read_side_effects: Bool; let background_delivery: Bool; let watch_replication: Bool
@@ -2838,10 +2981,7 @@ public extension DJConnectClient {
         let request = try sessionHistoryReadRequest(route: "capabilities")
         let r = try decoder.decode(Capabilities.self, from: await sessionArtworkTransport.prepare(request))
         guard r.success, let c = r.passive_session_surface, let w = c.watch_widget else { return false }
-        return c.version == 1 && c.owner_only && c.authentication == "paired_device_bearer" && c.max_cache_seconds == 120 &&
-            !c.read_side_effects && !c.background_delivery && !c.watch_replication &&
-            w.scope == "paired_watch_widget_v1" && w.surface == "watch_widget" && w.client_type == "watchos" &&
-            w.contract_version == 1 && w.projection_version == 1 && w.explicit_consent_required && w.locked_display_required && !w.background_delivery
+        return c.validatesOwnerAuthentication() && c.validatesReadOnlyCachePolicy() && w.validatesReadOnlyWatchWidget()
     }
     func authorizeWatchWidget(sessionID: String, enabled: Bool) async throws -> DJConnectWatchWidgetResponse? {
         guard identity.clientType == .watchos, DJConnectPassiveSession.identifier(sessionID) else { throw DJConnectError.invalidResponse }
