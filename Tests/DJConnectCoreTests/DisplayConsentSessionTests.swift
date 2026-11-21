@@ -39,16 +39,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let path = request.url!.path
-        var body = request.httpBody ?? Data()
-        if body.isEmpty, let stream = request.httpBodyStream {
-            stream.open(); defer { stream.close() }
-            var buffer = [UInt8](repeating: 0, count: 4096)
-            while stream.hasBytesAvailable {
-                let count = stream.read(&buffer, maxLength: buffer.count)
-                guard count > 0 else { break }
-                body.append(contentsOf: buffer.prefix(count))
-            }
-        }
+        let body = readRequestBody()
         Self.lock.withLock { Self.bodies[path] = body }
         let (mode, count) = Self.lock.withLock {
             Self.calls.append(request)
@@ -70,66 +61,109 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         }
         var value: [String: Any] = ["success": true, "contract_version": 1]
         var status = 200
-        func expiry(_ seconds: Double) -> String {
-            let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            return f.string(from: Date().addingTimeInterval(seconds))
-        }
         if path.hasSuffix("/transport/context") {
-            value.merge(["ha_install_id": "fixture-install", "requires_authenticated_tls": false,
-                "operation_lifetime_ms": 300000, "operation_epoch": "fixture", "server_time_ms": 1000,
-                "transport_security": ["policy_version": 1, "deployment_qualification_required": true,
-                    "external": "authenticated_tls", "local_plaintext": "qualified_direct_only",
-                    "peer_policy": "enabled_interface_subnet_or_loopback", "internal_origin_required": true,
-                    "forwarded_plaintext": "forbidden", "mode": "qualified_direct_http"]]) { _, new in new }
-            if mode == "wrong-install" { value["ha_install_id"] = "other" }
+            prepareTransportContext(&value, mode: mode)
         } else if path.hasSuffix("/owner/context") {
-            value.merge(["session_id": mode == "no-session" || (mode == "changed-session" && count > 1) ? "other-session" : "fixture-session",
-                "display_entry_url": "https://ha.example.com/djconnect/vibecast/display", "route_trust": "paired_owner_response",
-                "issuer_epoch": ((mode == "changed-epoch" && count > 1) || (mode == "changed-revoke-epoch" && count > 2)) ? String(repeating: "E", count: 42) + "A" : consentEpoch]) { _, new in new }
-            if mode == "existing" || (mode == "new-share" && count > 1) {
-                value.merge(["share_id": consentShare, "share_generation": 1, "expires_in": 3600.0, "expires_at": expiry(3600)]) { _, new in new }
-            }
-            if mode.hasPrefix("slot-") {
-                var slot: [String: Any] = ["version": 1, "state": mode == "slot-reserved" ? "reserved" : "available"]
-                if mode != "slot-available" {
-                    slot["display"] = ["display_id": String(repeating: "F", count: 42) + "A", "share_id": consentShare,
-                                       "connection_generation": 0]
-                }
-                value["live_display_status"] = ["version": 1, "observation_revision": count,
-                                                "displays": [], "screen_slot": slot]
-            }
-            if mode.hasPrefix("live-") {
-                value["live_display_status"] = ["version": mode == "live-unsupported" ? 2 : 1,
-                    "observation_revision": count,
-                    "displays": mode == "live-empty" ? [] : [[
-                        "display_id": String(repeating: "F", count: 42) + "A", "share_id": consentShare,
-                        "connection_generation": mode == "live-replaced" && count > 1 ? 2 : 1
-                    ]]]
-            }
+            prepareOwnerContext(&value, mode: mode, count: count)
         } else if path.hasSuffix("/owner/resolve") {
-            value.merge(["claim_id": String(repeating: "B", count: 42) + "A",
-                "browser_generation": String(repeating: "C", count: 42) + "A", "issuer_epoch": consentEpoch,
-                "expires_in": mode == "short-claim" ? 1.0 : 90.0, "expires_at": expiry(mode == "short-claim" ? 1.0 : 90)]) { _, new in new }
+            prepareResolvedClaim(&value, mode: mode)
         } else if path.hasSuffix("/owner/approve") {
-            Self.lock.withLock { Self.approvalAt = Date(); return Self.approvalAction }?()
-            // Opt-in lifecycle probe only: retain the ordinary approval receipt.
-            if mode == "delayed-approval" { Thread.sleep(forTimeInterval: 2) }
-            if mode == "unknown" { status = 503; value = [:] }
-            else {
-                value.merge(["state": "approved", "display_id": String(repeating: "F", count: 42) + "A",
-                    "session_id": mode == "bad-receipt" ? "other-session" : "fixture-session",
-                    "share_id": consentShare, "share_generation": 1,
-                    "share_expires_in": mode == "short-receipt" ? 1.0 : 3599.0, "share_expires_at": expiry(mode == "short-absolute-receipt" ? 1.0 : 3599)]) { _, new in new }
-            }
+            prepareApprovalReceipt(&value, status: &status, mode: mode)
         } else if path.hasSuffix("/owner/revoke") {
-            if mode == "unknown-revoke" { status = 503; value = [:] }
-            if mode == "live-stop" || mode == "slot-reserved" { value["observation_revision"] = count + 1 }
+            prepareRevocationReceipt(&value, status: &status, mode: mode, count: count)
         } else { status = 404 }
         let bytes = try! JSONSerialization.data(withJSONObject: value)
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: status,
             httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: bytes); client?.urlProtocolDidFinishLoading(self)
     }
+    private func readRequestBody() -> Data {
+        var body = request.httpBody ?? Data()
+        if body.isEmpty, let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                guard count > 0 else { break }
+                body.append(contentsOf: buffer.prefix(count))
+            }
+        }
+        return body
+    }
+
+    private func expiry(_ seconds: Double) -> String {
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f.string(from: Date().addingTimeInterval(seconds))
+    }
+
+    private func prepareTransportContext(_ value: inout [String: Any], mode: String) {
+        value.merge(["ha_install_id": "fixture-install", "requires_authenticated_tls": false,
+            "operation_lifetime_ms": 300000, "operation_epoch": "fixture", "server_time_ms": 1000,
+            "transport_security": ["policy_version": 1, "deployment_qualification_required": true,
+                "external": "authenticated_tls", "local_plaintext": "qualified_direct_only",
+                "peer_policy": "enabled_interface_subnet_or_loopback", "internal_origin_required": true,
+                "forwarded_plaintext": "forbidden", "mode": "qualified_direct_http"]]) { _, new in new }
+        if mode == "wrong-install" { value["ha_install_id"] = "other" }
+    }
+
+    private func prepareOwnerDisplayObservation(_ value: inout [String: Any], mode: String, count: Int) {
+        if mode.hasPrefix("slot-") {
+            var slot: [String: Any] = ["version": 1, "state": mode == "slot-reserved" ? "reserved" : "available"]
+            if mode != "slot-available" {
+                slot["display"] = ["display_id": String(repeating: "F", count: 42) + "A", "share_id": consentShare,
+                                   "connection_generation": 0]
+            }
+            value["live_display_status"] = ["version": 1, "observation_revision": count,
+                                            "displays": [], "screen_slot": slot]
+        }
+        if mode.hasPrefix("live-") {
+            value["live_display_status"] = ["version": mode == "live-unsupported" ? 2 : 1,
+                "observation_revision": count,
+                "displays": mode == "live-empty" ? [] : [[
+                    "display_id": String(repeating: "F", count: 42) + "A", "share_id": consentShare,
+                    "connection_generation": mode == "live-replaced" && count > 1 ? 2 : 1
+                ]]]
+        }
+    }
+
+    private func prepareOwnerContext(_ value: inout [String: Any], mode: String, count: Int) {
+        prepareOwnerIdentity(&value, mode: mode, count: count)
+        if mode == "existing" || (mode == "new-share" && count > 1) {
+            value.merge(["share_id": consentShare, "share_generation": 1, "expires_in": 3600.0, "expires_at": expiry(3600)]) { _, new in new }
+        }
+        prepareOwnerDisplayObservation(&value, mode: mode, count: count)
+    }
+
+    private func prepareOwnerIdentity(_ value: inout [String: Any], mode: String, count: Int) {
+        value.merge(["session_id": mode == "no-session" || (mode == "changed-session" && count > 1) ? "other-session" : "fixture-session",
+            "display_entry_url": "https://ha.example.com/djconnect/vibecast/display", "route_trust": "paired_owner_response",
+            "issuer_epoch": ((mode == "changed-epoch" && count > 1) || (mode == "changed-revoke-epoch" && count > 2)) ? String(repeating: "E", count: 42) + "A" : consentEpoch]) { _, new in new }
+    }
+
+    private func prepareResolvedClaim(_ value: inout [String: Any], mode: String) {
+        value.merge(["claim_id": String(repeating: "B", count: 42) + "A",
+            "browser_generation": String(repeating: "C", count: 42) + "A", "issuer_epoch": consentEpoch,
+            "expires_in": mode == "short-claim" ? 1.0 : 90.0, "expires_at": expiry(mode == "short-claim" ? 1.0 : 90)]) { _, new in new }
+    }
+
+    private func prepareApprovalReceipt(_ value: inout [String: Any], status: inout Int, mode: String) {
+        Self.lock.withLock { Self.approvalAt = Date(); return Self.approvalAction }?()
+        // Opt-in lifecycle probe only: retain the ordinary approval receipt.
+        if mode == "delayed-approval" { Thread.sleep(forTimeInterval: 2) }
+        if mode == "unknown" { status = 503; value = [:] }
+        else {
+            value.merge(["state": "approved", "display_id": String(repeating: "F", count: 42) + "A",
+                "session_id": mode == "bad-receipt" ? "other-session" : "fixture-session",
+                "share_id": consentShare, "share_generation": 1,
+                "share_expires_in": mode == "short-receipt" ? 1.0 : 3599.0, "share_expires_at": expiry(mode == "short-absolute-receipt" ? 1.0 : 3599)]) { _, new in new }
+        }
+    }
+
+    private func prepareRevocationReceipt(_ value: inout [String: Any], status: inout Int, mode: String, count: Int) {
+        if mode == "unknown-revoke" { status = 503; value = [:] }
+        if mode == "live-stop" || mode == "slot-reserved" { value["observation_revision"] = count + 1 }
+    }
+
     override func stopLoading() {}
 }
 @Suite(.serialized) @MainActor struct DisplayConsentSessionTests {
