@@ -48,27 +48,10 @@ public actor RendezvousKeyLifecycleJournal {
             return .init(identifier:record.handles[0].id,purpose:.initial)
         }
         try record.observe(context:appContext,at:nowMS)
+        // Persist observed state even if successor admission fails. A failed
+        // repair must not erase an expired/uncertain reservation on restart.
         let result = Result<Generation,any Error> {
-            guard purpose != .initial else { throw Failure.unavailable }
-            guard record.handles.count == 1 else { throw Failure.capacity }
-            let old = record.handles[0]
-            switch purpose {
-            case .initial: throw Failure.unavailable
-            case .replacement:
-                guard explicitRepair, old.phase == .recoveryPaused || old.phase == .generationUnknown,
-                      let paused = old.pausedAtMS else { throw Failure.unavailable }
-                guard nowMS - paused >= LifecycleRecord.day,
-                      record.lastReplacementAtMS.map({nowMS - $0 >= LifecycleRecord.day}) ?? true else { throw Failure.cooldown }
-                // Consume the replacement allowance BEFORE any SDK generation,
-                // including when the subsequent call never returns a handle.
-                record.lastReplacementAtMS = nowMS
-            case .rollover:
-                guard old.phase == .active || old.phase == .expired, let expiry = old.expiryMS,
-                      nowMS >= expiry - 3 * LifecycleRecord.day else { throw Failure.unavailable }
-            }
-            let handle = LifecycleHandle(purpose:purpose,at:nowMS)
-            record.handles.append(handle)
-            return .init(identifier:handle.id,purpose:purpose)
+            try record.reserveSuccessor(purpose: purpose, explicitRepair: explicitRepair, at: nowMS)
         }
         try persist(record)
         return try result.get()
@@ -238,17 +221,70 @@ private struct LifecycleRecord:Codable {
             }
         }
     }
+    mutating func reserveSuccessor(purpose: RendezvousKeyLifecycleJournal.Purpose,
+                                   explicitRepair: Bool, at nowMS: Int64) throws -> RendezvousKeyLifecycleJournal.Generation {
+        guard purpose != .initial else { throw RendezvousKeyLifecycleJournal.Failure.unavailable }
+        guard handles.count == 1 else { throw RendezvousKeyLifecycleJournal.Failure.capacity }
+        let old = handles[0]
+        switch purpose {
+        case .initial: throw RendezvousKeyLifecycleJournal.Failure.unavailable
+        case .replacement:
+            try consumeReplacementAllowance(for: old, explicitRepair: explicitRepair, at: nowMS)
+        case .rollover:
+            guard old.phase == .active || old.phase == .expired, let expiry = old.expiryMS,
+                  nowMS >= expiry - 3 * Self.day else { throw RendezvousKeyLifecycleJournal.Failure.unavailable }
+        }
+        let handle = LifecycleHandle(purpose: purpose, at: nowMS)
+        handles.append(handle)
+        return .init(identifier: handle.id, purpose: purpose)
+    }
+
+    private mutating func consumeReplacementAllowance(for old: LifecycleHandle,
+                                                      explicitRepair: Bool, at nowMS: Int64) throws {
+        guard explicitRepair, old.phase == .recoveryPaused || old.phase == .generationUnknown,
+              let paused = old.pausedAtMS else { throw RendezvousKeyLifecycleJournal.Failure.unavailable }
+        guard nowMS - paused >= Self.day,
+              lastReplacementAtMS.map({nowMS - $0 >= Self.day}) ?? true else {
+            throw RendezvousKeyLifecycleJournal.Failure.cooldown
+        }
+        // Consume BEFORE appending a new generation, including when its later
+        // SDK callback never returns a handle. The caller persists this state.
+        lastReplacementAtMS = nowMS
+    }
+
     func validate() throws {
-        func require(_ value:Bool) throws { if !value { throw RendezvousKeyLifecycleJournal.Failure.invalidData } }
-        try require(schemaVersion == 1 && context.count == 32 && (1...2).contains(handles.count))
+        try validateRecordIdentity()
+        try validateBoundedTimestamps()
+        try validateSuccessorReservation()
+        var previous = firstGenerationAtMS
+        for handle in handles {
+            try requireLifecycleData(handle.generatedAtMS >= previous && handle.generatedAtMS <= lastObservedMS)
+            previous = handle.generatedAtMS
+            try handle.validateMaterialAndPairedFields(lastObservedMS: lastObservedMS)
+            try handle.validateEnrollmentWindow(lastObservedMS: lastObservedMS)
+            try handle.validateVerifiedLease(lastObservedMS: lastObservedMS)
+            try handle.validatePhase(lastObservedMS: lastObservedMS)
+            if handle.purpose == .replacement {
+                try requireLifecycleData(lastReplacementAtMS.map({$0 >= handle.generatedAtMS}) == true)
+            }
+        }
+    }
+
+    private func validateRecordIdentity() throws {
+        try requireLifecycleData(schemaVersion == 1 && context.count == 32 && (1...2).contains(handles.count))
         try Self.checkTime(firstGenerationAtMS); try Self.checkTime(lastObservedMS)
-        try require(lastObservedMS >= firstGenerationAtMS && Set(handles.map(\.id)).count == handles.count)
-        if let replacement = lastReplacementAtMS { try require(replacement >= firstGenerationAtMS && replacement <= lastObservedMS) }
+        try requireLifecycleData(lastObservedMS >= firstGenerationAtMS && Set(handles.map(\.id)).count == handles.count)
+        if let replacement = lastReplacementAtMS {
+            try requireLifecycleData(replacement >= firstGenerationAtMS && replacement <= lastObservedMS)
+        }
         let keys = handles.compactMap(\.key)
-        try require(Set(keys).count == keys.count)
-        try require(handles.filter({$0.phase == .active}).count <= 1)
-        // Bound every persisted timestamp before subtraction/addition, including
-        // malformed records that would otherwise overflow Int64 during validation.
+        try requireLifecycleData(Set(keys).count == keys.count)
+        try requireLifecycleData(handles.filter({$0.phase == .active}).count <= 1)
+    }
+
+    private func validateBoundedTimestamps() throws {
+        // Every timestamp is bounded before any handle's arithmetic or state
+        // checks. A malformed later handle cannot bypass overflow protection.
         for handle in handles {
             try Self.checkTime(handle.generatedAtMS)
             for value in [handle.enrollmentDeadlineMS,handle.enrollmentBoundAtMS,
@@ -256,56 +292,95 @@ private struct LifecycleRecord:Codable {
                 try Self.checkTime(value)
             }
         }
+    }
+
+    private func validateSuccessorReservation() throws {
         if handles.count == 2 {
-            try require(handles[1].purpose != .initial && handles[1].expiryMS == nil)
+            try requireLifecycleData(handles[1].purpose != .initial && handles[1].expiryMS == nil)
             switch handles[1].purpose {
             case .initial: throw RendezvousKeyLifecycleJournal.Failure.invalidData
             case .replacement:
-                try require(handles[0].pausedAtMS != nil)
-                try require(handles[1].generatedAtMS - handles[0].pausedAtMS! >= Self.day)
+                try requireLifecycleData(handles[0].pausedAtMS != nil)
+                try requireLifecycleData(handles[1].generatedAtMS - handles[0].pausedAtMS! >= Self.day)
             case .rollover:
-                try require(handles[0].expiryMS != nil && handles[1].generatedAtMS >= handles[0].expiryMS! - 3 * Self.day)
-            }
-        }
-        var previous = firstGenerationAtMS
-        for handle in handles {
-            try require(handle.generatedAtMS >= previous && handle.generatedAtMS <= lastObservedMS)
-            previous = handle.generatedAtMS
-            if let key = handle.key { try require(DJConnectRendezvousSubmitChallenge.canonicalKeyID(key)) }
-            if let pause = handle.pausedAtMS { try require(pause >= handle.generatedAtMS && pause <= lastObservedMS) }
-            try require((handle.enrollmentDeadlineMS == nil) == (handle.enrollmentBoundAtMS == nil))
-            try require((handle.expiryMS == nil) == (handle.firstVerifiedAtMS == nil))
-            if let deadline = handle.enrollmentDeadlineMS, let bound = handle.enrollmentBoundAtMS {
-                try require(bound >= handle.generatedAtMS && bound <= lastObservedMS &&
-                    deadline > bound && deadline - bound <= 120_000)
-            }
-            if let verified = handle.firstVerifiedAtMS {
-                try require(verified >= handle.generatedAtMS && verified <= lastObservedMS &&
-                    handle.expiryMS! > verified && handle.expiryMS! - verified <= 30 * Self.day)
-            }
-            if let expiry = handle.expiryMS {
-                try require(handle.enrollmentDeadlineMS != nil && expiry > handle.generatedAtMS &&
-                    expiry <= handle.enrollmentDeadlineMS! + 30 * Self.day)
-            }
-            switch handle.phase {
-            case .generationPending:
-                try require(handle.key == nil && handle.enrollmentDeadlineMS == nil && handle.expiryMS == nil && handle.pausedAtMS == nil)
-            case .generationUnknown:
-                try require(handle.key == nil && handle.enrollmentDeadlineMS == nil && handle.expiryMS == nil && handle.pausedAtMS != nil)
-            case .enrollmentPending:
-                try require(handle.key != nil && handle.expiryMS == nil && handle.pausedAtMS == nil)
-            case .registrationUncertain:
-                try require(handle.key != nil && handle.enrollmentDeadlineMS != nil && handle.expiryMS == nil)
-            case .recoveryPaused:
-                try require(handle.key != nil && handle.enrollmentDeadlineMS != nil && handle.pausedAtMS != nil)
-            case .active:
-                try require(handle.key != nil && handle.expiryMS.map({$0 > lastObservedMS}) == true)
-            case .expired:
-                try require(handle.key == nil && handle.expiryMS.map({$0 <= lastObservedMS}) == true)
-            }
-            if handle.purpose == .replacement {
-                try require(lastReplacementAtMS.map({$0 >= handle.generatedAtMS}) == true)
+                try requireLifecycleData(handles[0].expiryMS != nil && handles[1].generatedAtMS >= handles[0].expiryMS! - 3 * Self.day)
             }
         }
     }
+}
+
+private extension LifecycleHandle {
+    func validateMaterialAndPairedFields(lastObservedMS: Int64) throws {
+        if let key { try requireLifecycleData(DJConnectRendezvousSubmitChallenge.canonicalKeyID(key)) }
+        if let pause = pausedAtMS {
+            try requireLifecycleData(pause >= generatedAtMS && pause <= lastObservedMS)
+        }
+        try requireLifecycleData((enrollmentDeadlineMS == nil) == (enrollmentBoundAtMS == nil))
+        try requireLifecycleData((expiryMS == nil) == (firstVerifiedAtMS == nil))
+    }
+
+    func validateEnrollmentWindow(lastObservedMS: Int64) throws {
+        if let deadline = enrollmentDeadlineMS, let bound = enrollmentBoundAtMS {
+            try requireLifecycleData(bound >= generatedAtMS && bound <= lastObservedMS &&
+                deadline > bound && deadline - bound <= 120_000)
+        }
+    }
+
+    func validateVerifiedLease(lastObservedMS: Int64) throws {
+        if let verified = firstVerifiedAtMS {
+            try requireLifecycleData(verified >= generatedAtMS && verified <= lastObservedMS &&
+                expiryMS! > verified && expiryMS! - verified <= 30 * LifecycleRecord.day)
+        }
+        if let expiry = expiryMS {
+            try requireLifecycleData(enrollmentDeadlineMS != nil && expiry > generatedAtMS &&
+                expiry <= enrollmentDeadlineMS! + 30 * LifecycleRecord.day)
+        }
+    }
+
+    func validatePhase(lastObservedMS: Int64) throws {
+        switch phase {
+        case .generationPending, .generationUnknown:
+            try validateGenerationPhase()
+        case .enrollmentPending, .registrationUncertain, .recoveryPaused:
+            try validateEnrollmentPhase()
+        case .active, .expired:
+            try validateAcceptedLeasePhase(lastObservedMS: lastObservedMS)
+        }
+    }
+
+    private func validateGenerationPhase() throws {
+        switch phase {
+        case .generationPending:
+            try requireLifecycleData(key == nil && enrollmentDeadlineMS == nil && expiryMS == nil && pausedAtMS == nil)
+        case .generationUnknown:
+            try requireLifecycleData(key == nil && enrollmentDeadlineMS == nil && expiryMS == nil && pausedAtMS != nil)
+        default: throw RendezvousKeyLifecycleJournal.Failure.invalidData
+        }
+    }
+
+    private func validateEnrollmentPhase() throws {
+        switch phase {
+        case .enrollmentPending:
+            try requireLifecycleData(key != nil && expiryMS == nil && pausedAtMS == nil)
+        case .registrationUncertain:
+            try requireLifecycleData(key != nil && enrollmentDeadlineMS != nil && expiryMS == nil)
+        case .recoveryPaused:
+            try requireLifecycleData(key != nil && enrollmentDeadlineMS != nil && pausedAtMS != nil)
+        default: throw RendezvousKeyLifecycleJournal.Failure.invalidData
+        }
+    }
+
+    private func validateAcceptedLeasePhase(lastObservedMS: Int64) throws {
+        switch phase {
+        case .active:
+            try requireLifecycleData(key != nil && expiryMS.map({$0 > lastObservedMS}) == true)
+        case .expired:
+            try requireLifecycleData(key == nil && expiryMS.map({$0 <= lastObservedMS}) == true)
+        default: throw RendezvousKeyLifecycleJournal.Failure.invalidData
+        }
+    }
+}
+
+private func requireLifecycleData(_ condition: Bool) throws {
+    if !condition { throw RendezvousKeyLifecycleJournal.Failure.invalidData }
 }
