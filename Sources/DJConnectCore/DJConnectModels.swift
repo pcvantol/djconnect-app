@@ -6478,11 +6478,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         sessionSpeech = DJConnectOptionalSessionSpeech.projection(from: decoder)
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let presentation = try decoder.container(keyedBy: PresentationKeys.self)
-        let confirmation = try? presentation.decodeIfPresent(ConversationPresentation.self, forKey: .conversation)
-        isPrivateEphemeralResponse = try presentation.decodeIfPresent(Bool.self, forKey: .success) == true
-            && presentation.decodeIfPresent(Bool.self, forKey: .historyPersisted) != true
-            && confirmation?.schemaVersion == 1 && confirmation?.historyScope == "private_ephemeral"
-            && !container.contains(.historyRevision) && !container.contains(.clearRevision)
+        isPrivateEphemeralResponse = try Self.decodePrivateEphemeralPresentation(presentation, content: container)
         forYou = try? container.decodeIfPresent(DJConnectForYou.self, forKey: .forYou)
         if let dismissal = try? container.decode(ForYouDismissal.self, forKey: .forYou) {
             forYouDismissed = (try? presentation.decode(Bool.self, forKey: .success)) == true && dismissal.schema_version == 1 && dismissal.state == "dismissed" && !dismissal.visible
@@ -6508,10 +6504,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         }
         historyRevision = try container.decodeIfPresent(Int.self, forKey: .historyRevision) ?? 0
         clearRevision = try container.decodeIfPresent(Int.self, forKey: .clearRevision) ?? 0
-        let decodedAudioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
-            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .audioUrl)
-            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioURL)
-            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioUrl)
+        let decodedAudioURL = try Self.decodeResponseAudioURL(container)
         announcement = try container.decodeIfPresent(DJAnnouncement.self, forKey: .announcement)
         audioURL = Self.resolvedAudioURL(announcement, fallback: decodedAudioURL)
         historyLimit = try container.decodeIfPresent(Int.self, forKey: .historyLimit)
@@ -6532,6 +6525,34 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
             trackInsight = nil
         }
         items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items)
+        normalizeAssistantAudio()
+        normalizeAssistantMetadata()
+        normalizeAssistantPresentation()
+        normalizeAssistantActions()
+        synthesizeAssistantWhenMissing()
+        normalizeHistoryMessages()
+        normalizeHistoryMood()
+    }
+
+    private static func decodePrivateEphemeralPresentation(
+        _ presentation: KeyedDecodingContainer<PresentationKeys>,
+        content: KeyedDecodingContainer<CodingKeys>
+    ) throws -> Bool {
+        let confirmation = try? presentation.decodeIfPresent(ConversationPresentation.self, forKey: .conversation)
+        return try presentation.decodeIfPresent(Bool.self, forKey: .success) == true
+            && presentation.decodeIfPresent(Bool.self, forKey: .historyPersisted) != true
+            && confirmation?.schemaVersion == 1 && confirmation?.historyScope == "private_ephemeral"
+            && !content.contains(.historyRevision) && !content.contains(.clearRevision)
+    }
+
+    private static func decodeResponseAudioURL(_ container: KeyedDecodingContainer<CodingKeys>) throws -> URL? {
+        return try container.decodeIfPresent(URL.self, forKey: .audioURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .audioUrl)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioUrl)
+    }
+
+    private mutating func normalizeAssistantAudio() {
         if assistantMessage == nil {
             let assistants = messages.filter { $0.role == .assistant }
             if assistants.count == 1 { assistantMessage = assistants[0] }
@@ -6542,6 +6563,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         } else if assistantMessage?.announcement == nil, assistantMessage?.audioURL == nil, let audioURL {
             assistantMessage?.audioURL = audioURL
         }
+    }
+
+    private mutating func normalizeAssistantMetadata() {
         if assistantMessage?.textSource == nil, let textSource {
             assistantMessage?.textSource = textSource
         }
@@ -6554,6 +6578,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         if assistantMessage?.trackInsight == nil, let trackInsight {
             assistantMessage?.trackInsight = trackInsight
         }
+    }
+
+    private mutating func normalizeAssistantPresentation() {
         if assistantMessage?.mood == nil, let mood {
             assistantMessage?.mood = mood
         }
@@ -6567,6 +6594,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
             assistantMessage?.links = (links ?? []) + (sources ?? [])
             assistantMessage?.sources = sources ?? []
         }
+    }
+
+    private mutating func normalizeAssistantActions() {
         let topLevelActions = playbackActions ?? []
         let topLevelConfirmationActions = confirmationActions ?? []
         if assistantMessage?.playbackActions.isEmpty != false, !topLevelActions.isEmpty {
@@ -6575,6 +6605,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         if assistantMessage?.confirmationActions.isEmpty != false, !topLevelConfirmationActions.isEmpty {
             assistantMessage?.confirmationActions = topLevelConfirmationActions
         }
+    }
+
+    private mutating func synthesizeAssistantWhenMissing() {
         if assistantMessage == nil, let fallbackText = djText ?? text ?? message, !fallbackText.isEmpty {
             assistantMessage = DJConnectAskDJHistoryMessage(
                 id: UUID().uuidString,
@@ -6596,6 +6629,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
                 items: items ?? []
             )
         }
+    }
+
+    private mutating func normalizeHistoryMessages() {
         if let normalizedAssistant = assistantMessage,
            let index = messages.firstIndex(where: { $0.id == normalizedAssistant.id && $0.role == .assistant }) {
             messages[index] = normalizedAssistant
@@ -6603,26 +6639,31 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         if messages.isEmpty {
             messages = [userMessage, assistantMessage].compactMap { $0 }
         } else if textSource != nil || isGeneratedText != nil || audioURL != nil || announcement != nil {
-            messages = messages.map { message in
-                guard message.role != .user else {
-                    return message
-                }
-                var updated = message
-                if updated.announcement == nil, let announcement {
-                    updated.announcement = announcement
-                    updated.audioURL = announcement.clientReplayAudioURL
-                } else if updated.announcement == nil, updated.audioURL == nil, let audioURL {
-                    updated.audioURL = audioURL
-                }
-                if updated.textSource == nil, let textSource {
-                    updated.textSource = textSource
-                }
-                if updated.isGeneratedText == nil, let isGeneratedText {
-                    updated.isGeneratedText = isGeneratedText
-                }
-                return updated
-            }
+            messages = messages.map { inheritingTopLevelPresentation(in: $0) }
         }
+    }
+
+    private func inheritingTopLevelPresentation(in message: DJConnectAskDJHistoryMessage) -> DJConnectAskDJHistoryMessage {
+        guard message.role != .user else {
+            return message
+        }
+        var updated = message
+        if updated.announcement == nil, let announcement {
+            updated.announcement = announcement
+            updated.audioURL = announcement.clientReplayAudioURL
+        } else if updated.announcement == nil, updated.audioURL == nil, let audioURL {
+            updated.audioURL = audioURL
+        }
+        if updated.textSource == nil, let textSource {
+            updated.textSource = textSource
+        }
+        if updated.isGeneratedText == nil, let isGeneratedText {
+            updated.isGeneratedText = isGeneratedText
+        }
+        return updated
+    }
+
+    private mutating func normalizeHistoryMood() {
         if let mood {
             messages = messages.map { message in
                 guard message.role != .user, message.mood == nil else {
