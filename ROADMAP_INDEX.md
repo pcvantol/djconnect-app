@@ -4,9 +4,15 @@ Status: repository-local planning navigation
 
 Repository: `djconnect-music-dj/djconnect-app`
 
-## Current Increment — Source398 / ordinary40530 Finalization
+## Historical Increment — Source398 / ordinary40530 Finalization
 
 Source398 is qualified and ordinary4.1.0(40530) installed/read back on all four requested devices. Three genuine HA4.1 client heartbeats are observed; iPhone launch is Locked at12:16:02UTC, with follow-up OPEN. Full Live-impressie product/media/audible acceptance remains PARTIAL. Separate governance Finalization and exact-main qualification plus actual scoped cleanup remain mandatory. No next capability is admitted. See [current source/install receipt](docs/feedback/APPLE_HA_4_1_398_INSTALL_40530_RECEIPT_20261120.json) and the current four rolling records; earlier navigation is historical.
+
+## Current Increment — Ask DJ Moments Source400 Finalization
+
+Supplemental test-only QA402 qualified on `edccef9a18cf36c14165555b0a62013812d03876`; see [QA receipt](docs/feedback/APPLE_ASK_DJ_MOMENTS_402_QA_RECEIPT_20261121.json). AM12 OPEN; installed40530 unchanged; governance-only Final401 still requires own merge/qualification/cleanup.
+
+Source400 software qualified, AM12 acceptance PARTIAL/OPEN; existing40530 installed baseline unchanged. See [current receipt](docs/feedback/APPLE_ASK_DJ_MOMENTS_400_SOURCE_RECEIPT_20261120.json) and four current rolling records. Separate exact-main Finalization qualification and actual scoped cleanup remain required; no next execution admitted.
 
 ## Purpose
 

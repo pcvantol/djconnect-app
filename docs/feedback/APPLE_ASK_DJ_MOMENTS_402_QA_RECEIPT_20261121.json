@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "kind": "apple_ask_dj_moments_supplemental_qa_finalization",
+  "source400_historical_receipt": "APPLE_ASK_DJ_MOMENTS_400_SOURCE_RECEIPT_20261120.json",
+  "qa_source": {
+    "pr": 402,
+    "qualified_head": "d517b16e03ba82e066489ef12d964301306e0662",
+    "merged_main": "edccef9a18cf36c14165555b0a62013812d03876",
+    "reviewed_and_merged_tree": "f631ed6c49272c7e9ae71881f85970a49f075a05",
+    "tree_equal": true,
+    "scope": "Native test delivery oracle and append-only corrective handoff only; all310 product inputs unchanged from Source400"
+  },
+  "software_qualification": {
+    "canonical_integrity": "PASS",
+    "ci": 44897148514,
+    "ci_attempt": 1,
+    "coverage_lines": 0.6298223908828113,
+    "coverage_targets": 6,
+    "durable_asset_id": 775317485,
+    "durable_release": "internal-ha-edccef9a18cf36c14165555b0a62013812d03876",
+    "durable_sha256": "e7c2fcd84bec567b75300a0c2019b2dff02d82bd4a6ccf8f6109fec9ef338184",
+    "evidence_digest": "9f01e9f7158d1f8e6dd4b0ceea598e9ce7bd3d6b75e70739f7577e7fb620fa89",
+    "formal": 44898004477,
+    "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+    "main_sha": "edccef9a18cf36c14165555b0a62013812d03876",
+    "original_artifacts": [
+      {
+        "id": 14704274599,
+        "members_sha256": {
+          "coverage-main-sha.txt": "a9e49cba0bd97fd2a3d76e68d7c80cec108d4ddc1e486561b178cc298057c2cd",
+          "coverage.json": "9916886542930664f1cb969df055f2f4c00d7e43d22155edce43e0ffbf126eb9"
+        },
+        "name": "apple-xccov-coverage",
+        "provider_zip_sha256": "ad2d95ba749f147cb9279025f2270edce2cb2fb7fafc8153b6a47e55fea11f23",
+        "run": 44897148514
+      },
+      {
+        "id": 14704218232,
+        "members_sha256": {
+          "post-merge-release-evidence.json": "9976ddfeadd2ad6005ac44d791d4413bfe89dfb0ebfa5d498388599b44f07050"
+        },
+        "name": "post-merge-release-evidence",
+        "provider_zip_sha256": "dd83f83347dd65c9590768fd2449b06009a55caf3e679e0911b3201c63c6f01a",
+        "run": 44898004477
+      }
+    ],
+    "policy_source_identity": {
+      "original_repository_id": 1258575431,
+      "original_revision": "4877403ba6fc69881439e70d3048da13ecb5576b",
+      "repository": "djconnect-music-dj/.github",
+      "repository_id": 1461539726,
+      "revision": "89a2a8b4c7571965249bed745bf7c5c37a1221f1",
+      "snapshot": "evidence-4877"
+    },
+    "repository": "djconnect-music-dj/djconnect-app",
+    "required_checks": {
+      "post_merge_build_validation": "PASS",
+      "post_merge_ci": "PASS",
+      "post_merge_coverage": "PASS",
+      "post_merge_governance": "PASS",
+      "post_merge_lint": "PASS",
+      "post_merge_static_analysis": "PASS",
+      "post_merge_tests": "PASS",
+      "required_checks": "PASS",
+      "software_assurance": "PASS",
+      "trusted_delivery": "PASS",
+      "verification": "PASS",
+      "workflow_integrity": "PASS"
+    },
+    "schema_version": 1,
+    "validator_sha256": "3fba299f26c75e47804e66218cabea8fd50627bd2a84a1dd294d59009714466f"
+  },
+  "local_reproduction": {
+    "schema_version": 1,
+    "base": "83e2f03822deac1c52cc1dbedd8623d4a0e09b06",
+    "scope": "Only native test semantic-delivery oracle and append-only corrective handoff",
+    "focused": "PASS 1 test 7.404s",
+    "full": "PASS 1784 tests / 61 suites 31.779s",
+    "host": "MATCH exit0 onboarding4.5.13, no host mutation",
+    "controlled_reproduction": "400ms MainActor stall: old grace 8446.993953500001 opens0 jokes[]; playful callback8446.994034875; repaired wait plus full interval observes exactlyplayful, all18 assertions true. External instrumentation; original CI callback unknown.",
+    "assertions": "All original input sequences and assertions retained; photo and source each retain a separate complete no-cascade window; avatar action awaits delivery bounded3s then full doubleClickInterval+100ms.",
+    "runtime_product_changes": false,
+    "old_failed_run": 44804481699,
+    "old_final_head": "6357882ecf70d9b85531ae9a316cfbd65a1a7fc1",
+    "artifacts": {
+      "native-oracle-repair-sequential-focused-fresh.log": "350fdd340ab977c72bea5a7c0c9dde19320f74dc2a0fcb1f8107db74283b7afe",
+      "native-oracle-repair-sequential-full.log": "f4e7b285eb3a66fe901d2fb939796a0647bbb22a85dcbab30ac8d5f5c944f597",
+      "native-input-sequential-diagnostic.swift": "b1f7866a9e20003df7871e98584b2b2953d87e23884c1a2e20f003c9bf20fe0a",
+      "native-input-sequential-diagnostic-stall.log": "97ab08e5de8d1fd0dafee65da3658e7cd734e34f730ecaca1763c98079a0f680",
+      "host-verify-resume-20261121-canonical.log": "153f252465a9e24764b8c362d8b12aa3eb5311b8c0e66dcbc79ef22f637d34b2",
+      "native-oracle-repair-sequential-focused.log": "6aad0be9cf15dc991f88d317c9c349f95893199c6d1c28db84e7857e11e13c46",
+      "finalization-pr-ci-logs.zip": "8ea72a4f6e1cf37d9d2143af58aba1caba9395bb65e4ac3eea706fc58959ebf0"
+    },
+    "acceptance": "AM12 OPEN; TDE observed FAIL remains open; no installation/deployment"
+  },
+  "current_tde": {
+    "main_sha": "edccef9a18cf36c14165555b0a62013812d03876",
+    "workflow": 44897148123,
+    "workflow_conclusion": "SUCCESS",
+    "native_coverage_step": "SUCCESS",
+    "assessment_decision": "FAIL",
+    "repository_qualification": "FAILED",
+    "canonical_validation": {
+      "adapter": "VALID",
+      "analyzer": "VALID",
+      "candidateIdentity": "VALID",
+      "completeness": "COMPLETE",
+      "errors": [],
+      "integrity": "VALID",
+      "repositoryIdentity": "VALID",
+      "schema": "VALID",
+      "status": "VALID",
+      "warnings": []
+    },
+    "findings": 438,
+    "severity": {
+      "HIGH": 422,
+      "CRITICAL": 16
+    },
+    "added_findings": [
+      {
+        "affectedEntityId": "symbol.0274f89edeab95cb",
+        "capabilityId": "complexity",
+        "category": "COMPLEXITY",
+        "classification": "TEST",
+        "confidence": 1,
+        "description": "Cyclomatic complexity is 14 (threshold: 11).",
+        "evidenceReferences": [
+          "complexity.symbol.dd88f98c66b6bf87.value"
+        ],
+        "findingId": "complexity.high.symbol.0274f89edeab95cb",
+        "location": {
+          "endLine": 114,
+          "line": 55,
+          "path": "Tests/DJConnectCoreTests/AskDJMomentsAvatarInputTests.swift"
+        },
+        "regression": "UNKNOWN",
+        "ruleId": "complexity.high",
+        "severity": "HIGH",
+        "state": "OPEN",
+        "suppressible": true,
+        "title": "High Complexity"
+      }
+    ],
+    "removed_findings": [],
+    "changed_findings": [],
+    "provider_zip_sha256": "101b1230470ad0a363768fb74977cb55c5141d741c7d7cafce58cd3e3f78aadb",
+    "scope": "Observe-only debt OPEN; no TDE-qualified claim or metric waiver; runtime product files unchanged"
+  },
+  "tde_disposition": "Observe-only debt OPEN:438 findings (422HIGH/16CRITICAL), one added HIGH in TEST native harness CC14/threshold11; all437 Source400 findings unchanged. Root independently reviewed and retained explicit debt; no suppression, waiver or metric-only refactor. Workflow/coverage PASS is not assessment qualification.",
+  "earlier_final_failure": {
+    "head": "6357882ecf70d9b85531ae9a316cfbd65a1a7fc1",
+    "workflow": 44804481699,
+    "preserved": true,
+    "finding": "Native double-click fixed-grace oracle raced correct later action. Original CI callback uninstrumented; controlled external stall reproduces same observable failure."
+  },
+  "separate_finalization": "Current Final401 inherits QA through qualified main; only governance/records in Finaldiff. Own Final protected merge, mainCI/coverage/formal12 and scoped cleanup still separate.",
+  "installed_baseline": "UNCHANGED40530; no Source400 or QA402 installation/deployment/provider operation",
+  "product_acceptance": "AM12 PARTIAL/OPEN; actual-model/editorial/physical installed/audible/accessibility acceptance NOT_RUN",
+  "peer_core_final": {
+    "pr": 1665,
+    "merged_main": "d24cb4ad46015cdc89ae5cbfa866f07a73139663",
+    "planning_snapshot_sha256": "dac621d5a033bedafefb2f5a864868f05843cf65fd1e494f0713b48b559d3ef7"
+  },
+  "preservation": "Original Users-main bce719 and old635 history/receipts/bundles retained; existing40530/recovery and HA backup preserved"
+}
