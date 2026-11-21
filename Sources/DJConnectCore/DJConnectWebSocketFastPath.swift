@@ -230,7 +230,7 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             throw DJConnectError.routeMissing(message: "WebSocket Music DNA profile capability unavailable")
         }
         let payload = DJConnectMusicDNAFastPathPayload(mood: mood, musicDNAKey: musicDNAKey, language: language)
-        let request = DJConnectWebSocketMusicDNARequestMessage(
+        let request = DJConnectWebSocketIdentifiedPayloadMessage(
             id: try allocateID(),
             type: DJConnectFastPathRoute.musicDNAProfile.rawValue,
             identity: identity,
@@ -250,7 +250,7 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             throw DJConnectError.routeMissing(message: "WebSocket Music DNA settings capability unavailable")
         }
         let payload = DJConnectMusicDNAFastPathPayload(enabled: enabled, mood: mood, musicDNAKey: musicDNAKey, language: language)
-        let request = DJConnectWebSocketMusicDNARequestMessage(
+        let request = DJConnectWebSocketIdentifiedPayloadMessage(
             id: try allocateID(),
             type: DJConnectFastPathRoute.musicDNASettings.rawValue,
             identity: identity,
@@ -269,7 +269,7 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             throw DJConnectError.routeMissing(message: "WebSocket Music DNA clear capability unavailable")
         }
         let payload = DJConnectMusicDNAFastPathPayload(mood: mood, musicDNAKey: musicDNAKey, language: language)
-        let request = DJConnectWebSocketMusicDNARequestMessage(
+        let request = DJConnectWebSocketIdentifiedPayloadMessage(
             id: try allocateID(),
             type: DJConnectFastPathRoute.musicDNAClear.rawValue,
             identity: identity,
@@ -321,7 +321,7 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         guard try await operationCapabilities().contains(.musicDiscoveryPlay) else {
             throw DJConnectError.routeMissing(message: "WebSocket Music Discovery play capability unavailable")
         }
-        let request = DJConnectWebSocketMusicDiscoveryActionMessage(
+        let request = DJConnectWebSocketIdentifiedPayloadMessage(
             id: try allocateID(),
             type: DJConnectFastPathRoute.musicDiscoveryPlay.rawValue,
             identity: identity,
@@ -337,7 +337,7 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         guard try await operationCapabilities().contains(.musicDiscoveryFeedback) else {
             throw DJConnectError.routeMissing(message: "WebSocket Music Discovery feedback capability unavailable")
         }
-        let request = DJConnectWebSocketMusicDiscoveryActionMessage(
+        let request = DJConnectWebSocketIdentifiedPayloadMessage(
             id: try allocateID(),
             type: DJConnectFastPathRoute.musicDiscoveryFeedback.rawValue,
             identity: identity,
@@ -550,26 +550,36 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             guard let result = envelope.result else { throw DJConnectError.invalidResponse }
             return result
         } catch {
-            if Task.isCancelled || error is CancellationError { throw CancellationError() }
-            if let wire = error as? DJConnectWebSocketWireFailure {
-                if wire.dispatched && !replaySafe { throw DJConnectHybridTransportError.deliveryUnknown }
-                let safe = sanitizedTransportError(wire.error, privateResponse: privateResponse)
-                if !wire.dispatched {
-                    if let typed = safe as? DJConnectError, case .routeMissing = typed { throw typed }
-                    throw DJConnectWebSocketPreDispatchFailure(error: safe)
-                }
-                throw safe
-            }
-            // A received error is authoritative; do not replay it. A successful
-            // envelope whose body cannot be decoded leaves a write uncertain.
-            if let typed = error as? DJConnectError, case .server = typed {
-                let safe = sanitizedTransportError(typed, privateResponse: privateResponse)
-                if socketEpoch == epoch { lastError = Self.redactedError(safe) }
-                throw safe
-            }
-            if !replaySafe { throw DJConnectHybridTransportError.deliveryUnknown }
-            throw sanitizedTransportError(error, privateResponse: privateResponse)
+            throw resultFailure(error, epoch: epoch, privateResponse: privateResponse, replaySafe: replaySafe)
         }
+    }
+
+    private func resultFailure(_ error: Error, epoch: UUID,
+                               privateResponse: Bool, replaySafe: Bool) -> Error {
+        if Task.isCancelled || error is CancellationError { return CancellationError() }
+        if let wire = error as? DJConnectWebSocketWireFailure {
+            return wireFailure(wire, privateResponse: privateResponse, replaySafe: replaySafe)
+        }
+        // A received error is authoritative; do not replay it. A successful
+        // envelope whose body cannot be decoded leaves a write uncertain.
+        if let typed = error as? DJConnectError, case .server = typed {
+            let safe = sanitizedTransportError(typed, privateResponse: privateResponse)
+            if socketEpoch == epoch { lastError = Self.redactedError(safe) }
+            return safe
+        }
+        if !replaySafe { return DJConnectHybridTransportError.deliveryUnknown }
+        return sanitizedTransportError(error, privateResponse: privateResponse)
+    }
+
+    private func wireFailure(_ wire: DJConnectWebSocketWireFailure,
+                             privateResponse: Bool, replaySafe: Bool) -> Error {
+        if wire.dispatched && !replaySafe { return DJConnectHybridTransportError.deliveryUnknown }
+        let safe = sanitizedTransportError(wire.error, privateResponse: privateResponse)
+        if !wire.dispatched {
+            if let typed = safe as? DJConnectError, case .routeMissing = typed { return typed }
+            return DJConnectWebSocketPreDispatchFailure(error: safe)
+        }
+        return safe
     }
 
     private func exchange(id: Int, data: Data, timeout: TimeInterval, epoch: UUID) async throws -> Data {
@@ -767,6 +777,18 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
 
     private static func describe(_ error: DJConnectError) -> String {
         switch error {
+        case .backendUnavailable, .authStale, .routeMissing, .versionMismatch,
+             .notConfigured, .server, .decodingFailed:
+            describeServiceFailure(error)
+        case .network, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch:
+            describeSetupFailure(error)
+        case .invalidResponse, .trackInsightUnavailable, .payloadTooLarge, .profile:
+            describeContentFailure(error)
+        }
+    }
+
+    private static func describeServiceFailure(_ error: DJConnectError) -> String {
+        switch error {
         case let .backendUnavailable(message):
             message ?? "Backend unavailable"
         case let .authStale(statusCode, message):
@@ -781,10 +803,15 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             message ?? "Server error (HTTP \(statusCode))"
         case let .decodingFailed(statusCode, endpoint, message):
             message ?? "Decoding failed for \(endpoint) (HTTP \(statusCode))"
+        default:
+            "Invalid response"
+        }
+    }
+
+    private static func describeSetupFailure(_ error: DJConnectError) -> String {
+        switch error {
         case let .network(message):
             message
-        case .invalidResponse:
-            "Invalid response"
         case let .invalidConfiguration(message):
             message
         case .missingToken:
@@ -793,12 +820,23 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             message ?? "Pairing failed"
         case let .clientTypeMismatch(message, expectedClientType, receivedClientType):
             message ?? "Client type mismatch expected=\(expectedClientType ?? "unknown") received=\(receivedClientType ?? "unknown")"
+        default:
+            "Invalid response"
+        }
+    }
+
+    private static func describeContentFailure(_ error: DJConnectError) -> String {
+        switch error {
+        case .invalidResponse:
+            "Invalid response"
         case let .trackInsightUnavailable(code, message):
             message ?? code ?? "Track Insight unavailable"
         case let .payloadTooLarge(limitBytes, actualBytes):
             "Payload too large limit=\(limitBytes) actual=\(actualBytes.map(String.init) ?? "unknown")"
         case let .profile(code, statusCode, message):
             message ?? "Profile error \(code.rawValue) (HTTP \(statusCode))"
+        default:
+            "Invalid response"
         }
     }
 }
@@ -1137,7 +1175,7 @@ private struct DJConnectWebSocketMusicDiscoveryRequestMessage: Encodable {
     }
 }
 
-private struct DJConnectWebSocketMusicDNARequestMessage<Payload: Encodable>: Encodable {
+private struct DJConnectWebSocketIdentifiedPayloadMessage<Payload: Encodable>: Encodable {
     var id: Int
     var type: String
     var identity: DJConnectAPIIdentity
@@ -1194,42 +1232,6 @@ private struct DJConnectMusicDiscoveryRefreshPayload: Encodable {
     enum CodingKeys: String, CodingKey {
         case musicDNAKey = "music_dna_key"
         case language
-    }
-}
-
-private struct DJConnectWebSocketMusicDiscoveryActionMessage<Payload: Encodable>: Encodable {
-    var id: Int
-    var type: String
-    var identity: DJConnectAPIIdentity
-    var payload: DJConnectIdentifiedRequestPayload<Payload>
-    var deviceID: String
-    var clientType: DJConnectClientType
-    var clientID: String
-    var deviceName: String
-    var deviceToken: String?
-
-    init(id: Int, type: String, identity: DJConnectAPIIdentity, payload: Payload) {
-        self.id = id
-        self.type = type
-        self.identity = identity
-        self.payload = DJConnectIdentifiedRequestPayload(identity: identity, payload: payload, includeNestedPayload: false)
-        deviceID = identity.deviceID
-        clientType = identity.clientType
-        clientID = identity.clientID
-        deviceName = identity.deviceName
-        deviceToken = identity.deviceToken
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case type
-        case identity
-        case payload
-        case deviceID = "device_id"
-        case clientType = "client_type"
-        case clientID = "client_id"
-        case deviceName = "device_name"
-        case deviceToken = "device_token"
     }
 }
 

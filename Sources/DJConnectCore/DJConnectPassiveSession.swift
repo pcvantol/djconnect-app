@@ -228,38 +228,51 @@ public struct DJConnectPassiveSession: Codable, Equatable, Hashable, Sendable {
               DJConnectSessionPresenceValue(rawValue: presence) != nil, DJConnectSessionPersonaValue(rawValue: persona) != nil,
               navigation.kind == "open_session", navigation.session_id == session_id,
               artwork.count <= 2, Set(artwork.map(\.slot)).count == artwork.count else { return false }
-        if let c = contribution {
-            guard c.purpose == nil, c.retained_expires_at == nil,
-                  Self.identifier(c.moment_id), Self.bounded(c.text, limit: 640),
-                  DJConnectSessionPersonaValue(rawValue: c.persona) != nil, Self.interval(c.published_at, c.expires_at),
-                  Self.attribution(c.source_attribution, allowEmpty: c.usage_basis == "runtime_authored_direction"), (["cc0_facts_authored_expression", "runtime_authored_direction"].contains(c.usage_basis) ||
-                    (allowPublicResearch && c.usage_basis == "public_artist_narration_v1")),
-                  presence != "music_only" else { return false }
+        guard hasValidForegroundContribution(allowPublicResearch: allowPublicResearch),
+              hasValidNowPlaying() else { return false }
+        for value in artwork {
+            guard hasValidArtwork(value) else { return false }
         }
-        if let n = now_playing {
-            guard schema_version == 3 || schema_version == 4 || n.progress == nil else { return false }
-            guard Self.identifier(n.item_id), Self.spotify(n.subject_uri, type: "track"), Self.bounded(n.track, limit: 640),
-                  Self.bounded(n.artist, limit: 256, empty: true), Self.bounded(n.album, limit: 256, empty: true),
-                  Self.interval(n.observed_at, n.expires_at), Self.publicURL(n.source_url), Self.attribution(n.attribution),
-                  n.usage_basis == "spotify_temporary_passive_metadata" else { return false }
-        }
-        for a in artwork {
-            guard ["contribution", "now_playing"].contains(a.slot), Self.identifier(a.asset_id), Self.identifier(a.media_revision),
-                  a.subject.provider == "spotify", ["track", "album"].contains(a.subject.type), Self.spotify(a.subject.uri, type: a.subject.type),
-                  a.subject.album_uri == nil || Self.spotify(a.subject.album_uri!, type: "album"),
-                  a.role == (a.slot == "contribution" ? "contextual_cover" : "current_cover"),
-                  Self.interval(a.captured_at, a.expires_at), Self.publicURL(a.source_url), Self.attribution(a.attribution),
-                  a.usage_basis == "spotify_temporary_passive_cover", !a.crop_allowed,
-                  a.rights.passive_cache, a.rights.os_snapshot, !a.rights.external_relay, !a.rights.watch_replication,
-                  a.width > 0, a.height > 0, a.width <= 4096, a.height <= 4096, a.width * a.height <= 16_000_000,
-                  a.image_path == "/api/djconnect/v1/session/surface/image/\(session_id)/\(a.asset_id)",
-                  Set(a.alt_text.keys) == Set(["en", "nl", "de", "fr", "es"]),
-                  a.alt_text.values.allSatisfy({ Self.bounded($0, limit: 640) }),
-                  a.slot != "contribution" || contribution != nil,
-                  a.slot != "now_playing" || now_playing != nil else { return false }
-            // A current track cover must never be relabelled as another recording.
-            if a.slot == "now_playing", a.subject.type == "track", a.subject.uri != now_playing?.subject_uri { return false }
-        }
+        return true
+    }
+
+    private func hasValidForegroundContribution(allowPublicResearch: Bool) -> Bool {
+        guard let c = contribution else { return true }
+        guard c.purpose == nil, c.retained_expires_at == nil,
+              Self.identifier(c.moment_id), Self.bounded(c.text, limit: 640),
+              DJConnectSessionPersonaValue(rawValue: c.persona) != nil, Self.interval(c.published_at, c.expires_at),
+              Self.attribution(c.source_attribution, allowEmpty: c.usage_basis == "runtime_authored_direction"), (["cc0_facts_authored_expression", "runtime_authored_direction"].contains(c.usage_basis) ||
+                (allowPublicResearch && c.usage_basis == "public_artist_narration_v1")),
+              presence != "music_only" else { return false }
+        return true
+    }
+
+    private func hasValidNowPlaying() -> Bool {
+        guard let n = now_playing else { return true }
+        guard schema_version == 3 || schema_version == 4 || n.progress == nil else { return false }
+        guard Self.identifier(n.item_id), Self.spotify(n.subject_uri, type: "track"), Self.bounded(n.track, limit: 640),
+              Self.bounded(n.artist, limit: 256, empty: true), Self.bounded(n.album, limit: 256, empty: true),
+              Self.interval(n.observed_at, n.expires_at), Self.publicURL(n.source_url), Self.attribution(n.attribution),
+              n.usage_basis == "spotify_temporary_passive_metadata" else { return false }
+        return true
+    }
+
+    private func hasValidArtwork(_ a: Artwork) -> Bool {
+        guard ["contribution", "now_playing"].contains(a.slot), Self.identifier(a.asset_id), Self.identifier(a.media_revision),
+              a.subject.provider == "spotify", ["track", "album"].contains(a.subject.type), Self.spotify(a.subject.uri, type: a.subject.type),
+              a.subject.album_uri == nil || Self.spotify(a.subject.album_uri!, type: "album"),
+              a.role == (a.slot == "contribution" ? "contextual_cover" : "current_cover"),
+              Self.interval(a.captured_at, a.expires_at), Self.publicURL(a.source_url), Self.attribution(a.attribution),
+              a.usage_basis == "spotify_temporary_passive_cover", !a.crop_allowed,
+              a.rights.passive_cache, a.rights.os_snapshot, !a.rights.external_relay, !a.rights.watch_replication,
+              a.width > 0, a.height > 0, a.width <= 4096, a.height <= 4096, a.width * a.height <= 16_000_000,
+              a.image_path == "/api/djconnect/v1/session/surface/image/\(session_id)/\(a.asset_id)",
+              Set(a.alt_text.keys) == Set(["en", "nl", "de", "fr", "es"]),
+              a.alt_text.values.allSatisfy({ Self.bounded($0, limit: 640) }),
+              a.slot != "contribution" || contribution != nil,
+              a.slot != "now_playing" || now_playing != nil else { return false }
+        // A current track cover must never be relabelled as another recording.
+        if a.slot == "now_playing", a.subject.type == "track", a.subject.uri != now_playing?.subject_uri { return false }
         return true
     }
     public func isCurrent(at now: Date) -> Bool {
@@ -283,20 +296,28 @@ public struct DJConnectPassiveSession: Codable, Equatable, Hashable, Sendable {
     public func removingExpiredFields(at now: Date) -> Self {
         var copy = self
         copy.contribution = currentContribution(at: now)
-        if schema_version == 4 {
-            copy.latest_contribution = currentWidgetContribution(at: now)
-            if latest_contribution != nil && copy.latest_contribution == nil {
-                copy.latest_contribution_status = .init(state: "stale", reason: "expired")
-            }
-        }
+        copy.retireExpiredLatestContribution(from: self, at: now)
         copy.now_playing = currentPlayback(at: now)
         copy.artwork = artwork.filter { currentArtwork(slot: $0.slot, at: now) != nil }
-        if schema_version == 3 || schema_version == 4 {
-            if contribution != nil && copy.contribution == nil { copy.contribution_status = .init(state: "stale", reason: "expired") }
-            if now_playing != nil && copy.now_playing == nil { copy.now_playing_status = .init(state: "stale", reason: "expired") }
-            if !artwork.isEmpty && copy.artwork.isEmpty { copy.artwork_status = .init(state: "stale", reason: "expired") }
-        }
+        copy.markExpiredDisplayFields(from: self)
         return copy
+    }
+
+    private mutating func retireExpiredLatestContribution(from original: Self, at now: Date) {
+        if original.schema_version == 4 {
+            latest_contribution = original.currentWidgetContribution(at: now)
+            if original.latest_contribution != nil && latest_contribution == nil {
+                latest_contribution_status = .init(state: "stale", reason: "expired")
+            }
+        }
+    }
+
+    private mutating func markExpiredDisplayFields(from original: Self) {
+        if original.schema_version == 3 || original.schema_version == 4 {
+            if original.contribution != nil && contribution == nil { contribution_status = .init(state: "stale", reason: "expired") }
+            if original.now_playing != nil && now_playing == nil { now_playing_status = .init(state: "stale", reason: "expired") }
+            if !original.artwork.isEmpty && artwork.isEmpty { artwork_status = .init(state: "stale", reason: "expired") }
+        }
     }
     public var deadlines: [Date] {
         Set(([expires_at, contribution?.expires_at, latest_contribution?.expires_at, now_playing?.expires_at] + artwork.map { Optional($0.expires_at) })
@@ -348,14 +369,22 @@ public struct DJConnectPassiveSurfaceCache: Codable, Equatable, Sendable {
     public func hasSameDisplayContent(as other: Self?) -> Bool {
         guard let other else { return false }
         let a = projection, b = other.projection
-        let musicEqual = a.now_playing?.item_id == b.now_playing?.item_id && a.now_playing?.subject_uri == b.now_playing?.subject_uri &&
+        let musicEqual = Self.hasSamePlaybackDisplay(a, b)
+        return Self.hasSameProjectionDisplayContext(a, b) &&
+            a.contribution == b.contribution && a.latest_contribution == b.latest_contribution &&
+            musicEqual && a.artwork == b.artwork && pixels == other.pixels
+    }
+
+    private static func hasSameProjectionDisplayContext(_ a: DJConnectPassiveSession, _ b: DJConnectPassiveSession) -> Bool {
+        a.binding_id == b.binding_id && a.generation == b.generation && a.state == b.state &&
+            a.mood == b.mood && a.presence == b.presence && a.persona == b.persona
+    }
+
+    private static func hasSamePlaybackDisplay(_ a: DJConnectPassiveSession, _ b: DJConnectPassiveSession) -> Bool {
+        return a.now_playing?.item_id == b.now_playing?.item_id && a.now_playing?.subject_uri == b.now_playing?.subject_uri &&
             a.now_playing?.track == b.now_playing?.track && a.now_playing?.artist == b.now_playing?.artist &&
             a.now_playing?.album == b.now_playing?.album && a.now_playing?.attribution == b.now_playing?.attribution &&
             a.now_playing?.progress?.duration_ms == b.now_playing?.progress?.duration_ms && a.playback_state == b.playback_state
-        return a.binding_id == b.binding_id && a.generation == b.generation && a.state == b.state &&
-            a.mood == b.mood && a.presence == b.presence && a.persona == b.persona &&
-            a.contribution == b.contribution && a.latest_contribution == b.latest_contribution &&
-            musicEqual && a.artwork == b.artwork && pixels == other.pixels
     }
     public static func key(_ surface: DJConnectPassiveSurface) -> String { "DJConnectPassiveSurface.v1." + surface.rawValue }
     public static func replace(_ value: Self?, surface: DJConnectPassiveSurface, in defaults: UserDefaults) throws {
@@ -420,13 +449,19 @@ public struct DJConnectPassiveActivityContent: Codable, Equatable, Hashable, Sen
         // in v3 so its shorter publication lease/budget cannot remove the track.
         contribution = p.schema_version == 3 && nowPlaying != nil ? nil : p.currentContribution(at: now)
         playbackState = nowPlaying == nil ? nil : p.playback_state
-        hasCachedPlaybackArtwork = nowPlaying != nil &&
-            p.currentArtwork(slot: "now_playing", at: now) != nil && cache.pixels["now_playing"] != nil ? true : nil
+        hasCachedPlaybackArtwork = Self.hasCachedPlaybackArtwork(projection: p, nowPlaying: nowPlaying, cache: cache, at: now)
         directLocalVersion = nil; researchAttribution = nil
         foregroundProjectionVersion = p.schema_version == 3 ? 3 : nil
         expiresAt = p.schema_version == 3 && nowPlaying != nil ? expiry : (p.deadlines.min() ?? expiry)
         guard contribution != nil || nowPlaying != nil,
               let encoded = try? JSONEncoder().encode(self), encoded.count <= 2_800 else { return nil }
+    }
+
+    private static func hasCachedPlaybackArtwork(projection: DJConnectPassiveSession,
+                                                nowPlaying: DJConnectPassiveSession.NowPlaying?,
+                                                cache: DJConnectPassiveSurfaceCache, at now: Date) -> Bool? {
+        nowPlaying != nil &&
+            projection.currentArtwork(slot: "now_playing", at: now) != nil && cache.pixels["now_playing"] != nil ? true : nil
     }
     /// Internal presentation-data assembly only; does not map source clocks or
     /// supply a native start/update permit. No public positive factory exists.

@@ -2156,13 +2156,17 @@ public struct TrackVibeProfile: Codable, Equatable, Sendable {
         case nil:
             break
         }
-        if mood.contains("dream") || mood.contains("ambient") || mood.contains("soft") {
+        return moodMotionStyle(mood, energy: energy)
+    }
+
+    private static func moodMotionStyle(_ mood: String, energy: Double) -> MotionStyle {
+        if ["dream", "ambient", "soft"].contains(where: mood.contains) {
             return .dreamy
-        } else if mood.contains("dark") || mood.contains("minor") || mood.contains("shadow") {
+        } else if ["dark", "minor", "shadow"].contains(where: mood.contains) {
             return .dark
-        } else if mood.contains("organic") || mood.contains("acoustic") || mood.contains("warm") {
+        } else if ["organic", "acoustic", "warm"].contains(where: mood.contains) {
             return .organic
-        } else if energy > 0.72 || mood.contains("energetic") || mood.contains("club") {
+        } else if energy > 0.72 || ["energetic", "club"].contains(where: mood.contains) {
             return .energetic
         }
         return .balanced
@@ -2605,19 +2609,7 @@ struct TrackInsightPayload: Decodable {
     }
 
     private static func decodeDate<K: CodingKey>(_ container: KeyedDecodingContainer<K>, key: K) -> Date? {
-        if let date = try? container.decode(Date.self, forKey: key) {
-            return date
-        }
-        guard let value = try? container.decode(String.self, forKey: key) else {
-            return nil
-        }
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = iso.date(from: value) {
-            return date
-        }
-        iso.formatOptions = [.withInternetDateTime]
-        return iso.date(from: value)
+        container.decodeFlexibleDate(forKey: key)
     }
 }
 
@@ -2708,18 +2700,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable, DJConn
         copy.clientID = copy.clientID?.nilIfBlank ?? identity.deviceID
         copy.deviceName = copy.deviceName?.nilIfBlank ?? identity.deviceName
         copy.clientType = copy.clientType?.nilIfBlank ?? identity.clientType.rawValue
-        copy.title = copy.title?.nilIfBlank
-        copy.artist = copy.artist?.nilIfBlank
-        copy.album = copy.album?.nilIfBlank
-        copy.durationMS = copy.durationMS.map { max(0, $0) }
-        copy.progressMS = copy.progressMS.map { max(0, $0) }
-        copy.locale = copy.locale?.nilIfBlank ?? copy.language?.nilIfBlank
-        copy.language = copy.language?.nilIfBlank ?? copy.locale?.nilIfBlank
-        copy.mood = copy.mood.map { max(0, min(100, $0)) }
-        copy.musicDNAKey = copy.musicDNAKey?.nilIfBlank
-        copy.profileID = copy.profileID?.nilIfBlank
-        copy.sessionID = copy.sessionID?.nilIfBlank
-        copy.requestSource = copy.requestSource ?? .trackInsight
+        copy.normalizeContentForSend()
         return copy
     }
 
@@ -2729,19 +2710,23 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable, DJConn
         copy.clientID = copy.clientID?.nilIfBlank ?? identity.clientID
         copy.deviceName = copy.deviceName?.nilIfBlank ?? identity.deviceName
         copy.clientType = copy.clientType?.nilIfBlank ?? identity.clientType.rawValue
-        copy.title = copy.title?.nilIfBlank
-        copy.artist = copy.artist?.nilIfBlank
-        copy.album = copy.album?.nilIfBlank
-        copy.durationMS = copy.durationMS.map { max(0, $0) }
-        copy.progressMS = copy.progressMS.map { max(0, $0) }
-        copy.locale = copy.locale?.nilIfBlank ?? copy.language?.nilIfBlank
-        copy.language = copy.language?.nilIfBlank ?? copy.locale?.nilIfBlank
-        copy.mood = copy.mood.map { max(0, min(100, $0)) }
-        copy.musicDNAKey = copy.musicDNAKey?.nilIfBlank
-        copy.profileID = copy.profileID?.nilIfBlank
-        copy.sessionID = copy.sessionID?.nilIfBlank
-        copy.requestSource = copy.requestSource ?? .trackInsight
+        copy.normalizeContentForSend()
         return copy
+    }
+
+    private mutating func normalizeContentForSend() {
+        title = title?.nilIfBlank
+        artist = artist?.nilIfBlank
+        album = album?.nilIfBlank
+        durationMS = durationMS.map { max(0, $0) }
+        progressMS = progressMS.map { max(0, $0) }
+        locale = locale?.nilIfBlank ?? language?.nilIfBlank
+        language = language?.nilIfBlank ?? locale?.nilIfBlank
+        mood = mood.map { max(0, min(100, $0)) }
+        musicDNAKey = musicDNAKey?.nilIfBlank
+        profileID = profileID?.nilIfBlank
+        sessionID = sessionID?.nilIfBlank
+        requestSource = requestSource ?? .trackInsight
     }
 
     enum CodingKeys: String, CodingKey {
@@ -3215,21 +3200,14 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
         case system
         case unknown(String)
 
+        private static let knownValues: [Self] = [
+            .trackFact, .artistFact, .albumFact, .genreFact, .trivia,
+            .listeningTip, .moodNote, .productionNote, .historyNote, .system
+        ]
+
         public init(from decoder: Decoder) throws {
             let raw = try decoder.singleValueContainer().decode(String.self)
-            self = switch raw {
-            case "track_fact": .trackFact
-            case "artist_fact": .artistFact
-            case "album_fact": .albumFact
-            case "genre_fact": .genreFact
-            case "trivia": .trivia
-            case "listening_tip": .listeningTip
-            case "mood_note": .moodNote
-            case "production_note": .productionNote
-            case "history_note": .historyNote
-            case "system": .system
-            default: .unknown(raw)
-            }
+            self = Self.knownValues.first { $0.rawValue == raw } ?? .unknown(raw)
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -3980,19 +3958,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
     }
 
     static func decodeDate<K: CodingKey>(_ container: KeyedDecodingContainer<K>, key: K) -> Date? {
-        if let date = try? container.decode(Date.self, forKey: key) {
-            return date
-        }
-        guard let value = try? container.decode(String.self, forKey: key) else {
-            return nil
-        }
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = isoFormatter.date(from: value) {
-            return date
-        }
-        isoFormatter.formatOptions = [.withInternetDateTime]
-        return isoFormatter.date(from: value)
+        container.decodeFlexibleDate(forKey: key)
     }
 }
 
@@ -4089,19 +4055,7 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
     }
 
     static func decodeDate<K: CodingKey>(_ container: KeyedDecodingContainer<K>, key: K) -> Date? {
-        if let date = try? container.decode(Date.self, forKey: key) {
-            return date
-        }
-        guard let value = try? container.decode(String.self, forKey: key) else {
-            return nil
-        }
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = isoFormatter.date(from: value) {
-            return date
-        }
-        isoFormatter.formatOptions = [.withInternetDateTime]
-        return isoFormatter.date(from: value)
+        container.decodeFlexibleDate(forKey: key)
     }
 }
 
@@ -4203,6 +4157,166 @@ public struct DJConnectMusicDNAIdentityRequest: Codable, Equatable, Sendable, DJ
         self.sessionID = profileContext?.sessionID
         self.privateSession = profileContext?.privateSession
         self.requestSource = profileContext?.requestSource
+    }
+}
+
+public extension DJConnectMusicDNAProfileResponse {
+    /// Fixed offline demo/preview content only; never constructs a production profile.
+    static func demoPreview(language: String, summaryKey: String, includeSource: Bool) -> Self {
+        DJConnectMusicDNAProfileResponse(
+            success: true,
+            musicDNAKey: "demo:music-dna",
+            enabled: true,
+            generation: 3,
+            profile: DJConnectMusicDNAProfile(
+                summary: DJConnectLocalization.localized(key: summaryKey, language: language),
+                favoriteGenres: [
+                    DJConnectMusicDNANameValue(name: "Neon downtempo"),
+                    DJConnectMusicDNANameValue(name: "Velvet electro"),
+                    DJConnectMusicDNANameValue(name: "Skyline pop")
+                ],
+                favoriteArtists: [
+                    DJConnectMusicDNANameValue(name: "Luna Vale"),
+                    DJConnectMusicDNANameValue(name: "Nova Harbor"),
+                    DJConnectMusicDNANameValue(name: "Echo Parade")
+                ],
+                recentTracks: [
+                    DJConnectMusicDNATrack(title: "Glass Avenue", artist: "Luna Vale"),
+                    DJConnectMusicDNATrack(title: "Afterglow Signals", artist: "Nova Harbor"),
+                    DJConnectMusicDNATrack(title: "Silver Static", artist: "Echo Parade")
+                ],
+                recentFavoriteTracks: [
+                    DJConnectMusicDNATrack(title: "Neon Bloom", artist: "Luna Vale", album: "Night Map", uri: "spotify:track:demo-favorite-1"),
+                    DJConnectMusicDNATrack(title: "Velvet Room", artist: "Nova Harbor", album: "Harbor Lights", uri: "spotify:track:demo-favorite-2")
+                ],
+                topTracksByRange: [
+                    "week": [
+                        DJConnectMusicDNATrack(title: "Glass Avenue", artist: "Luna Vale"),
+                        DJConnectMusicDNATrack(title: "Afterglow Signals", artist: "Nova Harbor")
+                    ]
+                ],
+                topArtistsByRange: [
+                    "week": [
+                        DJConnectMusicDNANameValue(name: "Luna Vale"),
+                        DJConnectMusicDNANameValue(name: "Nova Harbor")
+                    ]
+                ],
+                mood: DJConnectMusicDNAMood(
+                    value: 68,
+                    zone: "energy",
+                    promptHint: DJConnectLocalization.localized(key: "demo.music.dna.mood.promptHint", language: language),
+                    sampleCount: 3,
+                    average: 57,
+                    averageZone: "groove",
+                    averagePromptHint: DJConnectLocalization.localized(key: "demo.music.dna.mood.averagePromptHint", language: language),
+                    zoneCounts: ["chill": 1, "groove": 1, "energy": 1]
+                ),
+                energyProfile: DJConnectMusicDNAEnergyProfile(
+                    sampleCount: 2,
+                    energy: 0.70,
+                    energyPercent: 70,
+                    zone: "energy",
+                    promptHint: DJConnectLocalization.localized(key: "demo.music.dna.energy.promptHint", language: language),
+                    danceability: 0.54,
+                    danceabilityPercent: 54,
+                    intensity: 0.62,
+                    intensityPercent: 62,
+                    recentSignals: [
+                        DJConnectMusicDNAEnergySignal(title: "Glass Avenue", artist: "Luna Vale", album: "Night Map"),
+                        DJConnectMusicDNAEnergySignal(title: "Afterglow Signals", artist: "Nova Harbor", album: "Harbor Lights")
+                    ]
+                ),
+                playtime: DJConnectMusicDNAPlaytime(
+                    totalSeconds: 12_840,
+                    totalHours: 3.57,
+                    formattedTotal: "3u 34m",
+                    topArtists: [
+                        DJConnectMusicDNAPlaytimeArtist(name: "Luna Vale", seconds: 4_800, hours: 1.33, formatted: "1u 20m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Nova Harbor", seconds: 3_240, hours: 0.90, formatted: "54m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Echo Parade", seconds: 2_100, hours: 0.58, formatted: "35m")
+                    ],
+                    topAlbums: [
+                        DJConnectMusicDNAPlaytimeArtist(name: "Night Map", seconds: 3_900, hours: 1.08, formatted: "1u 5m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Harbor Lights", seconds: 2_700, hours: 0.75, formatted: "45m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Signal Garden", seconds: 1_560, hours: 0.43, formatted: "26m")
+                    ]
+                ),
+                listeningRhythm: DJConnectMusicDNAListeningRhythm(
+                    sampleCount: 6,
+                    topDaypart: DJConnectLocalization.localized(key: "demo.music.dna.daypart.evening", language: language),
+                    topWeekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.friday", language: language),
+                    dayparts: [
+                        DJConnectMusicDNAListeningRhythmItem(daypart: DJConnectLocalization.localized(key: "demo.music.dna.daypart.evening", language: language), count: 4, percent: 66.7),
+                        DJConnectMusicDNAListeningRhythmItem(daypart: DJConnectLocalization.localized(key: "demo.music.dna.daypart.afternoon", language: language), count: 2, percent: 33.3)
+                    ],
+                    weekdays: [
+                        DJConnectMusicDNAListeningRhythmItem(weekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.friday", language: language), count: 3, percent: 50),
+                        DJConnectMusicDNAListeningRhythmItem(weekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.saturday", language: language), count: 2, percent: 33.3),
+                        DJConnectMusicDNAListeningRhythmItem(weekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.thursday", language: language), count: 1, percent: 16.7)
+                    ]
+                ),
+                moodMix: DJConnectMusicDNAMoodMix(
+                    sampleCount: 5,
+                    average: 63,
+                    topZone: "groove",
+                    zones: [
+                        DJConnectMusicDNAMoodMixZone(zone: "chill", count: 1, percent: 20),
+                        DJConnectMusicDNAMoodMixZone(zone: "groove", count: 2, percent: 40),
+                        DJConnectMusicDNAMoodMixZone(zone: "energy", count: 2, percent: 40)
+                    ]
+                ),
+                repeatMagnets: DJConnectMusicDNARepeatMagnets(
+                    eligible: true,
+                    items: [
+                        DJConnectMusicDNARepeatMagnetItem(kind: "artist", name: "Luna Vale", count: 5),
+                        DJConnectMusicDNARepeatMagnetItem(kind: "album", name: "Night Map", seconds: 3_900, formatted: "1u 5m"),
+                        DJConnectMusicDNARepeatMagnetItem(kind: "artist", name: "Nova Harbor", count: 3)
+                    ]
+                ),
+                explicitPositives: DJConnectMusicDNAExplicitPositives(
+                    eligible: true,
+                    signalCount: 4,
+                    favoriteTracks: [
+                        DJConnectMusicDNAFavoriteTrackSignal(title: "Neon Bloom", artist: "Luna Vale", uri: "spotify:track:demo-favorite-1"),
+                        DJConnectMusicDNAFavoriteTrackSignal(title: "Velvet Room", artist: "Nova Harbor", uri: "spotify:track:demo-favorite-2")
+                    ],
+                    acceptedRecommendations: [
+                        DJConnectMusicDNAAcceptedRecommendationSignal(title: "Glass Avenue", subtitle: DJConnectLocalization.localized(key: "demo.music.dna.accepted.warmSynthGroove", language: language), uri: "spotify:track:demo-accepted-1", reason: "matches_music_dna"),
+                        DJConnectMusicDNAAcceptedRecommendationSignal(title: "Silver Static", subtitle: DJConnectLocalization.localized(key: "demo.music.dna.accepted.brightLateNightPulse", language: language), uri: "spotify:track:demo-accepted-2", reason: "expands_music_dna")
+                    ]
+                ),
+                tasteAnchors: DJConnectMusicDNATasteAnchors(
+                    eligible: true,
+                    items: [
+                        DJConnectMusicDNATasteAnchorItem(kind: "artist", name: "Luna Vale", playCount: 7, formatted: "1u 20m"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "Neon downtempo"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "Velvet electro"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "artist", name: "Nova Harbor", playCount: 4, formatted: "54m"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "Skyline pop")
+                    ]
+                ),
+                timePatterns: [
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.time.eveningListening", language: language), kind: "time", value: "20:00-23:00"),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.time.weekendDiscovery", language: language), kind: "pattern", value: DJConnectLocalization.localized(key: "demo.music.dna.time.newArtists", language: language)),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.time.fridayLift", language: language), kind: "pattern", value: DJConnectLocalization.localized(key: "demo.music.dna.time.higherEnergy", language: language))
+                ],
+                recommendationSignals: [
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.signal.brightSynthHooks", language: language), kind: "sound"),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.signal.warmRollingBass", language: language), kind: "texture"),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.signal.playfulVocalFragments", language: language), kind: "mood")
+                ],
+                blockedArtists: [],
+                blockedItems: []
+            ),
+            sources: includeSource ? [
+                DJConnectResponseLink(
+                    url: URL(string: "https://djconnect.dev")!,
+                    title: "Music DNA Demo",
+                    subtitle: DJConnectLocalization.localized(key: "demo.music.dna.source.subtitle", language: language),
+                    source: "djconnect_demo"
+                )
+            ] : []
+        )
     }
 }
 
@@ -8495,34 +8609,7 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
         let artist = container.decodeStringAliasIfPresent(.artist, .artistName, .artistNameCamel, .subtitle, .mediaArtist, .mediaArtistCamel, .artists)
         let album = container.decodeStringAliasIfPresent(.album, .albumName, .albumNameCamel, .mediaAlbum, .mediaAlbumCamel)
         let durationMS = try container.decodeIfPresent(Int.self, forKey: .durationMS)
-        var albumImageURL = try container.decodeIfPresent(URL.self, forKey: .albumImageURL)
-        if albumImageURL == nil {
-            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .albumImageUrl)
-        }
-        if albumImageURL == nil {
-            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .albumArtURL)
-        }
-        if albumImageURL == nil {
-            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .albumArtUrl)
-        }
-        if albumImageURL == nil {
-            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaImageURL)
-        }
-        if albumImageURL == nil {
-            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaImageUrl)
-        }
-        if albumImageURL == nil {
-            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .imageURL)
-        }
-        if albumImageURL == nil {
-            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .imageUrl)
-        }
-        if albumImageURL == nil {
-            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .thumbnailURL)
-        }
-        if albumImageURL == nil {
-            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .entityPicture)
-        }
+        let albumImageURL = try container.decodeQueueItemArtworkURL()
         self.init(
             id: id,
             title: title,
@@ -8579,6 +8666,16 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
 }
 
 private extension KeyedDecodingContainer where Key == DJConnectQueueItem.CodingKeys {
+    func decodeQueueItemArtworkURL() throws -> URL? {
+        if let value = try decodeIfPresent(URL.self, forKey: .albumImageURL) { return value }
+        let aliases: [Key] = [.albumImageUrl, .albumArtURL, .albumArtUrl, .mediaImageURL,
+                              .mediaImageUrl, .imageURL, .imageUrl, .thumbnailURL, .entityPicture]
+        for key in aliases {
+            if let value = decodeIfPresentIgnoringErrors(URL.self, forKey: key) { return value }
+        }
+        return nil
+    }
+
     func decodeStringAliasIfPresent(_ keys: Key...) -> String? {
         for key in keys {
             if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
@@ -8946,6 +9043,8 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         let data = try? container.nestedContainer(keyedBy: CodingKeys.self, forKey: .data)
         let result = try? container.nestedContainer(keyedBy: CodingKeys.self, forKey: .result)
 
+        let fields = FieldDecoder(container: container, data: data, result: result)
+
         hasExplicitSuccess = try container.decodeIfPresent(Bool.self, forKey: .success) == true
         success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? true
         error = try container.decodeIfPresent(String.self, forKey: .error)
@@ -8953,147 +9052,42 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         errorScope = try container.decodeIfPresent(String.self, forKey: .errorScope)
         capability = try container.decodeIfPresent(String.self, forKey: .capability)
         message = try container.decodeIfPresent(String.self, forKey: .message)
-        text = try container.decodeIfPresent(String.self, forKey: .text)
-            ?? data?.decodeIfPresentIgnoringErrors(String.self, forKey: .text)
-            ?? result?.decodeIfPresentIgnoringErrors(String.self, forKey: .text)
-        djText = try container.decodeIfPresent(String.self, forKey: .djText)
-            ?? data?.decodeIfPresentIgnoringErrors(String.self, forKey: .djText)
-            ?? result?.decodeIfPresentIgnoringErrors(String.self, forKey: .djText)
-        assistantMessage = try container.decodeIfPresent(DJConnectAskDJHistoryMessage.self, forKey: .assistantMessage)
-            ?? data?.decodeIfPresentIgnoringErrors(DJConnectAskDJHistoryMessage.self, forKey: .assistantMessage)
-            ?? result?.decodeIfPresentIgnoringErrors(DJConnectAskDJHistoryMessage.self, forKey: .assistantMessage)
-        images = container.decodeLossyArrayIfPresent(DJConnectResponseImage.self, forKey: .images)
-            ?? data?.decodeLossyArrayIfPresent(DJConnectResponseImage.self, forKey: .images)
-            ?? result?.decodeLossyArrayIfPresent(DJConnectResponseImage.self, forKey: .images)
-        links = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .links)
-            ?? data?.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .links)
-            ?? result?.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .links)
-        sources = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .sources)
-            ?? data?.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .sources)
-            ?? result?.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .sources)
-        items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items)
-            ?? data?.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items)
-            ?? result?.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items)
-        audioURL = Self.decodeAudioURL(from: container)
-            ?? data.flatMap(Self.decodeAudioURL(from:))
-            ?? result.flatMap(Self.decodeAudioURL(from:))
-        announcement = (try container.decodeIfPresent(DJAnnouncement.self, forKey: .announcement))
-            ?? data?.decodeIfPresentIgnoringErrors(DJAnnouncement.self, forKey: .announcement)
-            ?? result?.decodeIfPresentIgnoringErrors(DJAnnouncement.self, forKey: .announcement)
+        text = try fields.decodeIfPresent(String.self, forKey: .text)
+        djText = try fields.decodeIfPresent(String.self, forKey: .djText)
+        assistantMessage = try fields.decodeIfPresent(DJConnectAskDJHistoryMessage.self, forKey: .assistantMessage)
+        images = fields.preferred { $0.decodeLossyArrayIfPresent(DJConnectResponseImage.self, forKey: .images) }
+        links = fields.preferred { $0.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .links) }
+        sources = fields.preferred { $0.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .sources) }
+        items = fields.preferred { $0.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items) }
+        audioURL = fields.preferred(Self.decodeAudioURL(from:))
+        announcement = try fields.decodeIfPresent(DJAnnouncement.self, forKey: .announcement)
         if let announcement {
             audioURL = announcement.clientReplayAudioURL
         }
         backendAvailable = try container.decodeIfPresent(Bool.self, forKey: .backendAvailable)
-        askDJClearRequired = container.decodeBoolAliasIfPresent(.askDJClearRequired, .clearRequired)
-            ?? data?.decodeBoolAliasIfPresent(.askDJClearRequired, .clearRequired)
-            ?? result?.decodeBoolAliasIfPresent(.askDJClearRequired, .clearRequired)
-        pushSupported = container.decodeBoolAliasIfPresent(.pushSupported)
-            ?? data?.decodeBoolAliasIfPresent(.pushSupported)
-            ?? result?.decodeBoolAliasIfPresent(.pushSupported)
-        pushRegistered = container.decodeBoolAliasIfPresent(.pushRegistered)
-            ?? data?.decodeBoolAliasIfPresent(.pushRegistered)
-            ?? result?.decodeBoolAliasIfPresent(.pushRegistered)
-        pushEnvironment = try container.decodeIfPresent(DJConnectPushEnvironment.self, forKey: .pushEnvironment)
-            ?? data?.decodeIfPresentIgnoringErrors(DJConnectPushEnvironment.self, forKey: .pushEnvironment)
-            ?? result?.decodeIfPresentIgnoringErrors(DJConnectPushEnvironment.self, forKey: .pushEnvironment)
-        lastPushError = container.decodeStringAliasIfPresent(.lastPushError)
-            ?? data?.decodeStringAliasIfPresent(.lastPushError)
-            ?? result?.decodeStringAliasIfPresent(.lastPushError)
-        bootstrapProof = container.decodeStringAliasIfPresent(.bootstrapProof)
-            ?? data?.decodeStringAliasIfPresent(.bootstrapProof)
-            ?? result?.decodeStringAliasIfPresent(.bootstrapProof)
-        bootstrapProofExpiresAt = container.decodeStringAliasIfPresent(.bootstrapProofExpiresAt)
-            ?? data?.decodeStringAliasIfPresent(.bootstrapProofExpiresAt)
-            ?? result?.decodeStringAliasIfPresent(.bootstrapProofExpiresAt)
-        haInstallID = container.decodeStringAliasIfPresent(.haInstallID)
-            ?? data?.decodeStringAliasIfPresent(.haInstallID)
-            ?? result?.decodeStringAliasIfPresent(.haInstallID)
-        integrationVersion = container.decodeStringAliasIfPresent(.integrationVersion)
-            ?? data?.decodeStringAliasIfPresent(.integrationVersion)
-            ?? result?.decodeStringAliasIfPresent(.integrationVersion)
-        pairingSessionID = container.decodeStringAliasIfPresent(.pairingSessionID)
-            ?? data?.decodeStringAliasIfPresent(.pairingSessionID)
-            ?? result?.decodeStringAliasIfPresent(.pairingSessionID)
-        haVersion = container.decodeStringAliasIfPresent(.haVersion)
-            ?? data?.decodeStringAliasIfPresent(.haVersion)
-            ?? result?.decodeStringAliasIfPresent(.haVersion)
-        haMajorMinor = container.decodeStringAliasIfPresent(.haMajorMinor)
-            ?? data?.decodeStringAliasIfPresent(.haMajorMinor)
-            ?? result?.decodeStringAliasIfPresent(.haMajorMinor)
-        remoteSupported = try container.decodeIfPresent(Bool.self, forKey: .remoteSupported)
-            ?? data?.decodeIfPresentIgnoringErrors(Bool.self, forKey: .remoteSupported)
-            ?? result?.decodeIfPresentIgnoringErrors(Bool.self, forKey: .remoteSupported)
-        musicBackend = container.decodeStringAliasIfPresent(.musicBackend)
-            ?? data?.decodeStringAliasIfPresent(.musicBackend)
-            ?? result?.decodeStringAliasIfPresent(.musicBackend)
-        musicBackendName = container.decodeStringAliasIfPresent(.musicBackendName)
-            ?? data?.decodeStringAliasIfPresent(.musicBackendName)
-            ?? result?.decodeStringAliasIfPresent(.musicBackendName)
-        musicBackendAvailable = try container.decodeIfPresent(Bool.self, forKey: .musicBackendAvailable)
-            ?? data?.decodeIfPresentIgnoringErrors(Bool.self, forKey: .musicBackendAvailable)
-            ?? result?.decodeIfPresentIgnoringErrors(Bool.self, forKey: .musicBackendAvailable)
-        musicBackendRevision = try container.decodeIfPresent(Int.self, forKey: .musicBackendRevision)
-            ?? data?.decodeIfPresentIgnoringErrors(Int.self, forKey: .musicBackendRevision)
-            ?? result?.decodeIfPresentIgnoringErrors(Int.self, forKey: .musicBackendRevision)
-        musicBackendCapabilities = try container.decodeIfPresent(DJConnectMusicBackendCapabilities.self, forKey: .musicBackendCapabilities)
-            ?? data?.decodeIfPresentIgnoringErrors(DJConnectMusicBackendCapabilities.self, forKey: .musicBackendCapabilities)
-            ?? result?.decodeIfPresentIgnoringErrors(DJConnectMusicBackendCapabilities.self, forKey: .musicBackendCapabilities)
-        musicTargetPlayer = try container.decodeIfPresent(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
-            ?? data?.decodeIfPresentIgnoringErrors(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
-            ?? result?.decodeIfPresentIgnoringErrors(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
-        musicBackendError = container.decodeMusicBackendErrorIfPresent(.musicBackendError)
-            ?? data?.decodeMusicBackendErrorIfPresent(.musicBackendError)
-            ?? result?.decodeMusicBackendErrorIfPresent(.musicBackendError)
-        playback = try container.decodeIfPresent(DJConnectPlayback.self, forKey: .playback)
-            ?? data?.decodeIfPresentIgnoringErrors(DJConnectPlayback.self, forKey: .playback)
-            ?? result?.decodeIfPresentIgnoringErrors(DJConnectPlayback.self, forKey: .playback)
-        var decodedDevices = container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
-        if decodedDevices == nil {
-            decodedDevices = container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .availableOutputs)
-        }
-        if decodedDevices == nil {
-            decodedDevices = container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputDevices)
-        }
-        if decodedDevices == nil {
-            decodedDevices = container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
-        }
-        if decodedDevices == nil {
-            decodedDevices = container.decodeOutputDeviceItemsIfPresent(forKey: .items)
-        }
-        if decodedDevices == nil {
-            decodedDevices = data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
-        }
-        if decodedDevices == nil {
-            decodedDevices = data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .availableOutputs)
-        }
-        if decodedDevices == nil {
-            decodedDevices = data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputDevices)
-        }
-        if decodedDevices == nil {
-            decodedDevices = data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
-        }
-        if decodedDevices == nil {
-            decodedDevices = data?.decodeOutputDeviceItemsIfPresent(forKey: .items)
-        }
-        if decodedDevices == nil {
-            decodedDevices = result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
-        }
-        if decodedDevices == nil {
-            decodedDevices = result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .availableOutputs)
-        }
-        if decodedDevices == nil {
-            decodedDevices = result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputDevices)
-        }
-        if decodedDevices == nil {
-            decodedDevices = result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
-        }
-        if decodedDevices == nil {
-            decodedDevices = result?.decodeOutputDeviceItemsIfPresent(forKey: .items)
-        }
-        devices = decodedDevices
-        let queueResponse = try container.decodeIfPresent(DJConnectQueueResponse.self, forKey: .queue)
-            ?? data?.decodeIfPresentIgnoringErrors(DJConnectQueueResponse.self, forKey: .queue)
-            ?? result?.decodeIfPresentIgnoringErrors(DJConnectQueueResponse.self, forKey: .queue)
+        askDJClearRequired = fields.preferred { $0.decodeBoolAliasIfPresent(.askDJClearRequired, .clearRequired) }
+        pushSupported = fields.preferred { $0.decodeBoolAliasIfPresent(.pushSupported) }
+        pushRegistered = fields.preferred { $0.decodeBoolAliasIfPresent(.pushRegistered) }
+        pushEnvironment = try fields.decodeIfPresent(DJConnectPushEnvironment.self, forKey: .pushEnvironment)
+        lastPushError = fields.preferred { $0.decodeStringAliasIfPresent(.lastPushError) }
+        bootstrapProof = fields.preferred { $0.decodeStringAliasIfPresent(.bootstrapProof) }
+        bootstrapProofExpiresAt = fields.preferred { $0.decodeStringAliasIfPresent(.bootstrapProofExpiresAt) }
+        haInstallID = fields.preferred { $0.decodeStringAliasIfPresent(.haInstallID) }
+        integrationVersion = fields.preferred { $0.decodeStringAliasIfPresent(.integrationVersion) }
+        pairingSessionID = fields.preferred { $0.decodeStringAliasIfPresent(.pairingSessionID) }
+        haVersion = fields.preferred { $0.decodeStringAliasIfPresent(.haVersion) }
+        haMajorMinor = fields.preferred { $0.decodeStringAliasIfPresent(.haMajorMinor) }
+        remoteSupported = try fields.decodeIfPresent(Bool.self, forKey: .remoteSupported)
+        musicBackend = fields.preferred { $0.decodeStringAliasIfPresent(.musicBackend) }
+        musicBackendName = fields.preferred { $0.decodeStringAliasIfPresent(.musicBackendName) }
+        musicBackendAvailable = try fields.decodeIfPresent(Bool.self, forKey: .musicBackendAvailable)
+        musicBackendRevision = try fields.decodeIfPresent(Int.self, forKey: .musicBackendRevision)
+        musicBackendCapabilities = try fields.decodeIfPresent(DJConnectMusicBackendCapabilities.self, forKey: .musicBackendCapabilities)
+        musicTargetPlayer = try fields.decodeIfPresent(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
+        musicBackendError = fields.preferred { $0.decodeMusicBackendErrorIfPresent(.musicBackendError) }
+        playback = try fields.decodeIfPresent(DJConnectPlayback.self, forKey: .playback)
+        devices = fields.preferred { $0.decodeCommandOutputDevices() }
+        let queueResponse = try fields.decodeIfPresent(DJConnectQueueResponse.self, forKey: .queue)
         queue = queueResponse?.items
             ?? container.decodeLossyArrayIfPresent(DJConnectQueueItem.self, forKey: .items)
             ?? data?.decodeIfPresentIgnoringErrors([DJConnectQueueItem].self, forKey: .items)
@@ -9111,9 +9105,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         if let decodedPlaylists = playlists {
             playlists = Array(decodedPlaylists.prefix(100))
         }
-        playbackActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
-            ?? data?.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
-            ?? result?.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
+        playbackActions = fields.preferred { $0.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions) }
         normalizeAskDJAssistantMessage()
     }
 
@@ -9163,6 +9155,22 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(pairingSessionID, forKey: .pairingSessionID)
     }
 
+    private struct FieldDecoder {
+        let container: KeyedDecodingContainer<CodingKeys>
+        let data: KeyedDecodingContainer<CodingKeys>?
+        let result: KeyedDecodingContainer<CodingKeys>?
+
+        func decodeIfPresent<Value: Decodable>(_ type: Value.Type, forKey key: CodingKeys) throws -> Value? {
+            try container.decodeIfPresent(type, forKey: key)
+                ?? data?.decodeIfPresentIgnoringErrors(type, forKey: key)
+                ?? result?.decodeIfPresentIgnoringErrors(type, forKey: key)
+        }
+
+        func preferred<Value>(_ decode: (KeyedDecodingContainer<CodingKeys>) -> Value?) -> Value? {
+            decode(container) ?? data.flatMap(decode) ?? result.flatMap(decode)
+        }
+    }
+
     private mutating func normalizeAskDJAssistantMessage() {
         let topLevelAnnouncement = announcement
         let topLevelAudioURL = topLevelAnnouncement == nil ? audioURL : topLevelAnnouncement?.clientReplayAudioURL
@@ -9199,15 +9207,27 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         if let fallbackText, trimmedNonEmpty(assistantMessage?.text) == nil {
             assistantMessage?.text = fallbackText
         }
+        fillAssistantAudio(announcement: topLevelAnnouncement, audioURL: topLevelAudioURL)
+        if assistantMessage?.origin == nil {
+            assistantMessage?.origin = "play_now"
+        }
+        fillAssistantPresentation(images: topLevelImages, links: topLevelLinks,
+                                  sources: topLevelSources, items: topLevelItems)
+    }
+
+    private mutating func fillAssistantAudio(announcement topLevelAnnouncement: DJAnnouncement?, audioURL topLevelAudioURL: URL?) {
         if assistantMessage?.announcement == nil, let topLevelAnnouncement {
             assistantMessage?.announcement = topLevelAnnouncement
             assistantMessage?.audioURL = topLevelAnnouncement.clientReplayAudioURL
         } else if assistantMessage?.announcement == nil, assistantMessage?.audioURL == nil {
             assistantMessage?.audioURL = topLevelAudioURL
         }
-        if assistantMessage?.origin == nil {
-            assistantMessage?.origin = "play_now"
-        }
+    }
+
+    private mutating func fillAssistantPresentation(images topLevelImages: [DJConnectResponseImage],
+                                                    links topLevelLinks: [DJConnectResponseLink],
+                                                    sources topLevelSources: [DJConnectResponseLink],
+                                                    items topLevelItems: [DJConnectAskDJHistoryItem]) {
         if assistantMessage?.images.isEmpty != false, !topLevelImages.isEmpty {
             assistantMessage?.images = topLevelImages
         }
@@ -9330,6 +9350,14 @@ private extension KeyedDecodingContainer where Key == DJConnectCommandResponse.C
         return nil
     }
 
+    func decodeCommandOutputDevices() -> [DJConnectOutputDevice]? {
+        decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
+            ?? decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .availableOutputs)
+            ?? decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputDevices)
+            ?? decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
+            ?? decodeOutputDeviceItemsIfPresent(forKey: .items)
+    }
+
     func decodeOutputDeviceItemsIfPresent(forKey key: Key) -> [DJConnectOutputDevice]? {
         guard let items = decodeLossyArrayIfPresent(DJConnectOutputDeviceCandidate.self, forKey: key) else {
             return nil
@@ -9357,6 +9385,15 @@ private struct DJConnectOutputDeviceCandidate: Decodable {
             return
         }
 
+        guard try Self.hasOutputShape(in: container) else {
+            outputDevice = nil
+            return
+        }
+
+        outputDevice = try DJConnectOutputDevice(from: decoder)
+    }
+
+    private static func hasOutputShape(in container: KeyedDecodingContainer<CodingKeys>) throws -> Bool {
         let type = try container.decodeIfPresent(String.self, forKey: .type)
         let active = try container.decodeIfPresent(Bool.self, forKey: .active)
             ?? container.decodeIfPresent(Bool.self, forKey: .isActive)
@@ -9367,7 +9404,7 @@ private struct DJConnectOutputDeviceCandidate: Decodable {
         let lastSeenAt = try container.decodeIfPresent(String.self, forKey: .lastSeenAt)
         let supportsVolume = try container.decodeIfPresent(Bool.self, forKey: .supportsVolume)
         let volumePercent = try container.decodeIfPresent(Int.self, forKey: .volumePercent)
-        let hasOutputShape = type != nil
+        return type != nil
             || active != nil
             || cached != nil
             || provider != nil
@@ -9376,12 +9413,6 @@ private struct DJConnectOutputDeviceCandidate: Decodable {
             || lastSeenAt != nil
             || supportsVolume != nil
             || volumePercent != nil
-        guard hasOutputShape else {
-            outputDevice = nil
-            return
-        }
-
-        outputDevice = try DJConnectOutputDevice(from: decoder)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -9521,5 +9552,24 @@ public struct DJConnectWatchMomentOpenIntent: Codable, Equatable, Sendable {
     public func isPending(at date: Date = Date()) -> Bool {
         let remaining = Double(transportExpiresAtMS) - date.timeIntervalSince1970 * 1000
         return remaining > 0 && remaining <= 300_000
+    }
+}
+
+
+private extension KeyedDecodingContainer {
+    func decodeFlexibleDate(forKey key: Key) -> Date? {
+        if let date = try? decode(Date.self, forKey: key) {
+            return date
+        }
+        guard let value = try? decode(String.self, forKey: key) else {
+            return nil
+        }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: value) {
+            return date
+        }
+        iso.formatOptions = [.withInternetDateTime]
+        return iso.date(from: value)
     }
 }

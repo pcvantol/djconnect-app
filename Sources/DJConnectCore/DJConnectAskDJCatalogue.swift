@@ -131,14 +131,22 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
         guard let language = locale(language), compatible(context),
               revision != 2 || context.serverEligibleIDs != nil,
               surface != .session || context.flags["active_session"] == true else { return [] }
-        return entries.filter { e in
-            e.publication == "qualified_v1" && e.qualification[language]?.state == "qualified_owner_route" &&
-                e.surfaces.contains(surface.rawValue) &&
-                (context.serverEligibleIDs.map { $0.contains(e.id) } ?? true) &&
-                e.requires.allSatisfy { (context.serverEligibleIDs != nil && $0 == "agent_available") || context.flags[$0] == true } &&
-                e.contracts.allSatisfy { context.contracts[$0.key] == $0.value } &&
-                (help || e.slots.allSatisfy { Self.safeSlot(context.slots[$0]) })
+        return entries.filter { entry in
+            isPublished(entry, surface: surface, language: language) &&
+                (context.serverEligibleIDs.map { $0.contains(entry.id) } ?? true) &&
+                meetsExecutionContext(entry, context: context, help: help)
         }
+    }
+
+    private func isPublished(_ entry: Entry, surface: Surface, language: String) -> Bool {
+        entry.publication == "qualified_v1" && entry.qualification[language]?.state == "qualified_owner_route" &&
+            entry.surfaces.contains(surface.rawValue)
+    }
+
+    private func meetsExecutionContext(_ entry: Entry, context: Context, help: Bool) -> Bool {
+        entry.requires.allSatisfy { (context.serverEligibleIDs != nil && $0 == "agent_available") || context.flags[$0] == true } &&
+            entry.contracts.allSatisfy { context.contracts[$0.key] == $0.value } &&
+            (help || entry.slots.allSatisfy { Self.safeSlot(context.slots[$0]) })
     }
     private func prompt(_ entry: Entry, language: String, slots: [String: String], help: Bool = false) -> String? {
         guard let language = locale(language), var value = entry.templates[language] else { return nil }
@@ -156,6 +164,17 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
             (recent.contains(entry.id) ? 1 : 0, Self.hash(Data((String(epoch.prefix(128)) + ":" + entry.id).utf8)))
         }
         let candidates = eligible(context, surface: surface, language: language).sorted { rank($0) < rank($1) }
+        let chosen = selectDistinctEntries(candidates, rank: rank)
+        let result = chosen.compactMap { entry -> Suggestion? in
+            guard let text = prompt(entry, language: language, slots: context.slots) else { return nil }
+            return Suggestion(id: entry.id, intent: entry.intent, group: entry.group, prompt: text,
+                              ownerEpoch: context.ownerEpoch, sessionID: surface == .session ? context.sessionID : nil,
+                              trackID: entry.contextual || !entry.slots.isEmpty ? context.trackID : nil)
+        }
+        return result.count == 3 ? result : []
+    }
+
+    private func selectDistinctEntries(_ candidates: [Entry], rank: (Entry) -> (Int, String)) -> [Entry] {
         var chosen: [Entry] = []
         if let contextual = candidates.first(where: \.contextual) { chosen.append(contextual) }
         while chosen.count < 3 {
@@ -167,13 +186,7 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
             }
             guard let next = rest.first else { break }; chosen.append(next)
         }
-        let result = chosen.compactMap { entry -> Suggestion? in
-            guard let text = prompt(entry, language: language, slots: context.slots) else { return nil }
-            return Suggestion(id: entry.id, intent: entry.intent, group: entry.group, prompt: text,
-                              ownerEpoch: context.ownerEpoch, sessionID: surface == .session ? context.sessionID : nil,
-                              trackID: entry.contextual || !entry.slots.isEmpty ? context.trackID : nil)
-        }
-        return result.count == 3 ? result : []
+        return chosen
     }
     public func retains(_ suggestion: Suggestion, context: Context, surface: Surface, language: String) -> Bool {
         guard suggestion.ownerEpoch == context.ownerEpoch,
@@ -246,28 +259,29 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
         let available = Set(actionable.map(\.id))
         // Reference visibility is not execution eligibility. Only published,
         // locale-qualified generic copy may remain visible without current context.
-        let candidates = includeUnavailable ? entries.filter {
-            $0.publication == "qualified_v1" && $0.qualification[language]?.state == "qualified_owner_route" &&
-                $0.surfaces.contains(surface.rawValue)
-        } : actionable
+        let candidates = includeUnavailable ? entries.filter { isPublished($0, surface: surface, language: language) } : actionable
         return groups.compactMap { group in
             let items = candidates.filter { $0.group == group.id }.sorted {
                 ($0.help_rank, $0.id) < ($1.help_rank, $1.id)
             }.compactMap { entry -> HelpItem? in
-                guard let value = prompt(entry, language: language, slots: [:], help: true) else { return nil }
-                var ranges: [NSRange] = []
-                for slot in entry.slots {
-                    guard let label = slot_labels[slot]?[language] else { return nil }
-                    let range = (value as NSString).range(of: label)
-                    guard range.location != NSNotFound else { return nil }
-                    ranges.append(range)
-                }
-                return HelpItem(id: entry.id, prompt: value, inputRange: ranges.min { $0.location < $1.location },
-                                isAvailable: available.contains(entry.id))
+                referenceItem(entry, language: language, available: available)
             }
             guard !items.isEmpty, let title = group.labels[language] else { return nil }
             return CatalogueSection(id: group.id, title: title, items: items)
         }
+    }
+
+    private func referenceItem(_ entry: Entry, language: String, available: Set<String>) -> HelpItem? {
+        guard let value = prompt(entry, language: language, slots: [:], help: true) else { return nil }
+        var ranges: [NSRange] = []
+        for slot in entry.slots {
+            guard let label = slot_labels[slot]?[language] else { return nil }
+            let range = (value as NSString).range(of: label)
+            guard range.location != NSNotFound else { return nil }
+            ranges.append(range)
+        }
+        return HelpItem(id: entry.id, prompt: value, inputRange: ranges.min { $0.location < $1.location },
+                        isAvailable: available.contains(entry.id))
     }
 }
 private final class AskDJCatalogueBundleToken {}
@@ -286,17 +300,30 @@ public struct DJConnectAskDJSuggestionCursor: Sendable {
         let ownerChanged = context?.ownerEpoch != next.ownerEpoch
         let changed = context != next || self.language != language
         guard visit || refresh || changed || pendingSelection else { return }
-        if ownerChanged { suggestions = []; recent = [] }
-        suggestions = suggestions.filter { catalogue?.retains($0, context: next, surface: surface, language: language) == true }
-        // Withdrawal also applies while reading/editing: never leave a partial
-        // one- or two-chip strip and never refill it during a frozen visit.
-        if suggestions.count != 3 { suggestions = [] }
-        context = next; self.language = language
+        retainSuggestions(catalogue: catalogue, context: next, surface: surface,
+                          language: language, ownerChanged: ownerChanged)
+        selectWhenUnfrozen(catalogue: catalogue, context: next, surface: surface, language: language,
+                           frozen: frozen, visit: visit, refresh: refresh, changed: changed, epoch: epoch)
+    }
+
+    private mutating func selectWhenUnfrozen(catalogue: DJConnectAskDJCatalogue?, context next: DJConnectAskDJCatalogue.Context,
+                                            surface: DJConnectAskDJCatalogue.Surface, language: String, frozen: Bool,
+                                            visit: Bool, refresh: Bool, changed: Bool, epoch: String) {
         if frozen { pendingSelection = pendingSelection || visit || refresh || changed; return }
         pendingSelection = false
         guard let catalogue else { suggestions = []; return }
         let selected = catalogue.select(next, surface: surface, language: language, epoch: epoch, recent: recent)
         if selected.count == 3 { recent = Array((recent + selected.map(\.id)).suffix(6)) }
         suggestions = selected
+    }
+
+    private mutating func retainSuggestions(catalogue: DJConnectAskDJCatalogue?, context next: DJConnectAskDJCatalogue.Context,
+                                           surface: DJConnectAskDJCatalogue.Surface, language: String, ownerChanged: Bool) {
+        if ownerChanged { suggestions = []; recent = [] }
+        suggestions = suggestions.filter { catalogue?.retains($0, context: next, surface: surface, language: language) == true }
+        // Withdrawal also applies while reading/editing: never leave a partial
+        // one- or two-chip strip and never refill it during a frozen visit.
+        if suggestions.count != 3 { suggestions = [] }
+        context = next; self.language = language
     }
 }
