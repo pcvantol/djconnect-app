@@ -15054,6 +15054,40 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
     }
 
+    /// Captures only the existing local output fences. Identity, locale, mood
+    /// and Profile context remain read at the original backend dispatch point.
+    private struct PlaybackCommandAttempt: Sendable {
+        let command: String
+        let value: DJConnectCommandValue?
+        let play: Bool?
+        let isVolume: Bool
+        let volumeKey: String?
+        let outputObservation: Int
+        let outputGeneration: Int
+        let bindsOutputGeneration: Bool
+        let bindsVolumeOutput: Bool
+        let allowsReplay: Bool
+
+        init(command: String, value: DJConnectCommandValue?, play: Bool?, isVolume: Bool,
+             volumeKey: String?, outputObservation: Int, outputGeneration: Int) {
+            self.command = command
+            self.value = value
+            self.play = play
+            self.isVolume = isVolume
+            self.volumeKey = volumeKey
+            self.outputObservation = outputObservation
+            self.outputGeneration = outputGeneration
+            bindsOutputGeneration = command == "devices" || command == "set_output"
+            bindsVolumeOutput = isVolume || command == "set_shuffle" || command == "set_repeat"
+            allowsReplay = !isVolume && command != "set_output" && command != "ask_dj_message"
+        }
+    }
+    private struct PlaybackCommandAcceptance: Sendable {
+        let accepted: Bool
+        let explicitlyConfirmed: Bool
+        let refreshOutputs: Bool
+    }
+
     @discardableResult
     private func performCommand(
         _ command: String,
@@ -15069,12 +15103,29 @@ public final class DJConnectAppModel: ObservableObject {
         let volumeKeyAtStart = volumeOutputKey
         let outputObservationAtStart = playbackOutputObservation
         let outputGeneration = expectedOutputSelectionGeneration ?? outputSelectionGeneration
-        if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
+        let attempt = PlaybackCommandAttempt(command: command, value: value, play: play, isVolume: isVolumeCommand,
+            volumeKey: volumeKeyAtStart, outputObservation: outputObservationAtStart, outputGeneration: outputGeneration)
+        if attempt.bindsOutputGeneration, outputGeneration != outputSelectionGeneration { return false }
         if isDemoMode {
             applyDemoCommand(command, value: value, play: play)
             if isAppInForeground { onConfirmed?() }
             return true
         }
+        guard isPlaybackCommandRuntimeReady(command) else { return false }
+        do {
+            let acceptance = try await dispatchPlaybackCommand(attempt)
+            return try await finishPlaybackCommand(attempt, acceptance: acceptance, onConfirmed: onConfirmed)
+        } catch let error as DJConnectError {
+            return handlePlaybackCommandFailure(error, attempt: attempt,
+                notifyUserOnError: notifyUserOnError, applyErrorState: applyErrorState)
+        } catch let outcome as DJConnectHybridTransportError {
+            return handlePlaybackCommandOutcome(outcome, attempt: attempt, onConfirmed: onConfirmed)
+        } catch {
+            return handleUnexpectedPlaybackCommandFailure(error, attempt: attempt, notifyUserOnError: notifyUserOnError)
+        }
+    }
+
+    private func isPlaybackCommandRuntimeReady(_ command: String) -> Bool {
         guard pairingStatus == .paired else {
             log(.warning, "Command \(command) skipped because app is not paired")
             return false
@@ -15083,155 +15134,158 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Command \(command) skipped because update is required")
             return false
         }
-        var refreshOutputsAfterAcceptance = false
-        var outputAccepted = true
-        var explicitlyConfirmed = false
-        do {
-            try await withHomeAssistantClient(allowsOperationReplay: !isVolumeCommand && command != "set_output" && command != "ask_dj_message", notifiesTransportFailure: !isVolumeCommand) { client in
-                // Reads may use fallback; a transfer write is never replayed.
-                if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration {
-                    throw CancellationError()
-                }
-                if (isVolumeCommand || command == "set_shuffle" || command == "set_repeat"), volumeOutputKey != volumeKeyAtStart {
-                    throw CancellationError()
-                }
-                log(.debug, "Posting command \(command) to Home Assistant")
-                let response = try await client.sendCommandResponse(
-                    DJConnectCommandPayload(
-                        identity: identity,
-                        command: command,
-                        value: value,
-                        play: play,
-                        limit: Self.commandLimit(for: command),
-                        language: currentRequestLocale,
-                        mood: confirmedSessionMoodInt,
-                        musicDNAKey: askDJMusicDNAKey
-                    )
-                )
-                if command == "devices" || command == "set_output" {
-                    guard outputGeneration == outputSelectionGeneration else { throw CancellationError() }
-                }
-                if (isVolumeCommand || command == "set_shuffle" || command == "set_repeat"), volumeOutputKey != volumeKeyAtStart {
-                    throw CancellationError()
-                }
-                if (command == "set_volume" || command == "volume_delta"),
-                   response.success == false, Self.isVolumeControlUnavailable(response),
-                   volumeOutputKey == volumeKeyAtStart {
-                    volumeRejectedOutputKey = volumeKeyAtStart
-                    pendingVolumePercent = nil
-                }
-                if command == "set_output", !response.success {
-                    outputAccepted = false
-                    userNotice = DJConnectUserNotice(text: playbackCommandFailureFallback(command: command))
-                    return
-                }
-                apply(commandResponse: response, command: command,
-                      reconcilePlaybackOutput: command == "devices" && playbackOutputObservation != outputObservationAtStart)
-                outputAccepted = response.success != false
-                explicitlyConfirmed = response.hasExplicitSuccess && response.success
-                refreshOutputsAfterAcceptance = command == "set_output" && outputAccepted
+        return true
+    }
+
+    private func checkPlaybackCommandDispatchOwner(_ attempt: PlaybackCommandAttempt) throws {
+        // Reads may use fallback; a transfer write is never replayed.
+        if attempt.bindsOutputGeneration, attempt.outputGeneration != outputSelectionGeneration { throw CancellationError() }
+        if attempt.bindsVolumeOutput, volumeOutputKey != attempt.volumeKey { throw CancellationError() }
+    }
+
+    private func dispatchPlaybackCommand(_ attempt: PlaybackCommandAttempt) async throws -> PlaybackCommandAcceptance {
+        try await withHomeAssistantClient(allowsOperationReplay: attempt.allowsReplay, notifiesTransportFailure: !attempt.isVolume) { client in
+            try checkPlaybackCommandDispatchOwner(attempt)
+            log(.debug, "Posting command \(attempt.command) to Home Assistant")
+            let response = try await client.sendCommandResponse(
+                DJConnectCommandPayload(identity: identity, command: attempt.command, value: attempt.value,
+                    play: attempt.play, limit: Self.commandLimit(for: attempt.command), language: currentRequestLocale,
+                    mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey)
+            )
+            try checkPlaybackCommandDispatchOwner(attempt)
+            if attempt.isVolume, response.success == false, Self.isVolumeControlUnavailable(response),
+               volumeOutputKey == attempt.volumeKey {
+                volumeRejectedOutputKey = attempt.volumeKey
+                pendingVolumePercent = nil
             }
-            if isVolumeCommand, !outputAccepted { return false }
-            if command == "set_output", !outputAccepted {
-                if userNotice == nil { userNotice = DJConnectUserNotice(text: playbackCommandFailureFallback(command: command)) }
-                return false
+            if attempt.command == "set_output", !response.success {
+                userNotice = DJConnectUserNotice(text: playbackCommandFailureFallback(command: attempt.command))
+                return PlaybackCommandAcceptance(accepted: false, explicitlyConfirmed: false, refreshOutputs: false)
             }
-            if refreshOutputsAfterAcceptance, outputGeneration == outputSelectionGeneration {
-                // Transfer acceptance can precede the backend's active-device update.
-                // Retry only the read, never the playback-transfer command.
-                for attempt in 0..<4 {
-                    if attempt > 0 {
-                        try await Task.sleep(for: .milliseconds(350 * (1 << (attempt - 1))))
-                    }
-                    guard !Task.isCancelled, outputGeneration == outputSelectionGeneration else { return false }
-                    if attempt == 1 {
-                        // Some backends omit device flags and need a new playback
-                        // snapshot. Keep that read local and finish with devices.
-                        try? await refreshStatusWithFallback(isStillValid: { [weak self] in
-                            self?.outputSelectionGeneration == outputGeneration
-                        })
-                    }
-                    let read = await performCommand("devices", notifyUserOnError: false,
-                                                    expectedOutputSelectionGeneration: outputGeneration)
-                    if !read { break }
-                    if read {
-                        if case let .string(targetName) = value {
-                            if availableOutputs.contains(where: { candidate in
-                                guard candidate.active == true else { return false }
-                                if let targetID = pendingOutputSelectionID { return candidate.id == targetID }
-                                return candidate.id == targetName || candidate.name == targetName
-                            }) { break }
-                        } else {
-                            // Backend-authored structured actions keep their own
-                            // target contract; do not infer a speaker name locally.
-                            break
-                        }
-                    }
-                }
+            apply(commandResponse: response, command: attempt.command,
+                  reconcilePlaybackOutput: attempt.command == "devices" && playbackOutputObservation != attempt.outputObservation)
+            let accepted = response.success != false
+            return PlaybackCommandAcceptance(accepted: accepted,
+                explicitlyConfirmed: response.hasExplicitSuccess && response.success,
+                refreshOutputs: attempt.command == "set_output" && accepted)
+        }
+    }
+
+    private func finishPlaybackCommand(_ attempt: PlaybackCommandAttempt, acceptance: PlaybackCommandAcceptance,
+                                       onConfirmed: (@MainActor () -> Void)?) async throws -> Bool {
+        if attempt.isVolume, !acceptance.accepted { return false }
+        if attempt.command == "set_output", !acceptance.accepted {
+            if userNotice == nil { userNotice = DJConnectUserNotice(text: playbackCommandFailureFallback(command: attempt.command)) }
+            return false
+        }
+        if acceptance.refreshOutputs, attempt.outputGeneration == outputSelectionGeneration {
+            guard try await settleAcceptedOutputSelection(attempt) else { return false }
+        }
+        if Self.shouldRefreshPlaybackAfterCommand(attempt.command) {
+            scheduleCommandRefresh(reason: "Command \(attempt.command) Now Playing refresh completed",
+                delay: Self.shouldRefreshPlaybackAgainAfterCommand(attempt.command) ? .milliseconds(850) : .milliseconds(350))
+        }
+        if onConfirmed != nil { recordPresentationState("artwork-ack-explicit-\(acceptance.explicitlyConfirmed)-foreground-\(isAppInForeground)") }
+        if acceptance.explicitlyConfirmed, isAppInForeground, !Task.isCancelled { onConfirmed?() }
+        log(.debug, "Command \(attempt.command) succeeded")
+        return true
+    }
+
+    private func settleAcceptedOutputSelection(_ attempt: PlaybackCommandAttempt) async throws -> Bool {
+        // Acceptance may precede active-device readback. Only these reads retry;
+        // the original playback-transfer write is never repeated here.
+        for index in 0..<4 {
+            if index > 0 { try await Task.sleep(for: .milliseconds(350 * (1 << (index - 1)))) }
+            guard !Task.isCancelled, attempt.outputGeneration == outputSelectionGeneration else { return false }
+            if index == 1 {
+                try? await refreshStatusWithFallback(isStillValid: { [weak self] in
+                    self?.outputSelectionGeneration == attempt.outputGeneration
+                })
             }
-            if Self.shouldRefreshPlaybackAfterCommand(command) {
-                scheduleCommandRefresh(
-                    reason: "Command \(command) Now Playing refresh completed",
-                    delay: Self.shouldRefreshPlaybackAgainAfterCommand(command) ? .milliseconds(850) : .milliseconds(350)
-                )
-            }
-            if onConfirmed != nil { recordPresentationState("artwork-ack-explicit-\(explicitlyConfirmed)-foreground-\(isAppInForeground)") }
-            if explicitlyConfirmed, isAppInForeground, !Task.isCancelled { onConfirmed?() }
-            log(.debug, "Command \(command) succeeded")
+            let read = await performCommand("devices", notifyUserOnError: false,
+                expectedOutputSelectionGeneration: attempt.outputGeneration)
+            if !read { break }
+            if acceptedOutputHasArrived(attempt.value) { break }
+        }
+        return true
+    }
+
+    private func acceptedOutputHasArrived(_ value: DJConnectCommandValue?) -> Bool {
+        guard case let .string(targetName) = value else {
+            // Structured backend actions keep their own target contract. Never
+            // infer a speaker name locally just to extend the readback loop.
             return true
-        } catch let error as DJConnectError {
-            if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
-            if isVolumeCommand, volumeOutputKey != volumeKeyAtStart { return false }
-            log(.warning, "Command \(command) failed: \(Self.describe(error))")
-            if (command == "set_volume" || command == "volume_delta"),
-               Self.isVolumeControlUnavailable(Self.describe(error)), volumeOutputKey == volumeKeyAtStart {
-                volumeRejectedOutputKey = volumeKeyAtStart
-                pendingVolumePercent = nil
-            }
-            let outputTargetFailure = command == "set_output" && Self.isPlaybackTargetCommandFailure(error)
-            let volumeTargetFailure = isVolumeCommand && Self.isPlaybackTargetCommandFailure(error)
-            if applyErrorState, !outputTargetFailure, !volumeTargetFailure, !Self.isVolumeControlUnavailable(Self.describe(error)) {
-                apply(error: error)
-            }
-            if volumeTargetFailure {
-                pendingVolumePercent = nil
-                if notifyUserOnError {
-                    let key = Self.isVolumeControlUnavailable(Self.describe(error))
-                        ? "appModel.device.volume.control.unavailable" : "appModel.volume.could.not.be.changed"
-                    userNotice = DJConnectUserNotice(text: localized(key: key))
-                }
-                return false
-            }
-            if outputTargetFailure {
-                if notifyUserOnError { userNotice = DJConnectUserNotice(text: playbackCommandFailureFallback(command: command)) }
-                return false
-            }
+        }
+        return availableOutputs.contains { candidate in
+            guard candidate.active == true else { return false }
+            if let targetID = pendingOutputSelectionID { return candidate.id == targetID }
+            return candidate.id == targetName || candidate.name == targetName
+        }
+    }
+
+    private func playbackCommandErrorOwnerIsCurrent(_ attempt: PlaybackCommandAttempt) -> Bool {
+        if attempt.bindsOutputGeneration, attempt.outputGeneration != outputSelectionGeneration { return false }
+        if attempt.isVolume, volumeOutputKey != attempt.volumeKey { return false }
+        return true
+    }
+
+    private func applyPlaybackCommandFailureState(_ error: DJConnectError, attempt: PlaybackCommandAttempt,
+                                                 applyErrorState: Bool) -> (outputTarget: Bool, volumeTarget: Bool) {
+        if attempt.isVolume, Self.isVolumeControlUnavailable(Self.describe(error)), volumeOutputKey == attempt.volumeKey {
+            volumeRejectedOutputKey = attempt.volumeKey
+            pendingVolumePercent = nil
+        }
+        let outputTargetFailure = attempt.command == "set_output" && Self.isPlaybackTargetCommandFailure(error)
+        let volumeTargetFailure = attempt.isVolume && Self.isPlaybackTargetCommandFailure(error)
+        if applyErrorState, !outputTargetFailure, !volumeTargetFailure, !Self.isVolumeControlUnavailable(Self.describe(error)) {
+            apply(error: error)
+        }
+        return (outputTargetFailure, volumeTargetFailure)
+    }
+
+    private func handlePlaybackCommandFailure(_ error: DJConnectError, attempt: PlaybackCommandAttempt,
+                                             notifyUserOnError: Bool, applyErrorState: Bool) -> Bool {
+        guard playbackCommandErrorOwnerIsCurrent(attempt) else { return false }
+        log(.warning, "Command \(attempt.command) failed: \(Self.describe(error))")
+        let failure = applyPlaybackCommandFailureState(error, attempt: attempt, applyErrorState: applyErrorState)
+        if failure.volumeTarget {
+            pendingVolumePercent = nil
             if notifyUserOnError {
-                if case .backendUnavailable = error, !shouldEmitBackendUnavailableNotice() {
-                    return false
-                }
-                userNotice = DJConnectUserNotice(text: playbackCommandFailureMessage(command: command, error: error))
-            }
-            return false
-        } catch let outcome as DJConnectHybridTransportError {
-            if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
-            if isVolumeCommand, volumeOutputKey != volumeKeyAtStart { return false }
-            userNotice = DJConnectUserNotice(text: localized(key: outcome.localizationKey))
-            if case .outcome(let receipt) = outcome, receipt.phase == "confirmed" {
-                if isAppInForeground, !Task.isCancelled { onConfirmed?() }
-                return true
-            }
-            return false
-        } catch {
-            if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
-            if isVolumeCommand, volumeOutputKey != volumeKeyAtStart { return false }
-            log(.error, "Command \(command) failed unexpectedly: \(error.localizedDescription)")
-            pairingMessage = error.localizedDescription
-            if notifyUserOnError {
-                userNotice = DJConnectUserNotice(text: playbackCommandFailureFallback(command: command))
+                let key = Self.isVolumeControlUnavailable(Self.describe(error))
+                    ? "appModel.device.volume.control.unavailable" : "appModel.volume.could.not.be.changed"
+                userNotice = DJConnectUserNotice(text: localized(key: key))
             }
             return false
         }
+        if failure.outputTarget {
+            if notifyUserOnError { userNotice = DJConnectUserNotice(text: playbackCommandFailureFallback(command: attempt.command)) }
+            return false
+        }
+        if notifyUserOnError {
+            if case .backendUnavailable = error, !shouldEmitBackendUnavailableNotice() { return false }
+            userNotice = DJConnectUserNotice(text: playbackCommandFailureMessage(command: attempt.command, error: error))
+        }
+        return false
+    }
+
+    private func handlePlaybackCommandOutcome(_ outcome: DJConnectHybridTransportError, attempt: PlaybackCommandAttempt,
+                                             onConfirmed: (@MainActor () -> Void)?) -> Bool {
+        guard playbackCommandErrorOwnerIsCurrent(attempt) else { return false }
+        userNotice = DJConnectUserNotice(text: localized(key: outcome.localizationKey))
+        if case .outcome(let receipt) = outcome, receipt.phase == "confirmed" {
+            if isAppInForeground, !Task.isCancelled { onConfirmed?() }
+            return true
+        }
+        return false
+    }
+
+    private func handleUnexpectedPlaybackCommandFailure(_ error: any Error, attempt: PlaybackCommandAttempt,
+                                                       notifyUserOnError: Bool) -> Bool {
+        guard playbackCommandErrorOwnerIsCurrent(attempt) else { return false }
+        log(.error, "Command \(attempt.command) failed unexpectedly: \(error.localizedDescription)")
+        pairingMessage = error.localizedDescription
+        if notifyUserOnError { userNotice = DJConnectUserNotice(text: playbackCommandFailureFallback(command: attempt.command)) }
+        return false
     }
 
     /// A rejected Spotify/device transfer or volume operation is local to that action. Availability
