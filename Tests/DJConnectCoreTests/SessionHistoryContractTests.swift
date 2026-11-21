@@ -7042,81 +7042,175 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     func complete() { lock.withLock { erased = true } }
 }
 
-@Test(.isolatedClientResources, arguments: ["ok", "failure", "conflict", "network", "owner", "count", "snapshot", "epoch", "zero", "expired", "unsupported"])
-@MainActor func sessionBulkDeletionIsOneSnapshotBoundOperationPreservingActiveFlow(_ outcome: String) async throws {
-    let fixtureObject = try historyObject()
-    let archiveObject = try #require(fixtureObject["archived_timeline"] as? [String: Any])
-    let archiveData = try historyData(archiveObject)
-    let archive = try JSONDecoder().decode(DJConnectSessionTimelinePage.self,from:archiveData).session
-    var newHeader = try #require(archiveObject["session"] as? [String:Any]); newHeader["session_id"] = "after-snapshot"
-    var activeHeader = newHeader; activeHeader["session_id"] = "active-preserved"; activeHeader["lifecycle_status"] = "ACTIVE"; activeHeader["read_only"] = false
-    var activePage = archiveObject; activePage["session"] = activeHeader; activePage["entries"] = []
-    let activePageData = try historyData(activePage)
-    let activeRevision = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: activePageData).revision.value
-    let initialList = try historyData(["success":true,"schema_version":1,"sessions":[archiveObject["session"]!],"revision":"before","next_cursor":"unloaded-page","retention_days":30])
-    let refreshedList = try historyData(["success":true,"schema_version":1,"sessions":[newHeader],"revision":"after","retention_days":30])
-    var profileObject = try #require(fixtureObject["later_historical_answer"] as? [String:Any]); profileObject["historical_matches"] = []; profileObject["messages"] = []
-    let profile = try historyData(profileObject)
-    let caps = try historyData(["capabilities":["session_conversation_history":true,"session_history_bulk_delete":outcome != "unsupported"],
-                               "contract_versions":["session_conversation_history":1,"session_history_bulk_delete":1]])
-    let formatter = ISO8601DateFormatter(), now = Date()
-    let snapshotData = try historyData(["success":true,"schema_version":1,"owner_profile_id":"profile-a","snapshot_id":"opaque-all-pages",
-        "target_count":outcome == "zero" ? 0 : 2,"created_at":formatter.string(from:now),
-        "expires_at":formatter.string(from:now.addingTimeInterval(outcome == "expired" ? -1 : 300))])
-    let demo = try DJConnectDemoSessionData.make(language:"nl")
-    var active = demo.active; active.sessionID = "active-preserved"; active.broadcast.session.sessionID = active.sessionID
-    let activeObject = try JSONSerialization.jsonObject(with:JSONEncoder().encode(active))
-    let activeData = try historyData(["success":true,"active_session":activeObject])
-    let state = HistoryBulkDeleteFixtureState()
-    let activeReadGate = HistoryWireResponseGate()
-    defer { activeReadGate.release() }
-    let fixture = HistoryWireFixture { request in
+private struct BulkDeletionScenarioInput: Sendable {
+    let archiveID: String
+    let activeID: String
+    let activeRevision: String
+    let archiveData: Data
+    let activePageData: Data
+    let initialList: Data
+    let refreshedList: Data
+    let profile: Data
+    let caps: Data
+    let snapshotData: Data
+    let activeData: Data
+
+    static func make(outcome: String) throws -> Self {
+        let fixtureObject = try historyObject()
+        let archiveObject = try #require(fixtureObject["archived_timeline"] as? [String: Any])
+        let archiveData = try historyData(archiveObject)
+        let archive = try JSONDecoder().decode(DJConnectSessionTimelinePage.self,from:archiveData).session
+        var newHeader = try #require(archiveObject["session"] as? [String:Any]); newHeader["session_id"] = "after-snapshot"
+        var activeHeader = newHeader; activeHeader["session_id"] = "active-preserved"; activeHeader["lifecycle_status"] = "ACTIVE"; activeHeader["read_only"] = false
+        var activePage = archiveObject; activePage["session"] = activeHeader; activePage["entries"] = []
+        let activePageData = try historyData(activePage)
+        let activeRevision = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: activePageData).revision.value
+        let initialList = try historyData(["success":true,"schema_version":1,"sessions":[archiveObject["session"]!],"revision":"before","next_cursor":"unloaded-page","retention_days":30])
+        let refreshedList = try historyData(["success":true,"schema_version":1,"sessions":[newHeader],"revision":"after","retention_days":30])
+        var profileObject = try #require(fixtureObject["later_historical_answer"] as? [String:Any]); profileObject["historical_matches"] = []; profileObject["messages"] = []
+        let profile = try historyData(profileObject)
+        let caps = try historyData(["capabilities":["session_conversation_history":true,"session_history_bulk_delete":outcome != "unsupported"],
+                                   "contract_versions":["session_conversation_history":1,"session_history_bulk_delete":1]])
+        let formatter = ISO8601DateFormatter(), now = Date()
+        let snapshotData = try historyData(["success":true,"schema_version":1,"owner_profile_id":"profile-a","snapshot_id":"opaque-all-pages",
+            "target_count":outcome == "zero" ? 0 : 2,"created_at":formatter.string(from:now),
+            "expires_at":formatter.string(from:now.addingTimeInterval(outcome == "expired" ? -1 : 300))])
+        let demo = try DJConnectDemoSessionData.make(language:"nl")
+        var active = demo.active; active.sessionID = "active-preserved"; active.broadcast.session.sessionID = active.sessionID
+        let activeObject = try JSONSerialization.jsonObject(with:JSONEncoder().encode(active))
+        let activeData = try historyData(["success":true,"active_session":activeObject])
+        return Self(archiveID: archive.id, activeID: active.id, activeRevision: activeRevision,
+            archiveData: archiveData, activePageData: activePageData, initialList: initialList,
+            refreshedList: refreshedList, profile: profile, caps: caps, snapshotData: snapshotData, activeData: activeData)
+    }
+}
+
+private struct BulkDeletionScenarioResponses: Sendable {
+    let input: BulkDeletionScenarioInput
+    let outcome: String
+    let state: HistoryBulkDeleteFixtureState
+    let activeReadGate: HistoryWireResponseGate
+
+    func reply(_ request: URLRequest) throws -> (Int, Data, TimeInterval) {
         let path = request.url!.path
-        if path.hasSuffix("/capabilities") { return (200,caps,0) }
-        if path.hasSuffix("/ask_dj/history") { return (200,profile,0) }
-        if path.hasSuffix("/session/active") { return (200,activeData,0) }
+        if path.hasSuffix("/capabilities") { return (200,input.caps,0) }
+        if path.hasSuffix("/ask_dj/history") { return (200,input.profile,0) }
+        if path.hasSuffix("/session/active") { return (200,input.activeData,0) }
         if path.hasSuffix("/delete_snapshot") {
             #expect(request.httpMethod == "GET")
             #expect(request.value(forHTTPHeaderField:"Cache-Control") == "no-store")
-            return (200,snapshotData,0)
+            return (200,input.snapshotData,0)
         }
-        if path.hasSuffix("/delete_all") {
-            let body = try #require(JSONSerialization.jsonObject(with:presenceRequestBody(request)) as? [String:Any])
-            // Core rejects any envelope, nested payload, or token in this body.
-            #expect(Set(body.keys) == Set(["device_id","client_type","snapshot_id","operation_id","confirmed"]))
-            #expect(body["session_ids"] == nil && body["query"] == nil && body["cursor"] == nil)
-            #expect(body["snapshot_id"] as? String == "opaque-all-pages" && body["confirmed"] as? Bool == true)
-            let operation = try #require(body["operation_id"] as? String)
-            #expect(operation.split(separator:"-")[2].hasPrefix("7"))
-            #expect(request.httpMethod == "POST" && request.value(forHTTPHeaderField:"Cache-Control") == "no-store")
-            #expect(request.value(forHTTPHeaderField:"Referrer-Policy") == "no-referrer")
-            if outcome == "network" { throw URLError(.timedOut) }
-            if outcome == "failure" { return (503,Data(#"{"success":false,"error":"history_delete_outcome_unknown"}"#.utf8),0) }
-            if outcome == "conflict" { return (409,Data(#"{"success":false,"error":"history_delete_snapshot_conflict"}"#.utf8),0) }
-            let ack = try historyData(["success":true,"schema_version":1,"operation_id":operation,
-                "owner_profile_id":outcome == "owner" ? "profile-b" : "profile-a",
-                "snapshot_id":outcome == "snapshot" ? "another-set" : "opaque-all-pages",
-                "deleted":true,"deleted_session_count":outcome == "count" ? 3 : 2])
-            if outcome == "ok" { state.complete() }
-            return (200,ack,outcome == "epoch" ? 0.15 : 0)
-        }
-        if path.hasSuffix("/session/history") { return (200,state.completed ? refreshedList : initialList,0) }
-        if path.hasSuffix("/active-preserved") {
-            var reply = try #require(JSONSerialization.jsonObject(with: activePageData) as? [String: Any])
-            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
-            if let window = query.first(where: { $0.name == "window" })?.value {
-                // A background tail read can own the coalesced request. Match
-                // its actual contract instead of returning an invalid plain page.
-                reply["window"] = window
-                reply["window_limit"] = Int(query.first(where: { $0.name == "limit" })?.value ?? "20")
-                reply["scan_complete"] = true; reply["next_cursor"] = NSNull()
-            }
-            let data = try historyData(reply)
-            if state.takeReadHold() { throw HistoryWireHeldResponse(data: data, gate: activeReadGate) }
-            return (200,data,0)
-        }
-        return (200,archiveData,0)
+        if path.hasSuffix("/delete_all") { return try deletionReply(request) }
+        if path.hasSuffix("/session/history") { return (200,state.completed ? input.refreshedList : input.initialList,0) }
+        if path.hasSuffix("/active-preserved") { return try activePageReply(request) }
+        return (200,input.archiveData,0)
     }
+
+    private func deletionReply(_ request: URLRequest) throws -> (Int, Data, TimeInterval) {
+        let operation = try requireDeletionOperation(request)
+        if outcome == "network" { throw URLError(.timedOut) }
+        if outcome == "failure" { return (503,Data(#"{"success":false,"error":"history_delete_outcome_unknown"}"#.utf8),0) }
+        if outcome == "conflict" { return (409,Data(#"{"success":false,"error":"history_delete_snapshot_conflict"}"#.utf8),0) }
+        let ack = try historyData(["success":true,"schema_version":1,"operation_id":operation,
+            "owner_profile_id":outcome == "owner" ? "profile-b" : "profile-a",
+            "snapshot_id":outcome == "snapshot" ? "another-set" : "opaque-all-pages",
+            "deleted":true,"deleted_session_count":outcome == "count" ? 3 : 2])
+        if outcome == "ok" { state.complete() }
+        return (200,ack,outcome == "epoch" ? 0.15 : 0)
+    }
+
+    private func requireDeletionOperation(_ request: URLRequest) throws -> String {
+        let body = try #require(JSONSerialization.jsonObject(with:presenceRequestBody(request)) as? [String:Any])
+        // Core rejects any envelope, nested payload, or token in this body.
+        #expect(Set(body.keys) == Set(["device_id","client_type","snapshot_id","operation_id","confirmed"]))
+        #expect(body["session_ids"] == nil && body["query"] == nil && body["cursor"] == nil)
+        #expect(body["snapshot_id"] as? String == "opaque-all-pages" && body["confirmed"] as? Bool == true)
+        let operation = try #require(body["operation_id"] as? String)
+        #expect(operation.split(separator:"-")[2].hasPrefix("7"))
+        #expect(request.httpMethod == "POST" && request.value(forHTTPHeaderField:"Cache-Control") == "no-store")
+        #expect(request.value(forHTTPHeaderField:"Referrer-Policy") == "no-referrer")
+        return operation
+    }
+
+    private func activePageReply(_ request: URLRequest) throws -> (Int, Data, TimeInterval) {
+        var reply = try #require(JSONSerialization.jsonObject(with: input.activePageData) as? [String: Any])
+        let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        if let window = query.first(where: { $0.name == "window" })?.value {
+            // A background tail read can own the coalesced request. Match
+            // its actual contract instead of returning an invalid plain page.
+            reply["window"] = window
+            reply["window_limit"] = Int(query.first(where: { $0.name == "limit" })?.value ?? "20")
+            reply["scan_complete"] = true; reply["next_cursor"] = NSNull()
+        }
+        let data = try historyData(reply)
+        if state.takeReadHold() { throw HistoryWireHeldResponse(data: data, gate: activeReadGate) }
+        return (200,data,0)
+    }
+}
+
+@MainActor private func observeBulkDeletionActiveRead(_ input: BulkDeletionScenarioInput,
+    fixture: HistoryWireFixture, history: DJConnectSessionHistoryModel,
+    state: HistoryBulkDeleteFixtureState, activeReadGate: HistoryWireResponseGate) async throws {
+    await history.prepare(); await history.loadSessions(); await history.loadTimeline(input.archiveID)
+    let preparedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while history.timelines[input.activeID]?.loading == true,
+          ContinuousClock.now < preparedDeadline { try await Task.sleep(for: .milliseconds(1)) }
+    #expect(history.timelines[input.activeID]?.loading != true)
+    let previousActiveReads = fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count
+    state.armRead()
+    // Profile-history preparation may already own this read. A second caller
+    // must not start another request or mistake its busy result for completion.
+    let activeRead = Task { @MainActor in await history.loadTimeline(input.activeID) }
+    let startedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while fixture.requests.filter({ $0.url!.path.hasSuffix("/active-preserved") }).count == previousActiveReads,
+          ContinuousClock.now < startedDeadline { try await Task.sleep(for: .milliseconds(1)) }
+    #expect(history.timelines[input.activeID]?.loading == true)
+    #expect(await history.loadTimeline(input.activeID) == false)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count == previousActiveReads + 1)
+    activeReadGate.release()
+    _ = await activeRead.value // May be the coalesced caller, not the read owner.
+    let loadedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while history.timelines[input.activeID]?.loading == true,
+          ContinuousClock.now < loadedDeadline { try await Task.sleep(for: .milliseconds(1)) }
+    let loaded = try #require(history.timelines[input.activeID])
+    #expect(!loaded.loading && loaded.errorKey == nil)
+    #expect(loaded.session?.id == input.activeID && loaded.revision == input.activeRevision)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count == previousActiveReads + 1)
+}
+
+@MainActor private func verifyBulkDeletionResultFlags(_ success: Bool, outcome: String, history: DJConnectSessionHistoryModel) {
+    #expect(success == (outcome == "ok"))
+    #expect(!history.bulkDeletionBusy)
+    if ["ok", "conflict"].contains(outcome) { #expect(!history.hasUnconfirmedDeletion) }
+    if ["failure", "network", "owner", "count", "snapshot"].contains(outcome) { #expect(history.hasUnconfirmedDeletion) }
+}
+
+@MainActor private func verifyConfirmedBulkDeletion(_ input: BulkDeletionScenarioInput,
+    model: DJConnectAppModel, history: DJConnectSessionHistoryModel,
+    activeBefore: DJConnectSessionRuntime?, liveBefore: DJConnectSessionHistoryModel.Timeline?,
+    epoch: UUID, archiveEpoch: UUID) async throws {
+    for _ in 0..<200 where !history.sessions.contains(where: { $0.id == "after-snapshot" }) { try await Task.sleep(for:.milliseconds(2)) }
+    #expect(history.sessions.map(\.id) == ["after-snapshot"])
+    #expect(history.timelines[input.archiveID] == nil)
+    #expect(history.historicalMatches.values.flatMap { $0 }.allSatisfy { $0.sessionID == input.activeID })
+    #expect(history.archiveResponseEpoch != archiveEpoch)
+    #expect(history.responseEpoch == epoch) // Active grants and pending intents keep their authority.
+    if history.timelines[input.activeID] != liveBefore {
+        let after = history.timelines[input.activeID]
+        print("BULK_ACTIVE_DIAGNOSTIC loading=\(String(describing: liveBefore?.loading))->\(String(describing: after?.loading)) entries=\(liveBefore?.entries.count ?? -1)->\(after?.entries.count ?? -1) revision=\(String(describing: liveBefore?.revision))->\(String(describing: after?.revision)) windowed=\(String(describing: liveBefore?.windowed))->\(String(describing: after?.windowed)) headerEqual=\(liveBefore?.session == after?.session) cursorEqual=\(liveBefore?.nextCursor == after?.nextCursor) errorEqual=\(liveBefore?.errorKey == after?.errorKey)")
+    }
+    #expect(model.activeDJSession == activeBefore && history.timelines[input.activeID] == liveBefore)
+}
+
+@Test(.isolatedClientResources, arguments: ["ok", "failure", "conflict", "network", "owner", "count", "snapshot", "epoch", "zero", "expired", "unsupported"])
+@MainActor func sessionBulkDeletionIsOneSnapshotBoundOperationPreservingActiveFlow(_ outcome: String) async throws {
+    let input = try BulkDeletionScenarioInput.make(outcome: outcome)
+    let state = HistoryBulkDeleteFixtureState()
+    let activeReadGate = HistoryWireResponseGate()
+    defer { activeReadGate.release() }
+    let responses = BulkDeletionScenarioResponses(input: input, outcome: outcome, state: state, activeReadGate: activeReadGate)
+    let fixture = HistoryWireFixture { try responses.reply($0) }
     defer { fixture.close() }
     let (model,defaults,name) = fixture.model(); defer { defaults.removePersistentDomain(forName:name) }
     let history = model.sessionHistory
@@ -7127,33 +7221,9 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     // Fence it without ending the active Session; retain the strict read count.
     model.stopSessionBroadcast()
     defer { model.markInactiveSession() }
-    await history.prepare(); await history.loadSessions(); await history.loadTimeline(archive.id)
-    let preparedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
-    while history.timelines[active.id]?.loading == true,
-          ContinuousClock.now < preparedDeadline { try await Task.sleep(for: .milliseconds(1)) }
-    #expect(history.timelines[active.id]?.loading != true)
-    let previousActiveReads = fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count
-    state.armRead()
-    // Profile-history preparation may already own this read. A second caller
-    // must not start another request or mistake its busy result for completion.
-    let activeRead = Task { @MainActor in await history.loadTimeline(active.id) }
-    let startedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
-    while fixture.requests.filter({ $0.url!.path.hasSuffix("/active-preserved") }).count == previousActiveReads,
-          ContinuousClock.now < startedDeadline { try await Task.sleep(for: .milliseconds(1)) }
-    #expect(history.timelines[active.id]?.loading == true)
-    #expect(await history.loadTimeline(active.id) == false)
-    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count == previousActiveReads + 1)
-    activeReadGate.release()
-    _ = await activeRead.value // May be the coalesced caller, not the read owner.
-    let loadedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
-    while history.timelines[active.id]?.loading == true,
-          ContinuousClock.now < loadedDeadline { try await Task.sleep(for: .milliseconds(1)) }
-    let loaded = try #require(history.timelines[active.id])
-    #expect(!loaded.loading && loaded.errorKey == nil)
-    #expect(loaded.session?.id == active.id && loaded.revision == activeRevision)
-    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count == previousActiveReads + 1)
+    try await observeBulkDeletionActiveRead(input, fixture: fixture, history: history, state: state, activeReadGate: activeReadGate)
     let activeBefore = model.activeDJSession
-    let liveBefore = history.timelines[active.id]
+    let liveBefore = history.timelines[input.activeID]
     let epoch = history.responseEpoch
     let archiveEpoch = history.archiveResponseEpoch
     let snapshot = await history.prepareBulkDeletion(expectedEpoch:epoch)
@@ -7166,23 +7236,11 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
         history.reset()
     }
     let success = await operation.value
-    #expect(success == (outcome == "ok"))
-    #expect(!history.bulkDeletionBusy)
-    if ["ok", "conflict"].contains(outcome) { #expect(!history.hasUnconfirmedDeletion) }
-    if ["failure", "network", "owner", "count", "snapshot"].contains(outcome) { #expect(history.hasUnconfirmedDeletion) }
+    verifyBulkDeletionResultFlags(success, outcome: outcome, history: history)
     if outcome == "ok" {
-        for _ in 0..<200 where !history.sessions.contains(where: { $0.id == "after-snapshot" }) { try await Task.sleep(for:.milliseconds(2)) }
-        #expect(history.sessions.map(\.id) == ["after-snapshot"])
-        #expect(history.timelines[archive.id] == nil)
-        #expect(history.historicalMatches.values.flatMap { $0 }.allSatisfy { $0.sessionID == active.id })
-        #expect(history.archiveResponseEpoch != archiveEpoch)
-        #expect(history.responseEpoch == epoch) // Active grants and pending intents keep their authority.
-        if history.timelines[active.id] != liveBefore {
-            let after = history.timelines[active.id]
-            print("BULK_ACTIVE_DIAGNOSTIC loading=\(String(describing: liveBefore?.loading))->\(String(describing: after?.loading)) entries=\(liveBefore?.entries.count ?? -1)->\(after?.entries.count ?? -1) revision=\(String(describing: liveBefore?.revision))->\(String(describing: after?.revision)) windowed=\(String(describing: liveBefore?.windowed))->\(String(describing: after?.windowed)) headerEqual=\(liveBefore?.session == after?.session) cursorEqual=\(liveBefore?.nextCursor == after?.nextCursor) errorEqual=\(liveBefore?.errorKey == after?.errorKey)")
-        }
-        #expect(model.activeDJSession == activeBefore && history.timelines[active.id] == liveBefore)
-    } else if outcome != "epoch" { #expect(history.timelines[archive.id] != nil) }
+        try await verifyConfirmedBulkDeletion(input, model: model, history: history,
+            activeBefore: activeBefore, liveBefore: liveBefore, epoch: epoch, archiveEpoch: archiveEpoch)
+    } else if outcome != "epoch" { #expect(history.timelines[input.archiveID] != nil) }
     let posts = fixture.requests.filter { $0.url!.path.hasSuffix("/delete_all") }
     #expect(posts.count == (outcome == "zero" ? 0 : 1))
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/end") || $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/session/history/delete") })
@@ -7784,120 +7842,164 @@ private final class ForecastWireDataSlot: @unchecked Sendable {
     func replace(_ next: Data) { lock.withLock { value = next } }
 }
 
-// Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
-@Test(.isolatedClientResources, arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction", "context-read-replacement", "transport-recovery", "disconnect-during-read", "sequenced-event-withdrawal", "sequenced-snapshot-withdrawal", "sequenced-withdrawal-equal-read"]) @MainActor
-func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: String) async throws {
-    let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-    let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
-    var response = try #require(rows.first?["owner_read"] as? [String: Any])
-    var projection = try #require(response["forecast"] as? [String: Any])
-    var runtimeBody = try #require(JSONSerialization.jsonObject(with: activePersonaRuntimeWire()) as? [String: Any])
-    var runtime = try #require(runtimeBody["session"] as? [String: Any])
-    let id = try #require(runtime["session_id"] as? String)
-    projection["session_id"] = id; response["session_id"] = id
-    projection["issued_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1))
-    let nativeExpiryProbe = fence == "current" && ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_EXPIRY_DIR"] != nil
-    projection["valid_until"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(nativeExpiryProbe ? 6 : 90))
-    projection["imagery"] = [] // Byte transport is qualified separately; no fabricated photo in this test.
-    response["forecast"] = projection
-    var forecastReply = try historyData(response)
-    let anchor = try #require(projection["current_anchor"] as? [String: Any])
-    var broadcast = try #require(runtime["broadcast"] as? [String: Any])
-    broadcast["playback"] = ["state": "playing", "item_id": anchor["item_id"]!, "source_url": anchor["source_url"]!]
-    runtime["broadcast"] = broadcast; runtimeBody["session"] = runtime
-    var runtimeReply = try historyData(runtimeBody)
-    let history = try historyData(try #require(historyObject()["later_historical_answer"]))
-    let capability: [String: Any] = ["available": true, "version": 1,
-        "path": "/api/djconnect/v1/session/forecast/{session_id}", "method": "GET",
-        "authentication": "paired_device_bearer", "scope": "active_device_bound_owner_session",
-        "live_field": "session_forecast", "live_event": "forecast_changed", "nominal_window_seconds": 900,
-        "history": false, "emitted_imagery_roles": ["current"], "qualified_upcoming_media": false]
-    let populatedFlowProbe = fence == "current" && ProcessInfo.processInfo.environment["DJCONNECT_POPULATED_FLOW_DIR"] != nil
+private struct ForecastScenarioInput {
+    let id: String
+    let response: [String: Any]
+    let projection: [String: Any]
+    let runtimeReply: Data
+    let forecastReply: Data
+    let originalRuntimeReply: Data
+    let originalForecastReply: Data
+    let caps: Data
+    let history: Data
     let populatedFlowReply: Data?
     let populatedFlowPageReply: Data?
-    if populatedFlowProbe {
-        let producer = try historyObject("retention-bases-v2")
-        let tail = try #require(producer["tail_window"] as? [String: Any])
-        let producerSession = try #require((tail["session"] as? [String: Any])?["session_id"] as? String)
-        // Preserve authored rows, retention bases and window metadata. Only bind
-        // this qualified synthetic response to the current test runtime identity.
-        func rebind(_ value: Any) -> Any {
-            if let text = value as? String, text == producerSession { return id }
-            if let object = value as? [String: Any] { return object.mapValues(rebind) }
-            if let array = value as? [Any] { return array.map(rebind) }
-            return value
+    let populatedFlowProbe: Bool
+    let nativeExpiryProbe: Bool
+    let keyboardProbe: Bool
+
+    static func make(fence: String) throws -> Self {
+        let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
+        var response = try #require(rows.first?["owner_read"] as? [String: Any])
+        var projection = try #require(response["forecast"] as? [String: Any])
+        var runtimeBody = try #require(JSONSerialization.jsonObject(with: activePersonaRuntimeWire()) as? [String: Any])
+        var runtime = try #require(runtimeBody["session"] as? [String: Any])
+        let id = try #require(runtime["session_id"] as? String)
+        projection["session_id"] = id; response["session_id"] = id
+        projection["issued_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1))
+        let nativeExpiryProbe = fence == "current" && ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_EXPIRY_DIR"] != nil
+        projection["valid_until"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(nativeExpiryProbe ? 6 : 90))
+        projection["imagery"] = [] // Byte transport is qualified separately; no fabricated photo in this test.
+        response["forecast"] = projection
+        var forecastReply = try historyData(response)
+        let anchor = try #require(projection["current_anchor"] as? [String: Any])
+        var broadcast = try #require(runtime["broadcast"] as? [String: Any])
+        broadcast["playback"] = ["state": "playing", "item_id": anchor["item_id"]!, "source_url": anchor["source_url"]!]
+        runtime["broadcast"] = broadcast; runtimeBody["session"] = runtime
+        var runtimeReply = try historyData(runtimeBody)
+        let history = try historyData(try #require(historyObject()["later_historical_answer"]))
+        let capability: [String: Any] = ["available": true, "version": 1,
+            "path": "/api/djconnect/v1/session/forecast/{session_id}", "method": "GET",
+            "authentication": "paired_device_bearer", "scope": "active_device_bound_owner_session",
+            "live_field": "session_forecast", "live_event": "forecast_changed", "nominal_window_seconds": 900,
+            "history": false, "emitted_imagery_roles": ["current"], "qualified_upcoming_media": false]
+        let populatedFlowProbe = fence == "current" && ProcessInfo.processInfo.environment["DJCONNECT_POPULATED_FLOW_DIR"] != nil
+        let populatedFlowReply: Data?
+        let populatedFlowPageReply: Data?
+        (populatedFlowReply, populatedFlowPageReply) = try populatedFlowReplies(id: id, enabled: populatedFlowProbe)
+        let keyboardProbe = fence == "current" && ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_KEYBOARD_DIR"] != nil
+        var historyVersions = ["session_conversation_history": 1, "session_forecast": 1, "session_flow_text_search": 1]
+        if populatedFlowProbe { historyVersions["session_history_entries"] = 2 }
+        let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_forecast": true,
+            "session_flow_text_search": keyboardProbe],
+            "contract_versions": historyVersions, "session_forecast": capability])
+        let originalRuntimeReply = runtimeReply
+        let originalForecastReply = forecastReply
+        runtimeReply = try changedRuntime(fence: fence, runtime: runtime, runtimeBody: runtimeBody)
+        if fence == "context-older" {
+            projection["revision"] = max(0, (projection["revision"] as? Int ?? 1) - 1)
+            response["forecast"] = projection; forecastReply = try historyData(response)
         }
-        let rebound = try #require(rebind(tail) as? [String: Any])
-        populatedFlowReply = try historyData(rebound)
-        // The screen also prefetches an ordinary page. Derive only its envelope
-        // from the same six admitted rows; do not fabricate additional entries.
-        var ordinary = rebound
-        for key in ["window", "anchor_entry_id", "window_limit", "scanned_order_min", "scanned_order_max", "scan_complete"] {
-            ordinary.removeValue(forKey: key)
+        return Self(id: id, response: response, projection: projection, runtimeReply: runtimeReply, forecastReply: forecastReply, originalRuntimeReply: originalRuntimeReply, originalForecastReply: originalForecastReply, caps: caps, history: history, populatedFlowReply: populatedFlowReply, populatedFlowPageReply: populatedFlowPageReply, populatedFlowProbe: populatedFlowProbe, nativeExpiryProbe: nativeExpiryProbe, keyboardProbe: keyboardProbe)
+    }
+
+    private static func populatedFlowReplies(id: String, enabled populatedFlowProbe: Bool) throws -> (Data?, Data?) {
+        let populatedFlowReply: Data?, populatedFlowPageReply: Data?
+        if populatedFlowProbe {
+            let producer = try historyObject("retention-bases-v2")
+            let tail = try #require(producer["tail_window"] as? [String: Any])
+            let producerSession = try #require((tail["session"] as? [String: Any])?["session_id"] as? String)
+            // Preserve authored rows, retention bases and window metadata. Only bind
+            // this qualified synthetic response to the current test runtime identity.
+            func rebind(_ value: Any) -> Any {
+                if let text = value as? String, text == producerSession { return id }
+                if let object = value as? [String: Any] { return object.mapValues(rebind) }
+                if let array = value as? [Any] { return array.map(rebind) }
+                return value
+            }
+            let rebound = try #require(rebind(tail) as? [String: Any])
+            populatedFlowReply = try historyData(rebound)
+            // The screen also prefetches an ordinary page. Derive only its envelope
+            // from the same six admitted rows; do not fabricate additional entries.
+            var ordinary = rebound
+            for key in ["window", "anchor_entry_id", "window_limit", "scanned_order_min", "scanned_order_max", "scan_complete"] {
+                ordinary.removeValue(forKey: key)
+            }
+            populatedFlowPageReply = try historyData(ordinary)
+        } else { populatedFlowReply = nil; populatedFlowPageReply = nil }
+        return (populatedFlowReply, populatedFlowPageReply)
+    }
+
+    private static func changedRuntime(fence: String, runtime: [String: Any], runtimeBody originalBody: [String: Any]) throws -> Data {
+        var runtimeBody = originalBody
+        var changed = runtime
+        var live = try #require(changed["broadcast"] as? [String: Any])
+        var tuple = try #require(live["session"] as? [String: Any])
+        if fence == "context-locale" || fence == "context-read-replacement" {
+            tuple["locale"] = "fr"
+        } else if fence == "context-direction" {
+            var planner = try #require(live["planner"] as? [String: Any])
+            planner["current_direction"] = "building_energy"
+            var direction = try #require(planner["session_direction"] as? [String: Any])
+            direction["direction"] = "building_energy"
+            planner["session_direction"] = direction
+            live["planner"] = planner
+        } else if fence == "persona-conflict" {
+            tuple["dj_persona"] = "club_dj" // Contradicts retained home_dj at revision0.
+        } else {
+            changed["selected_mood"] = "changed-context"; changed["mood_revision"] = 1
+            tuple["selected_mood"] = "changed-context"; tuple["mood_revision"] = 1
         }
-        populatedFlowPageReply = try historyData(ordinary)
-    } else { populatedFlowReply = nil; populatedFlowPageReply = nil }
-    let keyboardProbe = fence == "current" && ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_KEYBOARD_DIR"] != nil
-    var historyVersions = ["session_conversation_history": 1, "session_forecast": 1, "session_flow_text_search": 1]
-    if populatedFlowProbe { historyVersions["session_history_entries"] = 2 }
-    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_forecast": true,
-        "session_flow_text_search": keyboardProbe],
-        "contract_versions": historyVersions, "session_forecast": capability])
-    let originalRuntimeReply = runtimeReply
-    let originalForecastReply = forecastReply
-    var changed = runtime
-    var live = try #require(changed["broadcast"] as? [String: Any])
-    var tuple = try #require(live["session"] as? [String: Any])
-    if fence == "context-locale" || fence == "context-read-replacement" {
-        tuple["locale"] = "fr"
-    } else if fence == "context-direction" {
-        var planner = try #require(live["planner"] as? [String: Any])
-        planner["current_direction"] = "building_energy"
-        var direction = try #require(planner["session_direction"] as? [String: Any])
-        direction["direction"] = "building_energy"
-        planner["session_direction"] = direction
-        live["planner"] = planner
-    } else if fence == "persona-conflict" {
-        tuple["dj_persona"] = "club_dj" // Contradicts retained home_dj at revision0.
-    } else {
-        changed["selected_mood"] = "changed-context"; changed["mood_revision"] = 1
-        tuple["selected_mood"] = "changed-context"; tuple["mood_revision"] = 1
+        live["session"] = tuple; changed["broadcast"] = live
+        runtimeBody["session"] = changed; return try historyData(runtimeBody)
     }
-    live["session"] = tuple; changed["broadcast"] = live
-    runtimeBody["session"] = changed; runtimeReply = try historyData(runtimeBody)
-    if fence == "context-older" {
-        projection["revision"] = max(0, (projection["revision"] as? Int ?? 1) - 1)
-        response["forecast"] = projection; forecastReply = try historyData(response)
-    }
-    let runtimeReplies = ForecastWireDataSlot(originalRuntimeReply)
-    let forecastReplies = ForecastWireDataSlot(originalForecastReply)
-    let gate = HistoryWireResponseGate()
-    defer { gate.release() }
-    let fixture = HistoryWireFixture { request in
+}
+
+private struct ForecastScenarioResponses: Sendable {
+    let id: String
+    let fence: String
+    let caps: Data
+    let history: Data
+    let populatedFlowReply: Data?
+    let populatedFlowPageReply: Data?
+    let runtimeReplies: ForecastWireDataSlot
+    let forecastReplies: ForecastWireDataSlot
+    let gate: HistoryWireResponseGate
+
+    func reply(_ request: URLRequest) throws -> (Int, Data, TimeInterval) {
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200, caps, 0) }
         if path.hasSuffix("/session/active") { return (200, runtimeReplies.read(), 0) }
-        if path.hasSuffix("/session/forecast/" + id) {
-            let reply = forecastReplies.read()
-            if ["context-read-replacement", "disconnect-during-read"].contains(fence), forecastReplies.isFirstRead() {
-                throw HistoryWireHeldResponse(data: reply, gate: gate)
-            }
-            if ["background", "owner-reset", "unsequenced-live-during-read", "sequenced-event-withdrawal", "sequenced-snapshot-withdrawal"].contains(fence) { throw HistoryWireHeldResponse(data: reply, gate: gate) }
-            return (200, reply, 0)
-        }
+        if path.hasSuffix("/session/forecast/" + id) { return try forecastResponse() }
         if path.hasSuffix("/session/history/" + id), let populatedFlowReply, let populatedFlowPageReply {
-            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
-            guard request.httpMethod == "GET", query.contains(URLQueryItem(name: "limit", value: "20")),
-                  query.contains(URLQueryItem(name: "history_contract_version", value: "2")) else { return (400, Data(), 0) }
-            if query.contains(URLQueryItem(name: "window", value: "tail")) { return (200, populatedFlowReply, 0) }
-            if !query.contains(where: { $0.name == "window" || $0.name == "cursor" }) { return (200, populatedFlowPageReply, 0) }
-            return (404, Data(), 0)
+            return historyResponse(request, populatedFlowReply: populatedFlowReply, populatedFlowPageReply: populatedFlowPageReply)
         }
         if path.hasSuffix("/ask_dj/history") { return (200, history, 0) }
         return (404, Data(), 0)
     }
-    defer { fixture.close() }
-    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+
+    private func forecastResponse() throws -> (Int, Data, TimeInterval) {
+        let reply = forecastReplies.read()
+        if ["context-read-replacement", "disconnect-during-read"].contains(fence), forecastReplies.isFirstRead() {
+            throw HistoryWireHeldResponse(data: reply, gate: gate)
+        }
+        if ["background", "owner-reset", "unsequenced-live-during-read", "sequenced-event-withdrawal", "sequenced-snapshot-withdrawal"].contains(fence) { throw HistoryWireHeldResponse(data: reply, gate: gate) }
+        return (200, reply, 0)
+    }
+
+    private func historyResponse(_ request: URLRequest, populatedFlowReply: Data, populatedFlowPageReply: Data) -> (Int, Data, TimeInterval) {
+        let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        guard request.httpMethod == "GET", query.contains(URLQueryItem(name: "limit", value: "20")),
+              query.contains(URLQueryItem(name: "history_contract_version", value: "2")) else { return (400, Data(), 0) }
+        if query.contains(URLQueryItem(name: "window", value: "tail")) { return (200, populatedFlowReply, 0) }
+        if !query.contains(where: { $0.name == "window" || $0.name == "cursor" }) { return (200, populatedFlowPageReply, 0) }
+        return (404, Data(), 0)
+    }
+}
+
+@MainActor private func beginForecastOwnerRead(model: DJConnectAppModel, fixture: HistoryWireFixture,
+    fence: String, id: String, populatedFlowProbe: Bool) async throws -> Task<Void, Never> {
     let panel = SessionForecastContent(model: model)
     let beforeOwner = panel.contextKey
     await model.sessionHistory.prepare()
@@ -7920,64 +8022,59 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         try await Task.sleep(for: .milliseconds(10))
     }
     #expect(fixture.requests.contains { $0.url?.path.hasSuffix("/session/forecast/" + id) == true })
-    if fence == "sequenced-event-withdrawal" || fence == "sequenced-snapshot-withdrawal" {
-        let watermark = model.activeDJSession?.broadcast.delivery?.snapshotWatermark ?? 0
-        let originalAuthority = model.forecastAuthorityGeneration
-        if fence == "sequenced-event-withdrawal" {
-            var event = DJConnectSessionBroadcastEvent(eventType: "forecast_changed", sessionID: id, payload: .init())
-            event.deliverySequence = watermark + 1
-            model.applySessionBroadcastEvent(event)
-        } else {
-            var snapshot = try #require(model.activeDJSession).broadcast
-            snapshot.delivery = .init(snapshotWatermark: watermark + 1)
-            snapshot.sessionForecast = nil
-            model.applySessionBroadcastSnapshot(snapshot)
-        }
-        #expect(model.forecastAuthorityGeneration != originalAuthority)
-        gate.release(); await task.value
-        #expect(model.visibleSessionForecast(at: Date()) == nil, "A held owner read cannot undo newer live withdrawal")
-        #expect(model.askDJDraft == "Keep this unsent question")
-        #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
-        return
-    }
-    if fence == "disconnect-during-read" {
-        let snapshot = try #require(model.activeDJSession).broadcast
-        model.sessionBroadcastDidDisconnect()
+    return task
+}
+
+@MainActor private func verifySequencedForecastWithdrawal(fence: String, model: DJConnectAppModel, fixture: HistoryWireFixture, id: String, gate: HistoryWireResponseGate, task: Task<Void, Never>) async throws {
+    let watermark = model.activeDJSession?.broadcast.delivery?.snapshotWatermark ?? 0
+    let originalAuthority = model.forecastAuthorityGeneration
+    if fence == "sequenced-event-withdrawal" {
+        var event = DJConnectSessionBroadcastEvent(eventType: "forecast_changed", sessionID: id, payload: .init())
+        event.deliverySequence = watermark + 1
+        model.applySessionBroadcastEvent(event)
+    } else {
+        var snapshot = try #require(model.activeDJSession).broadcast
+        snapshot.delivery = .init(snapshotWatermark: watermark + 1)
+        snapshot.sessionForecast = nil
         model.applySessionBroadcastSnapshot(snapshot)
-        await model.refreshSessionForecast()
-        #expect(fixture.requests.filter { $0.url?.path.hasSuffix("/session/forecast/" + id) == true }.count == 2)
-        #expect(model.visibleSessionForecast(at: Date()) != nil)
-        gate.release(); await task.value
-        #expect(model.visibleSessionForecast(at: Date()) != nil)
-        #expect(model.askDJDraft == "Keep this unsent question")
-        #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
-        return
     }
-    if fence == "context-read-replacement" {
-        runtimeReplies.replace(runtimeReply)
-        projection["revision"] = (projection["revision"] as? Int ?? 0) + 1
-        response["forecast"] = projection
-        forecastReplies.replace(try historyData(response))
-        let latest = try await fixture.client().activeSession()
-        model.applySessionBroadcastSnapshot(try #require(latest.resolvedSession).personaSafeBroadcast)
-        await model.refreshSessionForecast()
-        #expect(fixture.requests.filter { $0.url?.path.hasSuffix("/session/forecast/" + id) == true }.count == 2)
-        #expect(model.visibleSessionForecast(at: Date())?.revision == projection["revision"] as? Int)
-        gate.release(); await task.value
-        #expect(model.visibleSessionForecast(at: Date())?.revision == projection["revision"] as? Int)
-        #expect(model.askDJDraft == "Keep this unsent question")
-        #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
-        return
-    }
-    if fence == "background" { model.markInactiveSession(); gate.release() }
-    if fence == "owner-reset" { model.sessionHistory.reset(); gate.release() }
-    if fence == "unsequenced-live-during-read" {
-        model.applySessionBroadcastEvent(.init(eventType: "playback_updated", sessionID: id, payload: .init()))
-        gate.release()
-    }
-    await task.value
+    #expect(model.forecastAuthorityGeneration != originalAuthority)
+    gate.release(); await task.value
+    #expect(model.visibleSessionForecast(at: Date()) == nil, "A held owner read cannot undo newer live withdrawal")
     #expect(model.askDJDraft == "Keep this unsent question")
-    #expect((model.visibleSessionForecast(at: Date()) == nil) == ["background", "owner-reset", "unsequenced-live-during-read"].contains(fence))
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@MainActor private func verifyDisconnectedForecastRead(model: DJConnectAppModel, fixture: HistoryWireFixture, id: String, gate: HistoryWireResponseGate, task: Task<Void, Never>) async throws {
+    let snapshot = try #require(model.activeDJSession).broadcast
+    model.sessionBroadcastDidDisconnect()
+    model.applySessionBroadcastSnapshot(snapshot)
+    await model.refreshSessionForecast()
+    #expect(fixture.requests.filter { $0.url?.path.hasSuffix("/session/forecast/" + id) == true }.count == 2)
+    #expect(model.visibleSessionForecast(at: Date()) != nil)
+    gate.release(); await task.value
+    #expect(model.visibleSessionForecast(at: Date()) != nil)
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@MainActor private func verifyReplacementForecastRead(model: DJConnectAppModel, fixture: HistoryWireFixture, id: String, gate: HistoryWireResponseGate, task: Task<Void, Never>, runtimeReplies: ForecastWireDataSlot, forecastReplies: ForecastWireDataSlot, runtimeReply: Data, projection: inout [String: Any], response: inout [String: Any]) async throws {
+    runtimeReplies.replace(runtimeReply)
+    projection["revision"] = (projection["revision"] as? Int ?? 0) + 1
+    response["forecast"] = projection
+    forecastReplies.replace(try historyData(response))
+    let latest = try await fixture.client().activeSession()
+    model.applySessionBroadcastSnapshot(try #require(latest.resolvedSession).personaSafeBroadcast)
+    await model.refreshSessionForecast()
+    #expect(fixture.requests.filter { $0.url?.path.hasSuffix("/session/forecast/" + id) == true }.count == 2)
+    #expect(model.visibleSessionForecast(at: Date())?.revision == projection["revision"] as? Int)
+    gate.release(); await task.value
+    #expect(model.visibleSessionForecast(at: Date())?.revision == projection["revision"] as? Int)
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@MainActor private func verifyAcceptedForecastFences(model: DJConnectAppModel, fence: String, id: String) async throws {
     if fence == "sequenced-withdrawal-equal-read" {
         let floor = try #require(model.forecastCursor?.revisionFloor)
         let watermark = model.activeDJSession?.broadcast.delivery?.snapshotWatermark ?? 0
@@ -8006,6 +8103,12 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         #expect(model.visibleSessionForecast(at: Date()) == nil)
         #expect(model.askDJDraft == "Keep this unsent question")
     }
+}
+
+@MainActor private func verifyForecastContextReplacement(model: DJConnectAppModel, fixture: HistoryWireFixture,
+    fence: String, id: String, runtimeReplies: ForecastWireDataSlot, forecastReplies: ForecastWireDataSlot,
+    runtimeReply: Data, forecastReply: Data, originalForecastReply: Data,
+    projection: inout [String: Any], response: inout [String: Any]) async throws {
     if fence.hasPrefix("context-") || fence == "persona-conflict" {
         runtimeReplies.replace(runtimeReply)
         let latest = try await fixture.client().activeSession()
@@ -8025,7 +8128,10 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         }
         #expect(model.askDJDraft == "Keep this unsent question")
     }
-    #if os(macOS)
+}
+
+#if os(macOS)
+@MainActor private func qualifyForecastScenarioPresentation(model: DJConnectAppModel, fence: String, keyboardProbe: Bool) async throws {
     if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_NATIVE_DIR"] {
         try await qualifyForecastNativeSwitch(model: model, directory: directory)
     }
@@ -8038,6 +8144,10 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_ACCESSIBILITY_DIR"] {
         try await recordForecastNativeAccessibility(model: model, directory: directory)
     }
+}
+
+@MainActor private func qualifyForecastScenarioLifetimes(model: DJConnectAppModel, fixture: HistoryWireFixture,
+    fence: String, nativeExpiryProbe: Bool, populatedFlowProbe: Bool) async throws {
     if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_WITHDRAWAL_DIR"] {
         try await qualifyForecastNativeWithdrawal(model: model, directory: directory,
             readCount: { fixture.requests.filter { $0.url!.path.contains("/session/forecast/") }.count })
@@ -8049,6 +8159,60 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     if populatedFlowProbe, let directory = ProcessInfo.processInfo.environment["DJCONNECT_POPULATED_FLOW_DIR"] {
         try await recordPopulatedFlowNativePosition(model: model, directory: directory)
     }
+}
+#endif
+
+// Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
+@Test(.isolatedClientResources, arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction", "context-read-replacement", "transport-recovery", "disconnect-during-read", "sequenced-event-withdrawal", "sequenced-snapshot-withdrawal", "sequenced-withdrawal-equal-read"]) @MainActor
+func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: String) async throws {
+    let input = try ForecastScenarioInput.make(fence: fence)
+    let id = input.id
+    var projection = input.projection, response = input.response
+    let runtimeReply = input.runtimeReply, forecastReply = input.forecastReply
+    let originalForecastReply = input.originalForecastReply
+    let runtimeReplies = ForecastWireDataSlot(input.originalRuntimeReply)
+    let forecastReplies = ForecastWireDataSlot(input.originalForecastReply)
+    let gate = HistoryWireResponseGate()
+    defer { gate.release() }
+    let replies = ForecastScenarioResponses(id: id, fence: fence, caps: input.caps, history: input.history,
+        populatedFlowReply: input.populatedFlowReply, populatedFlowPageReply: input.populatedFlowPageReply,
+        runtimeReplies: runtimeReplies, forecastReplies: forecastReplies, gate: gate)
+    let fixture = HistoryWireFixture { try replies.reply($0) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let task = try await beginForecastOwnerRead(model: model, fixture: fixture, fence: fence,
+        id: id, populatedFlowProbe: input.populatedFlowProbe)
+    if fence == "sequenced-event-withdrawal" || fence == "sequenced-snapshot-withdrawal" {
+        try await verifySequencedForecastWithdrawal(fence: fence, model: model, fixture: fixture, id: id, gate: gate, task: task)
+        return
+    }
+    if fence == "disconnect-during-read" {
+        try await verifyDisconnectedForecastRead(model: model, fixture: fixture, id: id, gate: gate, task: task)
+        return
+    }
+    if fence == "context-read-replacement" {
+        try await verifyReplacementForecastRead(model: model, fixture: fixture, id: id, gate: gate, task: task,
+            runtimeReplies: runtimeReplies, forecastReplies: forecastReplies, runtimeReply: runtimeReply,
+            projection: &projection, response: &response)
+        return
+    }
+    if fence == "background" { model.markInactiveSession(); gate.release() }
+    if fence == "owner-reset" { model.sessionHistory.reset(); gate.release() }
+    if fence == "unsequenced-live-during-read" {
+        model.applySessionBroadcastEvent(.init(eventType: "playback_updated", sessionID: id, payload: .init()))
+        gate.release()
+    }
+    await task.value
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect((model.visibleSessionForecast(at: Date()) == nil) == ["background", "owner-reset", "unsequenced-live-during-read"].contains(fence))
+    try await verifyAcceptedForecastFences(model: model, fence: fence, id: id)
+    try await verifyForecastContextReplacement(model: model, fixture: fixture, fence: fence, id: id,
+        runtimeReplies: runtimeReplies, forecastReplies: forecastReplies, runtimeReply: runtimeReply,
+        forecastReply: forecastReply, originalForecastReply: originalForecastReply, projection: &projection, response: &response)
+    #if os(macOS)
+    try await qualifyForecastScenarioPresentation(model: model, fence: fence, keyboardProbe: input.keyboardProbe)
+    try await qualifyForecastScenarioLifetimes(model: model, fixture: fixture, fence: fence,
+        nativeExpiryProbe: input.nativeExpiryProbe, populatedFlowProbe: input.populatedFlowProbe)
     #endif
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
 }
@@ -10187,49 +10351,73 @@ private final class StartupReadFailure: @unchecked Sendable {
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/command") })
 }
 
-@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss", "server_refresh", "manual_refresh", "output_expiry", "output_replacement", "terminal", "dismiss_expired", "dismiss_without_context", "output_expired_refresh", "unknown_expired_refresh", "output_uncertain_expired_refresh", "output_attempted_expired_refresh"])
-@MainActor func forYouUsesOriginalOfferWithoutPlaybackOrAutomaticRenewal(_ scenario: String) async throws {
-    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-    let fixtureEnvelope = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-v1.json"))) as? [String: Any])
-    var offer = try #require(fixtureEnvelope["for_you"] as? [String: Any])
-    let receipt = try historyObject(), old = try startupFixtureObject()
-    let sessionID = try #require(receipt["session_id"] as? String)
-    let context: [String: Any] = ["session_id": sessionID, "thread_id": "for-you-" + sessionID]
-    offer["session_id"] = sessionID; offer["conversation_context"] = context
-    var timelineObject = try #require(receipt["archived_timeline"] as? [String: Any])
-    timelineObject["window"] = "tail"; timelineObject["window_limit"] = 20; timelineObject["scan_complete"] = true
-    let orders = (timelineObject["entries"] as? [[String: Any]] ?? []).compactMap { $0["order"] as? Int }
-    timelineObject["scanned_order_min"] = orders.min(); timelineObject["scanned_order_max"] = orders.max()
-    let timeline = try historyData(timelineObject), profile = try historyData(receipt["later_historical_answer"]!)
-    var runtime = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
-    var session = runtime["session"] as! [String: Any]; session["session_id"] = sessionID
-    var broadcast = session["broadcast"] as! [String: Any]
-    var fields = broadcast["session"] as! [String: Any]; fields["session_id"] = sessionID
-    broadcast["session"] = fields; session["broadcast"] = broadcast; runtime["session"] = session
-    runtime["for_you"] = offer
-    let runtimeData = try historyData(runtime)
-    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_start_actions": true, "session_first_play_surprise_mix": true],
-        "contract_versions": ["session_conversation_history": 1, "session_start_actions": 2, "session_first_play_surprise_mix": 3]])
-    var answer = receipt["text_turn"] as! [String: Any]
-    for (key, value) in old["output"] as! [String: Any] { answer[key] = value }
-    answer["history_revision"] = 100; answer["server_time"] = ISO8601DateFormatter().string(from: Date())
-    var confirmation = answer["conversation"] as! [String: Any]; confirmation["context"] = context; confirmation["entry_ids"] = []
-    answer["conversation"] = confirmation
-    // Core publishes the same live output actions on the ordinary assistant bubble.
-    var assistant = answer["assistant_message"] as! [String: Any]
-    assistant["playback_actions"] = answer["playback_actions"]
-    answer["assistant_message"] = assistant
-    if var messages = answer["messages"] as? [[String: Any]], !messages.isEmpty {
-        messages[messages.count - 1] = assistant; answer["messages"] = messages
-    }
+private struct ForYouScenarioInput {
+    let root: URL
+    let offer: [String: Any]
+    let old: [String: Any]
+    let sessionID: String
+    let context: [String: Any]
+    let timeline: Data
+    let profile: Data
+    let runtimeData: Data
+    let caps: Data
+    let assistant: [String: Any]
+    let answerData: Data
 
-    if scenario.hasPrefix("output_") && scenario.hasSuffix("expired_refresh") {
-        var awaiting = offer
-        awaiting["state"] = "awaiting_output"; awaiting["actions_available"] = false
-        answer["for_you"] = awaiting
+    static func make(scenario: String) throws -> Self {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtureEnvelope = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-v1.json"))) as? [String: Any])
+        var offer = try #require(fixtureEnvelope["for_you"] as? [String: Any])
+        let receipt = try historyObject(), old = try startupFixtureObject()
+        let sessionID = try #require(receipt["session_id"] as? String)
+        let context: [String: Any] = ["session_id": sessionID, "thread_id": "for-you-" + sessionID]
+        offer["session_id"] = sessionID; offer["conversation_context"] = context
+        var timelineObject = try #require(receipt["archived_timeline"] as? [String: Any])
+        timelineObject["window"] = "tail"; timelineObject["window_limit"] = 20; timelineObject["scan_complete"] = true
+        let orders = (timelineObject["entries"] as? [[String: Any]] ?? []).compactMap { $0["order"] as? Int }
+        timelineObject["scanned_order_min"] = orders.min(); timelineObject["scanned_order_max"] = orders.max()
+        let timeline = try historyData(timelineObject), profile = try historyData(receipt["later_historical_answer"]!)
+        var runtime = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+        var session = runtime["session"] as! [String: Any]; session["session_id"] = sessionID
+        var broadcast = session["broadcast"] as! [String: Any]
+        var fields = broadcast["session"] as! [String: Any]; fields["session_id"] = sessionID
+        broadcast["session"] = fields; session["broadcast"] = broadcast; runtime["session"] = session
+        runtime["for_you"] = offer
+        let runtimeData = try historyData(runtime)
+        let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_start_actions": true, "session_first_play_surprise_mix": true],
+            "contract_versions": ["session_conversation_history": 1, "session_start_actions": 2, "session_first_play_surprise_mix": 3]])
+        var answer = receipt["text_turn"] as! [String: Any]
+        for (key, value) in old["output"] as! [String: Any] { answer[key] = value }
+        answer["history_revision"] = 100; answer["server_time"] = ISO8601DateFormatter().string(from: Date())
+        var confirmation = answer["conversation"] as! [String: Any]; confirmation["context"] = context; confirmation["entry_ids"] = []
+        answer["conversation"] = confirmation
+        // Core publishes the same live output actions on the ordinary assistant bubble.
+        var assistant = answer["assistant_message"] as! [String: Any]
+        assistant["playback_actions"] = answer["playback_actions"]
+        answer["assistant_message"] = assistant
+        if var messages = answer["messages"] as? [[String: Any]], !messages.isEmpty {
+            messages[messages.count - 1] = assistant; answer["messages"] = messages
+        }
+
+        if scenario.hasPrefix("output_") && scenario.hasSuffix("expired_refresh") {
+            var awaiting = offer
+            awaiting["state"] = "awaiting_output"; awaiting["actions_available"] = false
+            answer["for_you"] = awaiting
+        }
+        let answerData = try historyData(answer)
+        return Self(root: root, offer: offer, old: old, sessionID: sessionID, context: context, timeline: timeline, profile: profile, runtimeData: runtimeData, caps: caps, assistant: assistant, answerData: answerData)
     }
-    let answerData = try historyData(answer)
-    let fixture = HistoryWireFixture { request in
+}
+
+private struct ForYouScenarioResponses: Sendable {
+    let scenario: String
+    let caps: Data
+    let runtimeData: Data
+    let answerData: Data
+    let timeline: Data
+    let profile: Data
+
+    func reply(_ request: URLRequest) throws -> (Int, Data, TimeInterval) {
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200, caps, 0) }
         if path.hasSuffix("/session/active") { return (200, runtimeData, 0) }
@@ -10243,20 +10431,29 @@ private final class StartupReadFailure: @unchecked Sendable {
         if path.contains("/session/history") { return (200, timeline, 0) }
         return (200, profile, 0)
     }
-    defer { fixture.close() }
-    let (model, defaults, name) = fixture.model()
-    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
-    await model.sessionHistory.prepare(); await model.refreshActiveDJSession(); model.isConnected = true
-    model.language = "nl"; model.askDJDraft = "Mijn concept"
-    model.playback = .init(hasPlayback: true, isPlaying: true, trackName: "Already playing")
-    let projection = model.sessionForYou
-    await projection.refresh()
-    #expect(projection.offer?.options.count == 3 && projection.canChoose)
-    #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
-    let option = try #require(projection.offer?.options.first)
-    // A terminal Core projection closes the card even when its visible flag lags.
-    // Unavailable/unknown and unrelated playback must leave the choice unresolved.
-    if scenario == "terminal" {
+}
+
+@MainActor private struct ForYouScenarioChecks {
+    let input: ForYouScenarioInput
+    let scenario: String
+    let model: DJConnectAppModel
+    let fixture: HistoryWireFixture
+    let projection: SessionForYouModel
+    let option: DJConnectForYou.Option
+
+    func exerciseProjectionOnlyScenario() async throws -> Bool {
+        switch scenario {
+        case "terminal": try verifyTerminal(); return true
+        case "server_refresh", "manual_refresh": try await verifyRefresh(); return true
+        case "dismiss_expired", "dismiss_without_context": try await verifyDismissal(); return true
+        case "expired": try await verifyExpiredChoice(); return true
+        case "scope": verifyChangedScope(); return true
+        default: return false
+        }
+    }
+
+    private func verifyTerminal() throws {
+        let offer = input.offer
         for state in ["unavailable", "uncertain", "attempted", "confirmed", "closed", "dismissed"] {
             var terminal = offer
             terminal["state"] = state; terminal["actions_available"] = false
@@ -10270,7 +10467,9 @@ private final class StartupReadFailure: @unchecked Sendable {
         #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
         return
     }
-    if scenario == "server_refresh" || scenario == "manual_refresh" {
+
+    private func verifyRefresh() async throws {
+        let root = input.root, sessionID = input.sessionID, context = input.context
         let data = try Data(contentsOf: root.appendingPathComponent("Fixtures/session-for-you-mood-refresh-v1.json"))
         let envelope = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let examples = envelope["examples"] as! [[String: Any]]
@@ -10305,7 +10504,9 @@ private final class StartupReadFailure: @unchecked Sendable {
         #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
         return
     }
-    if scenario == "dismiss_expired" || scenario == "dismiss_without_context" {
+
+    private func verifyDismissal() async throws {
+        let offer = input.offer
         if scenario == "dismiss_expired" { projection.now = { Date().addingTimeInterval(61) } }
         else {
             var unavailable = offer
@@ -10331,25 +10532,32 @@ private final class StartupReadFailure: @unchecked Sendable {
         }
         return
     }
-    if scenario == "expired" {
+
+    private func verifyExpiredChoice() async throws {
         projection.now = { Date().addingTimeInterval(61) }
         projection.choose(option); await projection.refresh()
         #expect(!projection.canChoose && projection.offer?.visible == true)
         #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
         return
     }
-    if scenario == "scope" {
+
+    private func verifyChangedScope() {
         model.language = "en"; projection.choose(option)
         #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
         return
     }
-    if scenario == "dismiss" { projection.dismiss() }
-    else { projection.choose(option); projection.choose(option) }
-    for _ in 0..<200 where projection.busy { try await Task.sleep(for: .milliseconds(10)) }
-    #expect(model.askDJDraft == "Mijn concept")
-    if scenario == "dismiss" { #expect(projection.offer == nil) }
-    else { #expect(projection.offer?.visible == true && !projection.canChoose) }
-    if scenario.hasSuffix("expired_refresh") {
+
+    func exerciseOriginalChoice() async throws {
+        if scenario == "dismiss" { projection.dismiss() }
+        else { projection.choose(option); projection.choose(option) }
+        for _ in 0..<200 where projection.busy { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(model.askDJDraft == "Mijn concept")
+        if scenario == "dismiss" { #expect(projection.offer == nil) }
+        else { #expect(projection.offer?.visible == true && !projection.canChoose) }
+    }
+
+    func verifyExpiredRefresh() async throws {
+        let offer = input.offer
         #expect(projection.uncertain && !projection.canRefresh)
         if scenario == "output_uncertain_expired_refresh" || scenario == "output_attempted_expired_refresh" {
             var unresolved = offer
@@ -10381,7 +10589,10 @@ private final class StartupReadFailure: @unchecked Sendable {
         }
         return
     }
-    if ["output", "output_expiry", "output_replacement"].contains(scenario) {
+
+    func verifyOutputContinuation() async throws -> Bool {
+        let old = input.old, offer = input.offer, context = input.context
+        let timeline = input.timeline, assistant = input.assistant, sessionID = input.sessionID
         let result = try JSONDecoder().decode(DJConnectResultSet.self, from: historyData((old["output"] as! [String: Any])["result_set"]!))
         let speaker = try #require(result.admittedPlaybackActions.first)
         #expect(projection.outputChoices.contains(speaker))
@@ -10410,7 +10621,7 @@ private final class StartupReadFailure: @unchecked Sendable {
             #expect(projection.outputChoices.isEmpty && projection.canChoose)
             #expect(projection.handleOutput(speaker)) // The retired original bubble cannot use the legacy player.
             #expect(fixture.requests.filter { $0.httpMethod == "POST" }.count == 1)
-            return
+            return true
         }
         if scenario == "output_expiry" {
             var wall = Date(), mono = ContinuousClock.now
@@ -10421,7 +10632,7 @@ private final class StartupReadFailure: @unchecked Sendable {
             #expect(projection.outputChoices.isEmpty)
             #expect(projection.handleOutput(speaker))
             #expect(fixture.requests.filter { $0.httpMethod == "POST" }.count == 1)
-            return
+            return true
         }
         let originalEntries = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timeline).entries
         let replyEntry = try #require(originalEntries.first { $0.originMessageID == assistant["id"] as? String })
@@ -10433,21 +10644,57 @@ private final class StartupReadFailure: @unchecked Sendable {
         #expect(projection.outputChoices.isEmpty)
         model.playAskDJRecommendation(speaker) // Duplicate from the Session bubble consumes no additional effect.
         for _ in 0..<200 where projection.busy { try await Task.sleep(for: .milliseconds(10)) }
+        return false
     }
-    let posts = fixture.requests.filter { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }
-    #expect(posts.count == (scenario == "output" ? 2 : 1))
-    for request in posts {
-        let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
-        let sentContext = try #require(body["conversation_context"] as? [String: Any])
-        #expect(sentContext["thread_id"] as? String == "for-you-" + sessionID)
-        #expect(sentContext["session_id"] as? String == sessionID)
-        #expect(body["audio_response"] as? String == "never")
-        #expect(body["uri"] == nil && body["uris"] == nil)
-        let choice = try #require(body["choice_action"] as? [String: Any])
-        if scenario == "dismiss" { #expect(choice["operation"] as? String == "dismiss" && body["client_message_id"] == nil) }
-        else { #expect(choice["operation"] as? String == "select") }
+
+    func verifyOriginalChoiceWire() throws {
+        let sessionID = input.sessionID
+        let posts = fixture.requests.filter { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }
+        #expect(posts.count == (scenario == "output" ? 2 : 1))
+        for request in posts {
+            let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+            let sentContext = try #require(body["conversation_context"] as? [String: Any])
+            #expect(sentContext["thread_id"] as? String == "for-you-" + sessionID)
+            #expect(sentContext["session_id"] as? String == sessionID)
+            #expect(body["audio_response"] as? String == "never")
+            #expect(body["uri"] == nil && body["uris"] == nil)
+            let choice = try #require(body["choice_action"] as? [String: Any])
+            if scenario == "dismiss" { #expect(choice["operation"] as? String == "dismiss" && body["client_message_id"] == nil) }
+            else { #expect(choice["operation"] as? String == "select") }
+        }
+        #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/command") || $0.url!.path.hasSuffix("/session/start") })
     }
-    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/command") || $0.url!.path.hasSuffix("/session/start") })
+}
+
+@Test(.isolatedClientResources, arguments: ["playing", "expired", "scope", "unknown", "output", "dismiss", "server_refresh", "manual_refresh", "output_expiry", "output_replacement", "terminal", "dismiss_expired", "dismiss_without_context", "output_expired_refresh", "unknown_expired_refresh", "output_uncertain_expired_refresh", "output_attempted_expired_refresh"])
+@MainActor func forYouUsesOriginalOfferWithoutPlaybackOrAutomaticRenewal(_ scenario: String) async throws {
+    let input = try ForYouScenarioInput.make(scenario: scenario)
+    let replies = ForYouScenarioResponses(scenario: scenario, caps: input.caps, runtimeData: input.runtimeData,
+        answerData: input.answerData, timeline: input.timeline, profile: input.profile)
+    let fixture = HistoryWireFixture { try replies.reply($0) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare(); await model.refreshActiveDJSession(); model.isConnected = true
+    model.language = "nl"; model.askDJDraft = "Mijn concept"
+    model.playback = .init(hasPlayback: true, isPlaying: true, trackName: "Already playing")
+    let projection = model.sessionForYou
+    await projection.refresh()
+    #expect(projection.offer?.options.count == 3 && projection.canChoose)
+    #expect(fixture.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+    let option = try #require(projection.offer?.options.first)
+    let checks = ForYouScenarioChecks(input: input, scenario: scenario, model: model,
+        fixture: fixture, projection: projection, option: option)
+    // Projection-only outcomes close their own scenario before any ordinary choice.
+    if try await checks.exerciseProjectionOnlyScenario() { return }
+    try await checks.exerciseOriginalChoice()
+    if scenario.hasSuffix("expired_refresh") {
+        try await checks.verifyExpiredRefresh()
+        return
+    }
+    if ["output", "output_expiry", "output_replacement"].contains(scenario),
+       try await checks.verifyOutputContinuation() { return }
+    try checks.verifyOriginalChoiceWire()
 }
 
 @Test(.isolatedClientResources, arguments: ["matching", "missing", "wrong", "pin_changed", "owner_changed"])
