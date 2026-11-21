@@ -80,6 +80,15 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
     /// not establish Profile authority or fetch/prepare/renew any resource.
     public func admittedArtwork(session expectedSession: String, target expectedTarget: Target,
                                 audience: Audience, at now: Date = Date()) -> Artwork? {
+        guard let subject = admittedArtworkSubject(session: expectedSession, target: expectedTarget, at: now) else { return nil }
+        if artwork.role == "captured_reply_subject" {
+            return admittedReplyArtwork(subject: subject, audience: audience)
+        }
+        guard artworkAllowsAudience(audience), contextualArtworkSubjectIsValid(subject) else { return nil }
+        return artwork
+    }
+
+    private func admittedArtworkSubject(session expectedSession: String, target expectedTarget: Target, at now: Date) -> Subject? {
         guard schemaVersion == 1, !sessionID.isEmpty, sessionID == expectedSession, target == expectedTarget,
               !revision.isEmpty, revision.utf8.count <= 128, artwork.state == .ready,
               artwork.cachePolicy == "no-store", artwork.cropAllowed == false, artwork.requiresDeviceAuth == true,
@@ -97,45 +106,59 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
               let rawURL = artwork.url, Self.isManagedPath(rawURL, session: sessionID),
               let alt = artwork.altText, ["en", "nl", "de", "fr", "es"].allSatisfy({ alt[$0]?.isEmpty == false })
         else { return nil }
-        if artwork.role == "captured_reply_subject" {
-            guard case .entry = target, artwork.replyDisplayAllowed == true,
-                  !artwork.currentDisplayAllowed, !artwork.activeFlowDisplayAllowed else { return nil }
-            switch audience {
-            case .reply: break
-            case .history: guard artwork.historicalDisplayAllowed else { return nil }
-            case .current, .activeFlow: return nil
-            }
-            switch subject.type {
-            case "track":
-                guard artwork.editionBasis == "original_bound", let album = subject.albumURI,
-                      Self.spotifySource(album, type: "album") != nil else { return nil }
-            case "album":
-                guard artwork.editionBasis == "original_bound", (subject.albumURI == nil || subject.albumURI == subject.uri) else { return nil }
-            case "artist":
-                guard artwork.editionBasis == "not_applicable", subject.albumURI == nil else { return nil }
-            default: return nil
-            }
-            return artwork
-        }
+        return subject
+    }
+
+    private func admittedReplyArtwork(subject: Subject, audience: Audience) -> Artwork? {
+        guard case .entry = target, artwork.replyDisplayAllowed == true,
+              !artwork.currentDisplayAllowed, !artwork.activeFlowDisplayAllowed else { return nil }
         switch audience {
-        case .reply: return nil
-        case .current: guard artwork.currentDisplayAllowed else { return nil }
-        case .activeFlow: guard artwork.activeFlowDisplayAllowed else { return nil }
+        case .reply: break
         case .history: guard artwork.historicalDisplayAllowed else { return nil }
+        case .current, .activeFlow: return nil
         }
+        guard replyArtworkSubjectIsValid(subject) else { return nil }
+        return artwork
+    }
+
+    private func replyArtworkSubjectIsValid(_ subject: Subject) -> Bool {
+        switch subject.type {
+        case "track":
+            guard artwork.editionBasis == "original_bound", let album = subject.albumURI,
+                  Self.spotifySource(album, type: "album") != nil else { return false }
+        case "album":
+            guard artwork.editionBasis == "original_bound", (subject.albumURI == nil || subject.albumURI == subject.uri) else { return false }
+        case "artist":
+            guard artwork.editionBasis == "not_applicable", subject.albumURI == nil else { return false }
+        default: return false
+        }
+        return true
+    }
+
+    private func artworkAllowsAudience(_ audience: Audience) -> Bool {
+        switch audience {
+        case .reply: return false
+        case .current: guard artwork.currentDisplayAllowed else { return false }
+        case .activeFlow: guard artwork.activeFlowDisplayAllowed else { return false }
+        case .history: guard artwork.historicalDisplayAllowed else { return false }
+        }
+        return true
+    }
+
+    private func contextualArtworkSubjectIsValid(_ subject: Subject) -> Bool {
         switch subject.type {
         case "artist":
-            guard artwork.role == "contextual_artist", artwork.editionBasis == "not_applicable", subject.albumURI == nil else { return nil }
+            guard artwork.role == "contextual_artist", artwork.editionBasis == "not_applicable", subject.albumURI == nil else { return false }
         case "album":
-            guard artwork.role == "cover", artwork.editionBasis == "original_bound" else { return nil }
+            guard artwork.role == "cover", artwork.editionBasis == "original_bound" else { return false }
         case "track":
             guard ["cover", "playback_thumbnail"].contains(artwork.role ?? ""),
-                  ["original_bound", "provider_resolved_now"].contains(artwork.editionBasis ?? "") else { return nil }
-            if let album = subject.albumURI, Self.spotifySource(album, type: "album") == nil { return nil }
-            if artwork.editionBasis == "original_bound", subject.albumURI == nil { return nil }
-        default: return nil
+                  ["original_bound", "provider_resolved_now"].contains(artwork.editionBasis ?? "") else { return false }
+            if let album = subject.albumURI, Self.spotifySource(album, type: "album") == nil { return false }
+            if artwork.editionBasis == "original_bound", subject.albumURI == nil { return false }
+        default: return false
         }
-        return artwork
+        return true
     }
 
     /// Version 3 is scoped to an original licensed event photo, never Spotify artwork.

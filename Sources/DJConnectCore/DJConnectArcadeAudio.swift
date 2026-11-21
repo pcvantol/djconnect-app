@@ -25,20 +25,41 @@ public enum DJConnectArcadeSynth {
 
     public static func wav(game: DJConnectWatchArcadeGame, sound: DJConnectArcadeSound) -> Data {
         let rate = 22_050
-        let notes: [(Double, Double)]
-        if game == .pacman { notes = mazeNotes(sound) }
-        else { notes = switch sound {
+        let notes = game == .pacman ? mazeNotes(sound) : consoleNotes(sound)
+        let samples = synthesize(notes, game: game, sound: sound, rate: rate)
+        return encodeWave(samples, rate: rate)
+    }
+
+    private static func consoleNotes(_ sound: DJConnectArcadeSound) -> [(Double, Double)] {
+        switch sound {
+        case .start, .power, .gameOver: return consoleMelody(sound)
+        case .move, .fire, .bounce, .hit, .collect, .explosion, .crash: return consoleEffect(sound)
+        }
+    }
+
+    private static func consoleMelody(_ sound: DJConnectArcadeSound) -> [(Double, Double)] {
+        switch sound {
         case .start: [(262, 0.07), (392, 0.07), (524, 0.12)]
+        case .power: [(440, 0.055), (660, 0.055), (880, 0.11)]
+        case .gameOver: [(392, 0.09), (294, 0.09), (196, 0.18)]
+        default: []
+        }
+    }
+
+    private static func consoleEffect(_ sound: DJConnectArcadeSound) -> [(Double, Double)] {
+        switch sound {
         case .move: [(220, 0.025)]
         case .fire: [(1_400, 0.10)]
         case .bounce: [(280, 0.045)]
         case .hit: [(560, 0.065)]
         case .collect: [(660, 0.06)]
-        case .power: [(440, 0.055), (660, 0.055), (880, 0.11)]
         case .explosion: [(150, 0.20)]
         case .crash: [(220, 0.23)]
-        case .gameOver: [(392, 0.09), (294, 0.09), (196, 0.18)]
-        } }
+        default: []
+        }
+    }
+
+    private static func synthesize(_ notes: [(Double, Double)], game: DJConnectWatchArcadeGame, sound: DJConnectArcadeSound, rate: Int) -> [Int16] {
         var samples = [Int16]()
         var random: UInt32 = 0xA7C4_1309
         var phase = 0.0
@@ -53,40 +74,54 @@ public enum DJConnectArcadeSynth {
                 random = random &* 1_664_525 &+ 1_013_904_223
                 let noise = Double(random >> 8) / 8_388_607.5 - 1
                 let destructive = sound == .explosion || sound == .crash || sound == .gameOver
-                let pitch: Double
-                switch game {
-                case .pong: pitch = frequency * (sound == .fire ? 0.5 : 1)
-                case .asteroids: pitch = frequency * pow(destructive ? 0.16 : 0.24, t) * 1.3
-                case .fly: pitch = frequency * (destructive ? (1 - t * 0.85) : (0.65 + t * 1.4))
-                case .pacman:
-                    switch sound {
-                    case .collect, .move:
-                        // Two tiny mouth strokes: close (wa), open (ka), never a long whistle.
-                        pitch = noteIndex.isMultiple(of: 2) ? 950 - 650 * t : 300 + 550 * t
-                    case .gameOver, .crash:
-                        pitch = frequency * (1 - t * 0.3) * (1 + 0.06 * sin(t * .pi * 8))
-                    case .explosion: pitch = frequency * (1 + t * 0.8)
-                    default: pitch = frequency
-                    }
-                }
+                let pitch = pitch(game: game, sound: sound, frequency: frequency, noteIndex: noteIndex, t: t, destructive: destructive)
                 phase += pitch / Double(rate)
                 let p = phase.truncatingRemainder(dividingBy: 1)
-                let value: Double
-                switch game {
-                case .pong: // dry, hollow console blips
-                    value = (p < 0.5 ? 0.75 : -0.75) + 0.15 * sin(phase * .pi)
-                case .asteroids: // falling pulse lasers and crunchy impact noise
-                    value = destructive ? noise * 0.7 + sin(phase * 2 * .pi) * 0.3 : (p < 0.18 ? 0.85 : -0.3)
-                case .fly: // brighter triangle chirps, with an airy crash
-                    let triangle = 1 - 4 * abs(p - 0.5)
-                    value = triangle * 0.75 + (destructive ? noise * 0.25 : sin(phase * 4 * .pi) * 0.2)
-                case .pacman: // hollow arcade mouth pulses; discrete pitched bonus arpeggios
-                    value = sin(phase * 2 * .pi) * 0.76 + sin(phase * 6 * .pi) * 0.18
-                }
+                let value = oscillator(game: game, p: p, phase: phase, noise: noise, destructive: destructive)
                 samples.append(Int16(max(-1, min(1, value * envelope)) * 9_000))
             }
             samples.append(contentsOf: repeatElement(0, count: rate / 250))
         }
+        return samples
+    }
+
+    private static func pitch(game: DJConnectWatchArcadeGame, sound: DJConnectArcadeSound, frequency: Double, noteIndex: Int, t: Double, destructive: Bool) -> Double {
+        switch game {
+        case .pong: return frequency * (sound == .fire ? 0.5 : 1)
+        case .asteroids: return frequency * pow(destructive ? 0.16 : 0.24, t) * 1.3
+        case .fly: return frequency * (destructive ? (1 - t * 0.85) : (0.65 + t * 1.4))
+        case .pacman:
+            return mazePitch(sound: sound, frequency: frequency, noteIndex: noteIndex, t: t)
+        }
+    }
+
+    private static func mazePitch(sound: DJConnectArcadeSound, frequency: Double, noteIndex: Int, t: Double) -> Double {
+        switch sound {
+        case .collect, .move:
+            // Two tiny mouth strokes: close (wa), open (ka), never a long whistle.
+            return noteIndex.isMultiple(of: 2) ? 950 - 650 * t : 300 + 550 * t
+        case .gameOver, .crash:
+            return frequency * (1 - t * 0.3) * (1 + 0.06 * sin(t * .pi * 8))
+        case .explosion: return frequency * (1 + t * 0.8)
+        default: return frequency
+        }
+    }
+
+    private static func oscillator(game: DJConnectWatchArcadeGame, p: Double, phase: Double, noise: Double, destructive: Bool) -> Double {
+        switch game {
+        case .pong: // dry, hollow console blips
+            return (p < 0.5 ? 0.75 : -0.75) + 0.15 * sin(phase * .pi)
+        case .asteroids: // falling pulse lasers and crunchy impact noise
+            return destructive ? noise * 0.7 + sin(phase * 2 * .pi) * 0.3 : (p < 0.18 ? 0.85 : -0.3)
+        case .fly: // brighter triangle chirps, with an airy crash
+            let triangle = 1 - 4 * abs(p - 0.5)
+            return triangle * 0.75 + (destructive ? noise * 0.25 : sin(phase * 4 * .pi) * 0.2)
+        case .pacman: // hollow arcade mouth pulses; discrete pitched bonus arpeggios
+            return sin(phase * 2 * .pi) * 0.76 + sin(phase * 6 * .pi) * 0.18
+        }
+    }
+
+    private static func encodeWave(_ samples: [Int16], rate: Int) -> Data {
         var data = Data()
         func ascii(_ text: String) { data.append(contentsOf: text.utf8) }
         func u16(_ value: UInt16) { var v = value.littleEndian; withUnsafeBytes(of: &v) { data.append(contentsOf: $0) } }
