@@ -16712,84 +16712,45 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func performWatchProxyOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        // Exhaustive routing keeps each existing backend contract with its
+        // own operation pipeline; it does not grant new Watch capabilities.
+        switch request.operation {
+        case .replaySessionSpeech, .prepareSessionSpeech:
+            return try await performWatchSpeechOperation(request, client: client)
+        case .retainedMoment, .recordingHistoryEntry, .sessionForecast, .sessionFlowArtwork, .sessionFlow:
+            return try await performWatchSessionHistoryOperation(request, client: client)
+        case .watchWidgetAvailable, .watchWidgetAuthorize, .watchWidgetRead, .watchWidgetImage:
+            return try await performWatchWidgetOperation(request, client: client)
+        case .foregroundSession, .updateSessionOnlyMood, .startSession, .endSession:
+            return try await performWatchSessionLifecycleOperation(request, client: client)
+        case .profileDJSettings, .updateProfileDJSettings, .profileDJSettingsOperation:
+            return try await performWatchSettingsOperation(request, client: client)
+        case .status, .command, .trackInsight:
+            return try await performWatchPlaybackOperation(request, client: client)
+        case .askDJTextOutcome, .askDJHistory, .clearAskDJHistory, .askDJMessage, .askDJIdleSuggestion, .voice:
+            return try await performWatchConversationOperation(request, client: client)
+        case .musicDNAProfile, .musicDNASettings, .clearMusicDNA, .musicDiscovery, .musicDiscoveryRefresh, .musicDiscoveryPlay:
+            return try await performWatchLibraryOperation(request, client: client)
+        case .pushRegister, .pushUnregister:
+            return try await performWatchPushOperation(request, client: client)
+        }
+    }
+
+    private func performWatchSpeechOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        switch request.operation {
+        case .replaySessionSpeech:
+            return try await replayWatchSessionSpeech(request, client: client)
+        case .prepareSessionSpeech:
+            return try await prepareWatchSessionSpeech(request, client: client)
+        default:
+            throw DJConnectError.invalidResponse
+        }
+    }
+
+    private func performWatchSessionHistoryOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
         let decoder = JSONDecoder()
         let encoder = JSONEncoder()
         switch request.operation {
-        case .replaySessionSpeech:
-            let intent = try decoder.decode(DJConnectWatchSpeechReplayRequest.self, from: request.payload ?? Data())
-            let pairingGeneration = watchProxyPairingGeneration
-            guard let token = try client.tokenStore.loadToken(), !token.isEmpty else {
-                throw CancellationError()
-            }
-            let watchID = client.identity.deviceID
-            func watchIsCurrent() -> Bool {
-                !Task.isCancelled && watchProxyPairingGeneration == pairingGeneration &&
-                    watchProxyRegistration?.identity.deviceID == watchID &&
-                    defaults.string(forKey: watchProxyDeviceTokenKey) == token
-            }
-            guard watchIsCurrent() else { throw CancellationError() }
-            let settings = try await client.profileDJSettings()
-            guard settings.binding == intent.binding, settings.isValid else { throw DJConnectError.invalidResponse }
-            func source() async throws -> (text: String, deadline: Date?, momentType: String?) {
-                switch intent.reference {
-                case .entry(let sessionID, let entryID):
-                    let entry = try await client.openSavedSession(.init(reference: .init(sessionID: sessionID, entryID: entryID))).entry
-                    guard [.djMoment, .conversationDJ].contains(entry.kind), entry.isRetained(),
-                          let text = entry.text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                          let deadline = DJConnectHistoryEntry.date(entry.retainedUntil) else { throw DJConnectError.invalidResponse }
-                    return (text, deadline, entry.momentType)
-                case .moment(let sessionID, let momentID):
-                    let runtime = try await client.activeSession()
-                    let now = Date()
-                    guard runtime.success, let session = runtime.resolvedSession, session.id == sessionID,
-                          session.broadcast.nativeMomentSpeechIsAdmitted(intent.reference, at: now, automatic: false)
-                    else { throw DJConnectError.invalidResponse }
-                    let current = session.broadcast.nativeCurrentMoment(at: now, spotifyAttributionAvailable: true)
-                    let flow = session.broadcast.nativeFlowMoments(at: now)
-                    guard let moment = ([current].compactMap { $0 } + flow).first(where: { $0.id == momentID })
-                    else { throw DJConnectError.invalidResponse }
-                    return (moment.content, nil, moment.isMusicAnnouncementV1 ? moment.type : nil)
-                case .turn:
-                    throw DJConnectError.invalidResponse
-                }
-            }
-            let original = try await source()
-            guard watchIsCurrent() else { throw CancellationError() }
-            let result = try await client.prepareSharedDJSpeech(reference: intent.reference, acceptedText: original.text,
-                                                                settings: settings, processor: intent.processor, manualMomentType: original.momentType)
-            let speech = result.session_speech
-            guard speech.admits(reference: intent.reference, text: original.text),
-                  let deadline = speech.playbackDeadline() else {
-                throw DJConnectError.invalidResponse
-            }
-            guard watchIsCurrent() else { throw CancellationError() }
-            let audio = intent.processor == .haConfigured
-                ? try await client.speechAudio(speech, acceptedText: original.text) : nil
-            let latest = try await source()
-            let after = try await client.profileDJSettings()
-            guard watchIsCurrent(), deadline > Date(), latest.text == original.text, latest.deadline == original.deadline,
-                  after.binding == settings.binding, after.speechFence == settings.speechFence,
-                  after.voice_revision == settings.voice_revision, after.snapshot.effective == settings.snapshot.effective,
-                  after.allowsSpeech(.local, manualMomentType: original.momentType), latest.momentType == original.momentType else { throw DJConnectError.invalidResponse }
-            return try encoder.encode(DJConnectWatchSpeechReplay(speech: speech, text: original.text, audio: audio,
-                                                                expiresAt: min(deadline, original.deadline ?? deadline)))
-        case .prepareSessionSpeech:
-            let intent = try decoder.decode(DJConnectWatchMomentSpeechRequest.self, from: request.payload ?? Data())
-            let before = try await client.profileDJSettings()
-            let runtime = try await client.activeSession()
-            let source = DJConnectWatchSessionSnapshot(settings: before, session: runtime.resolvedSession)
-            guard runtime.success, intent.matches(source) else { throw DJConnectError.invalidResponse }
-            let prepared = try await client.prepareSharedDJSpeech(reference: intent.reference,
-                acceptedText: intent.moment.content, settings: before, processor: .localOnDevice, manualMomentType: intent.moment.isMusicAnnouncementV1 ? intent.moment.type : nil)
-            // Re-read both owners before crossing the companion boundary. Reads
-            // cannot refresh the original speech grant or manufacture publication.
-            let after = try await client.profileDJSettings()
-            let latest = try await client.activeSession()
-            guard latest.success, intent.matches(.init(settings: after, session: latest.resolvedSession)),
-                  intent.source.matches(prepared.session_speech),
-                  DJConnectNativeSpeechAdmission.admits(prepared.session_speech, reference: intent.reference,
-                    text: intent.moment.content, settings: after) else { throw DJConnectError.invalidResponse }
-            return try encoder.encode(prepared)
         case .retainedMoment, .recordingHistoryEntry:
             let intent = try decoder.decode(DJConnectWatchOriginalContext.self, from: request.payload ?? Data())
             let before = try await client.profileDJSettings()
@@ -16811,96 +16772,32 @@ public final class DJConnectAppModel: ObservableObject {
             }
             return try encoder.encode(entry)
         case .sessionForecast:
-            let intent = try decoder.decode(DJConnectWatchSessionAction.self, from: request.payload ?? Data())
-            let before = try await client.profileDJSettings()
-            guard before.binding == intent.binding, before.snapshot.session?.session_id == intent.sessionID,
-                  !before.requiresSelection, let sessionID = intent.sessionID else { throw DJConnectError.invalidResponse }
-            let forecast = try await client.sessionForecast(sessionID: sessionID)
-            let after = try await client.profileDJSettings()
-            guard !Task.isCancelled, before.binding == after.binding, before.snapshot == after.snapshot,
-                  !after.requiresSelection else { throw DJConnectError.invalidResponse }
-            return try encoder.encode(forecast)
+            return try await readWatchSessionForecast(request, client: client)
         case .sessionFlowArtwork:
-            let intent = try decoder.decode(DJConnectWatchOriginalContext.self, from: request.payload ?? Data())
-            let before = try await client.profileDJSettings()
-            guard before.binding == intent.binding, before.snapshot.session?.session_id == intent.sessionID,
-                  !before.requiresSelection else { throw DJConnectError.invalidResponse }
-            let tail = try await client.sessionTimeline(sessionID: intent.sessionID, window: .tail, limit: 50)
-            guard let entry = tail.entries.first(where: {
-                $0.id == intent.originalID && $0.sessionID == intent.sessionID &&
-                    $0.kind == .playbackObserved && $0.isRetained()
-            }), let retainedUntil = DJConnectHistoryEntry.date(entry.retainedUntil) else {
-                throw DJConnectError.invalidResponse
-            }
-            let target = DJConnectSessionMedia.Target.entry(entry.id)
-            let prepared = try await client.prepareSessionArtwork(sessionID: intent.sessionID, targets: [target])
-            guard let media = prepared.first(where: { $0.target == target }),
-                  ["cover", "playback_thumbnail"].contains(media.artwork.role ?? "") else {
-                throw DJConnectError.invalidResponse
-            }
-            let audience = media.entryAudience
-            let image = try await client.sessionArtwork(media, sessionID: intent.sessionID, target: target, audience: audience)
-            let after = try await client.profileDJSettings()
-            guard after.binding == before.binding, after.snapshot.session?.session_id == intent.sessionID,
-                  !after.requiresSelection, entry.isRetained(),
-                  let grant = media.admittedArtwork(session: intent.sessionID, target: target, audience: audience),
-                  let expiresAt = grant.expiresAt.flatMap(DJConnectHistoryEntry.date) else { throw DJConnectError.invalidResponse }
-            return try encoder.encode(DJConnectWatchFlowArtwork(jpeg: Self.watchFlowThumbnail(image.image),
-                expiresAt: min(retainedUntil, expiresAt)))
+            return try await readWatchSessionFlowArtwork(request, client: client)
         case .sessionFlow:
-            let intent = try decoder.decode(DJConnectWatchSessionAction.self, from: request.payload ?? Data())
-            guard let sessionID = intent.sessionID else { throw DJConnectError.invalidResponse }
-            let before = try await client.profileDJSettings()
-            guard before.binding == intent.binding, before.snapshot.session?.session_id == sessionID,
-                  !before.requiresSelection else { throw DJConnectError.invalidResponse }
-            let tail = try await client.sessionTimeline(sessionID: sessionID, window: .tail, limit: 50)
-            let runtime = try await client.activeSession()
-            let after = try await client.profileDJSettings()
-            guard runtime.success, let session = runtime.resolvedSession, session.id == sessionID,
-                  after.binding == before.binding, after.snapshot.session?.session_id == sessionID,
-                  !after.requiresSelection else { throw DJConnectError.invalidResponse }
-            var rows = DJConnectWatchFlowRow.latest(history: tail.entries, session: session, at: Date())
-            var encoded = try encoder.encode(rows)
-            // Keep the newest rows when unusually large source labels fill the proxy envelope.
-            while encoded.count >= 42_000 && !rows.isEmpty {
-                rows.removeLast()
-                encoded = try encoder.encode(rows)
-            }
-            return encoded
+            return try await readWatchSessionFlow(request, client: client)
+        default:
+            throw DJConnectError.invalidResponse
+        }
+    }
+
+    private func performWatchWidgetOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let encoder = JSONEncoder()
+        switch request.operation {
         case .watchWidgetAvailable:
             return try encoder.encode(await client.watchWidgetAvailable())
         case .watchWidgetAuthorize, .watchWidgetRead, .watchWidgetImage:
-            let intent = try decoder.decode(DJConnectWatchWidgetAction.self, from: request.payload ?? Data())
-            let pairingGeneration = watchProxyPairingGeneration
-            let watchID = client.identity.deviceID
-            guard let token = try client.tokenStore.loadToken() else { throw DJConnectError.missingToken }
-            func watchIsCurrent() -> Bool {
-                !Task.isCancelled && watchProxyPairingGeneration == pairingGeneration &&
-                    watchProxyRegistration?.identity.deviceID == watchID &&
-                    defaults.string(forKey: watchProxyDeviceTokenKey) == token
-            }
-            guard watchIsCurrent() else { throw CancellationError() }
-            let before = try await client.profileDJSettings()
-            guard watchIsCurrent(), client.identity.clientType == .watchos, before.binding == intent.binding,
-                  before.snapshot.session?.session_id == intent.sessionID, !before.requiresSelection else { throw DJConnectError.invalidResponse }
-            let encoded: Data
-            if request.operation == .watchWidgetAuthorize {
-                encoded = try encoder.encode(await client.authorizeWatchWidget(sessionID: intent.sessionID, enabled: intent.enabled))
-            } else if request.operation == .watchWidgetRead {
-                guard let grant = intent.grantID else { throw DJConnectError.invalidResponse }
-                encoded = try encoder.encode(await client.readWatchWidget(sessionID: intent.sessionID, grantID: grant))
-            } else {
-                guard let original = intent.response, original.validates(sessionID: intent.sessionID),
-                      original.grant_id == intent.grantID,
-                      let artwork = original.passive_session.currentArtwork(at: Date()),
-                      let expiry = DJConnectHistoryEntry.date(artwork.expires_at) else { throw DJConnectError.invalidResponse }
-                let image = try await client.watchWidgetImage(original)
-                encoded = try encoder.encode(DJConnectWatchFlowArtwork(jpeg: Self.watchFlowThumbnail(image.image), expiresAt: expiry))
-            }
-            let after = try await client.profileDJSettings()
-            guard watchIsCurrent(), after.binding == before.binding, after.snapshot.session?.session_id == intent.sessionID,
-                  !after.requiresSelection else { throw DJConnectError.invalidResponse }
-            return encoded
+            return try await performWatchWidgetGrantOperation(request, client: client)
+        default:
+            throw DJConnectError.invalidResponse
+        }
+    }
+
+    private func performWatchSessionLifecycleOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        switch request.operation {
         case .foregroundSession:
             // Read with the Watch bearer, and fence Profile/Session changes
             // across the two independent frozen owner contracts.
@@ -16932,6 +16829,15 @@ public final class DJConnectAppModel: ObservableObject {
                     try await client.endSession(.init(sessionID: sessionID)).success
                 })
             return try encoder.encode(true)
+        default:
+            throw DJConnectError.invalidResponse
+        }
+    }
+
+    private func performWatchSettingsOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        switch request.operation {
         case .profileDJSettings:
             return try encoder.encode(try await client.profileDJSettings())
         case .updateProfileDJSettings:
@@ -16940,6 +16846,15 @@ public final class DJConnectAppModel: ObservableObject {
         case .profileDJSettingsOperation:
             let payload = try decoder.decode(DJConnectWatchSettingsReceipt.self, from: request.payload ?? Data())
             return try encoder.encode(try await client.profileDJSettingsOperation(binding: payload.binding, operationID: payload.operationID))
+        default:
+            throw DJConnectError.invalidResponse
+        }
+    }
+
+    private func performWatchPlaybackOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        switch request.operation {
         case .status:
             let payload = try decoder.decode(DJConnectStatusPayload.self, from: request.payload ?? Data())
             let response = try await client.postStatus(payload)
@@ -16959,20 +16874,17 @@ public final class DJConnectAppModel: ObservableObject {
             }
             let response = try await client.trackInsight(payload)
             return try encoder.encode(response)
+        default:
+            throw DJConnectError.invalidResponse
+        }
+    }
+
+    private func performWatchConversationOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        switch request.operation {
         case .askDJTextOutcome:
-            let intent = try decoder.decode(DJConnectWatchTextOutcomeRequest.self, from: request.payload ?? Data())
-            let before = try await client.profileDJSettings()
-            let idParts = intent.clientMessageID.split(separator: ":", omittingEmptySubsequences: false)
-            let isVoiceID = idParts.count == 2 && (Int(idParts[0]) ?? 0) > 0 && UUID(uuidString: String(idParts[1])) != nil
-            guard UUID(uuidString: intent.clientMessageID) != nil || isVoiceID,
-                  before.binding == intent.binding, !before.requiresSelection else { throw DJConnectError.invalidResponse }
-            let history = try await client.profileConversationHistory()
-            let after = try await client.profileDJSettings()
-            guard after.binding == before.binding, !after.requiresSelection else { throw DJConnectError.invalidResponse }
-            let reply = history.base.messages.last {
-                $0.role != .user && $0.clientMessageID == intent.clientMessageID
-            }
-            return try encoder.encode(reply.map { String($0.text.unicodeScalars.prefix(4_000)) })
+            return try await readWatchConversationOutcome(request, client: client)
         case .askDJHistory:
             let response = try await client.askDJHistory()
             return try encoder.encode(response)
@@ -16981,29 +16893,22 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await client.clearAskDJHistory(musicDNAKey: payload.musicDNAKey)
             return try encoder.encode(response)
         case .askDJMessage:
-            var payload = try decoder.decode(DJConnectAskDJRequest.self, from: request.payload ?? Data())
-            payload.audioResponse = .never // legacy Watch text has no negotiated deferred speech grant
-            if payload.conversationContext != nil {
-                let response = try await client.sendSessionConversation(payload)
-                let encoded = try encoder.encode(response.base)
-                if encoded.count < 42_000 { return encoded }
-                // The Watch text composer needs the answer, not an entire rich history payload.
-                var compact = response.base
-                compact.text = (compact.assistantMessage?.text ?? compact.djText ?? compact.text)
-                    .map { String($0.unicodeScalars.prefix(4_000)) }
-                compact.djText = nil
-                compact.userMessage = nil; compact.assistantMessage = nil; compact.messages = []
-                compact.resultSet = nil; compact.trackInsight = nil; compact.firstPlay = nil
-                compact.images = nil; compact.links = nil; compact.sources = nil; compact.items = nil
-                compact.playbackActions = nil; compact.confirmationActions = nil
-                return try encoder.encode(compact)
-            }
-            let response = try await client.sendAskDJMessage(payload)
-            return try encoder.encode(response)
+            return try await sendWatchConversationMessage(request, client: client)
         case .askDJIdleSuggestion:
             let payload = try decoder.decode(DJConnectAskDJIdleSuggestionRequest.self, from: request.payload ?? Data())
             let response = try await client.askDJIdleSuggestion(payload)
             return try encoder.encode(response)
+        case .voice:
+            return try await sendWatchVoice(request, client: client)
+        default:
+            throw DJConnectError.invalidResponse
+        }
+    }
+
+    private func performWatchLibraryOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        switch request.operation {
         case .musicDNAProfile:
             let payload = request.payload.flatMap {
                 try? decoder.decode(DJConnectMusicDNAIdentityRequest.self, from: $0)
@@ -17042,43 +16947,15 @@ public final class DJConnectAppModel: ObservableObject {
             let payload = try decoder.decode(DJConnectMusicDiscoveryPlayRequest.self, from: request.payload ?? Data())
             let response = try await client.playMusicDiscoveryItem(payload)
             return try encoder.encode(response)
-        case .voice:
-            let payload = try decoder.decode(DJConnectWatchProxyVoicePayload.self, from: request.payload ?? Data())
-            // Interactive Watch work has its own bearer/lifecycle. The phone
-            // foreground/Profile context must not gate or receive its discovery.
-            let locale = payload.language ?? currentRequestLocale
-            let watchID = watchProxyRegistration?.identity.deviceID
-            let watchToken = defaults.string(forKey: watchProxyDeviceTokenKey)
-            let generation = watchProxyPairingGeneration
-            let pairingIntent = watchProxyRegistration?.pairingIntentID
-            let localRoute = localHomeAssistantURL(), remoteRoute = haRemoteURL
-            guard client.identity.clientType == .watchos, client.identity.deviceID == watchID,
-                  watchToken?.isEmpty == false, try client.tokenStore.loadToken() == watchToken else { throw CancellationError() }
-            try await requireWatchProxyVoiceInput(client: client, language: locale) { [self] in
-                !Task.isCancelled && watchProxyPairingGeneration == generation &&
-                    watchProxyRegistration?.identity.deviceID == watchID &&
-                    watchProxyRegistration?.pairingIntentID == pairingIntent &&
-                    defaults.string(forKey: watchProxyDeviceTokenKey) == watchToken &&
-                    localHomeAssistantURL() == localRoute && haRemoteURL == remoteRoute
-            }
-            if let context = payload.conversationContext {
-                guard let operationID = payload.clientMessageID, !operationID.isEmpty,
-                      context.selectedMoment == nil else { throw DJConnectError.invalidResponse }
-                let response = try await client.sendSessionVoice(wavData: payload.wavData, context: context,
-                    clientMessageID: operationID, language: locale, mood: payload.mood,
-                    djStyle: payload.djStyle, musicDNAKey: payload.musicDNAKey)
-                var original = response.base
-                original.text = response.base.assistantMessage?.text ?? response.base.djText ?? response.base.text
-                return try encoder.encode(original)
-            }
-            let response = try await client.sendVoice(
-                wavData: payload.wavData,
-                mood: payload.mood,
-                djStyle: payload.djStyle,
-                musicDNAKey: payload.musicDNAKey,
-                language: locale
-            )
-            return try encoder.encode(response)
+        default:
+            throw DJConnectError.invalidResponse
+        }
+    }
+
+    private func performWatchPushOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        switch request.operation {
         case .pushRegister:
             let payload = try decoder.decode(DJConnectPushRegistrationRequest.self, from: request.payload ?? Data())
             return try await performWatchProxyPushRegistration(payload, client: client)
@@ -17086,7 +16963,282 @@ public final class DJConnectAppModel: ObservableObject {
             let payload = try decoder.decode(DJConnectPushUnregistrationRequest.self, from: request.payload ?? Data())
             let response = try await client.unregisterPushNotifications(payload)
             return try encoder.encode(response)
+        default:
+            throw DJConnectError.invalidResponse
         }
+    }
+
+    private func replayWatchSessionSpeech(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        let intent = try decoder.decode(DJConnectWatchSpeechReplayRequest.self, from: request.payload ?? Data())
+        let pairingGeneration = watchProxyPairingGeneration
+        guard let token = try client.tokenStore.loadToken(), !token.isEmpty else {
+            throw CancellationError()
+        }
+        let watchID = client.identity.deviceID
+        func watchIsCurrent() -> Bool {
+            watchProxyIdentityIsCurrent(pairingGeneration: pairingGeneration, watchID: watchID, token: token)
+        }
+        guard watchIsCurrent() else { throw CancellationError() }
+        let settings = try await client.profileDJSettings()
+        guard settings.binding == intent.binding, settings.isValid else { throw DJConnectError.invalidResponse }
+        func source() async throws -> (text: String, deadline: Date?, momentType: String?) {
+            switch intent.reference {
+            case .entry(let sessionID, let entryID):
+                let entry = try await client.openSavedSession(.init(reference: .init(sessionID: sessionID, entryID: entryID))).entry
+                guard [.djMoment, .conversationDJ].contains(entry.kind), entry.isRetained(),
+                      let text = entry.text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      let deadline = DJConnectHistoryEntry.date(entry.retainedUntil) else { throw DJConnectError.invalidResponse }
+                return (text, deadline, entry.momentType)
+            case .moment(let sessionID, let momentID):
+                let runtime = try await client.activeSession()
+                let now = Date()
+                guard runtime.success, let session = runtime.resolvedSession, session.id == sessionID,
+                      session.broadcast.nativeMomentSpeechIsAdmitted(intent.reference, at: now, automatic: false)
+                else { throw DJConnectError.invalidResponse }
+                let current = session.broadcast.nativeCurrentMoment(at: now, spotifyAttributionAvailable: true)
+                let flow = session.broadcast.nativeFlowMoments(at: now)
+                guard let moment = ([current].compactMap { $0 } + flow).first(where: { $0.id == momentID })
+                else { throw DJConnectError.invalidResponse }
+                return (moment.content, nil, moment.isMusicAnnouncementV1 ? moment.type : nil)
+            case .turn:
+                throw DJConnectError.invalidResponse
+            }
+        }
+        let original = try await source()
+        guard watchIsCurrent() else { throw CancellationError() }
+        let result = try await client.prepareSharedDJSpeech(reference: intent.reference, acceptedText: original.text,
+                                                            settings: settings, processor: intent.processor, manualMomentType: original.momentType)
+        let speech = result.session_speech
+        guard speech.admits(reference: intent.reference, text: original.text),
+              let deadline = speech.playbackDeadline() else {
+            throw DJConnectError.invalidResponse
+        }
+        guard watchIsCurrent() else { throw CancellationError() }
+        let audio = intent.processor == .haConfigured
+            ? try await client.speechAudio(speech, acceptedText: original.text) : nil
+        let latest = try await source()
+        let after = try await client.profileDJSettings()
+        guard watchIsCurrent(), deadline > Date(), latest.text == original.text, latest.deadline == original.deadline,
+              after.binding == settings.binding, after.speechFence == settings.speechFence,
+              after.voice_revision == settings.voice_revision, after.snapshot.effective == settings.snapshot.effective,
+              after.allowsSpeech(.local, manualMomentType: original.momentType), latest.momentType == original.momentType else { throw DJConnectError.invalidResponse }
+        return try encoder.encode(DJConnectWatchSpeechReplay(speech: speech, text: original.text, audio: audio,
+                                                            expiresAt: min(deadline, original.deadline ?? deadline)))
+    }
+
+    private func prepareWatchSessionSpeech(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        let intent = try decoder.decode(DJConnectWatchMomentSpeechRequest.self, from: request.payload ?? Data())
+        let before = try await client.profileDJSettings()
+        let runtime = try await client.activeSession()
+        let source = DJConnectWatchSessionSnapshot(settings: before, session: runtime.resolvedSession)
+        guard runtime.success, intent.matches(source) else { throw DJConnectError.invalidResponse }
+        let prepared = try await client.prepareSharedDJSpeech(reference: intent.reference,
+            acceptedText: intent.moment.content, settings: before, processor: .localOnDevice, manualMomentType: intent.moment.isMusicAnnouncementV1 ? intent.moment.type : nil)
+        // Re-read both owners before crossing the companion boundary. Reads
+        // cannot refresh the original speech grant or manufacture publication.
+        let after = try await client.profileDJSettings()
+        let latest = try await client.activeSession()
+        guard latest.success, intent.matches(.init(settings: after, session: latest.resolvedSession)),
+              intent.source.matches(prepared.session_speech),
+              DJConnectNativeSpeechAdmission.admits(prepared.session_speech, reference: intent.reference,
+                text: intent.moment.content, settings: after) else { throw DJConnectError.invalidResponse }
+        return try encoder.encode(prepared)
+    }
+
+    private func readWatchSessionForecast(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        let intent = try decoder.decode(DJConnectWatchSessionAction.self, from: request.payload ?? Data())
+        let before = try await client.profileDJSettings()
+        guard before.binding == intent.binding, before.snapshot.session?.session_id == intent.sessionID,
+              !before.requiresSelection, let sessionID = intent.sessionID else { throw DJConnectError.invalidResponse }
+        let forecast = try await client.sessionForecast(sessionID: sessionID)
+        let after = try await client.profileDJSettings()
+        guard !Task.isCancelled, before.binding == after.binding, before.snapshot == after.snapshot,
+              !after.requiresSelection else { throw DJConnectError.invalidResponse }
+        return try encoder.encode(forecast)
+    }
+
+    private func readWatchSessionFlowArtwork(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        let intent = try decoder.decode(DJConnectWatchOriginalContext.self, from: request.payload ?? Data())
+        let before = try await client.profileDJSettings()
+        guard before.binding == intent.binding, before.snapshot.session?.session_id == intent.sessionID,
+              !before.requiresSelection else { throw DJConnectError.invalidResponse }
+        let tail = try await client.sessionTimeline(sessionID: intent.sessionID, window: .tail, limit: 50)
+        guard let entry = tail.entries.first(where: {
+            $0.id == intent.originalID && $0.sessionID == intent.sessionID &&
+                $0.kind == .playbackObserved && $0.isRetained()
+        }), let retainedUntil = DJConnectHistoryEntry.date(entry.retainedUntil) else {
+            throw DJConnectError.invalidResponse
+        }
+        let target = DJConnectSessionMedia.Target.entry(entry.id)
+        let prepared = try await client.prepareSessionArtwork(sessionID: intent.sessionID, targets: [target])
+        guard let media = prepared.first(where: { $0.target == target }),
+              ["cover", "playback_thumbnail"].contains(media.artwork.role ?? "") else {
+            throw DJConnectError.invalidResponse
+        }
+        let audience = media.entryAudience
+        let image = try await client.sessionArtwork(media, sessionID: intent.sessionID, target: target, audience: audience)
+        let after = try await client.profileDJSettings()
+        guard after.binding == before.binding, after.snapshot.session?.session_id == intent.sessionID,
+              !after.requiresSelection, entry.isRetained(),
+              let grant = media.admittedArtwork(session: intent.sessionID, target: target, audience: audience),
+              let expiresAt = grant.expiresAt.flatMap(DJConnectHistoryEntry.date) else { throw DJConnectError.invalidResponse }
+        return try encoder.encode(DJConnectWatchFlowArtwork(jpeg: Self.watchFlowThumbnail(image.image),
+            expiresAt: min(retainedUntil, expiresAt)))
+    }
+
+    private func readWatchSessionFlow(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        let intent = try decoder.decode(DJConnectWatchSessionAction.self, from: request.payload ?? Data())
+        guard let sessionID = intent.sessionID else { throw DJConnectError.invalidResponse }
+        let before = try await client.profileDJSettings()
+        guard before.binding == intent.binding, before.snapshot.session?.session_id == sessionID,
+              !before.requiresSelection else { throw DJConnectError.invalidResponse }
+        let tail = try await client.sessionTimeline(sessionID: sessionID, window: .tail, limit: 50)
+        let runtime = try await client.activeSession()
+        let after = try await client.profileDJSettings()
+        guard runtime.success, let session = runtime.resolvedSession, session.id == sessionID,
+              after.binding == before.binding, after.snapshot.session?.session_id == sessionID,
+              !after.requiresSelection else { throw DJConnectError.invalidResponse }
+        var rows = DJConnectWatchFlowRow.latest(history: tail.entries, session: session, at: Date())
+        var encoded = try encoder.encode(rows)
+        // Keep the newest rows when unusually large source labels fill the proxy envelope.
+        while encoded.count >= 42_000 && !rows.isEmpty {
+            rows.removeLast()
+            encoded = try encoder.encode(rows)
+        }
+        return encoded
+    }
+
+    private func performWatchWidgetGrantOperation(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        let intent = try decoder.decode(DJConnectWatchWidgetAction.self, from: request.payload ?? Data())
+        let pairingGeneration = watchProxyPairingGeneration
+        let watchID = client.identity.deviceID
+        guard let token = try client.tokenStore.loadToken() else { throw DJConnectError.missingToken }
+        func watchIsCurrent() -> Bool {
+            watchProxyIdentityIsCurrent(pairingGeneration: pairingGeneration, watchID: watchID, token: token)
+        }
+        guard watchIsCurrent() else { throw CancellationError() }
+        let before = try await client.profileDJSettings()
+        guard watchIsCurrent(), client.identity.clientType == .watchos, before.binding == intent.binding,
+              before.snapshot.session?.session_id == intent.sessionID, !before.requiresSelection else { throw DJConnectError.invalidResponse }
+        let encoded: Data
+        if request.operation == .watchWidgetAuthorize {
+            encoded = try encoder.encode(await client.authorizeWatchWidget(sessionID: intent.sessionID, enabled: intent.enabled))
+        } else if request.operation == .watchWidgetRead {
+            guard let grant = intent.grantID else { throw DJConnectError.invalidResponse }
+            encoded = try encoder.encode(await client.readWatchWidget(sessionID: intent.sessionID, grantID: grant))
+        } else {
+            guard let original = intent.response, original.validates(sessionID: intent.sessionID),
+                  original.grant_id == intent.grantID,
+                  let artwork = original.passive_session.currentArtwork(at: Date()),
+                  let expiry = DJConnectHistoryEntry.date(artwork.expires_at) else { throw DJConnectError.invalidResponse }
+            let image = try await client.watchWidgetImage(original)
+            encoded = try encoder.encode(DJConnectWatchFlowArtwork(jpeg: Self.watchFlowThumbnail(image.image), expiresAt: expiry))
+        }
+        let after = try await client.profileDJSettings()
+        guard watchIsCurrent(), after.binding == before.binding, after.snapshot.session?.session_id == intent.sessionID,
+              !after.requiresSelection else { throw DJConnectError.invalidResponse }
+        return encoded
+    }
+
+    private func readWatchConversationOutcome(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        let intent = try decoder.decode(DJConnectWatchTextOutcomeRequest.self, from: request.payload ?? Data())
+        let before = try await client.profileDJSettings()
+        let idParts = intent.clientMessageID.split(separator: ":", omittingEmptySubsequences: false)
+        let isVoiceID = idParts.count == 2 && (Int(idParts[0]) ?? 0) > 0 && UUID(uuidString: String(idParts[1])) != nil
+        guard UUID(uuidString: intent.clientMessageID) != nil || isVoiceID,
+              before.binding == intent.binding, !before.requiresSelection else { throw DJConnectError.invalidResponse }
+        let history = try await client.profileConversationHistory()
+        let after = try await client.profileDJSettings()
+        guard after.binding == before.binding, !after.requiresSelection else { throw DJConnectError.invalidResponse }
+        let reply = history.base.messages.last {
+            $0.role != .user && $0.clientMessageID == intent.clientMessageID
+        }
+        return try encoder.encode(reply.map { String($0.text.unicodeScalars.prefix(4_000)) })
+    }
+
+    private func sendWatchConversationMessage(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        var payload = try decoder.decode(DJConnectAskDJRequest.self, from: request.payload ?? Data())
+        payload.audioResponse = .never // legacy Watch text has no negotiated deferred speech grant
+        if payload.conversationContext != nil {
+            let response = try await client.sendSessionConversation(payload)
+            let encoded = try encoder.encode(response.base)
+            if encoded.count < 42_000 { return encoded }
+            // The Watch text composer needs the answer, not an entire rich history payload.
+            var compact = response.base
+            compact.text = (compact.assistantMessage?.text ?? compact.djText ?? compact.text)
+                .map { String($0.unicodeScalars.prefix(4_000)) }
+            compact.djText = nil
+            compact.userMessage = nil; compact.assistantMessage = nil; compact.messages = []
+            compact.resultSet = nil; compact.trackInsight = nil; compact.firstPlay = nil
+            compact.images = nil; compact.links = nil; compact.sources = nil; compact.items = nil
+            compact.playbackActions = nil; compact.confirmationActions = nil
+            return try encoder.encode(compact)
+        }
+        let response = try await client.sendAskDJMessage(payload)
+        return try encoder.encode(response)
+    }
+
+    private func sendWatchVoice(_ request: DJConnectWatchProxyRequest, client: DJConnectClient) async throws -> Data {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        let payload = try decoder.decode(DJConnectWatchProxyVoicePayload.self, from: request.payload ?? Data())
+        // Interactive Watch work has its own bearer/lifecycle. The phone
+        // foreground/Profile context must not gate or receive its discovery.
+        let locale = payload.language ?? currentRequestLocale
+        let watchID = watchProxyRegistration?.identity.deviceID
+        let watchToken = defaults.string(forKey: watchProxyDeviceTokenKey)
+        let generation = watchProxyPairingGeneration
+        let pairingIntent = watchProxyRegistration?.pairingIntentID
+        let localRoute = localHomeAssistantURL(), remoteRoute = haRemoteURL
+        guard client.identity.clientType == .watchos, client.identity.deviceID == watchID,
+              watchToken?.isEmpty == false, try client.tokenStore.loadToken() == watchToken else { throw CancellationError() }
+        try await requireWatchProxyVoiceInput(client: client, language: locale) { [self] in
+            !Task.isCancelled && watchProxyPairingGeneration == generation &&
+                watchProxyRegistration?.identity.deviceID == watchID &&
+                watchProxyRegistration?.pairingIntentID == pairingIntent &&
+                defaults.string(forKey: watchProxyDeviceTokenKey) == watchToken &&
+                localHomeAssistantURL() == localRoute && haRemoteURL == remoteRoute
+        }
+        if let context = payload.conversationContext {
+            guard let operationID = payload.clientMessageID, !operationID.isEmpty,
+                  context.selectedMoment == nil else { throw DJConnectError.invalidResponse }
+            let response = try await client.sendSessionVoice(wavData: payload.wavData, context: context,
+                clientMessageID: operationID, language: locale, mood: payload.mood,
+                djStyle: payload.djStyle, musicDNAKey: payload.musicDNAKey)
+            var original = response.base
+            original.text = response.base.assistantMessage?.text ?? response.base.djText ?? response.base.text
+            return try encoder.encode(original)
+        }
+        let response = try await client.sendVoice(
+            wavData: payload.wavData,
+            mood: payload.mood,
+            djStyle: payload.djStyle,
+            musicDNAKey: payload.musicDNAKey,
+            language: locale
+        )
+        return try encoder.encode(response)
+    }
+
+    private func watchProxyIdentityIsCurrent(pairingGeneration: UUID, watchID: String, token: String) -> Bool {
+        !Task.isCancelled && watchProxyPairingGeneration == pairingGeneration &&
+            watchProxyRegistration?.identity.deviceID == watchID &&
+            defaults.string(forKey: watchProxyDeviceTokenKey) == token
     }
 
     private func performWatchProxyPushRegistration(
