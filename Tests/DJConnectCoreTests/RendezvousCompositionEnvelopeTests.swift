@@ -120,10 +120,9 @@ struct RendezvousCompositionEnvelopeTests {
         case wrongLock, lockExtra, lockMissing, lockZeroInode, lockInvalidNanoseconds, lockBoolean
         case escapedRootDuplicate, childDuplicate, escapedSlotDuplicate, excessiveDepth, trailingBytes, oversized, invalidUTF8, unknownAdmission
     }
-    private enum FixtureFailure: Error { case missingReplacement }
+    private enum FixtureFailure: Error { case missingReplacement, unroutedMutation }
 
-    @Test(arguments: Invalid.allCases)
-    private func invalidMetadataNeverBecomesAParsedEnvelope(_ mutation: Invalid) throws {
+    private struct InvalidEnvelopeScenario {
         var root = CompositionMetadataFixture.root
         var pending = CompositionMetadataFixture.pending
         var bound = CompositionMetadataFixture.bound
@@ -131,98 +130,233 @@ struct RendezvousCompositionEnvelopeTests {
         var expectedContext = CompositionMetadataFixture.context
         var expectedLock = CompositionMetadataFixture.identity
         var direct: Data?
-        func replace(_ needle: String, with replacement: String) throws -> Data {
+
+        private func replace(_ needle: String, with replacement: String) throws -> Data {
             let text = String(decoding: try CompositionMetadataFixture.bytes(CompositionMetadataFixture.root), as: UTF8.self)
             guard text.contains(needle) else { throw FixtureFailure.missingReplacement }
             return Data(text.replacingOccurrences(of: needle, with: replacement).utf8)
         }
-        switch mutation {
-        case .oldVersion: root["schema_version"] = 1
-        case .futureVersion: root["schema_version"] = 3
-        case .booleanVersion: root["schema_version"] = true
-        case .nullVersion: root["schema_version"] = NSNull()
-        case .stringVersion: root["schema_version"] = "2"
-        case .missingVersion: root.removeValue(forKey: "schema_version")
-        case .wrongContext: root["context_sha256"] = String(repeating: "ff", count: 32)
-        case .uppercaseContext: root["context_sha256"] = String(repeating: "2A", count: 32)
-        case .shortContext: root["context_sha256"] = String(repeating: "2a", count: 31)
-        case .invalidExpectedContext: expectedContext = Data(repeating: 42, count: 31)
-        case .wrongExpectedLock: expectedLock = .init(directoryDevice: 1, directoryInode: 2,
-            fileDevice: 1, fileInode: 4, fileBirthSeconds: 4, fileBirthNanoseconds: 0)
-        case .unknownRoot: root["unselected_policy"] = 1
-        case .missingHighWater: root.removeValue(forKey: "last_sequence")
-        case .zeroHighWater: root["last_sequence"] = 0
-        case .negativeHighWater: root["last_sequence"] = -1
-        case .fractionalHighWater: root["last_sequence"] = 1.5
-        case .booleanHighWater: root["last_sequence"] = true
-        case .nullHighWater: root["last_sequence"] = NSNull()
-        case .unsafeHighWater: root["last_sequence"] = UInt64(9_007_199_254_740_992)
-        case .uint64Overflow: direct = try replace("\"last_sequence\":2", with: "\"last_sequence\":18446744073709551616")
-        case .exponent: direct = try replace("\"last_sequence\":2", with: "\"last_sequence\":2e0")
-        case .integralFloat: direct = try replace("\"last_sequence\":2", with: "\"last_sequence\":2.0")
-        case .leadingZero: direct = try replace("\"last_sequence\":2", with: "\"last_sequence\":02")
-        case .pendingSelected: root["selected_sequence"] = 2
-        case .danglingSelected: root["selected_sequence"] = 3
-        case .zeroSelected: root["selected_sequence"] = 0
-        case .booleanSelected: root["selected_sequence"] = true
-        case .nullSelected: root["selected_sequence"] = NSNull()
-        case .missingSelected: root.removeValue(forKey: "selected_sequence")
-        case .slotsArray: root["slots"] = [bound, pending]
-        case .thirdSlot: root["slots"] = ["0":bound,"1":pending,"2":pending]
-        case .slotAlias: root["slots"] = ["0":bound,"01":pending]
-        case .slotMismatch: pending["slot"] = 0
-        case .sequenceZero: pending["sequence"] = 0
-        case .sequenceBeyondHighWater: pending["sequence"] = 3
-        case .duplicateSequence: pending["sequence"] = 1
-        case .duplicateGeneration: pending["generation_id"] = CompositionMetadataFixture.first
-        case .uppercaseGeneration: pending["generation_id"] = "ABCDEFAB-0000-4000-8000-000000000002"
-        case .invalidGeneration: pending["generation_id"] = "not-a-generation"
-        case .invalidPurpose: pending["purpose"] = "reset"
-        case .duplicateInitial: pending["purpose"] = "initial"
-        case .invalidKind: pending["kind"] = "active"
-        case .pendingKey: pending["key_identifier"] = CompositionMetadataFixture.key
-        case .pendingDisposition: pending["disposition"] = "candidate"
-        case .boundMissingKey: bound.removeValue(forKey: "key_identifier")
-        case .boundNoncanonicalKey: bound["key_identifier"] = "not-a-canonical-key"
-        case .boundWrongTag: bound["disposition"] = "active"
-        case .duplicateBoundKey, .duplicateSelected, .duplicateCandidates:
-            var second = bound
-            second["slot"] = 1; second["sequence"] = 2; second["generation_id"] = CompositionMetadataFixture.second
-            second["purpose"] = "replacement"
-            second["key_identifier"] = mutation == .duplicateBoundKey ? CompositionMetadataFixture.key : Data(repeating: 13, count: 32).base64EncodedString()
-            second["disposition"] = mutation == .duplicateSelected ? "selected" : "candidate"
-            if mutation == .duplicateCandidates { bound["disposition"] = "candidate"; root.removeValue(forKey: "selected_sequence") }
-            root["slots"] = ["0":bound,"1":second]
-        case .selectRetired: bound["disposition"] = "retired"
-        case .wrongLock: lock["file_inode"] = 4
-        case .lockExtra: lock["extra"] = 1
-        case .lockMissing: lock.removeValue(forKey: "file_inode")
-        case .lockZeroInode: lock["file_inode"] = 0
-        case .lockInvalidNanoseconds: lock["file_birth_nanoseconds"] = 1_000_000_000
-        case .lockBoolean: lock["file_birth_nanoseconds"] = false
-        case .escapedRootDuplicate:
-            direct = try replace("\"schema_version\":2", with: "\"schema_version\":2,\"schema_vers\\u0069on\":2")
-        case .childDuplicate: direct = try replace("\"sequence\":2", with: "\"sequence\":2,\"sequence\":2")
-        case .escapedSlotDuplicate: direct = try replace("\"slots\":{\"0\":", with: "\"slots\":{\"\\u0030\":{},\"0\":")
-        case .excessiveDepth: pending["sequence"] = ["too_deep":["value":1]]
-        case .trailingBytes: direct = try CompositionMetadataFixture.bytes(root) + Data("{}".utf8)
-        case .oversized: direct = try CompositionMetadataFixture.bytes(root) + Data(repeating: 32, count: 4096)
-        case .invalidUTF8: direct = Data([0xff])
-        case .unknownAdmission: root["admitted"] = true
+
+        mutating func apply(_ mutation: Invalid) throws {
+            switch mutation {
+            case .oldVersion, .futureVersion, .booleanVersion, .nullVersion, .stringVersion, .missingVersion, .wrongContext, .uppercaseContext, .shortContext, .invalidExpectedContext, .wrongExpectedLock, .unknownRoot, .unknownAdmission:
+                try header(mutation)
+            case .missingHighWater, .zeroHighWater, .negativeHighWater, .fractionalHighWater, .booleanHighWater, .nullHighWater, .unsafeHighWater, .uint64Overflow, .exponent, .integralFloat, .leadingZero, .pendingSelected, .danglingSelected, .zeroSelected, .booleanSelected, .nullSelected, .missingSelected:
+                try sequence(mutation)
+            case .slotsArray, .thirdSlot, .slotAlias, .slotMismatch, .sequenceZero, .sequenceBeyondHighWater, .duplicateSequence, .duplicateGeneration, .uppercaseGeneration, .invalidGeneration, .invalidPurpose, .duplicateInitial, .invalidKind, .pendingKey, .pendingDisposition, .boundMissingKey, .boundNoncanonicalKey, .boundWrongTag, .selectRetired, .excessiveDepth, .duplicateBoundKey, .duplicateSelected, .duplicateCandidates:
+                try slots(mutation)
+            case .wrongLock, .lockExtra, .lockMissing, .lockZeroInode, .lockInvalidNanoseconds, .lockBoolean, .escapedRootDuplicate, .childDuplicate, .escapedSlotDuplicate, .trailingBytes, .oversized, .invalidUTF8:
+                try boundary(mutation)
+            default: throw FixtureFailure.unroutedMutation
+            }
         }
-        switch mutation {
-        case .slotMismatch, .sequenceZero, .sequenceBeyondHighWater, .duplicateSequence,
-             .duplicateGeneration, .uppercaseGeneration, .invalidGeneration, .invalidPurpose,
-             .duplicateInitial, .invalidKind, .pendingKey, .pendingDisposition, .boundMissingKey,
-             .boundNoncanonicalKey, .boundWrongTag, .selectRetired, .excessiveDepth:
-            root["slots"] = ["0":bound,"1":pending]
-        default: break
+
+        mutating func header(_ mutation: Invalid) throws {
+            switch mutation {
+            case .oldVersion, .futureVersion, .booleanVersion, .nullVersion, .stringVersion, .missingVersion:
+                try schema(mutation)
+            case .wrongContext, .uppercaseContext, .shortContext, .invalidExpectedContext, .wrongExpectedLock, .unknownRoot, .unknownAdmission:
+                try context(mutation)
+            default: throw FixtureFailure.unroutedMutation
+            }
         }
-        root["lock_identity"] = lock
-        let data = try direct ?? CompositionMetadataFixture.bytes(root)
+
+        mutating func sequence(_ mutation: Invalid) throws {
+            switch mutation {
+            case .missingHighWater, .zeroHighWater, .negativeHighWater, .fractionalHighWater, .booleanHighWater, .nullHighWater, .unsafeHighWater:
+                try highWater(mutation)
+            case .uint64Overflow, .exponent, .integralFloat, .leadingZero:
+                try numericEncoding(mutation)
+            case .pendingSelected, .danglingSelected, .zeroSelected, .booleanSelected, .nullSelected, .missingSelected:
+                try selection(mutation)
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        mutating func slots(_ mutation: Invalid) throws {
+            switch mutation {
+            case .slotsArray, .thirdSlot, .slotAlias, .slotMismatch, .sequenceZero, .sequenceBeyondHighWater, .duplicateSequence:
+                try slotLayout(mutation)
+            case .duplicateGeneration, .uppercaseGeneration, .invalidGeneration, .invalidPurpose, .duplicateInitial, .invalidKind:
+                try generation(mutation)
+            case .pendingKey, .pendingDisposition, .boundMissingKey, .boundNoncanonicalKey, .boundWrongTag, .selectRetired, .excessiveDepth:
+                try keyState(mutation)
+            case .duplicateBoundKey, .duplicateSelected, .duplicateCandidates:
+                try boundMultiplicity(mutation)
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        mutating func boundary(_ mutation: Invalid) throws {
+            switch mutation {
+            case .wrongLock, .lockExtra, .lockMissing, .lockZeroInode, .lockInvalidNanoseconds, .lockBoolean:
+                try lockIdentity(mutation)
+            case .escapedRootDuplicate, .childDuplicate, .escapedSlotDuplicate, .trailingBytes, .oversized, .invalidUTF8:
+                try documentEncoding(mutation)
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        private mutating func schema(_ mutation: Invalid) throws {
+            switch mutation {
+            case .oldVersion: root["schema_version"] = 1
+            case .futureVersion: root["schema_version"] = 3
+            case .booleanVersion: root["schema_version"] = true
+            case .nullVersion: root["schema_version"] = NSNull()
+            case .stringVersion: root["schema_version"] = "2"
+            case .missingVersion: root.removeValue(forKey: "schema_version")
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        private mutating func context(_ mutation: Invalid) throws {
+            switch mutation {
+            case .wrongContext: root["context_sha256"] = String(repeating: "ff", count: 32)
+            case .uppercaseContext: root["context_sha256"] = String(repeating: "2A", count: 32)
+            case .shortContext: root["context_sha256"] = String(repeating: "2a", count: 31)
+            case .invalidExpectedContext: expectedContext = Data(repeating: 42, count: 31)
+            case .wrongExpectedLock: expectedLock = .init(directoryDevice: 1, directoryInode: 2,
+                fileDevice: 1, fileInode: 4, fileBirthSeconds: 4, fileBirthNanoseconds: 0)
+            case .unknownRoot: root["unselected_policy"] = 1
+            case .unknownAdmission: root["admitted"] = true
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        private mutating func highWater(_ mutation: Invalid) throws {
+            switch mutation {
+            case .missingHighWater: root.removeValue(forKey: "last_sequence")
+            case .zeroHighWater: root["last_sequence"] = 0
+            case .negativeHighWater: root["last_sequence"] = -1
+            case .fractionalHighWater: root["last_sequence"] = 1.5
+            case .booleanHighWater: root["last_sequence"] = true
+            case .nullHighWater: root["last_sequence"] = NSNull()
+            case .unsafeHighWater: root["last_sequence"] = UInt64(9_007_199_254_740_992)
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        private mutating func numericEncoding(_ mutation: Invalid) throws {
+            switch mutation {
+            case .uint64Overflow: direct = try replace("\"last_sequence\":2", with: "\"last_sequence\":18446744073709551616")
+            case .exponent: direct = try replace("\"last_sequence\":2", with: "\"last_sequence\":2e0")
+            case .integralFloat: direct = try replace("\"last_sequence\":2", with: "\"last_sequence\":2.0")
+            case .leadingZero: direct = try replace("\"last_sequence\":2", with: "\"last_sequence\":02")
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        private mutating func selection(_ mutation: Invalid) throws {
+            switch mutation {
+            case .pendingSelected: root["selected_sequence"] = 2
+            case .danglingSelected: root["selected_sequence"] = 3
+            case .zeroSelected: root["selected_sequence"] = 0
+            case .booleanSelected: root["selected_sequence"] = true
+            case .nullSelected: root["selected_sequence"] = NSNull()
+            case .missingSelected: root.removeValue(forKey: "selected_sequence")
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        private mutating func slotLayout(_ mutation: Invalid) throws {
+            switch mutation {
+            case .slotsArray: root["slots"] = [bound, pending]
+            case .thirdSlot: root["slots"] = ["0":bound,"1":pending,"2":pending]
+            case .slotAlias: root["slots"] = ["0":bound,"01":pending]
+            case .slotMismatch: pending["slot"] = 0
+            case .sequenceZero: pending["sequence"] = 0
+            case .sequenceBeyondHighWater: pending["sequence"] = 3
+            case .duplicateSequence: pending["sequence"] = 1
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        private mutating func generation(_ mutation: Invalid) throws {
+            switch mutation {
+            case .duplicateGeneration: pending["generation_id"] = CompositionMetadataFixture.first
+            case .uppercaseGeneration: pending["generation_id"] = "ABCDEFAB-0000-4000-8000-000000000002"
+            case .invalidGeneration: pending["generation_id"] = "not-a-generation"
+            case .invalidPurpose: pending["purpose"] = "reset"
+            case .duplicateInitial: pending["purpose"] = "initial"
+            case .invalidKind: pending["kind"] = "active"
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        private mutating func keyState(_ mutation: Invalid) throws {
+            switch mutation {
+            case .pendingKey: pending["key_identifier"] = CompositionMetadataFixture.key
+            case .pendingDisposition: pending["disposition"] = "candidate"
+            case .boundMissingKey: bound.removeValue(forKey: "key_identifier")
+            case .boundNoncanonicalKey: bound["key_identifier"] = "not-a-canonical-key"
+            case .boundWrongTag: bound["disposition"] = "active"
+            case .selectRetired: bound["disposition"] = "retired"
+            case .excessiveDepth: pending["sequence"] = ["too_deep":["value":1]]
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        private mutating func boundMultiplicity(_ mutation: Invalid) throws {
+            switch mutation {
+            case .duplicateBoundKey, .duplicateSelected, .duplicateCandidates:
+                var second = bound
+                second["slot"] = 1; second["sequence"] = 2; second["generation_id"] = CompositionMetadataFixture.second
+                second["purpose"] = "replacement"
+                second["key_identifier"] = mutation == .duplicateBoundKey ? CompositionMetadataFixture.key : Data(repeating: 13, count: 32).base64EncodedString()
+                second["disposition"] = mutation == .duplicateSelected ? "selected" : "candidate"
+                if mutation == .duplicateCandidates { bound["disposition"] = "candidate"; root.removeValue(forKey: "selected_sequence") }
+                root["slots"] = ["0":bound,"1":second]
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        private mutating func lockIdentity(_ mutation: Invalid) throws {
+            switch mutation {
+            case .wrongLock: lock["file_inode"] = 4
+            case .lockExtra: lock["extra"] = 1
+            case .lockMissing: lock.removeValue(forKey: "file_inode")
+            case .lockZeroInode: lock["file_inode"] = 0
+            case .lockInvalidNanoseconds: lock["file_birth_nanoseconds"] = 1_000_000_000
+            case .lockBoolean: lock["file_birth_nanoseconds"] = false
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        private mutating func documentEncoding(_ mutation: Invalid) throws {
+            switch mutation {
+            case .escapedRootDuplicate:
+                direct = try replace("\"schema_version\":2", with: "\"schema_version\":2,\"schema_vers\\u0069on\":2")
+            case .childDuplicate: direct = try replace("\"sequence\":2", with: "\"sequence\":2,\"sequence\":2")
+            case .escapedSlotDuplicate: direct = try replace("\"slots\":{\"0\":", with: "\"slots\":{\"\\u0030\":{},\"0\":")
+            case .trailingBytes: direct = try CompositionMetadataFixture.bytes(root) + Data("{}".utf8)
+            case .oversized: direct = try CompositionMetadataFixture.bytes(root) + Data(repeating: 32, count: 4096)
+            case .invalidUTF8: direct = Data([0xff])
+            default: throw FixtureFailure.unroutedMutation
+            }
+        }
+
+        mutating func encoded(_ mutation: Invalid) throws -> Data {
+            switch mutation {
+            case .slotMismatch, .sequenceZero, .sequenceBeyondHighWater, .duplicateSequence,
+                 .duplicateGeneration, .uppercaseGeneration, .invalidGeneration, .invalidPurpose,
+                 .duplicateInitial, .invalidKind, .pendingKey, .pendingDisposition, .boundMissingKey,
+                 .boundNoncanonicalKey, .boundWrongTag, .selectRetired, .excessiveDepth:
+                root["slots"] = ["0":bound,"1":pending]
+            default: break
+            }
+            root["lock_identity"] = lock
+            return try direct ?? CompositionMetadataFixture.bytes(root)
+        }
+    }
+
+    @Test(arguments: Invalid.allCases)
+    private func invalidMetadataNeverBecomesAParsedEnvelope(_ mutation: Invalid) throws {
+        var scenario = InvalidEnvelopeScenario()
+        try scenario.apply(mutation)
+        let data = try scenario.encoded(mutation)
         #expect(throws: RendezvousHandleCompositionEnvelopeV2.Failure.self) {
-            try RendezvousHandleCompositionEnvelopeV2.decode(data, expectedContext: expectedContext,
-                                                             expectedLockIdentity: expectedLock, minimumSequence: 0)
+            try RendezvousHandleCompositionEnvelopeV2.decode(data, expectedContext: scenario.expectedContext,
+                                                             expectedLockIdentity: scenario.expectedLock, minimumSequence: 0)
         }
     }
 }
